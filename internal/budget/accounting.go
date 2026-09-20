@@ -120,3 +120,28 @@ func estimate(r Route, q Quote) (Amount, error) {
 	}
 	return amount, nil
 }
+
+func ObservedAmount(route Route, input, output, milliseconds int64) (Amount, error) {
+	if input < 0 || output < 0 || milliseconds < 0 {
+		return Amount{}, ErrInvalid
+	}
+	r := route
+	r.MaxInputTokens = max(r.MaxInputTokens, input)
+	r.MaxOutputTokens = max(r.MaxOutputTokens, output, 1)
+	r.MaxMilliseconds = max(r.MaxMilliseconds, milliseconds, 1)
+	amount, err := estimate(r, Quote{InputTokens: input, MaxOutputTokens: max(output, 1), MaxMilliseconds: max(milliseconds, 1), MaxRequests: 1})
+	if output == 0 && err == nil {
+		n := new(big.Int).Mul(big.NewInt(input), big.NewInt(r.InputMicroUSDPerMillion))
+		n.Add(n, big.NewInt(999999))
+		n.Div(n, big.NewInt(1000000))
+		n.Add(n, big.NewInt(r.RequestMicroUSD))
+		if !n.IsInt64() {
+			return Amount{}, ErrInvalid
+		}
+		amount.MicroUSD = n.Int64()
+		amount.Tokens = input
+	}
+	amount.Milliseconds = milliseconds
+	amount.Concurrency = 0
+	return amount, err
+}

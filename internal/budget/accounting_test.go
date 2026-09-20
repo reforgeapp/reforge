@@ -64,3 +64,16 @@ func TestAccountingWindowsAndArithmetic(t *testing.T) {
 		t.Fatal("negative held balance accepted")
 	}
 }
+
+func TestObservedAmountUsesActualUnitsAndPreservesDebt(t *testing.T) {
+	route := Route{ConnectionID: "00000000-0000-4000-8000-000000000001", Model: "example", Name: "default", Mode: "priced", PricingVersion: "test", InputMicroUSDPerMillion: 1000000, OutputMicroUSDPerMillion: 2000000, RequestMicroUSD: 3, MaxInputTokens: 10, MaxOutputTokens: 10, MaxMilliseconds: 1000, MaxRequests: 1}
+	for _, check := range []struct{ input, output, cost int64 }{{2, 0, 5}, {2, 4, 13}, {100, 100, 303}} {
+		amount, err := ObservedAmount(route, check.input, check.output, 2000)
+		if err != nil || amount.MicroUSD != check.cost || amount.Tokens != check.input+check.output || amount.Milliseconds != 2000 || amount.Concurrency != 0 {
+			t.Fatalf("actual unit calculation: %+v %v", amount, err)
+		}
+	}
+	if _, err := ObservedAmount(route, -1, 1, 1); err == nil {
+		t.Fatal("negative usage accepted")
+	}
+}

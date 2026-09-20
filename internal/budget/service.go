@@ -293,3 +293,7 @@ func lockOrg(ctx context.Context, tx pgx.Tx, org string) error {
 	}
 	return err
 }
+
+func (s *Service) RouteTx(ctx context.Context, tx pgx.Tx, org, connection, model, route string) (Route, error) {
+	return loadRoute(ctx, tx, org, connection, model, route)
+}
