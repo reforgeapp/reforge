@@ -137,3 +137,9 @@ deploy:
 ```
 
 The displayed budget is an example, not a pricing claim. Hosted operator hard limits and organisation denies cannot be loosened by repo policy. A policy import from a PR is proposed configuration only until approved by a policy administrator.
+
+## Direct-model continuation and tool validation
+
+`Event.Continuation` is provider-opaque complete replay history through the finished turn. A subsequent `TurnRequest` carries that continuation plus only new messages; system instructions and tool definitions are supplied each time. Adapters preserve native reasoning/signature items and never flatten them into model-visible transcript text. The repair controller buffers tool calls until the whole turn succeeds and validates them again at the execution boundary.
+
+Shared `model.CompileTools` validates bounded JSON Schema definitions without network/file resolution. Final arguments must pass the registered schema. Positive output limits, explicit connection/model binding and no automatic paid retries are mandatory. Provider failure/cancellation after dispatch preserves uncertain usage until authoritative accounting arrives. Byte estimates are planning data; the budget broker reserves a configured context/output ceiling, including opaque continuation uncertainty.
