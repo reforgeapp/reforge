@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -337,6 +338,23 @@ func (s *Service) changePage(ctx context.Context, tx pgx.Tx, j Job, page domain.
 	return nil
 }
 func (s *Service) fail(ctx context.Context, lease Job, cause error) error {
+	code := "internal"
+	var providerError *domain.ProviderError
+	switch {
+	case errors.As(cause, &providerError):
+		code = providerError.Kind
+	case errors.Is(cause, privateconnector.ErrUnavailable):
+		code = "private_runner_unavailable"
+	case errors.Is(cause, context.DeadlineExceeded):
+		code = "deadline"
+	case errors.Is(cause, ErrStale):
+		code = "stale"
+	case errors.Is(cause, ErrIncomplete):
+		code = "incomplete"
+	case errors.Is(cause, auth.ErrForbidden), errors.Is(cause, auth.ErrConflict):
+		code = "authority_changed"
+	}
+	slog.WarnContext(ctx, "inventory operation failed", "org_id", lease.OrgID, "job_id", lease.ID, "phase", lease.Phase, "code", code)
 	return s.db.Tenant(ctx, lease.OrgID, "", func(tx pgx.Tx) error {
 		if err := lockOrg(ctx, tx, lease.OrgID); err != nil {
 			return err
