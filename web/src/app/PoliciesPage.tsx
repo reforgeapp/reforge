@@ -1,0 +1,122 @@
+import { useEffect, useState } from 'react'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { api } from '../api/client'
+import { Button } from '../components/Accessible'
+import { DataTable, EmptyTable } from '../components/DataTable'
+import { StatePanel } from '../components/StatePanel'
+import { StatusBadge } from '../components/Status'
+import { policyAPI, type Action, type Binding, type Input, type Limits, type Policy, type Scope, type Simulation, type Version } from '../policy-api'
+import { useSession } from './query'
+
+const actions: Action[] = ['read', 'repair', 'publish', 'merge', 'deploy', 'recover']
+const text = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
+const emptyPolicy = (): Policy => ({ schema: 'maintenance/v1', allow: { recipes: null, models: null, routes: null, merge_methods: null, environments: null, workflows: null }, deny: [], forbidden_paths: [], limits: {}, required: [], defaults: {}, paused: false })
+const normalisePolicy = (value?: Partial<Policy> | null): Policy => {
+  const input = (value ?? {}) as Partial<Policy>
+  return {
+    ...emptyPolicy(), ...input,
+    allow: { ...emptyPolicy().allow, ...(input.allow ?? {}) },
+    deny: Array.isArray(input.deny) ? input.deny : [],
+    forbidden_paths: Array.isArray(input.forbidden_paths) ? input.forbidden_paths : [],
+    limits: { ...(input.limits ?? {}) },
+    required: Array.isArray(input.required) ? input.required : [],
+    defaults: { ...(input.defaults ?? {}) },
+    paused: Boolean(input.paused),
+  }
+}
+const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
+const parseJSON = <T,>(value: string, fallback: T) => value.trim() ? JSON.parse(value) as T : fallback
+
+export function PoliciesPage({ orgID }: { orgID: string }) {
+  const session = useSession()
+  const csrf = session.data?.csrf_token ?? ''
+  const role = session.data?.memberships.find(item => item.org_id === orgID)?.role
+  const repositories = useInfiniteQuery({ queryKey: ['org', orgID, 'policy-repositories'], queryFn: ({ pageParam, signal }) => api.getRepositories(orgID, { cursor: pageParam, limit: 50, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const teams = useInfiniteQuery({ queryKey: ['org', orgID, 'policy-teams'], queryFn: ({ pageParam, signal }) => policyAPI.teams(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const teamItems = teams.data?.pages.flatMap(page => page.items) ?? []
+  const repos = repositories.data?.pages.flatMap(page => page.items) ?? []
+  const [repositoryID, setRepositoryID] = useState('')
+  const [scopeKind, setScopeKind] = useState('organisation')
+  const canWrite = role === 'owner' || role === 'admin' && scopeKind !== 'organisation'
+  const [scopeID, setScopeID] = useState(orgID)
+  const [versionID, setVersionID] = useState('')
+  const [error, setError] = useState('')
+  const effective = useQuery({ queryKey: ['org', orgID, 'policy-effective', repositoryID], queryFn: ({ signal }) => policyAPI.effective(orgID, repositoryID, signal), enabled: !!repositoryID })
+  const versions = useInfiniteQuery({ queryKey: ['org', orgID, 'policy-versions', scopeKind, scopeID], queryFn: ({ pageParam, signal }) => policyAPI.versions(orgID, { kind: scopeKind, id: scopeID }, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor, enabled: !!scopeID })
+  const selectedVersion = useQuery({ queryKey: ['org', orgID, 'policy-version', versionID], queryFn: ({ signal }) => policyAPI.version(orgID, versionID, signal), enabled: !!versionID })
+  useEffect(() => { if (!repositoryID && repos[0]?.id) setRepositoryID(repos[0].id) }, [repositoryID, repos])
+  useEffect(() => { if (scopeKind === 'organisation') setScopeID(orgID); else if (scopeKind === 'repository') setScopeID(repositoryID) }, [orgID, repositoryID, scopeKind])
+  const rows = versions.data?.pages.flatMap(page => page.items) ?? []
+  const currentVersion = effective.data?.layers?.find(layer => layer.scope.kind === scopeKind && layer.scope.id === scopeID)?.binding_version ?? 0
+  if (repositories.isLoading) return <StatePanel kind="loading" title="Loading policy controls" detail="Fetching repositories and effective policy evidence." />
+  if (repositories.error) return <StatePanel kind="error" title="Policy controls unavailable" detail={text(repositories.error)} action={<Button onClick={() => void repositories.refetch()}>Retry</Button>} />
+  return <div className="stack policies-page"><section className="state-card" aria-label="Policy controls"><div className="subsection-actions"><div><p className="eyebrow">Policy authority</p><h2>Effective policy</h2></div><label>Repository<select aria-label="Policy repository" value={repositoryID} onChange={event => { setRepositoryID(event.target.value); setVersionID('') }}><option value="">Choose repository</option>{repos.map(repo => <option key={repo.id} value={repo.id}>{repo.name ?? repo.id}</option>)}</select></label></div>{effective.isLoading ? <p className="table-meta">Loading effective policy…</p> : effective.error ? <p className="error-text" role="alert">Effective policy unavailable: {text(effective.error)}</p> : effective.data ? <EffectivePolicy value={effective.data} /> : <p>Choose a repository to inspect effective policy.</p>}<div className="row-actions"><label>Version scope<select aria-label="Policy scope" value={scopeKind} onChange={event => { setScopeKind(event.target.value); setScopeID(event.target.value === 'team' ? '' : event.target.value === 'repository' ? repositoryID : orgID); setVersionID(''); setError('') }}><option value="organisation">Organisation</option><option value="repository">Repository</option><option value="team">Team</option></select></label><label hidden={scopeKind !== 'team'}>Team<select aria-label="Policy team" value={scopeKind === 'team' ? scopeID : ''} onChange={event => { setScopeID(event.target.value); setVersionID(''); setError('') }}><option value="">Choose team</option>{teamItems.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label></div>{repositories.hasNextPage && <Button disabled={repositories.isFetchingNextPage} onClick={() => void repositories.fetchNextPage()}>{repositories.isFetchingNextPage ? 'Loading…' : 'Load more repositories'}</Button>}{teams.error && <p role="alert">Teams unavailable: {text(teams.error)}</p>}{teams.hasNextPage && <Button onClick={() => void teams.fetchNextPage()} disabled={teams.isFetchingNextPage}>Load more teams</Button>}{versions.error && <p className="error-text" role="alert">Version history unavailable: {text(versions.error)}</p>}{selectedVersion.error && <p className="error-text" role="alert">Selected version unavailable: {text(selectedVersion.error)}</p>}<PolicyEditor key={`${scopeKind}:${scopeID}:${repositoryID}:${versionID}`} orgID={orgID} scope={{ kind: scopeKind, id: scopeID }} repositoryID={repositoryID} primaryTeamID={effective.data?.primary_team_id ?? ''} teams={teamItems.filter(team => team.repository_ids.includes(repositoryID))} effectiveHash={effective.data?.hash ?? ''} currentVersion={currentVersion} selected={selectedVersion.data} csrf={csrf} canWrite={canWrite} error={error} setError={setError} onSaved={version => { setVersionID(version.id); void versions.refetch() }} onChanged={() => { void effective.refetch(); void versions.refetch() }} /></section><VersionHistory rows={rows} complete={versions.data?.pages.at(-1)?.complete ?? true} loading={versions.isFetchingNextPage} onMore={() => void versions.fetchNextPage()} onSelect={setVersionID} /></div>
+}
+
+function EffectivePolicy({ value }: { value: { hash: string; layers?: Array<{ scope: Scope; version_id: string; binding_version: number }>; policy?: Policy | null; paused: boolean; scope_paused: boolean; missing_defaults?: string[] | null; problems?: string[] | null } }) { const policy = normalisePolicy(value.policy); const layers = value.layers ?? []; const issues = [...(value.missing_defaults ?? []), ...(value.problems ?? [])]; return <section className="detail-section" aria-label="Effective policy evidence"><dl className="detail-list"><div><dt>Effective hash</dt><dd><code>{value.hash || 'Unknown'}</code></dd></div><div><dt>Paused scopes</dt><dd>{value.paused || value.scope_paused ? 'Yes' : 'No'}</dd></div><div><dt>Inherited layers</dt><dd>{layers.map(layer => `${layer.scope.kind}:${layer.scope.id} · v${layer.binding_version}`).join('; ') || 'None'}</dd></div><div><dt>Allowed environments</dt><dd>{policy.allow.environments === null ? 'Inherited / unrestricted' : policy.allow.environments.join(', ') || 'None permitted'}</dd></div><div><dt>Denied actions</dt><dd>{policy.deny.join(', ') || 'None'}</dd></div><div><dt>Required rules</dt><dd>{policy.required.map(rule => rule.id).join(', ') || 'None'}</dd></div><div><dt>Limits</dt><dd><code>{JSON.stringify(policy.limits)}</code></dd></div><div><dt>Constraints</dt><dd>{issues.join('; ') || 'No missing defaults or policy problems'}</dd></div></dl><details><summary>Effective rules</summary><pre>{JSON.stringify(policy, null, 2)}</pre></details></section> }
+
+function PolicyEditor({ orgID, scope, repositoryID, primaryTeamID, effectiveHash, currentVersion, selected, teams, csrf, canWrite, error, setError, onSaved, onChanged }: { orgID: string; scope: Scope; repositoryID: string; primaryTeamID: string; effectiveHash: string; currentVersion: number; selected?: Version; teams: Array<{ id: string; name: string }>; csrf: string; canWrite: boolean; error: string; setError: (value: string) => void; onSaved: (version: Version) => void; onChanged: () => void }) {
+  const [primary, setPrimary] = useState(primaryTeamID)
+  const [policy, setPolicy] = useState<Policy>(normalisePolicy(selected?.policy))
+  const [rawJSON, setRawJSON] = useState('')
+  const [reason, setReason] = useState(selected?.reason ?? '')
+  const [simulation, setSimulation] = useState<Simulation>()
+  const [busy, setBusy] = useState(false)
+  const [action, setAction] = useState<Action>('read')
+  const [recipe, setRecipe] = useState('')
+  const [model, setModel] = useState('')
+  const [route, setRoute] = useState('')
+  const [environment, setEnvironment] = useState('')
+  const [workflow, setWorkflow] = useState('')
+  const [mergeMethod, setMergeMethod] = useState('')
+  const [evidenceJSON, setEvidenceJSON] = useState('[]')
+  const [paths, setPaths] = useState('')
+  const [rolloutJSON, setRolloutJSON] = useState('{}')
+  const [bindingJSON, setBindingJSON] = useState('{}')
+  useEffect(() => { setPolicy(normalisePolicy(selected?.policy)); setRawJSON(''); setReason(selected?.reason ?? ''); setSimulation(undefined); setBindingJSON('{}') }, [selected?.id])
+  useEffect(() => { setSimulation(undefined) }, [effectiveHash, primary, repositoryID, currentVersion])
+  useEffect(() => { setPrimary(primaryTeamID) }, [primaryTeamID])
+  const update = (next: Policy) => { setPolicy(next); setSimulation(undefined) }
+  const updateList = (key: keyof Policy['allow'], value: string[] | null) => update({ ...policy, allow: { ...policy.allow, [key]: value } })
+  const savedPolicy = normalisePolicy(selected?.policy)
+  const draftPolicy = rawJSON.trim() ? (() => { try { return normalisePolicy(parseJSON<Policy>(rawJSON, policy)) } catch { return policy } })() : policy
+  const dirtyDraft = !!selected && (rawJSON.trim() !== '' || JSON.stringify(draftPolicy) !== JSON.stringify(savedPolicy))
+  const input = (): Input => ({ action, recipe, model, route, merge_method: mergeMethod, environment, workflow, paths: split(paths), usage: parseJSON<Limits>(rolloutJSON, {}), current: parseJSON<Binding>(bindingJSON, { head: '', target: '', tested: '', policy_hash: '', provider_rules: '', capability_version: '', source_sha: '', artifact: '' }), starting_policy_hash: effectiveHash, evidence: parseJSON<unknown[]>(evidenceJSON, []), paused_scopes: [] })
+  const save = async () => { setBusy(true); setError(''); try { const next = normalisePolicy(rawJSON.trim() ? parseJSON<Policy>(rawJSON, policy) : policy); onSaved(await policyAPI.createVersion(orgID, scope, next, reason, csrf)) } catch (reasonValue) { setError(reasonValue instanceof SyntaxError ? 'Policy JSON must be valid JSON.' : text(reasonValue)) } finally { setBusy(false) } }
+  const simulate = async () => { setBusy(true); setError(''); try { setSimulation(await policyAPI.simulate(orgID, selected?.id ?? '', repositoryID, scope.kind === 'repository' ? primary : '', input(), csrf)) } catch (reasonValue) { setError(reasonValue instanceof SyntaxError ? 'Rollout, binding and evidence must be valid JSON.' : text(reasonValue)) } finally { setBusy(false) } }
+  const activate = async () => { if (!simulation || !selected) return; setBusy(true); setError(''); try { await policyAPI.activate(orgID, selected.id, repositoryID, scope.kind === 'repository' ? primary : '', currentVersion, simulation.hash, reason, csrf); setSimulation(undefined); onChanged() } catch (reasonValue) { setError(text(reasonValue)) } finally { setBusy(false) } }
+  const policyJSON = JSON.stringify(policy, null, 2)
+  return <div className="stack"><h3>Policy version editor</h3>{!canWrite && <p>Editing requires owner access for organisation policies, or owner/admin access for team and repository policies.</p>}{scope.kind === 'repository' && <label>Primary team<select aria-label="Primary team" value={primary} disabled={!canWrite || busy} onChange={event => setPrimary(event.target.value)}><option value="">No primary team</option>{teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}</select></label>}<div className="form-grid"><label>Schema<input value={policy.schema} onChange={event => update({ ...policy, schema: event.target.value })} disabled={!canWrite || busy} /></label><label>Reason<input value={reason} onChange={event => setReason(event.target.value)} disabled={!canWrite || busy} /></label>{(['recipes', 'models', 'routes', 'merge_methods', 'environments', 'workflows'] as const).map(key => <AllowList key={key} name={key} value={policy.allow[key]} disabled={!canWrite || busy} onChange={value => updateList(key, value)} />)}<label className="wide">Denied actions<input value={policy.deny.join(', ')} onChange={event => update({ ...policy, deny: split(event.target.value) as Action[] })} disabled={!canWrite || busy} /></label><label className="wide">Forbidden paths<input value={policy.forbidden_paths.join(', ')} onChange={event => update({ ...policy, forbidden_paths: split(event.target.value) })} disabled={!canWrite || busy} /></label><label>Budget<input type="number" min="0" step="1" value={policy.limits.budget ?? ''} onChange={event => update({ ...policy, limits: { ...policy.limits, budget: event.target.value ? Number(event.target.value) : undefined } })} disabled={!canWrite || busy} /></label><label>Concurrency<input type="number" min="0" step="1" value={policy.limits.concurrency ?? ''} onChange={event => update({ ...policy, limits: { ...policy.limits, concurrency: event.target.value ? Number(event.target.value) : undefined } })} disabled={!canWrite || busy} /></label><label>Default model<input value={policy.defaults.model ?? ''} onChange={event => update({ ...policy, defaults: { ...policy.defaults, model: event.target.value } })} disabled={!canWrite || busy} /></label><label>Default route<input value={policy.defaults.route ?? ''} onChange={event => update({ ...policy, defaults: { ...policy.defaults, route: event.target.value } })} disabled={!canWrite || busy} /></label><label className="wide"><input type="checkbox" checked={policy.paused} onChange={event => update({ ...policy, paused: event.target.checked })} disabled={!canWrite || busy} /> Pause this scope</label><label className="wide">Raw policy JSON override<textarea aria-label="Raw policy JSON" value={rawJSON} placeholder={policyJSON} onChange={event => { setRawJSON(event.target.value); setSimulation(undefined) }} disabled={!canWrite || busy} /></label></div><div className="row-actions"><Button className="button button-primary" disabled={!canWrite || !csrf || busy || !scope.id || !reason.trim()} onClick={() => void save()}>Save immutable version</Button></div><fieldset><legend>Simulate candidate rollout</legend><div className="form-grid"><label>Action<select value={action} onChange={event => { setAction(event.target.value as Action); setSimulation(undefined) }}>{actions.map(item => <option key={item} value={item}>{item}</option>)}</select></label><label>Recipe<input value={recipe} onChange={event => { setRecipe(event.target.value); setSimulation(undefined) }} /></label><label>Model<input value={model} onChange={event => { setModel(event.target.value); setSimulation(undefined) }} /></label><label>Route<input value={route} onChange={event => { setRoute(event.target.value); setSimulation(undefined) }} /></label><label>Environment<input value={environment} onChange={event => { setEnvironment(event.target.value); setSimulation(undefined) }} /></label><label>Workflow<input value={workflow} onChange={event => { setWorkflow(event.target.value); setSimulation(undefined) }} /></label><label className="wide">Changed paths<input value={paths} onChange={event => { setPaths(event.target.value); setSimulation(undefined) }} /></label><label className="wide">Rollout usage JSON<textarea value={rolloutJSON} onChange={event => { setRolloutJSON(event.target.value); setSimulation(undefined) }} /></label><label>Merge method<input value={mergeMethod} onChange={event => { setMergeMethod(event.target.value); setSimulation(undefined) }} /></label><label className="wide">Evidence JSON<textarea value={evidenceJSON} onChange={event => { setEvidenceJSON(event.target.value); setSimulation(undefined) }} /></label><label className="wide">Current binding JSON<textarea aria-label="Current binding JSON" value={bindingJSON} onChange={event => { setBindingJSON(event.target.value); setSimulation(undefined) }} /></label></div>{dirtyDraft && <p className="table-meta">Save the edited policy before simulating a candidate.</p>}<Button disabled={!canWrite || !csrf || busy || !selected?.id || !repositoryID || dirtyDraft} onClick={() => void simulate()}>Simulate candidate rollout</Button>{simulation && <SimulationResult simulation={simulation} onActivate={() => void activate()} canActivate={canWrite && !!csrf && !!selected && !dirtyDraft && !busy && !!reason.trim()} />}</fieldset>{error && <p className="error-text" role="alert">{error}</p>}</div>
+}
+
+function SimulationResult({ simulation, onActivate, canActivate }: { simulation: Simulation; onActivate: () => void; canActivate: boolean }) {
+  const blockers = simulation.decision.blockers ?? []
+  return <section className="detail-section" aria-label="Policy simulation">
+    <p><StatusBadge label={simulation.decision.outcome} tone={simulation.decision.outcome === 'allow' ? 'green' : 'red'} /> · hash <code>{simulation.hash}</code></p>
+    <dl className="detail-list">
+      <div><dt>Effective hash</dt><dd><code>{simulation.resolved.hash}</code></dd></div>
+      <div><dt>Paused scopes</dt><dd>{simulation.resolved.paused || simulation.resolved.scope_paused ? 'Yes' : 'No'}</dd></div>
+      <div><dt>Required actions</dt><dd>{(simulation.decision.required_actions ?? []).join('; ') || 'None'}</dd></div>
+    </dl>
+    {blockers.length > 0 && <p className="error-text">Blocked: {blockers.join('; ')}</p>}
+    <Button disabled={!canActivate || (simulation.resolved.problems?.length ?? 0) > 0} onClick={onActivate}>Activate exact simulation</Button>
+  </section>
+}
+
+function VersionHistory({ rows, complete, loading, onMore, onSelect }: { rows: Version[]; complete: boolean; loading: boolean; onMore: () => void; onSelect: (id: string) => void }) {
+  return <>
+    <DataTable caption="Policy version history">
+      <table>
+        <thead><tr><th>Version</th><th>Scope</th><th>Hash</th><th>Reason</th><th>Created</th></tr></thead>
+        <tbody>{rows.map(row => <tr key={row.id}><td><button className="link-button" onClick={() => onSelect(row.id)}>{row.id}</button></td><td>{row.scope.kind}:{row.scope.id}</td><td><code>{row.hash}</code></td><td>{row.reason}</td><td>{new Date(row.created_at).toLocaleString()}</td></tr>)}</tbody>
+      </table>
+      {!rows.length && <EmptyTable label="No policy versions recorded." />}
+    </DataTable>
+    {!complete && <Button disabled={loading} onClick={onMore}>{loading ? 'Loading…' : 'Load more versions'}</Button>}
+  </>
+}
+
+function AllowList({ name, value, disabled, onChange }: { name: string; value: string[] | null; disabled: boolean; onChange: (value: string[] | null) => void }) {
+  const label = name.replaceAll('_', ' ')
+  return <div><label>Allowed {label}<select value={value === null ? 'inherit' : 'explicit'} disabled={disabled} onChange={event => onChange(event.target.value === 'inherit' ? null : [])}><option value="inherit">Inherit</option><option value="explicit">Explicit list (empty denies all)</option></select></label>{value !== null && <label>{label} values<input value={value.join(', ')} disabled={disabled} onChange={event => onChange(split(event.target.value))} /></label>}</div>
+}

@@ -7,6 +7,9 @@ import { ChangesPage } from './ChangesPage'
 import { DeploymentsPage } from './DeploymentsPage'
 import { RunsPage } from './RunsPage'
 import { FindingsPage } from './FindingsPage'
+import { PoliciesPage } from './PoliciesPage'
+import { UsagePage } from './UsagePage'
+import { AuditPage } from './AuditPage'
 import { RepositoriesPage } from './RepositoriesPage'
 
 const copy: Record<string, { title: string; detail: string; action?: string }> = {
@@ -30,8 +33,8 @@ export function SectionPage() {
   const section = sectionFor(sectionParam)
   const text = copy[section.id] ?? copy.overview
   const isRepositories = section.id === 'repositories'
-  const body = section.id === 'deployments' ? <DeploymentsPage key={orgID} orgID={orgID} /> : section.id === 'changes' ? <ChangesPage key={orgID} orgID={orgID} /> : section.id === 'runs' ? <RunsPage key={orgID} orgID={orgID} /> : section.id === 'findings' ? <FindingsPage orgID={orgID} /> : section.id === 'connections' ? <ConnectionsPage orgID={orgID} /> : section.id === 'runners' ? <RunnersPage orgID={orgID} /> : isRepositories ? <RepositoriesPage orgID={orgID} /> : <PlaceholderSection id={section.id} />
-  return <div className="section-page"><div className="page-header"><div><p className="eyebrow">{section.group === 'admin' ? 'Administration' : 'Workspace'}</p><h1>{text.title}</h1><p>{text.detail}</p></div>{text.action && !['connections', 'runners', 'repositories', 'findings'].includes(section.id) && <button className="button button-primary" disabled title="Available when this route is connected to its backend">{text.action}</button>}</div>{body}</div>
+  const body = section.id === 'policies' ? <PoliciesPage key={orgID} orgID={orgID} /> : section.id === 'usage' ? <UsagePage key={orgID} orgID={orgID} /> : section.id === 'audit' ? <AuditPage key={orgID} orgID={orgID} /> : section.id === 'deployments' ? <DeploymentsPage key={orgID} orgID={orgID} /> : section.id === 'changes' ? <ChangesPage key={orgID} orgID={orgID} /> : section.id === 'runs' ? <RunsPage key={orgID} orgID={orgID} /> : section.id === 'findings' ? <FindingsPage orgID={orgID} /> : section.id === 'connections' ? <ConnectionsPage orgID={orgID} /> : section.id === 'runners' ? <RunnersPage orgID={orgID} /> : isRepositories ? <RepositoriesPage orgID={orgID} /> : <PlaceholderSection id={section.id} />
+  return <div className="section-page"><div className="page-header"><div><p className="eyebrow">{section.group === 'admin' ? 'Administration' : 'Workspace'}</p><h1>{text.title}</h1><p>{text.detail}</p></div>{text.action && !['connections', 'runners', 'repositories', 'findings', 'policies'].includes(section.id) && <button className="button button-primary" disabled title="Available when this route is connected to its backend">{text.action}</button>}</div>{body}</div>
 }
 
 function PlaceholderSection({ id }: { id: string }) {
