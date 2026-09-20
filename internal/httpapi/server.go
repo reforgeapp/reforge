@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"reforge/internal/auth"
 	"reforge/internal/config"
 	"reforge/internal/domain"
 	"reforge/internal/store"
@@ -19,6 +20,7 @@ type Server struct {
 	Config config.Config
 	Store  *store.Store
 	Router *gin.Engine
+	Auth   *auth.Service
 }
 
 func New(cfg config.Config, db *store.Store) *Server {

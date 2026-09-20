@@ -253,6 +253,10 @@ type APIError struct {
 	RequestId string                  `json:"request_id"`
 	Retryable bool                    `json:"retryable"`
 }
+type BootstrapRequest struct {
+	Name  string `json:"name"`
+	Token string `json:"token"`
+}
 type Capability struct {
 	LastChecked time.Time       `json:"last_checked"`
 	Reason      string          `json:"reason"`
@@ -294,6 +298,19 @@ type Membership struct {
 	RepositoryIds   []string `json:"repository_ids"`
 	Role            Role     `json:"role"`
 	TeamIds         []string `json:"team_ids"`
+	UserId          *string  `json:"user_id,omitempty"`
+	Version         *int64   `json:"version,omitempty"`
+}
+type MembershipInput struct {
+	AllRepositories bool     `json:"all_repositories"`
+	RepositoryIds   []string `json:"repository_ids"`
+	Role            Role     `json:"role"`
+	TeamIds         []string `json:"team_ids"`
+}
+type MembershipPage struct {
+	Complete   bool         `json:"complete"`
+	Items      []Membership `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
 }
 type Meta struct {
 	BootstrapRequired *bool       `json:"bootstrap_required,omitempty"`
@@ -344,7 +361,62 @@ type Session struct {
 	} `json:"user"`
 }
 type TaskState string
+type Team struct {
+	Id            string   `json:"id"`
+	Name          string   `json:"name"`
+	RepositoryIds []string `json:"repository_ids"`
+	Version       int64    `json:"version"`
+}
+type TeamInput struct {
+	Name          string   `json:"name"`
+	RepositoryIds []string `json:"repository_ids"`
+}
+type TeamPage struct {
+	Complete   bool    `json:"complete"`
+	Items      []Team  `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
+type ListMembershipsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type DeleteMembershipParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type PutMembershipParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
 type RepositoriesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
+type ListTeamsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type DeleteTeamParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type PutTeamParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type RevokeSessionsParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type BootstrapParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type OidcCallbackParams struct {
+	State string `form:"state" json:"state"`
+	Code  string `form:"code" json:"code"`
+}
+type LogoutParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type PutMembershipJSONRequestBody = MembershipInput
+type PutTeamJSONRequestBody = TeamInput
+type BootstrapJSONRequestBody = BootstrapRequest

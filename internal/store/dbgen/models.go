@@ -16,10 +16,93 @@ type AuditEvent struct {
 	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type Bootstrap struct {
+	ID         bool               `json:"id"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+}
+
+type MemberRepository struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	UserID       pgtype.UUID `json:"user_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+}
+
+type Membership struct {
+	OrgID           pgtype.UUID `json:"org_id"`
+	UserID          pgtype.UUID `json:"user_id"`
+	Role            string      `json:"role"`
+	AllRepositories bool        `json:"all_repositories"`
+	Version         int64       `json:"version"`
+}
+
+type OidcLogin struct {
+	StateHash   string             `json:"state_hash"`
+	BrowserHash string             `json:"browser_hash"`
+	Nonce       string             `json:"nonce"`
+	Verifier    string             `json:"verifier"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Organisation struct {
 	ID        pgtype.UUID        `json:"id"`
 	Name      string             `json:"name"`
 	Version   int64              `json:"version"`
 	Paused    bool               `json:"paused"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Repository struct {
+	OrgID         pgtype.UUID        `json:"org_id"`
+	ID            pgtype.UUID        `json:"id"`
+	ConnectionID  pgtype.UUID        `json:"connection_id"`
+	NativeID      string             `json:"native_id"`
+	Name          string             `json:"name"`
+	Url           string             `json:"url"`
+	DefaultBranch string             `json:"default_branch"`
+	Provider      string             `json:"provider"`
+	Archived      bool               `json:"archived"`
+	Paused        bool               `json:"paused"`
+	Accessible    bool               `json:"accessible"`
+	LastSyncedAt  pgtype.Timestamptz `json:"last_synced_at"`
+	Version       int64              `json:"version"`
+}
+
+type Session struct {
+	ID        pgtype.UUID        `json:"id"`
+	UserID    pgtype.UUID        `json:"user_id"`
+	TokenHash string             `json:"token_hash"`
+	CsrfToken string             `json:"csrf_token"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type Team struct {
+	OrgID   pgtype.UUID `json:"org_id"`
+	ID      pgtype.UUID `json:"id"`
+	Name    string      `json:"name"`
+	Version int64       `json:"version"`
+}
+
+type TeamMembership struct {
+	OrgID  pgtype.UUID `json:"org_id"`
+	TeamID pgtype.UUID `json:"team_id"`
+	UserID pgtype.UUID `json:"user_id"`
+}
+
+type TeamRepository struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	TeamID       pgtype.UUID `json:"team_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+}
+
+type User struct {
+	ID        pgtype.UUID        `json:"id"`
+	Issuer    string             `json:"issuer"`
+	Subject   string             `json:"subject"`
+	Name      string             `json:"name"`
+	Email     string             `json:"email"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }

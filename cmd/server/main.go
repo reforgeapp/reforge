@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reforge/internal/auth"
 	"reforge/internal/config"
 	"reforge/internal/httpapi"
 	"reforge/internal/store"
@@ -34,6 +35,18 @@ func run() error {
 	}
 	defer db.Close()
 	app := httpapi.New(cfg, db)
+	startup, startupCancel := context.WithTimeout(ctx, 20*time.Second)
+	identity, err := auth.New(startup, db, auth.Config{
+		PublicURL: cfg.PublicURL, Edition: cfg.Edition, Development: cfg.Development,
+		FixtureAuth: cfg.FixtureAuth, ListenAddress: cfg.Address, OIDCIssuer: cfg.OIDCIssuer,
+		OIDCClientID: cfg.OIDCClientID, OIDCClientSecret: cfg.OIDCClientSecret,
+		BootstrapToken: cfg.BootstrapToken, BootstrapExpiresAt: cfg.BootstrapExpiresAt,
+	})
+	startupCancel()
+	if err != nil {
+		return err
+	}
+	app.RegisterIdentity(identity)
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

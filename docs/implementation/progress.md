@@ -15,9 +15,9 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 | Ticket | Status | Owner | Files / dependencies | Evidence / remaining |
 | --- | --- | --- | --- | --- |
 | T01 | local complete | Astra | foundation, shared contracts; none | Build/check/unit tests; PG18.6 race/isolation/migration tests; independent Astra review fixed |
-| T02 | not started | Astra | auth/store; T01 | OIDC, scopes, RLS, bootstrap |
+| T02 | local complete | Astra worker t02_identity | auth/store; T01 | OIDC/scopes/bootstrap implemented; signed local OIDC + PG race tests pass; root all-package race/vet/build passed |
 | T03 | not started | Astra | connections/secrets; T01 T02 | Envelope encryption, network routes |
-| T04 | not started | Luna | web shell; T01 | Browser and cache isolation |
+| T04 | in progress | Luna worker t04_shell | web shell; T01 | Browser and cache isolation |
 | T05 | not started | Astra | workflow; T01 T02 T03 | Leases, budgets, outbox, SSE |
 | T06 | not started | Astra | policy; T01 T02 | Deterministic corpus |
 | T07 | not started | Astra | runner; T03 T05 T06 | Sandbox and private routes |
@@ -45,7 +45,7 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 
 ## Gates
 
-G0 foundation passed; identity/tenancy still pending T02. G1–G5 pending. No external integration or release certification claimed.
+G0 foundation and identity locally verified; subsequent artifact/SSE isolation rechecked at their tickets. G1–G5 pending. No external integration or release certification claimed.
 
 ## Environment and external requirements
 
@@ -64,3 +64,21 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ow
 - Running built Go/Gin server: `/healthz` and `/readyz` 200; `/api/v1/meta` explicitly labels development/fixture auth; SPA deep links serve built assets.
 - Independent Astra review completed; fixes cover inherited privileges, credential serialization/logging, fixture label, generation manifests, dependency notices and all test database URL guards. No live provider calls.
 - Apache-2.0 text, dependency inventory and collected notices added. Final distribution inventory reruns at T28.
+
+## Active ownership
+
+- `t02_identity` (Astra): `internal/auth/**`, `internal/httpapi/identity.go`, `test/integration/auth_test.go`, `docs/implementation/t02-identity.md`. SQL proposal in auth/schema.sql; coordinator alone assigns migration002 and wires startup/OpenAPI/manifests.
+- `t04_shell` (Luna): `web/src/main.tsx`, `web/src/app/**`, `web/src/components/**`, `web/src/styles/**`, `web/src/api/client.ts`, `web/tests/shell.spec.ts`, `web/playwright.config.ts`, `docs/implementation/t04-shell.md`. No manifests/generated types.
+- Coordinator: shared interfaces/manifests, migrations, startup wiring, API contract, integration/review and progress. No other active workers.
+
+## Local qualification preparation
+
+- Signed Gitea 1.27.3 binary verified against documented release key fingerprint `7C9E68152594688862D62AF62D9AE806EC1592E2`; `/tmp/reforge-gitea/gitea`. No provider contract scenarios run yet.
+- gVisor `release-20260914.0` checksum verified; binaries and sidecars under `/tmp/reforge-gvisor/bin`. Trusted OCI probe succeeded using `runsc --rootless --network=none --platform=systrap --ignore-cgroups run`; host home/socket inaccessible and loopback PostgreSQL unreachable. Parent-created namespace variant failed creating gofer; built-in rootless variant works. This is feasibility evidence only: resource limits, hostile corpus and hosted isolation still require T07/T27 proof.
+
+## T02 review evidence
+
+- Astra implementation and independent Astra review complete. Reviewed actual source plus SQL and tests. Fixed inherited grant persistence, sibling-domain OIDC cookie injection and mutation/revocation races.
+- Worker `go vet` and expanded signed-local-OIDC/PG18.6 `-race` tests pass: PKCE/state/nonce/browser binding, restart-persistent login state, bootstrap one-use/expiry, cross-tenant/team/child scopes, CSRF/Host, logout, saved-session revocation, last-owner concurrency and queued mutation vs revocation. Root `go test -race ./...`, `go vet ./...` and server build all passed against PostgreSQL18.6.
+- Identity production setup uses configured OIDC and authenticated one-use bootstrap; no local password/token-harvesting route. `WithMutation` orders org/session locks before current authority; later mutation services must use it.
+- SSE/artifact dynamic scope tests remain for T05/T07/T27. Retention and rate limiting remain T26/T27 operational integration.

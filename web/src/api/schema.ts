@@ -57,7 +57,7 @@ export interface paths {
         get: operations["session"];
         put?: never;
         post?: never;
-        delete?: never;
+        delete: operations["revokeSessions"];
         options?: never;
         head?: never;
         patch?: never;
@@ -74,6 +74,134 @@ export interface paths {
         put?: never;
         post?: never;
         delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["login"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["oidcCallback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/auth/bootstrap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["bootstrap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/memberships": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMemberships"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/memberships/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putMembership"];
+        post?: never;
+        delete: operations["deleteMembership"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTeams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/teams/{teamID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putTeam"];
+        post?: never;
+        delete: operations["deleteTeam"];
         options?: never;
         head?: never;
         patch?: never;
@@ -129,6 +257,9 @@ export interface components {
             team_ids: string[];
             repository_ids: string[];
             all_repositories: boolean;
+            user_id?: string;
+
+            version?: number;
         };
         Session: {
             user: {
@@ -195,6 +326,37 @@ export interface components {
             data: {
                 [key: string]: unknown;
             };
+        };
+        Team: {
+            id: string;
+            name: string;
+            repository_ids: string[];
+
+            version: number;
+        };
+        BootstrapRequest: {
+            token: string;
+            name: string;
+        };
+        MembershipPage: {
+            items: components["schemas"]["Membership"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        TeamPage: {
+            items: components["schemas"]["Team"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        MembershipInput: {
+            role: components["schemas"]["Role"];
+            all_repositories: boolean;
+            team_ids: string[];
+            repository_ids: string[];
+        };
+        TeamInput: {
+            name: string;
+            repository_ids: string[];
         };
     };
     responses: never;
@@ -321,6 +483,35 @@ export interface operations {
             };
         };
     };
+    revokeSessions: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
     repositories: {
         parameters: {
             query?: {
@@ -343,6 +534,343 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["RepositoryPage"];
                 };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    oidcCallback: {
+        parameters: {
+            query: {
+                state: string;
+                code: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            302: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    bootstrap: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BootstrapRequest"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Organisation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listMemberships: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MembershipPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putMembership: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MembershipInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Membership"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteMembership: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listTeams: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                teamID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TeamInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Team"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                teamID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
 
             default: {
