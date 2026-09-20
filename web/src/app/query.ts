@@ -7,6 +7,22 @@ export const repositoriesQuery = (orgID: string, query: string) => ({
   queryKey: ['org', orgID, 'repositories', { query }] as const,
   queryFn: ({ signal }: { signal: AbortSignal }) => api.getRepositories(orgID, { limit: 50, query: query || undefined, signal }),
 })
+export const connectionsQuery = (orgID: string, kind?: string, cursor?: string) => ({
+  queryKey: ['org', orgID, 'connections', kind ?? 'all', cursor ?? 'first'] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getConnections(orgID, { kind, cursor, signal }),
+})
+export const connectionQuery = (orgID: string, connectionID: string) => ({
+  queryKey: ['org', orgID, 'connections', 'detail', connectionID] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getConnection(orgID, connectionID, signal),
+})
+export const runnerPoolsQuery = (orgID: string, cursor?: string) => ({
+  queryKey: ['org', orgID, 'runner-pools', cursor ?? 'first'] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunnerPools(orgID, { cursor, signal }),
+})
+export const runnersQuery = (orgID: string, poolID: string) => ({
+  queryKey: ['org', orgID, 'runner-pools', poolID, 'runners'] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunners(orgID, poolID, signal),
+})
 
 export function useSession() { return useQuery({ ...sessionQuery(), retry: false, refetchInterval: 30_000, refetchOnWindowFocus: true }) }
 export function useMeta() { return useQuery(metaQuery()) }

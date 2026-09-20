@@ -1,10 +1,9 @@
-import { useParams, useSearch } from '@tanstack/react-router'
-import { useQuery } from '@tanstack/react-query'
-import { repositoriesQuery } from './query'
+import { useParams } from '@tanstack/react-router'
 import { sectionFor } from './types'
-import { DataTable, EmptyTable } from '../components/DataTable'
-import { GateList, StatusBadge } from '../components/Status'
-import { StatePanel } from '../components/StatePanel'
+import { GateList } from '../components/Status'
+import { ConnectionsPage } from './ConnectionsPage'
+import { RunnersPage } from './RunnersPage'
+import { RepositoriesPage } from './RepositoriesPage'
 
 const copy: Record<string, { title: string; detail: string; action?: string }> = {
   overview: { title: 'Portfolio overview', detail: 'See the decisions, blockers and verified outcomes that need your attention.' },
@@ -24,21 +23,11 @@ const copy: Record<string, { title: string; detail: string; action?: string }> =
 
 export function SectionPage() {
   const { orgID, section: sectionParam } = useParams({ from: '/org/$orgID/$section' })
-  const search = useSearch({ strict: false }) as { q?: string }
   const section = sectionFor(sectionParam)
   const text = copy[section.id] ?? copy.overview
-  const repositories = useQuery({ ...repositoriesQuery(orgID, search.q ?? ''), enabled: section.id === 'repositories' })
   const isRepositories = section.id === 'repositories'
-  return <div className="section-page"><div className="page-header"><div><p className="eyebrow">{section.group === 'admin' ? 'Administration' : 'Workspace'}</p><h1>{text.title}</h1><p>{text.detail}</p></div>{text.action && <button className="button button-primary" disabled title="Available when this route is connected to its backend">{text.action}</button>}</div>{isRepositories ? <RepositoriesPage query={search.q ?? ''} result={repositories} /> : <PlaceholderSection id={section.id} />}</div>
-}
-
-function RepositoriesPage({ query, result }: { query: string; result: ReturnType<typeof useQuery> }) {
-  if (result.isLoading) return <StatePanel kind="loading" title="Loading repositories" detail="Fetching the first page for this organisation." />
-  if (result.error) return <StatePanel kind="error" title="Repositories could not be loaded" detail={result.error instanceof Error ? result.error.message : 'The server returned an unknown error.'} action={<button className="button" onClick={() => result.refetch()}>Retry</button>} />
-  const data = result.data as { items?: Array<{ id: string; name: string; provider: string; default_branch: string; archived: boolean; paused: boolean; last_synced_at: string | null }>; complete?: boolean } | undefined
-  const items = data?.items ?? []
-  if (!items.length) return <div className="stack"><div className="state-card"><span className="state-icon" aria-hidden="true">⌕</span><div><h2>{query ? 'No repositories match this search' : 'No repositories connected'}</h2><p>{query ? 'Try a different repository name or clear the search.' : 'Connect a forge to begin a read-only repository discovery.'}</p></div></div><EmptyTable label="Repositories will appear here after a connection is configured." /></div>
-  return <DataTable caption="Connected repositories"><table><thead><tr><th>Repository</th><th>Forge</th><th>Default branch</th><th>Status</th><th>Last synced</th></tr></thead><tbody>{items.map(item => <tr key={item.id}><td><strong>{item.name}</strong></td><td>{item.provider}</td><td><code>{item.default_branch}</code></td><td><StatusBadge label={item.paused ? 'Paused' : item.archived ? 'Archived' : 'Monitored'} tone={item.paused ? 'amber' : item.archived ? 'neutral' : 'green'} /></td><td>{item.last_synced_at ? new Date(item.last_synced_at).toLocaleString() : 'Never synced'}</td></tr>)}</tbody></table>{data?.complete === false && <p className="table-note">More repositories are available. Pagination will continue when this view is connected to the inventory controls.</p>}</DataTable>
+  const body = section.id === 'connections' ? <ConnectionsPage orgID={orgID} /> : section.id === 'runners' ? <RunnersPage orgID={orgID} /> : isRepositories ? <RepositoriesPage orgID={orgID} /> : <PlaceholderSection id={section.id} />
+  return <div className="section-page"><div className="page-header"><div><p className="eyebrow">{section.group === 'admin' ? 'Administration' : 'Workspace'}</p><h1>{text.title}</h1><p>{text.detail}</p></div>{text.action && !['connections', 'runners', 'repositories'].includes(section.id) && <button className="button button-primary" disabled title="Available when this route is connected to its backend">{text.action}</button>}</div>{body}</div>
 }
 
 function PlaceholderSection({ id }: { id: string }) {

@@ -1,0 +1,189 @@
+import { test, expect, type Page } from '@playwright/test'
+import { spawn } from 'node:child_process'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join, resolve } from 'node:path'
+
+const organisation = '00000000-0000-4000-8000-000000000001'
+test.use({ trace: 'off' })
+
+test.describe('connections and runners administration', () => {
+  async function signIn(page: Page) {
+    await page.goto('/auth/login')
+    await expect(page).toHaveURL(/\/org\/[^/]+\/overview/)
+  }
+
+  test('loads the persisted connections route and opens the real create form', async ({ page }) => {
+    await signIn(page)
+    await page.goto(`/org/${organisation}/connections`)
+    await expect(page.getByRole('heading', { name: 'Connections', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Add connection' }).click()
+    await expect(page.getByRole('dialog', { name: 'Add connection' })).toBeVisible()
+    await expect(page.getByLabel('Secret')).toHaveAttribute('type', 'password')
+    await expect(page.getByRole('dialog', { name: 'Add connection' }).getByText(/credentials are write-only/i)).toBeVisible()
+  })
+
+  test('shows runner pool controls without inventing enrolled runners', async ({ page }) => {
+    await signIn(page)
+    await page.goto(`/org/${organisation}/runners`)
+    await expect(page.getByRole('heading', { name: 'Runners', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Create pool' }).click()
+    await expect(page.getByRole('dialog', { name: 'Create runner pool' })).toBeVisible()
+    await expect(page.getByText(/leave the list empty for an onboarding pool/i)).toBeVisible()
+  })
+
+  test('keeps connection dialog keyboard accessible on narrow screens', async ({ page }) => {
+    await page.setViewportSize({ width: 390, height: 844 })
+    await signIn(page)
+    await page.goto(`/org/${organisation}/connections`)
+    await page.getByRole('button', { name: 'Add connection' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Add connection' })
+    await expect(dialog).toBeVisible()
+    await expect.poll(async () => dialog.evaluate(element => element.contains(document.activeElement))).toBe(true)
+    await expect.poll(async () => dialog.evaluate(element => { const rect = element.getBoundingClientRect(); return rect.left >= 0 && rect.right <= window.innerWidth && element.scrollWidth <= element.clientWidth })).toBe(true)
+    await page.keyboard.press('Escape')
+    await expect(dialog).toBeHidden()
+  })
+
+  test('creates an empty pool and receives a one-use enrollment token', async ({ page }) => {
+    await signIn(page)
+    await page.goto(`/org/${organisation}/runners`)
+    const poolName = `browser-onboarding-${Date.now()}`
+    await page.getByRole('button', { name: 'Create pool' }).click()
+    await page.getByLabel('Name').fill(poolName)
+    await page.getByRole('button', { name: 'Save pool' }).click()
+    const row = page.getByRole('row', { name: new RegExp(poolName) })
+    await expect(row).toBeVisible()
+    await row.getByRole('button', { name: 'Enroll runner' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Runner enrollment token' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByLabel('One-use token')).not.toHaveValue('')
+    await expect(dialog.getByText(/reforge-runner enroll --endpoint/)).toBeVisible()
+    await dialog.getByRole('button', { name: 'Clear token' }).click()
+    await expect(dialog).toBeHidden()
+  })
+
+  test.describe('live private Gitea lifecycle', () => {
+    test('enrolls a runner and verifies, rotates, retests and revokes a private connection', async ({ page }) => {
+      test.skip(process.env.REFORGE_LIVE_GITEA_TEST !== '1', 'requires the disposable local Gitea and runner controller')
+      test.setTimeout(150_000)
+      const root = resolve(process.cwd(), '..')
+      const temp = mkdtempSync(join(tmpdir(), 'reforge-gui-runner-'))
+      const enrollmentFile = join(temp, 'enrollment-token')
+      const credentialFile = join(temp, 'runner-credentials')
+      const inventoryRepoName = `browser-inventory-${Date.now()}`
+      const adminToken = readFileSync(resolve(root, '.local/gitea/reforge-admin.token'), 'utf8').trim()
+      let connector: ReturnType<typeof spawn> | undefined
+      let connectorExit: number | null = null
+      let connectorStderr = false
+      try {
+        await signIn(page)
+        await page.goto(`/org/${organisation}/runners`)
+        const poolName = `browser-private-${Date.now()}`
+        await page.getByRole('button', { name: 'Create pool' }).click()
+        await page.getByLabel('Name').fill(poolName)
+        await page.getByRole('button', { name: 'Save pool' }).click()
+        const poolRow = page.getByRole('row', { name: new RegExp(poolName) })
+        await expect(poolRow).toBeVisible()
+        await poolRow.getByRole('button', { name: 'Enroll runner' }).click()
+        const enrollmentDialog = page.getByRole('dialog', { name: 'Runner enrollment token' })
+        const enrollmentToken = await enrollmentDialog.getByLabel('One-use token').inputValue()
+        writeFileSync(enrollmentFile, enrollmentToken, { mode: 0o600 })
+        await enrollmentDialog.getByRole('button', { name: 'Clear token' }).click()
+        await expect(enrollmentDialog).toBeHidden()
+
+        const runnerName = `browser-runner-${Date.now()}`
+        await runCommand(join(root, 'bin/reforge-runner'), ['enroll', '--endpoint', 'http://127.0.0.1:8080', '--credentials', credentialFile, '--token-file', enrollmentFile, '--name', runnerName, '--development'], root)
+        connector = spawn(join(root, 'bin/reforge-runner'), ['connector', '--endpoint', 'http://127.0.0.1:8080', '--credentials', credentialFile, '--development'], { cwd: root, stdio: ['ignore', 'ignore', 'pipe'] })
+        connector.stderr?.on('data', () => { connectorStderr = true })
+        connector.once('exit', code => { connectorExit = code })
+        await new Promise(resolveAfterStart => setTimeout(resolveAfterStart, 1_500))
+        if (connector.exitCode !== null) throw new Error(`runner connector exited with ${connector.exitCode}`)
+
+        const botToken = readFileSync(resolve(root, '.local/gitea/reforge-bot.token'), 'utf8').trim()
+        await page.goto(`/org/${organisation}/connections`)
+        await page.getByRole('button', { name: 'Add connection' }).click()
+        const form = page.getByRole('dialog', { name: 'Add connection' })
+        await form.getByLabel('Provider').selectOption('gitea')
+        await form.getByLabel('Name', { exact: true }).fill(`browser-gitea-${Date.now()}`)
+        await form.getByLabel('Endpoint').fill('http://127.0.0.1:53000')
+        await form.getByLabel('Secret').fill(botToken)
+        await form.getByLabel('Use an enrolled private runner').check()
+        const runnerSelect = form.getByRole('combobox', { name: 'Runner' })
+        await expect.poll(async () => runnerSelect.locator('option').allTextContents(), { timeout: 15_000 }).toContain(`${runnerName} · ${poolName}`)
+        await runnerSelect.selectOption({ label: `${runnerName} · ${poolName}` })
+        await form.getByLabel('Route host').fill('127.0.0.1')
+        await form.getByLabel('Allowed CIDRs').fill('127.0.0.1/32')
+        const connectionName = await form.getByLabel('Name', { exact: true }).inputValue()
+        await form.getByRole('button', { name: 'Save connection' }).click()
+        await expect(form).toBeHidden({ timeout: 15_000 })
+        const connectionRow = page.getByRole('row', { name: new RegExp(connectionName) })
+        await expect(connectionRow).toBeVisible()
+
+        await connectionRow.getByRole('button', { name: 'Test' }).click()
+        try { await expect.poll(async () => connectionRow.innerText(), { timeout: 45_000 }).toContain('healthy') } catch (error) { throw new Error(`${error instanceof Error ? error.message : 'private probe failed'}; connector_exit=${connectorExit ?? 'running'}; connector_stderr=${connectorStderr}`) }
+        await expect(connectionRow).toContainText('Version 1')
+        await connectionRow.getByRole('button', { name: connectionName }).click()
+        const webhookDetails = page.getByRole('dialog', { name: connectionName })
+        await webhookDetails.getByRole('button', { name: 'Issue webhook secret' }).click()
+        const firstWebhookSecret = await webhookDetails.getByLabel('One-time webhook secret').inputValue()
+        expect(firstWebhookSecret).not.toBe('')
+        await webhookDetails.getByRole('button', { name: 'Rotate webhook secret' }).click()
+        await expect(webhookDetails.getByLabel('One-time webhook secret')).not.toHaveValue(firstWebhookSecret)
+        await webhookDetails.getByRole('button', { name: 'Revoke webhook' }).click()
+        await expect(webhookDetails.getByText('Webhook revoked.')).toBeVisible()
+        await webhookDetails.getByRole('button', { name: 'Close dialog' }).click()
+        const createRepo = await fetch(`http://127.0.0.1:53000/api/v1/admin/users/reforge-bot/repos`, { method: 'POST', headers: { Authorization: `token ${adminToken}`, 'Content-Type': 'application/json' }, body: JSON.stringify({ name: inventoryRepoName, auto_init: true, default_branch: 'main', private: true }) })
+        if (!createRepo.ok) throw new Error(`fixture repo create failed with ${createRepo.status}`)
+        await page.goto(`/org/${organisation}/repositories`)
+        await page.getByRole('button', { name: 'Sync inventory' }).click()
+        const sync = page.getByRole('dialog', { name: 'Sync forge inventory' })
+        await sync.getByLabel('Forge connection').selectOption({ label: `${connectionName} · gitea` })
+        await sync.getByRole('button', { name: 'Start preview' }).click()
+        await expect(sync.getByText('complete', { exact: true })).toBeVisible({ timeout: 45_000 })
+        const selectAll = sync.getByRole('checkbox', { name: /Select all loaded/ })
+        if (await selectAll.isChecked()) await selectAll.uncheck()
+        const repoCandidate = sync.getByRole('checkbox', { name: new RegExp(`reforge-bot/${inventoryRepoName}`) })
+        await expect(repoCandidate).toBeVisible()
+        await repoCandidate.check()
+        await sync.getByRole('button', { name: /Import selected/ }).click()
+        await expect(sync.getByText('Import complete. Repository inventory will refresh.')).toBeVisible({ timeout: 45_000 })
+        await sync.getByRole('button', { name: 'Close' }).click()
+        const importedRow = page.getByRole('row', { name: new RegExp(inventoryRepoName) })
+        await expect(importedRow).toBeVisible({ timeout: 15_000 })
+        await importedRow.getByRole('button', { name: inventoryRepoName }).click()
+        const repositoryDetails = page.getByRole('dialog', { name: inventoryRepoName })
+        await expect(repositoryDetails.getByText('Inventory freshness')).toBeVisible()
+        await repositoryDetails.getByRole('button', { name: 'Close', exact: true }).click()
+        await page.goto(`/org/${organisation}/connections`)
+        const refreshedConnectionRow = page.getByRole('row', { name: new RegExp(connectionName) })
+        await expect(refreshedConnectionRow).toBeVisible()
+        await refreshedConnectionRow.getByRole('button', { name: connectionName }).click()
+        const details = page.getByRole('dialog', { name: connectionName })
+        await details.getByLabel('Rotate secret').fill(botToken)
+        await details.getByRole('button', { name: 'Rotate credential' }).click()
+        await expect(details.getByText('Version').first()).toBeVisible({ timeout: 10_000 })
+        await details.getByRole('button', { name: 'Close dialog' }).click()
+        await expect(connectionRow).toContainText('Version 2', { timeout: 10_000 })
+        await connectionRow.getByRole('button', { name: 'Test' }).click()
+        await expect.poll(async () => connectionRow.innerText(), { timeout: 45_000 }).toContain('healthy')
+        await connectionRow.getByRole('button', { name: 'Revoke' }).click()
+        await expect(connectionRow.getByText('revoked')).toBeVisible({ timeout: 10_000 })
+      } finally {
+        if (connector && connector.exitCode === null) connector.kill('SIGTERM')
+        const deleteRepo = await fetch(`http://127.0.0.1:53000/api/v1/repos/reforge-bot/${encodeURIComponent(inventoryRepoName)}`, { method: 'DELETE', headers: { Authorization: `token ${adminToken}` } })
+        if (!deleteRepo.ok && deleteRepo.status !== 404) process.stderr.write(`fixture repo cleanup failed with ${deleteRepo.status}\n`)
+        rmSync(temp, { recursive: true, force: true })
+      }
+    })
+  })
+})
+
+async function runCommand(command: string, args: string[], cwd: string) {
+  await new Promise<void>((resolveCommand, rejectCommand) => {
+    const child = spawn(command, args, { cwd, stdio: 'ignore' })
+    const timer = setTimeout(() => { child.kill('SIGTERM'); rejectCommand(new Error('runner enrollment timed out')) }, 20_000)
+    child.once('error', error => { clearTimeout(timer); rejectCommand(error) })
+    child.once('exit', code => { clearTimeout(timer); if (code === 0) resolveCommand(); else rejectCommand(new Error(`runner enrollment exited with ${code ?? 'signal'}`)) })
+  })
+}

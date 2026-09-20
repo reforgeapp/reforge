@@ -1,0 +1,6 @@
+.repositories-page { min-width: 0; }
+.repository-toolbar { display: grid; grid-template-columns: minmax(180px, 1.5fr) repeat(3, minmax(120px, 1fr)) auto; align-items: end; gap: 10px; }
+.repository-toolbar label { min-width: 0; }
+.candidate-list { display: grid; max-height: 240px; gap: 7px; overflow: auto; padding: 8px 0; }
+.candidate-list .checkbox-label { font-weight: 500; }
+@media (max-width: 850px) { .repository-toolbar { grid-template-columns: repeat(2, minmax(0, 1fr)); } .repository-toolbar .button { width: 100%; } }

@@ -80,7 +80,7 @@ export function AppShell() {
       </header>
       {meta?.development && <div className="fixture-banner" role="status"><span aria-hidden="true">◆</span><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
       {org.paused && <div className="pause-banner" role="status"><span aria-hidden="true">Ⅱ</span><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}
-      <main id="main-content" className="content"><Outlet /></main>
+      <main id="main-content" className="content"><Outlet key={`${session.data.user.id}:${org.id}`} /></main>
     </div>
     <Dialog open={orgDialog} title="Switch organisation" onClose={() => setOrgDialog(false)}><p className="dialog-copy">Choose the organisation whose repositories and activity you want to view.</p><div className="org-options">{orgs.map(item => <button key={item.id} className={`org-option ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'} · version {item.version}</small></span>{item.id === org.id && <span className="check" aria-label="Current organisation">✓</span>}</button>)}</div></Dialog>
   </div>
