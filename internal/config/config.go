@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strings"
 	"time"
 )
@@ -27,6 +28,7 @@ type Config struct {
 	KMSKeyARN          string
 	KMSPreviousKeyARNs []string
 	PolicyFile         string
+	ArtifactDirectory  string
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
@@ -36,23 +38,29 @@ type Config struct {
 
 func Load() (Config, error) {
 	c := Config{
-		Address:          value("REFORGE_ADDRESS", "127.0.0.1:8080"),
-		PublicURL:        value("REFORGE_PUBLIC_URL", "http://127.0.0.1:8080"),
-		DatabaseURL:      os.Getenv("REFORGE_DATABASE_URL"),
-		WebDir:           value("REFORGE_WEB_DIR", "web/dist"),
-		MigrationDir:     value("REFORGE_MIGRATION_DIR", "internal/store/migrations"),
-		Development:      os.Getenv("REFORGE_MODE") == "development",
-		FixtureAuth:      os.Getenv("REFORGE_FIXTURE_AUTH") == "true",
-		Edition:          value("REFORGE_EDITION", "self-hosted"),
-		EncryptionKey:    os.Getenv("REFORGE_ENCRYPTION_KEY"),
-		EncryptionKeyID:  value("REFORGE_ENCRYPTION_KEY_ID", "primary"),
-		KMSRegion:        os.Getenv("REFORGE_KMS_REGION"),
-		KMSKeyARN:        os.Getenv("REFORGE_KMS_KEY_ARN"),
-		PolicyFile:       os.Getenv("REFORGE_POLICY_FILE"),
-		OIDCIssuer:       os.Getenv("REFORGE_OIDC_ISSUER"),
-		OIDCClientID:     os.Getenv("REFORGE_OIDC_CLIENT_ID"),
-		OIDCClientSecret: os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
-		BootstrapToken:   os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
+		Address:           value("REFORGE_ADDRESS", "127.0.0.1:8080"),
+		PublicURL:         value("REFORGE_PUBLIC_URL", "http://127.0.0.1:8080"),
+		DatabaseURL:       os.Getenv("REFORGE_DATABASE_URL"),
+		WebDir:            value("REFORGE_WEB_DIR", "web/dist"),
+		MigrationDir:      value("REFORGE_MIGRATION_DIR", "internal/store/migrations"),
+		Development:       os.Getenv("REFORGE_MODE") == "development",
+		FixtureAuth:       os.Getenv("REFORGE_FIXTURE_AUTH") == "true",
+		Edition:           value("REFORGE_EDITION", "self-hosted"),
+		EncryptionKey:     os.Getenv("REFORGE_ENCRYPTION_KEY"),
+		EncryptionKeyID:   value("REFORGE_ENCRYPTION_KEY_ID", "primary"),
+		KMSRegion:         os.Getenv("REFORGE_KMS_REGION"),
+		KMSKeyARN:         os.Getenv("REFORGE_KMS_KEY_ARN"),
+		PolicyFile:        os.Getenv("REFORGE_POLICY_FILE"),
+		ArtifactDirectory: value("REFORGE_ARTIFACT_DIRECTORY", "var/artifacts"),
+		OIDCIssuer:        os.Getenv("REFORGE_OIDC_ISSUER"),
+		OIDCClientID:      os.Getenv("REFORGE_OIDC_CLIENT_ID"),
+		OIDCClientSecret:  os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
+		BootstrapToken:    os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
+	}
+	var pathErr error
+	c.ArtifactDirectory, pathErr = filepath.Abs(c.ArtifactDirectory)
+	if pathErr != nil {
+		return c, errors.New("artifact directory is invalid")
 	}
 	if previous := os.Getenv("REFORGE_KMS_PREVIOUS_KEY_ARNS"); previous != "" {
 		c.KMSPreviousKeyARNs = strings.Split(previous, ",")

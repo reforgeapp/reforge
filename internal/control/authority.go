@@ -41,6 +41,12 @@ func (a *Authority) Check(ctx context.Context, tx pgx.Tx, task workflow.Task, ac
 	if task.ModelConnectionID == "" || task.ModelRoute == "" {
 		return "", workflow.ErrPolicy
 	}
+	if task.RunnerPoolID != "" {
+		var permitted bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM runner_pool_repositories r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND r.pool_id=$2 AND r.repository_id=$3 AND p.state='active')`, task.OrgID, task.RunnerPoolID, task.RepositoryID).Scan(&permitted); err != nil || !permitted {
+			return "", workflow.ErrPolicy
+		}
+	}
 	var settings connections.Settings
 	var raw []byte
 	var kind, state string

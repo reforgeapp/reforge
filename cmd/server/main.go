@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reforge/internal/artifact"
 	"reforge/internal/auth"
 	"reforge/internal/budget"
 	"reforge/internal/config"
@@ -15,6 +16,7 @@ import (
 	"reforge/internal/control"
 	"reforge/internal/httpapi"
 	"reforge/internal/policy"
+	"reforge/internal/runner"
 	"reforge/internal/secrets"
 	"reforge/internal/store"
 	"reforge/internal/workflow"
@@ -65,7 +67,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	app.RegisterConnections(connections.New(db, identity, vault, cfg.Development))
+	connectionService := connections.New(db, identity, vault, cfg.Development)
+	app.RegisterConnections(connectionService)
 	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
 	if cfg.PolicyFile != "" {
 		body, readErr := os.ReadFile(cfg.PolicyFile)
@@ -90,6 +93,15 @@ func run() error {
 		return err
 	}, nil)
 	app.RegisterBudget(budgets)
+	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
+	if err != nil {
+		return err
+	}
+	defer artifacts.Close()
+	runners := runner.New(db, identity, workflows, artifacts)
+	workflows.RegisterScopeCheck(runners.CheckScopeTx)
+	connectionService.RegisterRunnerCheck(runners.CheckRunnerTx)
+	app.RegisterRunner(runners)
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

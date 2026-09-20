@@ -2,6 +2,8 @@ package generated
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -290,6 +292,66 @@ func (e Role) Valid() bool {
 }
 
 const (
+	RunnerCompletionOutcomeCancelled RunnerCompletionOutcome = "cancelled"
+	RunnerCompletionOutcomeCompleted RunnerCompletionOutcome = "completed"
+	RunnerCompletionOutcomeFailed    RunnerCompletionOutcome = "failed"
+	RunnerCompletionOutcomeUncertain RunnerCompletionOutcome = "uncertain"
+)
+
+func (e RunnerCompletionOutcome) Valid() bool {
+	switch e {
+	case RunnerCompletionOutcomeCancelled:
+		return true
+	case RunnerCompletionOutcomeCompleted:
+		return true
+	case RunnerCompletionOutcomeFailed:
+		return true
+	case RunnerCompletionOutcomeUncertain:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	RunnerPoolStateActive   RunnerPoolState = "active"
+	RunnerPoolStateDraining RunnerPoolState = "draining"
+	RunnerPoolStateRevoked  RunnerPoolState = "revoked"
+)
+
+func (e RunnerPoolState) Valid() bool {
+	switch e {
+	case RunnerPoolStateActive:
+		return true
+	case RunnerPoolStateDraining:
+		return true
+	case RunnerPoolStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	RunnerPoolInputStateActive   RunnerPoolInputState = "active"
+	RunnerPoolInputStateDraining RunnerPoolInputState = "draining"
+	RunnerPoolInputStateRevoked  RunnerPoolInputState = "revoked"
+)
+
+func (e RunnerPoolInputState) Valid() bool {
+	switch e {
+	case RunnerPoolInputStateActive:
+		return true
+	case RunnerPoolInputStateDraining:
+		return true
+	case RunnerPoolInputStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	TaskStateBlocked     TaskState = "blocked"
 	TaskStateCancelled   TaskState = "cancelled"
 	TaskStateCancelling  TaskState = "cancelling"
@@ -341,6 +403,18 @@ type APIError struct {
 	Message   string                  `json:"message"`
 	RequestId string                  `json:"request_id"`
 	Retryable bool                    `json:"retryable"`
+}
+type ArtifactMetadata struct {
+	CreatedAt    time.Time          `json:"created_at"`
+	ExpiresAt    time.Time          `json:"expires_at"`
+	Id           openapi_types.UUID `json:"id"`
+	MediaType    string             `json:"media_type"`
+	Name         string             `json:"name"`
+	OrgId        openapi_types.UUID `json:"org_id"`
+	RepositoryId openapi_types.UUID `json:"repository_id"`
+	Sha256       string             `json:"sha256"`
+	Size         int64              `json:"size"`
+	TaskId       openapi_types.UUID `json:"task_id"`
 }
 type BootstrapRequest struct {
 	Name  string `json:"name"`
@@ -521,6 +595,10 @@ type Decision struct {
 }
 type DecisionOutcome string
 type DeploymentState string
+type EnrollmentToken struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	Token     string    `json:"token"`
+}
 type Event struct {
 	AggregateId      string                 `json:"aggregate_id"`
 	AggregateType    string                 `json:"aggregate_type"`
@@ -764,6 +842,61 @@ type ResolvedPolicy struct {
 	ScopePaused     bool           `json:"scope_paused"`
 }
 type Role string
+type Runner struct {
+	CredentialExpiresAt time.Time          `json:"credential_expires_at"`
+	Id                  openapi_types.UUID `json:"id"`
+	Name                string             `json:"name"`
+	OrgId               openapi_types.UUID `json:"org_id"`
+	PoolId              openapi_types.UUID `json:"pool_id"`
+	State               string             `json:"state"`
+	Version             int64              `json:"version"`
+}
+type RunnerAssignment struct {
+	ExpiresAt time.Time     `json:"expires_at"`
+	Lease     WorkflowLease `json:"lease"`
+	Task      Task          `json:"task"`
+	Token     string        `json:"token"`
+}
+type RunnerCompletion struct {
+	Outcome   RunnerCompletionOutcome `json:"outcome"`
+	Retryable *bool                   `json:"retryable,omitempty"`
+}
+type RunnerCompletionOutcome string
+type RunnerCredential struct {
+	ExpiresAt time.Time `json:"expires_at"`
+	Runner    Runner    `json:"runner"`
+	Token     string    `json:"token"`
+}
+type RunnerHeartbeat struct {
+	Lease  WorkflowLease `json:"lease"`
+	Reason *string       `json:"reason,omitempty"`
+	Stop   bool          `json:"stop"`
+}
+type RunnerPage struct {
+	Complete   bool     `json:"complete"`
+	Items      []Runner `json:"items"`
+	NextCursor *string  `json:"next_cursor,omitempty"`
+}
+type RunnerPool struct {
+	Id            openapi_types.UUID   `json:"id"`
+	Name          string               `json:"name"`
+	OrgId         openapi_types.UUID   `json:"org_id"`
+	RepositoryIds []openapi_types.UUID `json:"repository_ids"`
+	State         RunnerPoolState      `json:"state"`
+	Version       int64                `json:"version"`
+}
+type RunnerPoolState string
+type RunnerPoolInput struct {
+	Name          string                `json:"name"`
+	RepositoryIds []openapi_types.UUID  `json:"repository_ids"`
+	State         *RunnerPoolInputState `json:"state,omitempty"`
+}
+type RunnerPoolInputState string
+type RunnerPoolPage struct {
+	Complete   bool         `json:"complete"`
+	Items      []RunnerPool `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
 type Session struct {
 	CsrfToken     string         `json:"csrf_token"`
 	Memberships   []Membership   `json:"memberships"`
@@ -955,6 +1088,28 @@ type RepositoriesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
+type ListRunnerPoolsParams struct {
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+type CreateRunnerPoolParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type UpdateRunnerPoolParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CreateRunnerEnrollmentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListRunnersParams struct {
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+type RevokeRunnerParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListTasksParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int64  `form:"limit,omitempty" json:"limit,omitempty"`
@@ -995,6 +1150,21 @@ type OidcCallbackParams struct {
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type UploadRunnerArtifactJSONBody = openapi_types.File
+type UploadRunnerArtifactTextBody = openapi_types.File
+type UploadRunnerArtifactParams struct {
+	XArtifactName string `json:"X-Artifact-Name"`
+}
+type EnrollRunnerJSONBody struct {
+	Name string `json:"name"`
+}
+type InvokeRunnerOperationJSONBody struct {
+	ConnectionId openapi_types.UUID     `json:"connection_id"`
+	Input        map[string]interface{} `json:"input"`
+}
+type RunnerProgressJSONBody struct {
+	State TaskState `json:"state"`
+}
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
@@ -1009,6 +1179,14 @@ type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
 type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
+type CreateRunnerPoolJSONRequestBody = RunnerPoolInput
+type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest
+type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
+type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody
+type EnrollRunnerJSONRequestBody EnrollRunnerJSONBody
+type InvokeRunnerOperationJSONRequestBody InvokeRunnerOperationJSONBody
+type RunnerProgressJSONRequestBody RunnerProgressJSONBody
+type RunnerResultJSONRequestBody = RunnerCompletion

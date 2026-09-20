@@ -4,6 +4,20 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type Artifact struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	TaskID       pgtype.UUID        `json:"task_id"`
+	AttemptID    pgtype.UUID        `json:"attempt_id"`
+	Name         string             `json:"name"`
+	MediaType    string             `json:"media_type"`
+	Size         int64              `json:"size"`
+	Sha256       string             `json:"sha256"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+}
+
 type AuditEvent struct {
 	ID           pgtype.UUID        `json:"id"`
 	OrgID        pgtype.UUID        `json:"org_id"`
@@ -21,6 +35,50 @@ type Bootstrap struct {
 	TokenHash  string             `json:"token_hash"`
 	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
 	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+}
+
+type BudgetLimit struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ScopeKind   string             `json:"scope_kind"`
+	ScopeID     pgtype.UUID        `json:"scope_id"`
+	Period      string             `json:"period"`
+	PeriodStart pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd   pgtype.Timestamptz `json:"period_end"`
+	Caps        []byte             `json:"caps"`
+	Held        []byte             `json:"held"`
+	Paused      bool               `json:"paused"`
+	Version     int64              `json:"version"`
+}
+
+type BudgetReservation struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	OperationID  pgtype.UUID        `json:"operation_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	TaskID       pgtype.UUID        `json:"task_id"`
+	JobID        pgtype.UUID        `json:"job_id"`
+	AttemptID    pgtype.UUID        `json:"attempt_id"`
+	Fingerprint  string             `json:"fingerprint"`
+	Record       []byte             `json:"record"`
+	State        string             `json:"state"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type BudgetRoute struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	ConnectionID pgtype.UUID `json:"connection_id"`
+	Model        string      `json:"model"`
+	Name         string      `json:"name"`
+	Config       []byte      `json:"config"`
+	Version      int64       `json:"version"`
+}
+
+type BudgetSpend struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ScopeKind   string             `json:"scope_kind"`
+	ScopeID     pgtype.UUID        `json:"scope_id"`
+	PeriodStart pgtype.Timestamptz `json:"period_start"`
+	Amount      []byte             `json:"amount"`
 }
 
 type Connection struct {
@@ -129,6 +187,64 @@ type Repository struct {
 	Accessible    bool               `json:"accessible"`
 	LastSyncedAt  pgtype.Timestamptz `json:"last_synced_at"`
 	Version       int64              `json:"version"`
+}
+
+type Runner struct {
+	OrgID               pgtype.UUID        `json:"org_id"`
+	ID                  pgtype.UUID        `json:"id"`
+	PoolID              pgtype.UUID        `json:"pool_id"`
+	Name                string             `json:"name"`
+	State               string             `json:"state"`
+	CredentialHash      string             `json:"credential_hash"`
+	CredentialExpiresAt pgtype.Timestamptz `json:"credential_expires_at"`
+	CredentialVersion   int64              `json:"credential_version"`
+	Version             int64              `json:"version"`
+	EnrolledAt          pgtype.Timestamptz `json:"enrolled_at"`
+	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
+}
+
+type RunnerEnrollment struct {
+	OrgID      pgtype.UUID        `json:"org_id"`
+	ID         pgtype.UUID        `json:"id"`
+	PoolID     pgtype.UUID        `json:"pool_id"`
+	TokenHash  string             `json:"token_hash"`
+	ExpiresAt  pgtype.Timestamptz `json:"expires_at"`
+	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
+	CreatedBy  pgtype.UUID        `json:"created_by"`
+}
+
+type RunnerJobCredential struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	RunnerID     pgtype.UUID        `json:"runner_id"`
+	PoolID       pgtype.UUID        `json:"pool_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	TaskID       pgtype.UUID        `json:"task_id"`
+	JobID        pgtype.UUID        `json:"job_id"`
+	AttemptID    pgtype.UUID        `json:"attempt_id"`
+	OperationID  pgtype.UUID        `json:"operation_id"`
+	FencingToken int64              `json:"fencing_token"`
+	PolicyHash   string             `json:"policy_hash"`
+	TokenHash    string             `json:"token_hash"`
+	Methods      []string           `json:"methods"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type RunnerPool struct {
+	OrgID     pgtype.UUID        `json:"org_id"`
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	State     string             `json:"state"`
+	Version   int64              `json:"version"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+type RunnerPoolRepository struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	PoolID       pgtype.UUID `json:"pool_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
 }
 
 type Session struct {
@@ -274,48 +390,4 @@ type WorkflowTask struct {
 	CreatedBy          pgtype.UUID        `json:"created_by"`
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ModelRoute         string             `json:"model_route"`
-}
-
-type BudgetLimit struct {
-	OrgID       pgtype.UUID        `json:"org_id"`
-	ScopeKind   string             `json:"scope_kind"`
-	ScopeID     pgtype.UUID        `json:"scope_id"`
-	Period      string             `json:"period"`
-	PeriodStart pgtype.Timestamptz `json:"period_start"`
-	PeriodEnd   pgtype.Timestamptz `json:"period_end"`
-	Caps        []byte             `json:"caps"`
-	Held        []byte             `json:"held"`
-	Paused      bool               `json:"paused"`
-	Version     int64              `json:"version"`
-}
-
-type BudgetReservation struct {
-	OrgID        pgtype.UUID        `json:"org_id"`
-	ID           pgtype.UUID        `json:"id"`
-	OperationID  pgtype.UUID        `json:"operation_id"`
-	RepositoryID pgtype.UUID        `json:"repository_id"`
-	TaskID       pgtype.UUID        `json:"task_id"`
-	JobID        pgtype.UUID        `json:"job_id"`
-	AttemptID    pgtype.UUID        `json:"attempt_id"`
-	Fingerprint  string             `json:"fingerprint"`
-	Record       []byte             `json:"record"`
-	State        string             `json:"state"`
-	CreatedAt    pgtype.Timestamptz `json:"created_at"`
-}
-
-type BudgetRoute struct {
-	OrgID        pgtype.UUID `json:"org_id"`
-	ConnectionID pgtype.UUID `json:"connection_id"`
-	Model        string      `json:"model"`
-	Name         string      `json:"name"`
-	Config       []byte      `json:"config"`
-	Version      int64       `json:"version"`
-}
-
-type BudgetSpend struct {
-	OrgID       pgtype.UUID        `json:"org_id"`
-	ScopeKind   string             `json:"scope_kind"`
-	ScopeID     pgtype.UUID        `json:"scope_id"`
-	PeriodStart pgtype.Timestamptz `json:"period_start"`
-	Amount      []byte             `json:"amount"`
 }
