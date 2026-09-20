@@ -275,3 +275,47 @@ type WorkflowTask struct {
 	CreatedAt          pgtype.Timestamptz `json:"created_at"`
 	ModelRoute         string             `json:"model_route"`
 }
+
+type BudgetLimit struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ScopeKind   string             `json:"scope_kind"`
+	ScopeID     pgtype.UUID        `json:"scope_id"`
+	Period      string             `json:"period"`
+	PeriodStart pgtype.Timestamptz `json:"period_start"`
+	PeriodEnd   pgtype.Timestamptz `json:"period_end"`
+	Caps        []byte             `json:"caps"`
+	Held        []byte             `json:"held"`
+	Paused      bool               `json:"paused"`
+	Version     int64              `json:"version"`
+}
+
+type BudgetReservation struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	OperationID  pgtype.UUID        `json:"operation_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	TaskID       pgtype.UUID        `json:"task_id"`
+	JobID        pgtype.UUID        `json:"job_id"`
+	AttemptID    pgtype.UUID        `json:"attempt_id"`
+	Fingerprint  string             `json:"fingerprint"`
+	Record       []byte             `json:"record"`
+	State        string             `json:"state"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type BudgetRoute struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	ConnectionID pgtype.UUID `json:"connection_id"`
+	Model        string      `json:"model"`
+	Name         string      `json:"name"`
+	Config       []byte      `json:"config"`
+	Version      int64       `json:"version"`
+}
+
+type BudgetSpend struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ScopeKind   string             `json:"scope_kind"`
+	ScopeID     pgtype.UUID        `json:"scope_id"`
+	PeriodStart pgtype.Timestamptz `json:"period_start"`
+	Amount      []byte             `json:"amount"`
+}
