@@ -14,7 +14,7 @@ const queryClient = new QueryClient({
 })
 
 const rootRoute = createRootRoute({
-  validateSearch: (search: Record<string, unknown>): { q?: string; provider?: string; team_id?: string; status?: string; repository?: string } => Object.fromEntries(['q', 'provider', 'team_id', 'status', 'repository'].filter(key => typeof search[key] === 'string' && String(search[key]).length <= 256).map(key => [key, search[key]])),
+  validateSearch: (search: Record<string, unknown>): { q?: string; provider?: string; team_id?: string; status?: string; repository?: string; finding?: string; run?: string; state?: string; category?: string; severity?: string; finding_state?: string; finding_category?: string; finding_severity?: string } => Object.fromEntries(['q', 'provider', 'team_id', 'status', 'repository', 'finding', 'run', 'state', 'category', 'severity', 'finding_state', 'finding_category', 'finding_severity'].filter(key => typeof search[key] === 'string' && String(search[key]).length <= 256).map(key => [key, search[key]])),
   component: AppShell,
 })
 const indexRoute = createRoute({
