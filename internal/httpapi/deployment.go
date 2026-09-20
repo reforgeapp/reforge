@@ -59,6 +59,20 @@ func (s *Server) RegisterDeployment(service *deployment.Service) {
 		}
 		c.JSON(200, out)
 	})
+	group.POST("/deployment-configurations/:environment/track", func(c *gin.Context) {
+		var in deployment.TrackRequest
+		if !identityJSON(c, &in) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(2 * time.Minute))
+		out, err := service.Track(c.Request.Context(), session, c.Param("orgID"), c.Param("environment"), in, c.GetString("request_id"))
+		if err != nil {
+			deploymentFailure(c, err)
+			return
+		}
+		c.JSON(201, out)
+	})
 	group.POST("/deployment-configurations/:environment/preview", func(c *gin.Context) {
 		var in deployment.PreviewRequest
 		if !identityJSON(c, &in) {

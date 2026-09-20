@@ -135,6 +135,15 @@ func (s *Service) Configurations(ctx context.Context, session auth.Session, org 
 }
 
 func (s *Service) PutConfiguration(ctx context.Context, session auth.Session, org string, in Configuration, expected int64, request string) (Configuration, error) {
+	if in.Workflow.Inputs == nil {
+		in.Workflow.Inputs = map[string]string{}
+	}
+	if in.RecoveryWorkflow != nil && in.RecoveryWorkflow.Inputs == nil {
+		in.RecoveryWorkflow.Inputs = map[string]string{}
+	}
+	if in.HealthChecks == nil {
+		in.HealthChecks = []string{}
+	}
 	if in.NativeEnvironment == "" {
 		in.NativeEnvironment = in.Environment
 	}

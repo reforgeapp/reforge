@@ -104,6 +104,9 @@ func (s *Service) List(ctx context.Context, session auth.Session, org, repo, env
 }
 
 func (s *Service) currentAuthority(ctx context.Context, tx pgx.Tx, session auth.Session, org string, gate Gate) (Configuration, error) {
+	if gate.Pipeline.ObserveOnly {
+		return Configuration{}, auth.ErrForbidden
+	}
 	a, err := s.auth.ActorTx(ctx, tx, session, org)
 	if err != nil {
 		return Configuration{}, err

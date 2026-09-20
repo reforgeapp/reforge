@@ -56,7 +56,7 @@ func (s *Service) cancel(ctx context.Context, session *auth.Session, org, id str
 		if err != nil {
 			return err
 		}
-		if !forge.PipelineMatches(gate.Pipeline, *out.Native) {
+		if gate.Pipeline.ObserveOnly || !forge.PipelineMatches(gate.Pipeline, *out.Native) {
 			return auth.ErrConflict
 		}
 		if out.CancelRequested {

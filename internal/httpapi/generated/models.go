@@ -1087,6 +1087,16 @@ type DeploymentRequestInput struct {
 	IdempotencyKey string `json:"idempotency_key"`
 }
 type DeploymentState string
+type DeploymentTrackInput struct {
+	ArtifactDigest      string                   `json:"artifact_digest"`
+	ChangeId            string                   `json:"change_id"`
+	IdempotencyKey      string                   `json:"idempotency_key"`
+	Provenance          SignedArtifactProvenance `json:"provenance"`
+	RecoveryOf          *string                  `json:"recovery_of,omitempty"`
+	RestoreDeploymentId *string                  `json:"restore_deployment_id,omitempty"`
+	RunId               string                   `json:"run_id"`
+	SourceSha           string                   `json:"source_sha"`
+}
 type DiscoveryScan struct {
 	ObservedAt   *time.Time         `json:"observed_at,omitempty"`
 	Reason       string             `json:"reason"`
@@ -2137,6 +2147,9 @@ type PutDeploymentConfigurationParams struct {
 type PreviewDeploymentParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type TrackDeploymentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListDeploymentsParams struct {
 	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
 	Environment  *string `form:"environment,omitempty" json:"environment,omitempty"`
@@ -2371,6 +2384,7 @@ type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
 type PutDeploymentConfigurationJSONRequestBody = DeploymentConfiguration
 type PreviewDeploymentJSONRequestBody = DeploymentPreviewInput
+type TrackDeploymentJSONRequestBody = DeploymentTrackInput
 type RequestDeploymentJSONRequestBody = DeploymentRequestInput
 type ImportAdvisoryJSONRequestBody = AdvisoryInput
 type UpdateFindingJSONRequestBody = FindingUpdate

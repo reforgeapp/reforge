@@ -71,7 +71,11 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 		}
 		return nil
 	}
-	result, err := s.providers.Read(ctx, org, gate.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgePipelineObserve, Pipeline: &pipeline}, check)
+	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgePipelineObserve, Pipeline: &pipeline}
+	if gate.Pipeline.ObserveOnly {
+		op = privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeDeliveryStatus, Delivery: &privateconnector.DeliveryArgs{Repository: pipeline.Repository, RunID: gate.Pipeline.RunID}}
+	}
+	result, err := s.providers.Read(ctx, org, gate.ConnectionID, op, check)
 	if err != nil {
 		return out, err
 	}
@@ -79,7 +83,7 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 		return out, auth.ErrConflict
 	}
 	native := *result.Deployment
-	if native.ID != "" && !forge.PipelineMatches(pipeline, native) {
+	if native.ID != "" && !observationMatches(gate.Pipeline, native) {
 		return out, auth.ErrConflict
 	}
 	cancelNative := false
@@ -133,7 +137,7 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 		if err != nil {
 			return err
 		}
-		if err == nil && native.ID != "" && (state == "running" || state == "awaiting_gates" || state == "recovering") {
+		if err == nil && !gate.Pipeline.ObserveOnly && native.ID != "" && (state == "running" || state == "awaiting_gates" || state == "recovering") {
 			if out.CancelRequested {
 				cancelNative = out.CancelState == "pending"
 			} else {

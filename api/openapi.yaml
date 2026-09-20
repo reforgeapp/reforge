@@ -7166,6 +7166,76 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/deployment-configurations/{environment}/track": {
+      "post": {
+        "operationId": "trackDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentOperation"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentTrackInput"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12886,6 +12956,47 @@
             "type": "string"
           },
           "url": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentTrackInput": {
+        "type": "object",
+        "required": [
+          "change_id",
+          "source_sha",
+          "artifact_digest",
+          "provenance",
+          "run_id",
+          "idempotency_key"
+        ],
+        "properties": {
+          "change_id": {
+            "type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/SignedArtifactProvenance"
+          },
+          "recovery_of": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "restore_deployment_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "idempotency_key": {
             "type": "string"
           }
         }

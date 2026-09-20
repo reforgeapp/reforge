@@ -33,6 +33,7 @@ type deploymentContractProvider struct {
 	failNext         bool
 	running          map[string]bool
 	holdNext         bool
+	trackState       string
 }
 
 func (p *deploymentContractProvider) ForProtection(string, map[string]string) providers.Client {
@@ -52,12 +53,21 @@ func (p *deploymentContractProvider) Read(ctx context.Context, org, id string, o
 		return privateconnector.Result{DeploymentGates: &forge.DeploymentGates{State: "configured", NativeEnforced: domain.Supported, Environment: op.Pipeline.Environment, RulesHash: strings.Repeat("c", 64)}}, nil
 	case privateconnector.ForgeDeliveryGates:
 		return privateconnector.Result{DeploymentGates: &forge.DeploymentGates{State: "configured", NativeEnforced: domain.Supported, Environment: op.Delivery.Environment, RulesHash: strings.Repeat("c", 64)}}, nil
+	case privateconnector.ForgeDeliveryStatus:
+		state := p.trackState
+		if state == "" {
+			state = "success"
+		}
+		return privateconnector.Result{Deployment: &forge.DeploymentStatus{ID: op.Delivery.RunID, State: state, SourceSHA: p.head, WorkflowSHA: strings.Repeat("d", 40), ArtifactDigest: "sha256:" + strings.Repeat("b", 64), Environment: "production", WorkflowID: "pipeline", WorkflowPath: ".gitlab-ci.yml", Ref: "refs/heads/main", Event: "api", RunAttempt: 1}}, nil
 	case privateconnector.ForgePipelineObserve:
 		p.mu.Lock()
 		defer p.mu.Unlock()
 		native, ok := p.native[op.Pipeline.CorrelationID]
 		if !ok {
-			return privateconnector.Result{}, nil
+			native = forge.DeploymentStatus{ID: op.Pipeline.RunID, State: p.trackState, SourceSHA: p.head, WorkflowSHA: strings.Repeat("d", 40), ArtifactDigest: "sha256:" + strings.Repeat("b", 64), Environment: op.Pipeline.Environment, CorrelationID: op.Pipeline.CorrelationID, WorkflowID: op.Pipeline.WorkflowID, WorkflowPath: op.Pipeline.WorkflowPath, Ref: op.Pipeline.Ref, Event: "api", RunAttempt: 1}
+			if native.State == "" {
+				native.State = "success"
+			}
 		}
 		if p.running[op.Pipeline.CorrelationID] {
 			native.State = "running"
@@ -403,5 +413,94 @@ func TestDeploymentSignedProvenanceAndHealthContract(t *testing.T) {
 	recoveredLost, err := restarted.Observe(ctx, f.org, lost.ID)
 	if err != nil || recoveredLost.State != "completed_unverified" || provider.dispatches != 7 || provider.cancelDispatches != cancelCount+1 {
 		t.Fatalf("restart cancellation recovery: %+v %v dispatches=%d cancels=%d", recoveredLost, err, provider.dispatches, provider.cancelDispatches)
+	}
+}
+
+func TestDeploymentTrackObserveOnlyContract(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	ctx := context.Background()
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE connections SET state='healthy',server_version='3.0',verified_at=now(),settings=jsonb_build_object('auth_kind','github_app','app_id','42') WHERE org_id=$1 AND id=$2`, f.org, f.connection.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.service.PutConfig(ctx, f.owner, f.org, f.repo, discovery.Config{MergeAuthority: "reforge"}, 0, "track-contract"); err != nil {
+		t.Fatal(err)
+	}
+	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	version, err := policies.CreateVersion(ctx, f.owner, f.org, policy.Scope{Kind: "organisation", ID: f.org}, policy.Policy{Schema: "maintenance/v1"}, "track policy", "track-policy")
+	if err != nil {
+		t.Fatal(err)
+	}
+	sim, err := policies.Simulate(ctx, f.owner, f.org, version.ID, f.repo, "", policy.Input{Action: policy.Read})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = policies.Activate(ctx, f.owner, f.org, version.ID, f.repo, "", 0, sim.Hash, "track policy", "track-policy"); err != nil {
+		t.Fatal(err)
+	}
+	pub, priv, _ := ed25519.GenerateKey(nil)
+	head := strings.Repeat("a", 40)
+	artifact := "sha256:" + strings.Repeat("b", 64)
+	repo := forge.RepoRef{NativeID: "1", FullName: "acme/repository-0000"}
+	provider := &deploymentContractProvider{queueContractProvider: &queueContractProvider{db: f.db, connections: f.connections, org: f.org, repo: repo, head: head, target: strings.Repeat("b", 40), tested: head, ciPassing: true, files: map[string]map[string][]byte{}}, native: map[string]forge.DeploymentStatus{}, failed: map[string]bool{}, running: map[string]bool{}, trackState: "running"}
+	svc := deployment.New(f.db, f.identity, f.connections, policies, provider)
+	config := deployment.Configuration{Environment: "production", RepositoryID: f.repo, Enabled: true, Mode: "observe", Workflow: deployment.Workflow{ID: "pipeline", Path: ".gitlab-ci.yml", Ref: "refs/heads/main", SHA: strings.Repeat("d", 40), ConfigSHA256: strings.Repeat("e", 64)}, ProvenancePublicKey: base64.StdEncoding.EncodeToString(pub), HealthPublicKey: base64.StdEncoding.EncodeToString(pub), HealthChecks: []string{"smoke"}, ObservationSeconds: 1, MaxEvidenceAgeSeconds: 300, DeadlineSeconds: 600}
+	config, err = svc.PutConfiguration(ctx, f.owner, f.org, config, 0, "track-config")
+	if err != nil {
+		t.Fatal(err)
+	}
+	provenance := deployment.Provenance{OrgID: f.org, RepositoryID: f.repo, SourceSHA: head, ArtifactDigest: artifact, BuildID: "track-build", IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour)}
+	raw, _ := json.Marshal(provenance)
+	signed := deployment.SignedProvenance{Document: provenance, Signature: base64.StdEncoding.EncodeToString(ed25519.Sign(priv, raw))}
+	in := deployment.TrackRequest{PreviewRequest: deployment.PreviewRequest{ChangeID: "1", SourceSHA: head, ArtifactDigest: artifact, Provenance: signed}, RunID: "123", IdempotencyKey: "track-key"}
+	op, err := svc.Track(ctx, f.owner, f.org, "production", in, "track")
+	if err != nil || op.State != "running" || provider.dispatches != 0 {
+		t.Fatalf("track: %+v %v writes=%d", op, err, provider.dispatches)
+	}
+	replay, err := svc.Track(ctx, f.owner, f.org, "production", in, "track-replay")
+	if err != nil || replay.ID != op.ID || provider.dispatches != 0 {
+		t.Fatalf("track replay: %+v %v writes=%d", replay, err, provider.dispatches)
+	}
+	paused := config
+	paused.Enabled = false
+	paused, err = svc.PutConfiguration(ctx, f.owner, f.org, paused, config.Version, "track-pause")
+	if err != nil {
+		t.Fatal(err)
+	}
+	observed, err := svc.Observe(ctx, f.org, op.ID)
+	if err != nil || provider.cancelDispatches != 0 || observed.State != "running" {
+		t.Fatalf("observe-only pause: %+v %v cancels=%d", observed, err, provider.cancelDispatches)
+	}
+	if _, err = svc.Cancel(ctx, f.owner, f.org, op.ID, observed.Version, "public-cancel"); err == nil {
+		t.Fatal("public cancel accepted observe-only operation")
+	}
+	config.Enabled = true
+	config, err = svc.PutConfiguration(ctx, f.owner, f.org, config, paused.Version, "track-resume")
+	if err != nil {
+		t.Fatal(err)
+	}
+	bad := in
+	bad.IdempotencyKey = "bad-proof"
+	bad.Provenance.Signature = base64.StdEncoding.EncodeToString(ed25519.Sign(priv, []byte("forged")))
+	if _, err = svc.Track(ctx, f.owner, f.org, "production", bad, "bad-proof"); err == nil {
+		t.Fatal("forged tracking proof accepted")
+	}
+	otherOrg := domain.NewID()
+	if err = f.db.Tenant(ctx, otherOrg, f.owner.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'Track other org')`, otherOrg); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO memberships(org_id,user_id,role,all_repositories) VALUES($1,$2,'owner',true)`, otherOrg, f.owner.User.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.Get(ctx, f.owner, otherOrg, op.ID); err == nil {
+		t.Fatal("cross-org tracked operation leaked")
 	}
 }
