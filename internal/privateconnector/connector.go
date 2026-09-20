@@ -47,6 +47,7 @@ type readiness struct {
 	ctx        context.Context
 }
 type pending struct {
+	check          func(context.Context) error
 	grant          Grant
 	credentialHash [32]byte
 	capabilityHash [32]byte
@@ -189,7 +190,8 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 		}
 	}
 	defer func() { c.mu.Lock(); delete(c.active, key); c.signal(); c.mu.Unlock() }()
-	authctx, cancel := context.WithTimeout(ctx, c.ttl)
+	operationTTL := operation.ttl(c.ttl)
+	authctx, cancel := context.WithTimeout(ctx, operationTTL)
 	defer cancel()
 	fresh, e := c.auth(authctx, ready.credential)
 	if e != nil {
@@ -206,6 +208,9 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 	called := false
 	attempted := false
 	deliver := func(spec GrantSpec) (Result, error) {
+		if operation.Mutation() && spec.Check == nil {
+			return Result{}, ErrInvalid
+		}
 		didCall := false
 		once.Do(func() {
 			didCall = true
@@ -234,7 +239,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 			}
 			capability := base64.RawURLEncoding.EncodeToString(secret)
 			clear(secret)
-			grant := Grant{ID: domain.NewID(), RunnerVersion: subject.Version, Target: target, Operation: operation, AuthorityID: spec.AuthorityID, Connection: spec.Connection, ExpiresAt: time.Now().UTC().Add(c.ttl), ResultCapability: capability}
+			grant := Grant{ID: domain.NewID(), RunnerVersion: subject.Version, Target: target, Operation: operation, AuthorityID: spec.AuthorityID, Connection: spec.Connection, ExpiresAt: time.Now().UTC().Add(operationTTL), ResultCapability: capability}
 			if deadline, ok := authctx.Deadline(); ok && deadline.Before(grant.ExpiresAt) {
 				grant.ExpiresAt = deadline
 			}
@@ -249,7 +254,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 				deliveryErr = ErrInvalid
 				return
 			}
-			item := &pending{grant: grant, credentialHash: credentialHash, capabilityHash: sha256.Sum256([]byte(capability)), result: make(chan Result, 1)}
+			item := &pending{check: spec.Check, grant: grant, credentialHash: credentialHash, capabilityHash: sha256.Sum256([]byte(capability)), result: make(chan Result, 1)}
 			c.mu.Lock()
 			c.pruneUsed()
 			_, exists := c.used[opKey]
@@ -360,7 +365,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil} {
+	for _, present := range []bool{r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil} {
 		if present {
 			count++
 		}
@@ -376,6 +381,12 @@ func (r Result) valid(kind Kind) bool {
 		return false
 	}
 	switch kind {
+	case ForgeCommitProof:
+		return count == 1 && r.Commit != nil
+	case ModelTurn:
+		return count == 1 && r.Turn != nil && r.Turn.Usage.Known
+	case ForgeFindChange:
+		return count == 0 || count == 1 && r.Change != nil
 	case ForgeSourceManifest:
 		return count == 1 && r.Manifest != nil
 	case ForgeReconcileChanges:
@@ -390,11 +401,11 @@ func (r Result) valid(kind Kind) bool {
 		return count == 1 && r.Inventory != nil
 	case GiteaRepository:
 		return count == 1 && r.Repository != nil
-	case GiteaResolveRef:
+	case GiteaResolveRef, ForgeUpdateBranch:
 		return count == 1 && r.SHA != ""
 	case GiteaReadFile:
 		return count == 1 && r.File != nil
-	case GiteaReadChange:
+	case GiteaReadChange, ForgeCreateChange:
 		return count == 1 && r.Change != nil
 	case GiteaChecks:
 		return count == 0 || count == 1 && r.Checks != nil
@@ -402,4 +413,31 @@ func (r Result) valid(kind Kind) bool {
 		return count == 0 || count == 1 && r.Approvals != nil
 	}
 	return false
+}
+
+func (c *Connector) Active(ctx context.Context, credential, grantID, capability string) error {
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	if !auth.ValidID(grantID) || len(credential) > 256 || len(capability) > 64 {
+		return auth.ErrUnauthenticated
+	}
+	key := sha256.Sum256([]byte(credential))
+	cap := sha256.Sum256([]byte(capability))
+	c.mu.Lock()
+	item := c.pending[grantID]
+	if c.stopped || item == nil || item.consumed || !item.grant.ExpiresAt.After(time.Now()) {
+		c.mu.Unlock()
+		return auth.ErrUnauthenticated
+	}
+	if subtle.ConstantTimeCompare(key[:], item.credentialHash[:])&subtle.ConstantTimeCompare(cap[:], item.capabilityHash[:]) != 1 {
+		c.mu.Unlock()
+		return auth.ErrUnauthenticated
+	}
+	check := item.check
+	c.mu.Unlock()
+	if check != nil {
+		return check(ctx)
+	}
+	return nil
 }

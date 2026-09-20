@@ -361,3 +361,33 @@ func TestReplayWindowExpiresAcrossMoreThanLifetimeLimit(t *testing.T) {
 		t.Fatal("expired tombstones retained")
 	}
 }
+
+func TestGrantLivenessEndsOnCancellationAndRejectsOtherCapability(t *testing.T) {
+	f := fixture(t)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	op := Operation{ID: domain.NewID(), Kind: GiteaProbe}
+	done := make(chan error, 1)
+	go func() {
+		_, err := f.connector.Dispatch(ctx, f.target, op, func(ctx context.Context, r Ready, deliver Deliver) error {
+			_, err := deliver(f.spec(op.ID))
+			return err
+		})
+		done <- err
+	}()
+	grant, err := f.connector.Poll(context.Background(), f.credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.connector.Active(context.Background(), f.credential, grant.ID, grant.ResultCapability); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.connector.Active(context.Background(), f.credential, grant.ID, "other"); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Fatal("wrong capability observed grant")
+	}
+	cancel()
+	<-done
+	if err = f.connector.Active(context.Background(), f.credential, grant.ID, grant.ResultCapability); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Fatal("cancelled grant still active")
+	}
+}

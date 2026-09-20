@@ -104,7 +104,7 @@ func (c *Client) Poll(ctx context.Context) (Grant, error) {
 	if e != nil || grant.Target != c.target {
 		return Grant{}, ErrInvalid
 	}
-	if grant.TimeoutMS < 1 || grant.TimeoutMS > MaxTTL.Milliseconds() {
+	if grant.TimeoutMS < 1 || grant.TimeoutMS > grant.Operation.MaximumTTL().Milliseconds() {
 		return Grant{}, ErrInvalid
 	}
 	grant.executionDeadline = started.Add(time.Duration(grant.TimeoutMS) * time.Millisecond)
@@ -126,7 +126,43 @@ func (c *Client) RunOnce(ctx context.Context) error {
 	if e != nil {
 		return e
 	}
-	result := c.executor.Execute(ctx, grant)
+	execution, stop := context.WithCancel(ctx)
+	done := make(chan struct{})
+	if grant.Operation.Kind == ModelTurn {
+		go func() {
+			defer close(done)
+			ticker := time.NewTicker(time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-execution.Done():
+					return
+				case <-ticker.C:
+					check, cancel := context.WithTimeout(execution, 3*time.Second)
+					body, _ := json.Marshal(map[string]string{"grant_id": grant.ID})
+					_, _, err := c.request(check, "/runner/v1/private/status", body, grant.ResultCapability)
+					cancel()
+					if err != nil {
+						stop()
+						return
+					}
+				}
+			}
+		}()
+	} else {
+		close(done)
+	}
+	executor := c.executor
+	if grant.Operation.Mutation() {
+		executor.Authorize = func(ctx context.Context) error {
+			body, _ := json.Marshal(map[string]string{"grant_id": grant.ID})
+			_, _, err := c.request(ctx, "/runner/v1/private/status", body, grant.ResultCapability)
+			return err
+		}
+	}
+	result := executor.Execute(execution, grant)
+	stop()
+	<-done
 	defer func() { grant.Connection.Secret = ""; grant.ResultCapability = "" }()
 	return c.Complete(ctx, grant, result)
 }

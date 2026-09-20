@@ -15,22 +15,30 @@ import (
 	"reforge/internal/model/google"
 	"reforge/internal/model/openai"
 	"reforge/internal/network"
+	"reforge/internal/privateconnector"
 )
 
 type Factory struct{ Development bool }
 
-func (f Factory) Forge(ctx context.Context, r connections.Resolved) (forge.Provider, error) {
+func (f Factory) Forge(ctx context.Context, r connections.Resolved, checks ...func(context.Context) error) (forge.Provider, error) {
 	c := r.Connection
 	if c.Route != nil || r.Client == nil || (c.Kind != "forge" && c.Kind != "delivery") {
 		return nil, network.ErrDestination
 	}
-	cfg := forge.Config{OrgID: c.OrgID, ConnectionID: c.ID, BaseURL: c.Endpoint, Token: r.Secret, Client: r.Client, ServerVersion: c.ServerVersion}
+	var client forge.HTTPClient = r.Client
+	if len(checks) == 1 {
+		client = privateconnector.GuardHTTP(client, checks[0])
+	}
+	cfg := forge.Config{OrgID: c.OrgID, ConnectionID: c.ID, BaseURL: c.Endpoint, Token: r.Secret, Client: client, ServerVersion: c.ServerVersion}
 	switch c.Provider {
 	case "github":
-		if c.Settings.AuthKind != "github_app" {
-			return github.New(cfg)
+		var p *github.Provider
+		var err error
+		if c.Settings.AuthKind == "github_app" {
+			p, err = github.NewApp(ctx, cfg, github.AppConfig{AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, PrivateKeyPEM: []byte(r.Secret)})
+		} else {
+			p, err = github.New(cfg)
 		}
-		p, err := github.NewApp(ctx, cfg, github.AppConfig{AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, PrivateKeyPEM: []byte(r.Secret)})
 		if err != nil {
 			return nil, err
 		}
@@ -49,7 +57,11 @@ func (f Factory) Forge(ctx context.Context, r connections.Resolved) (forge.Provi
 		if err != nil {
 			return nil, err
 		}
-		return p.WithGraphQL(u.String(), client)
+		var graph forge.HTTPClient = client
+		if len(checks) == 1 {
+			graph = privateconnector.GuardHTTP(graph, checks[0])
+		}
+		return p.WithGraphQL(u.String(), graph)
 	case "gitlab":
 		return gitlab.New(cfg)
 	case "gitea":
@@ -83,6 +95,9 @@ func (f Factory) Probe(ctx context.Context, r connections.Resolved) (connections
 		p, err := f.Forge(ctx, r)
 		if err != nil {
 			return out, err
+		}
+		if closer, ok := p.(interface{ CloseIdleConnections() }); ok {
+			defer closer.CloseIdleConnections()
 		}
 		caps, err := p.ProbeCapabilities(ctx)
 		out.Capabilities, out.ServerVersion = caps.Features, caps.ServerVersion

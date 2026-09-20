@@ -56,6 +56,19 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 		}
 		c.Data(200, "application/json", raw)
 	})
+	group.POST("/status", func(c *gin.Context) {
+		var in struct {
+			GrantID string `json:"grant_id"`
+		}
+		if !identityJSON(c, &in) {
+			return
+		}
+		if err := connector.Active(c.Request.Context(), c.GetString("private_credential"), in.GrantID, c.GetHeader("X-Private-Result-Capability")); err != nil {
+			privateFailure(c, err)
+			return
+		}
+		c.Status(204)
+	})
 	group.POST("/results", func(c *gin.Context) {
 		_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(5 * time.Second))
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, privateconnector.MaxResponse)

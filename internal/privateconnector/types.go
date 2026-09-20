@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"reforge/internal/auth"
@@ -17,6 +18,7 @@ import (
 
 const MaxResponse = 6 << 20
 const MaxGrant = 1 << 20
+const MaxModelTTL = 5 * time.Minute
 const MaxTTL = 30 * time.Second
 const DefaultTTL = 10 * time.Second
 
@@ -29,6 +31,10 @@ var ErrUncertain = errors.New("private operation outcome uncertain; reconcile be
 type Kind string
 
 const (
+	ForgeCommitProof      Kind = "forge.commit_proof"
+	ForgeUpdateBranch     Kind = "forge.update_branch"
+	ForgeCreateChange     Kind = "forge.create_change"
+	ForgeFindChange       Kind = "forge.find_change"
 	ForgeProbe            Kind = "forge.probe"
 	ForgeInventory        Kind = "forge.inventory"
 	ForgeRepository       Kind = "forge.repository"
@@ -41,6 +47,7 @@ const (
 	ForgeReconcileChanges Kind = "forge.reconcile_changes"
 	ModelProbe            Kind = "model.probe"
 	ModelList             Kind = "model.list"
+	ModelTurn             Kind = "model.turn"
 	GiteaProbe                 = ForgeProbe
 	GiteaInventory             = ForgeInventory
 	GiteaRepository            = ForgeRepository
@@ -50,6 +57,13 @@ const (
 	GiteaChecks                = ForgeChecks
 	GiteaApprovals             = ForgeApprovals
 )
+
+type FindChangeArgs struct {
+	Repository   forge.RepoRef `json:"repository"`
+	OperationID  string        `json:"operation_id"`
+	HeadBranch   string        `json:"head_branch"`
+	TargetBranch string        `json:"target_branch"`
+}
 
 type ChangesArgs struct {
 	Repository forge.RepoRef `json:"repository"`
@@ -82,16 +96,21 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
-	Source     *ChecksArgs     `json:"source,omitempty"`
-	Changes    *ChangesArgs    `json:"changes,omitempty"`
-	ID         string          `json:"id"`
-	Kind       Kind            `json:"kind"`
-	Inventory  *InventoryArgs  `json:"inventory,omitempty"`
-	Repository *RepositoryArgs `json:"repository,omitempty"`
-	Ref        *RefArgs        `json:"ref,omitempty"`
-	File       *FileArgs       `json:"file,omitempty"`
-	Change     *ChangeArgs     `json:"change,omitempty"`
-	Checks     *ChecksArgs     `json:"checks,omitempty"`
+	Commit     *ChecksArgs                `json:"commit,omitempty"`
+	Branch     *forge.UpdateBranchRequest `json:"branch,omitempty"`
+	Create     *forge.CreateChangeRequest `json:"create,omitempty"`
+	Find       *FindChangeArgs            `json:"find,omitempty"`
+	Turn       *model.Turn                `json:"turn,omitempty"`
+	Source     *ChecksArgs                `json:"source,omitempty"`
+	Changes    *ChangesArgs               `json:"changes,omitempty"`
+	ID         string                     `json:"id"`
+	Kind       Kind                       `json:"kind"`
+	Inventory  *InventoryArgs             `json:"inventory,omitempty"`
+	Repository *RepositoryArgs            `json:"repository,omitempty"`
+	Ref        *RefArgs                   `json:"ref,omitempty"`
+	File       *FileArgs                  `json:"file,omitempty"`
+	Change     *ChangeArgs                `json:"change,omitempty"`
+	Checks     *ChecksArgs                `json:"checks,omitempty"`
 }
 
 func (o Operation) Validate() error { return o.validate() }
@@ -101,13 +120,23 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil} {
+	for _, present := range []bool{o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeCommitProof:
+		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""
+	case ForgeUpdateBranch:
+		valid = o.Branch != nil && o.Branch.OperationID == o.ID && strings.HasPrefix(o.Branch.Branch, "reforge/") && len(o.Branch.Edits) > 0 && len(o.Branch.Edits) <= 20 && len(o.Branch.BaseSHA) == 40
+	case ForgeCreateChange:
+		valid = o.Create != nil && o.Create.OperationID == o.ID && strings.HasPrefix(o.Create.HeadBranch, "reforge/") && len(o.Create.ExpectedHeadSHA) == 40
+	case ForgeFindChange:
+		valid = o.Find != nil && auth.ValidID(o.Find.OperationID) && strings.HasPrefix(o.Find.HeadBranch, "reforge/") && len(o.Find.TargetBranch) > 0 && len(o.Find.TargetBranch) <= 255
+	case ModelTurn:
+		valid = o.Turn != nil && o.Turn.Valid() && o.Turn.OperationID == o.ID
 	case ForgeSourceManifest:
 		valid = o.Source != nil && len(o.Source.CommitSHA) == 40 && o.Source.Repository.NativeID != "" && len(o.Source.Repository.NativeID) <= 256 && len(o.Source.Repository.FullName) <= 1024
 	case ForgeProbe, ModelProbe, ModelList:
@@ -175,6 +204,7 @@ func (r Ready) GoString() string     { return r.String() }
 func (r Ready) LogValue() slog.Value { return slog.StringValue(r.String()) }
 
 type GrantSpec struct {
+	Check          func(context.Context) error `json:"-"`
 	RunnerVersion  int64
 	CredentialHash string `json:"-"`
 	OperationID    string
@@ -209,6 +239,8 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	Commit            *forge.CommitProof             `json:"commit,omitempty"`
+	Turn              *model.TurnResult              `json:"turn,omitempty"`
 	Manifest          *forge.SourceManifest          `json:"manifest,omitempty"`
 	Changes           *domain.Page[forge.Change]     `json:"changes,omitempty"`
 	ModelCapabilities *model.Capabilities            `json:"model_capabilities,omitempty"`
@@ -249,3 +281,18 @@ func DecodeGrant(b []byte) (Grant, error) {
 	w.Grant.ResultCapability = w.Capability
 	return w.Grant, nil
 }
+
+func (o Operation) MaximumTTL() time.Duration {
+	if o.Kind == ModelTurn {
+		return MaxModelTTL
+	}
+	return MaxTTL
+}
+func (o Operation) ttl(fallback time.Duration) time.Duration {
+	if o.Kind == ModelTurn && o.Turn != nil {
+		return time.Duration(o.Turn.TimeoutMS) * time.Millisecond
+	}
+	return fallback
+}
+
+func (o Operation) Mutation() bool { return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange }

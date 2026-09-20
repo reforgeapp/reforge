@@ -20,6 +20,7 @@ import (
 )
 
 type Service struct {
+	exclusive   bool
 	db          *store.Store
 	connections *connections.Service
 	private     *privateconnector.Connector
@@ -31,9 +32,11 @@ func New(db *store.Store, connections *connections.Service, private *privateconn
 	return &Service{db: db, connections: connections, private: private, runners: runners, factory: Factory{Development: development}}
 }
 
+func (s Service) ForExecution() *Service { s.exclusive = true; return &s }
+
 func (s *Service) Read(ctx context.Context, orgID, connectionID string, op privateconnector.Operation, authorize func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
 	var result privateconnector.Result
-	if !auth.ValidID(orgID) || !auth.ValidID(connectionID) || authorize == nil || op.Validate() != nil {
+	if !auth.ValidID(orgID) || !auth.ValidID(connectionID) || authorize == nil || op.Validate() != nil || op.Mutation() {
 		return result, auth.ErrInvalid
 	}
 	var initial connections.Connection
@@ -45,12 +48,19 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 	if err != nil {
 		return result, err
 	}
+	if initial.State != "healthy" || (initial.Kind != "forge" && initial.Kind != "delivery") {
+		return result, auth.ErrConflict
+	}
 	read := func(ctx context.Context, ready *privateconnector.Ready, deliver privateconnector.Deliver) error {
 		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 		defer cancel()
 		return s.db.Tenant(ctx, orgID, "", func(tx pgx.Tx) error {
 			var locked string
-			if err := tx.QueryRow(ctx, `SELECT id::text FROM organisations WHERE id=$1 FOR SHARE`, orgID).Scan(&locked); err != nil {
+			lock := `SELECT id::text FROM organisations WHERE id=$1 FOR SHARE`
+			if s.exclusive {
+				lock = `SELECT id::text FROM organisations WHERE id=$1 FOR UPDATE`
+			}
+			if err := tx.QueryRow(ctx, lock, orgID).Scan(&locked); err != nil {
 				return err
 			}
 			current, err := s.connections.MetadataTx(ctx, tx, orgID, connectionID)
@@ -83,7 +93,7 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 				defer resolved.Client.CloseIdleConnections()
 			}
 			if ready != nil {
-				result, err = deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: privateConnection(resolved)})
+				result, err = deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: PrivateConnection(resolved)})
 			} else {
 				var provider forge.Provider
 				provider, err = s.factory.Forge(ctx, resolved)

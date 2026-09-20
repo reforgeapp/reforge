@@ -450,3 +450,23 @@ func (s *Service) WithMutation(ctx context.Context, session Session, orgID strin
 		return fn(tx, actor)
 	})
 }
+
+func (s *Service) ActorTx(ctx context.Context, tx pgx.Tx, session Session, org string) (domain.Actor, error) {
+	if !ValidID(org) || !ValidID(session.User.ID) {
+		return domain.Actor{}, ErrForbidden
+	}
+	var current string
+	if err := tx.QueryRow(ctx, `SELECT current_setting('reforge.org_id',true)`).Scan(&current); err != nil {
+		return domain.Actor{}, err
+	}
+	if current != org {
+		return domain.Actor{}, ErrForbidden
+	}
+	if _, err := tx.Exec(ctx, `SELECT set_config('reforge.user_id',$1,true)`, session.User.ID); err != nil {
+		return domain.Actor{}, err
+	}
+	if err := lockSession(ctx, tx, session); err != nil {
+		return domain.Actor{}, err
+	}
+	return liveActor(ctx, tx, session, org)
+}

@@ -35,7 +35,7 @@ func RegisterPrivate(service *connections.Service, connector *privateconnector.C
 				if err := runners.ValidatePrivateSupervisorTx(ctx, tx, ready.Runner, ready.CredentialHash); err != nil {
 					return connections.ProbeResult{}, err
 				}
-				result, err := deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: privateConnection(r)})
+				result, err := deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: PrivateConnection(r)})
 				if err != nil {
 					return connections.ProbeResult{}, err
 				}
@@ -57,7 +57,7 @@ func RegisterPrivate(service *connections.Service, connector *privateconnector.C
 		return err
 	})
 }
-func privateConnection(r connections.Resolved) privateconnector.Connection {
+func PrivateConnection(r connections.Resolved) privateconnector.Connection {
 	c := r.Connection
 	return privateconnector.Connection{Kind: c.Kind, AuthKind: c.Settings.AuthKind, AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, Model: c.Settings.Model, Profile: c.Settings.Profile, OrgID: c.OrgID, ID: c.ID, Version: c.Version, CredentialVersion: c.CredentialVersion, Provider: c.Provider, Endpoint: c.Endpoint, CAPEM: []byte(c.Settings.CAPEM), Secret: r.Secret, Route: network.PrivateRoute{OrgID: c.OrgID, ConnectionID: c.ID, RunnerID: c.Route.RunnerID, Host: c.Route.Host, CIDRs: append([]string(nil), c.Route.CIDRs...)}}
 }

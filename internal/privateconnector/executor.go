@@ -25,6 +25,7 @@ import (
 )
 
 type Executor struct {
+	Authorize   func(context.Context) error
 	Target      Target
 	Development bool
 }
@@ -72,7 +73,7 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 		return fail("invalid", false)
 	}
 	remaining := time.Until(grant.executionDeadline)
-	if remaining <= 0 || remaining > MaxTTL || grant.TimeoutMS < 1 || grant.TimeoutMS > MaxTTL.Milliseconds() || !grant.ExpiresAt.After(time.Now()) {
+	if remaining <= 0 || remaining > grant.Operation.MaximumTTL() || grant.TimeoutMS < 1 || grant.TimeoutMS > grant.Operation.MaximumTTL().Milliseconds() || !grant.ExpiresAt.After(time.Now()) {
 		return fail("expired", false)
 	}
 	ctx, cancel := context.WithDeadline(ctx, grant.executionDeadline)
@@ -83,6 +84,12 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 	}
 	defer client.CloseIdleConnections()
 	if grant.Connection.Kind == "model" {
+		if grant.Operation.Kind == ModelTurn {
+			if grant.Operation.Turn.Model != grant.Connection.Model {
+				return fail("invalid", false)
+			}
+			client.Timeout = grant.Operation.MaximumTTL()
+		}
 		var provider model.ModelProvider
 		cfg := model.Config{Endpoint: grant.Connection.Endpoint, APIKey: grant.Connection.Secret, Model: grant.Connection.Model, Profile: grant.Connection.Profile, Client: client}
 		switch grant.Connection.Provider {
@@ -103,24 +110,62 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 				result.ModelCapabilities = &caps
 			case ModelList:
 				result.Models, err = provider.ListModels(ctx)
+			case ModelTurn:
+				var turn model.TurnResult
+				turn, err = model.CollectTurn(ctx, provider, *grant.Operation.Turn)
+				result.Turn = &turn
 			default:
 				return fail("unsupported", false)
 			}
 		}
 	} else {
 		var provider forge.Provider
-		cfg := forge.Config{OrgID: e.Target.OrgID, ConnectionID: grant.Connection.ID, BaseURL: grant.Connection.Endpoint, Token: grant.Connection.Secret, Client: client}
+		var transport forge.HTTPClient = client
+		if grant.Operation.Mutation() {
+			if e.Authorize == nil {
+				return fail("forbidden", false)
+			}
+			transport = GuardHTTP(client, e.Authorize)
+		}
+		cfg := forge.Config{OrgID: e.Target.OrgID, ConnectionID: grant.Connection.ID, BaseURL: grant.Connection.Endpoint, Token: grant.Connection.Secret, Client: transport}
 		switch grant.Connection.Provider {
 		case "gitea":
 			provider, err = gitea.New(cfg)
 		case "gitlab":
 			provider, err = gitlab.New(cfg)
+
 		case "github":
+			var p *github.Provider
 			if grant.Connection.AuthKind == "github_app" {
-				provider, err = github.NewApp(ctx, cfg, github.AppConfig{AppID: grant.Connection.AppID, InstallationID: grant.Connection.InstallationID, PrivateKeyPEM: []byte(grant.Connection.Secret)})
+				p, err = github.NewApp(ctx, cfg, github.AppConfig{AppID: grant.Connection.AppID, InstallationID: grant.Connection.InstallationID, PrivateKeyPEM: []byte(grant.Connection.Secret)})
 			} else {
-				provider, err = github.New(cfg)
+				p, err = github.New(cfg)
 			}
+			if err == nil {
+				u, parseErr := url.Parse(grant.Connection.Endpoint)
+				if parseErr != nil {
+					return fail("configuration", false)
+				}
+				switch u.Path {
+				case "", "/":
+					u.Path = "/graphql"
+				case "/api/v3", "/api/v3/":
+					u.Path = "/api/graphql"
+				default:
+					return fail("configuration", false)
+				}
+				graph, graphErr := network.NewClient(u.String(), network.Options{RunnerID: e.Target.RunnerID, PrivateRoute: &grant.Connection.Route, CAPEM: grant.Connection.CAPEM, Development: e.Development})
+				if graphErr != nil {
+					return fail("configuration", false)
+				}
+				defer graph.CloseIdleConnections()
+				var graphTransport forge.HTTPClient = graph
+				if grant.Operation.Mutation() {
+					graphTransport = GuardHTTP(graph, e.Authorize)
+				}
+				provider, err = p.WithGraphQL(u.String(), graphTransport)
+			}
+
 		}
 		if err == nil {
 			result, err = ReadForge(ctx, provider, grant.Operation)
@@ -169,11 +214,32 @@ func safeControllerURL(endpoint string, development bool) (string, error) {
 
 func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Result, error) {
 	result := Result{OperationID: op.ID}
+	if closer, ok := provider.(interface{ CloseIdleConnections() }); ok {
+		defer closer.CloseIdleConnections()
+	}
 	if err := op.validate(); err != nil {
 		return result, err
 	}
 	var err error
 	switch op.Kind {
+	case ForgeCommitProof:
+		reader, ok := provider.(forge.ForgeCommits)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var proof forge.CommitProof
+		proof, err = reader.ReadCommitProof(ctx, op.Commit.Repository, op.Commit.CommitSHA)
+		result.Commit = &proof
+	case ForgeUpdateBranch:
+		provider = BindForgeOperation(provider, op)
+		result.SHA, err = provider.UpdateAppBranch(ctx, *op.Branch)
+	case ForgeCreateChange:
+		provider = BindForgeOperation(provider, op)
+		var change forge.Change
+		change, err = provider.CreateChange(ctx, *op.Create)
+		result.Change = &change
+	case ForgeFindChange:
+		result.Change, err = provider.FindChangeByOperation(ctx, op.Find.Repository, op.Find.OperationID, op.Find.HeadBranch, op.Find.TargetBranch)
 	case ForgeSourceManifest:
 		reader, ok := provider.(forge.ForgeSource)
 		if !ok {

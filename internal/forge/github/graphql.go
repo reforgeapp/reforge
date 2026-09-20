@@ -250,3 +250,9 @@ type graphRef struct {
 		OID string `json:"oid"`
 	} `json:"target"`
 }
+
+func (p *Provider) CloseIdleConnections() {
+	if c, ok := p.graphClient.(interface{ CloseIdleConnections() }); ok {
+		c.CloseIdleConnections()
+	}
+}

@@ -23,12 +23,13 @@ import (
 )
 
 type Service struct {
-	db         *store.Store
-	auth       *auth.Service
-	workflow   *workflow.Service
-	artifacts  *artifact.Local
-	mu         sync.RWMutex
-	operations map[string]FixedOperation
+	db              *store.Store
+	auth            *auth.Service
+	workflow        *workflow.Service
+	artifacts       *artifact.Local
+	mu              sync.RWMutex
+	operations      map[string]FixedOperation
+	CompletionCheck func(context.Context, pgx.Tx, workflow.Lease, workflow.Task, workflow.Completion) error
 }
 
 func New(db *store.Store, identity *auth.Service, jobs *workflow.Service, artifacts *artifact.Local) *Service {

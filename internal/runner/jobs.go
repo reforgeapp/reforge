@@ -97,33 +97,7 @@ func (s *Service) withJob(ctx context.Context, raw, method, action string, fn fu
 	if err != nil {
 		return err
 	}
-	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		if err := lockOrg(ctx, tx, org); err != nil {
-			return err
-		}
-		var l workflow.Lease
-		var digest, pool string
-		var valid bool
-		err := tx.QueryRow(ctx, `SELECT c.org_id::text,c.repository_id::text,c.task_id::text,c.job_id::text,c.attempt_id::text,c.operation_id::text,c.runner_id::text,c.fencing_token,c.policy_hash,c.pool_id::text,c.token_hash,c.revoked_at IS NULL AND c.expires_at>clock_timestamp() AND $3=ANY(c.methods) AND r.state='active' AND r.credential_expires_at>clock_timestamp() AND p.state='active' AND EXISTS(SELECT 1 FROM runner_pool_repositories rp WHERE rp.org_id=c.org_id AND rp.pool_id=c.pool_id AND rp.repository_id=c.repository_id) FROM runner_job_credentials c JOIN runners r ON r.org_id=c.org_id AND r.id=c.runner_id JOIN runner_pools p ON p.org_id=c.org_id AND p.id=c.pool_id WHERE c.org_id=$1 AND c.id=$2 FOR UPDATE OF c,r`, org, id, method).Scan(&l.OrgID, &l.RepositoryID, &l.TaskID, &l.JobID, &l.AttemptID, &l.OperationID, &l.WorkerID, &l.Fence, &l.PolicyHash, &pool, &digest, &valid)
-		if err != nil || !valid || !matches(raw, digest) {
-			return auth.ErrUnauthenticated
-		}
-		checkAction := action
-		if action == "policy-revocation" {
-			checkAction = "observe"
-		}
-		task, err := s.workflow.ValidateFenceTx(ctx, tx, l, checkAction)
-		if err != nil {
-			return err
-		}
-		if task.RunnerPoolID != pool {
-			return auth.ErrForbidden
-		}
-		if _, err = tx.Exec(ctx, `UPDATE runners SET last_seen_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, org, l.WorkerID); err != nil {
-			return err
-		}
-		return fn(tx, l, task, id)
-	})
+	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error { return s.jobTx(ctx, tx, raw, org, id, method, action, fn) })
 	if errors.Is(err, workflow.ErrPolicy) && action != "policy-revocation" {
 		blockErr := s.withJob(ctx, raw, method, "policy-revocation", func(tx pgx.Tx, l workflow.Lease, _ workflow.Task, _ string) error {
 			return s.invalidateTx(ctx, tx, l.OrgID, l.WorkerID, false)
@@ -159,6 +133,11 @@ func (s *Service) Complete(ctx context.Context, raw string, in workflow.Completi
 	var result workflow.Task
 	err := s.withJob(ctx, raw, "result", "observe", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
 		var err error
+		if s.CompletionCheck != nil {
+			if err = s.CompletionCheck(ctx, tx, l, t, in); err != nil {
+				return err
+			}
+		}
 		result, err = s.workflow.CompleteTx(ctx, tx, l, in)
 		if err != nil {
 			return err
@@ -323,4 +302,50 @@ func optional(s string) any {
 		return nil
 	}
 	return s
+}
+
+func (s *Service) WithJob(ctx context.Context, raw, action string, fn func(pgx.Tx, workflow.Lease, workflow.Task) error) error {
+	if fn == nil {
+		return auth.ErrInvalid
+	}
+	return s.withJob(ctx, raw, "broker", action, func(tx pgx.Tx, l workflow.Lease, t workflow.Task, _ string) error { return fn(tx, l, t) })
+}
+
+func (s *Service) jobTx(ctx context.Context, tx pgx.Tx, raw, org, id, method, action string, fn func(pgx.Tx, workflow.Lease, workflow.Task, string) error) error {
+	if err := lockOrg(ctx, tx, org); err != nil {
+		return err
+	}
+	var l workflow.Lease
+	var digest, pool string
+	var valid bool
+	err := tx.QueryRow(ctx, `SELECT c.org_id::text,c.repository_id::text,c.task_id::text,c.job_id::text,c.attempt_id::text,c.operation_id::text,c.runner_id::text,c.fencing_token,c.policy_hash,c.pool_id::text,c.token_hash,c.revoked_at IS NULL AND c.expires_at>clock_timestamp() AND $3=ANY(c.methods) AND r.state='active' AND r.credential_expires_at>clock_timestamp() AND p.state='active' AND EXISTS(SELECT 1 FROM runner_pool_repositories rp WHERE rp.org_id=c.org_id AND rp.pool_id=c.pool_id AND rp.repository_id=c.repository_id) FROM runner_job_credentials c JOIN runners r ON r.org_id=c.org_id AND r.id=c.runner_id JOIN runner_pools p ON p.org_id=c.org_id AND p.id=c.pool_id WHERE c.org_id=$1 AND c.id=$2 FOR UPDATE OF c,r`, org, id, method).Scan(&l.OrgID, &l.RepositoryID, &l.TaskID, &l.JobID, &l.AttemptID, &l.OperationID, &l.WorkerID, &l.Fence, &l.PolicyHash, &pool, &digest, &valid)
+	if err != nil || !valid || !matches(raw, digest) {
+		return auth.ErrUnauthenticated
+	}
+	checkAction := action
+	if action == "policy-revocation" {
+		checkAction = "observe"
+	}
+	task, err := s.workflow.ValidateFenceTx(ctx, tx, l, checkAction)
+	if err != nil {
+		return err
+	}
+	if task.RunnerPoolID != pool {
+		return auth.ErrForbidden
+	}
+	if _, err = tx.Exec(ctx, `UPDATE runners SET last_seen_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, org, l.WorkerID); err != nil {
+		return err
+	}
+	return fn(tx, l, task, id)
+}
+
+func (s *Service) WithJobTx(ctx context.Context, tx pgx.Tx, raw, action string, fn func(pgx.Tx, workflow.Lease, workflow.Task) error) error {
+	org, id, err := parse(raw, "job")
+	if err != nil {
+		return err
+	}
+	if fn == nil {
+		return auth.ErrInvalid
+	}
+	return s.jobTx(ctx, tx, raw, org, id, "broker", action, func(tx pgx.Tx, l workflow.Lease, t workflow.Task, _ string) error { return fn(tx, l, t) })
 }
