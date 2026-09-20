@@ -912,6 +912,135 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/inventory-syncs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInventoryJobs"];
+        put?: never;
+        post: operations["startInventorySync"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/inventory-syncs/{syncID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getInventoryJob"];
+        put?: never;
+        post?: never;
+        delete: operations["cancelInventoryJob"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/inventory-syncs/{syncID}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInventoryCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/inventory-syncs/{syncID}/import": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importInventoryCandidates"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getInventoryRepository"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listInventoryChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/connections/{connectionID}/webhook": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getInventoryWebhook"];
+        put: operations["rotateInventoryWebhook"];
+        post?: never;
+        delete: operations["revokeInventoryWebhook"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/hooks/v1/{orgID}/{endpointID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+
+        post: operations["receiveForgeWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -994,6 +1123,12 @@ export interface components {
             last_synced_at: string | null;
 
             version: number;
+            sync_state?: string;
+            sync_reason?: string;
+
+            connection_version?: number;
+
+            changes_observed_at?: string;
         };
         RepositoryPage: {
             items: components["schemas"]["Repository"][];
@@ -1659,6 +1794,117 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        ForgeRepoRef: {
+            native_id: string;
+            full_name: string;
+        };
+        ForgeRepository: {
+            native_id: string;
+            full_name: string;
+            url: string;
+            clone_url: string;
+            default_branch: string;
+            archived: boolean;
+            private: boolean;
+            permissions: string[] | null;
+        };
+        ForgeChange: {
+            id: string;
+            title: string;
+            body: string;
+            url: string;
+            head_sha: string;
+            target_sha: string;
+            head_branch: string;
+            target_branch: string;
+            author_id: string;
+            author_login: string;
+            author_type: string;
+            state: string;
+            merge_sha: string;
+            merge_status: string;
+            operation_id: string;
+            repository: components["schemas"]["ForgeRepoRef"];
+            head_repository: components["schemas"]["ForgeRepoRef"];
+            target_repository: components["schemas"]["ForgeRepoRef"];
+            draft: boolean;
+        };
+        InventoryJob: {
+            id: string;
+            org_id: string;
+            connection_id: string;
+            namespace: string;
+
+            kind: "scan" | "import" | "refresh";
+            repository_id?: string;
+            parent_id?: string;
+
+            state: "queued" | "running" | "complete" | "stale" | "failed" | "cancelled";
+            reason?: string;
+
+            connection_version: number;
+
+            pages: number;
+
+            processed: number;
+
+            failures: number;
+
+            version: number;
+
+            available_at: string;
+
+            created_at: string;
+
+            updated_at: string;
+        };
+        InventorySyncInput: {
+            connection_id: string;
+            namespace?: string;
+        };
+        InventoryImportInput: {
+            all?: boolean;
+            native_ids?: string[];
+            team_ids?: string[];
+        };
+        InventoryWebhook: {
+            id: string;
+            connection_id: string;
+
+            version: number;
+            path: string;
+            revoked: boolean;
+        };
+        IssuedInventoryWebhook: {
+            id: string;
+            connection_id: string;
+
+            version: number;
+            path: string;
+            revoked: boolean;
+
+            secret: string;
+        };
+        InventoryJobPage: {
+            items: components["schemas"]["InventoryJob"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        InventoryCandidatePage: {
+            items: components["schemas"]["ForgeRepository"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        InventoryChangePage: {
+            items: components["schemas"]["ForgeChange"][];
+            next_cursor?: string;
+            complete: boolean;
+            snapshot_state: string;
+
+            connection_version: number;
+
+            observed_at?: string;
+        };
     };
     responses: never;
     parameters: never;
@@ -1818,6 +2064,10 @@ export interface operations {
             query?: {
                 cursor?: string;
                 limit?: number;
+                q?: string;
+                provider?: string;
+                team_id?: string;
+                status?: string;
             };
             header?: never;
             path: {
@@ -4102,6 +4352,421 @@ export interface operations {
         responses: {
 
             204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listInventoryJobs: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryJobPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    startInventorySync: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventorySyncInput"];
+            };
+        };
+        responses: {
+
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryJob"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getInventoryJob: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                syncID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryJob"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelInventoryJob: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                syncID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryJob"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listInventoryCandidates: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+                syncID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryCandidatePage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    importInventoryCandidates: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                syncID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["InventoryImportInput"];
+            };
+        };
+        responses: {
+
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryJob"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getInventoryRepository: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Repository"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listInventoryChanges: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryChangePage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getInventoryWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InventoryWebhook"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    rotateInventoryWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IssuedInventoryWebhook"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    revokeInventoryWebhook: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    receiveForgeWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                endpointID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    [key: string]: unknown;
+                };
+            };
+        };
+        responses: {
+
+            202: {
                 headers: {
                     [name: string]: unknown;
                 };

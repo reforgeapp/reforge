@@ -14,7 +14,9 @@ import (
 	"reforge/internal/config"
 	"reforge/internal/connections"
 	"reforge/internal/control"
+	"reforge/internal/domain"
 	"reforge/internal/httpapi"
+	"reforge/internal/inventory"
 	"reforge/internal/policy"
 	"reforge/internal/privateconnector"
 	"reforge/internal/providers"
@@ -112,6 +114,13 @@ func run() error {
 	defer private.Close()
 	providers.RegisterPrivate(connectionService, private, runners)
 	app.RegisterPrivateConnector(private)
+	providerReads := providers.New(db, connectionService, private, runners, cfg.Development)
+	portfolio := inventory.New(db, identity, vault, providerReads, providers.DecodeWebhook)
+	app.RegisterInventory(portfolio)
+	inventoryContext, stopInventory := context.WithCancel(ctx)
+	inventoryDone := make(chan struct{})
+	go func() { defer close(inventoryDone); _ = portfolio.Run(inventoryContext, "inventory-"+domain.NewID()) }()
+	defer func() { stopInventory(); <-inventoryDone }()
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

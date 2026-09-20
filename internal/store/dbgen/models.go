@@ -121,6 +121,98 @@ type ConnectionSecret struct {
 	RotatedAt    pgtype.Timestamptz `json:"rotated_at"`
 }
 
+type InventoryCandidate struct {
+	OrgID      pgtype.UUID `json:"org_id"`
+	JobID      pgtype.UUID `json:"job_id"`
+	NativeID   string      `json:"native_id"`
+	Repository []byte      `json:"repository"`
+}
+
+type InventoryChange struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	NativeID     string             `json:"native_id"`
+	Snapshot     []byte             `json:"snapshot"`
+	JobID        pgtype.UUID        `json:"job_id"`
+	ObservedAt   pgtype.Timestamptz `json:"observed_at"`
+}
+
+type InventoryDelivery struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	EndpointID  pgtype.UUID        `json:"endpoint_id"`
+	DeliveryKey string             `json:"delivery_key"`
+	Digest      string             `json:"digest"`
+	ReceivedAt  pgtype.Timestamptz `json:"received_at"`
+}
+
+type InventoryJob struct {
+	OrgID             pgtype.UUID        `json:"org_id"`
+	ID                pgtype.UUID        `json:"id"`
+	ConnectionID      pgtype.UUID        `json:"connection_id"`
+	ConnectionVersion int64              `json:"connection_version"`
+	Namespace         string             `json:"namespace"`
+	Kind              string             `json:"kind"`
+	RepositoryID      pgtype.UUID        `json:"repository_id"`
+	ParentID          pgtype.UUID        `json:"parent_id"`
+	RequestedBy       pgtype.UUID        `json:"requested_by"`
+	Input             []byte             `json:"input"`
+	State             string             `json:"state"`
+	Reason            string             `json:"reason"`
+	Cursor            string             `json:"cursor"`
+	Phase             string             `json:"phase"`
+	Pages             int32              `json:"pages"`
+	Processed         int32              `json:"processed"`
+	Failures          int32              `json:"failures"`
+	FencingToken      int64              `json:"fencing_token"`
+	LeaseOwner        string             `json:"lease_owner"`
+	LeaseUntil        pgtype.Timestamptz `json:"lease_until"`
+	AvailableAt       pgtype.Timestamptz `json:"available_at"`
+	LastClaimed       pgtype.Timestamptz `json:"last_claimed"`
+	Version           int64              `json:"version"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+}
+
+type InventoryRepositoryState struct {
+	OrgID             pgtype.UUID        `json:"org_id"`
+	RepositoryID      pgtype.UUID        `json:"repository_id"`
+	ConnectionID      pgtype.UUID        `json:"connection_id"`
+	Namespace         string             `json:"namespace"`
+	ConnectionVersion int64              `json:"connection_version"`
+	ScanID            pgtype.UUID        `json:"scan_id"`
+	State             string             `json:"state"`
+	Reason            string             `json:"reason"`
+	RefreshDue        pgtype.Timestamptz `json:"refresh_due"`
+	ChangesObservedAt pgtype.Timestamptz `json:"changes_observed_at"`
+}
+
+type InventorySchedulerCursor struct {
+	ID    pgtype.UUID `json:"id"`
+	OrgID pgtype.UUID `json:"org_id"`
+}
+
+type InventorySource struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	Namespace    string             `json:"namespace"`
+	PollDue      pgtype.Timestamptz `json:"poll_due"`
+	LastServed   pgtype.Timestamptz `json:"last_served"`
+}
+
+type InventoryTenant struct {
+	OrgID pgtype.UUID `json:"org_id"`
+}
+
+type InventoryWebhook struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	Envelope     []byte             `json:"envelope"`
+	Version      int64              `json:"version"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
 type MemberRepository struct {
 	OrgID        pgtype.UUID `json:"org_id"`
 	UserID       pgtype.UUID `json:"user_id"`

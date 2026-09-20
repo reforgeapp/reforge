@@ -4,7 +4,7 @@ Foundation commands: `npm --prefix web ci`, `make generate`, `make build`, `make
 
 Requires Go 1.27.1 (automatic toolchain download), Node 26 and PostgreSQL 18.6. Dependency versions are pinned in the module and npm lockfiles. Standard Go/npm dependency installation needs public registry access.
 
-Apply SQL with `REFORGE_MIGRATION_DATABASE_URL` set to the schema-owner connection and `make migrate`. Runtime uses `REFORGE_DATABASE_URL` with a separate non-owner, non-superuser, non-BYPASSRLS role. Grant table/sequence privileges after migration; never provide migration credentials to the running server.
+Apply SQL with `REFORGE_MIGRATION_DATABASE_URL` set to the offline schema-owner connection with BYPASSRLS for tenant backfills and `make migrate`. Runtime uses `REFORGE_DATABASE_URL` with a separate non-owner, non-superuser, non-BYPASSRLS role. The migration role is never granted to the runtime. Grant table/sequence privileges after migration; never provide migration credentials to the running server.
 
 With roles named `reforge_migrator` and `reforge_runtime`, apply `scripts/runtime-grants.sql` as the migration owner after migration. Audit events are append-only for the runtime. Neither role is a superuser; the runtime cannot create schema objects, own the database or inherit the migration role.
 

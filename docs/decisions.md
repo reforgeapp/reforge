@@ -52,3 +52,11 @@ Record changes here with date and affected requirement/task IDs. Preserve hard r
 - Explicit development fixture mode requires numeric loopback origins/listening addresses and self-hosted edition; production has no silent fixture fallback.
 - Local Docker daemon unavailable. Built checksum-verified PostgreSQL 18.6 source under `/tmp/reforge-postgres` for actual database tests, using isolated parser build tools. This does not certify the later Compose distribution or hosted sandbox.
 - Source review: [Go releases](https://go.dev/dl/), [PostgreSQL support](https://www.postgresql.org/support/versioning/), [row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [Gin](https://gin-gonic.com/en/docs/).
+
+
+## 2026-09-20 — Private operations and inventory (T07/T11)
+
+- Private endpoints use outbound, fixed-operation supervisor grants. The API never receives a dialable private HTTP client. Readiness precedes fresh tenant/runner/fence authorization; result completion does not acquire a second DB connection. The initial coordinator is process-local and requires endpoint affinity; durable effect intents and usage records remain in PostgreSQL.
+- Empty runner pools support onboarding/private metadata but carry no repository job authority. Paid inference and writes require their own durable budget/intent admission before private dispatch; generic proxy operations are absent.
+- Inventory/import runs asynchronously with bounded provider pages and fresh connection versions. Only a complete authoritative scan can remove repository access. Provider native IDs preserve identity through renames. Webhook payloads prompt authoritative refresh, never grant execution authority.
+- Background tenant scheduling reads a UUID-only catalog; an invoker trigger registers new organisations. Every operational query still uses tenant context/RLS under the restricted runtime role. No cross-tenant payload index or RLS bypass is added.

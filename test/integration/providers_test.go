@@ -21,6 +21,7 @@ import (
 	"reforge/internal/connections"
 	"reforge/internal/domain"
 	"reforge/internal/httpapi"
+	"reforge/internal/inventory"
 	"reforge/internal/privateconnector"
 	"reforge/internal/providers"
 	"reforge/internal/runner"
@@ -37,7 +38,16 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 	cookie, session := identityLogin(t, identity, server)
 	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
 	defer cancel()
-	org := session.Organisations[0].ID
+	org := domain.NewID()
+	if err := db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'Private inventory fixture')`, org); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO memberships(org_id,user_id,role,all_repositories) VALUES($1,$2,'owner',true)`, org, session.User.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	vault, err := secrets.New("test", map[string]string{"test": base64.StdEncoding.EncodeToString([]byte(strings.Repeat("k", 32)))})
 	if err != nil {
 		t.Fatal(err)
@@ -149,6 +159,87 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 	}
 	if reconcileErr != nil || reconciled.Changes == nil || !reconciled.Changes.Complete || len(reconciled.Changes.Items) != 0 {
 		t.Fatalf("actual private change reconciliation: %v", reconcileErr)
+	}
+	portfolio := inventory.New(db, identity, vault, reader, providers.DecodeWebhook)
+	server.RegisterInventory(portfolio)
+	syncResponse := identityRequest(server, "POST", "/api/v1/orgs/"+org+"/inventory-syncs", `{"connection_id":"`+connection.ID+`"}`, cookie, headers)
+	var scan inventory.Job
+	if syncResponse.Code != 202 || json.Unmarshal(syncResponse.Body.Bytes(), &scan) != nil {
+		t.Fatalf("start inventory HTTP%d", syncResponse.Code)
+	}
+	drain := func(id string) inventory.Job {
+		for i := 0; i < 20; i++ {
+			job, err := portfolio.Job(ctx, session, org, id)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if job.State == "complete" {
+				return job
+			}
+			lease, err := portfolio.Claim(ctx, org, "private-fixture")
+			if err != nil || lease == nil {
+				t.Fatalf("inventory claim: %v", err)
+			}
+			if lease.Kind != "import" {
+				go func() { finished <- client.RunOnce(ctx) }()
+			}
+			stepErr := portfolio.Step(ctx, *lease)
+			if lease.Kind != "import" {
+				if err = <-finished; err != nil {
+					t.Fatal(err)
+				}
+			}
+			if stepErr != nil {
+				t.Fatalf("actual inventory step: %v", stepErr)
+			}
+		}
+		t.Fatal("private inventory did not converge")
+		return inventory.Job{}
+	}
+	scan = drain(scan.ID)
+	candidates, candidateErr := portfolio.Candidates(ctx, session, org, scan.ID, 200, "")
+	found := false
+	for _, candidate := range candidates.Items {
+		if candidate.NativeID == repository.NativeID {
+			found = true
+		}
+	}
+	if candidateErr != nil || !found {
+		t.Fatalf("disposable native repository missing from scan: %v", candidateErr)
+	}
+	headers["If-Match"] = strconv.Quote(strconv.FormatInt(scan.Version, 10))
+	importResponse := identityRequest(server, "POST", "/api/v1/orgs/"+org+"/inventory-syncs/"+scan.ID+"/import", `{"native_ids":["`+repository.NativeID+`"]}`, cookie, headers)
+	var imported inventory.Job
+	if importResponse.Code != 202 || json.Unmarshal(importResponse.Body.Bytes(), &imported) != nil {
+		t.Fatalf("import HTTP%d", importResponse.Code)
+	}
+	imported = drain(imported.ID)
+	if imported.Processed != 1 {
+		t.Fatalf("imported %d repositories", imported.Processed)
+	}
+	if err = portfolio.Maintain(ctx, org); err != nil {
+		t.Fatal(err)
+	}
+	lease, claimErr := portfolio.Claim(ctx, org, "private-fixture")
+	if claimErr != nil || lease == nil || lease.Kind != "refresh" {
+		t.Fatalf("private refresh claim %v", claimErr)
+	}
+	go func() { finished <- client.RunOnce(ctx) }()
+	stepErr := portfolio.Step(ctx, *lease)
+	if err = <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if stepErr != nil {
+		t.Fatal(stepErr)
+	}
+	drain(lease.ID)
+	detail, detailErr := portfolio.Repository(ctx, session, org, lease.RepositoryID)
+	if detailErr != nil || detail.SyncState != "fresh" || detail.ChangesObservedAt == nil || detail.NativeID != repository.NativeID {
+		t.Fatalf("private portfolio freshness: %v", detailErr)
+	}
+	changes, changesErr := portfolio.Changes(ctx, session, org, lease.RepositoryID, 100, "")
+	if changesErr != nil || changes.SnapshotState != "fresh" {
+		t.Fatalf("private change snapshot freshness %s: %v", changes.SnapshotState, changesErr)
 	}
 	read.ID = domain.NewID()
 	go func() { finished <- client.RunOnce(ctx) }()

@@ -181,6 +181,53 @@ func (e DeploymentState) Valid() bool {
 }
 
 const (
+	Import  InventoryJobKind = "import"
+	Refresh InventoryJobKind = "refresh"
+	Scan    InventoryJobKind = "scan"
+)
+
+func (e InventoryJobKind) Valid() bool {
+	switch e {
+	case Import:
+		return true
+	case Refresh:
+		return true
+	case Scan:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	InventoryJobStateCancelled InventoryJobState = "cancelled"
+	InventoryJobStateComplete  InventoryJobState = "complete"
+	InventoryJobStateFailed    InventoryJobState = "failed"
+	InventoryJobStateQueued    InventoryJobState = "queued"
+	InventoryJobStateRunning   InventoryJobState = "running"
+	InventoryJobStateStale     InventoryJobState = "stale"
+)
+
+func (e InventoryJobState) Valid() bool {
+	switch e {
+	case InventoryJobStateCancelled:
+		return true
+	case InventoryJobStateComplete:
+		return true
+	case InventoryJobStateFailed:
+		return true
+	case InventoryJobStateQueued:
+		return true
+	case InventoryJobStateRunning:
+		return true
+	case InventoryJobStateStale:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Hosted     MetaEdition = "hosted"
 	SelfHosted MetaEdition = "self-hosted"
 )
@@ -248,42 +295,42 @@ func (e PolicyScopeKind) Valid() bool {
 }
 
 const (
-	ForgeApprovals        PrivateOperationKind = "forge.approvals"
-	ForgeChecks           PrivateOperationKind = "forge.checks"
-	ForgeInventory        PrivateOperationKind = "forge.inventory"
-	ForgeProbe            PrivateOperationKind = "forge.probe"
-	ForgeReadChange       PrivateOperationKind = "forge.read_change"
-	ForgeReadFile         PrivateOperationKind = "forge.read_file"
-	ForgeReconcileChanges PrivateOperationKind = "forge.reconcile_changes"
-	ForgeRepository       PrivateOperationKind = "forge.repository"
-	ForgeResolveRef       PrivateOperationKind = "forge.resolve_ref"
-	ModelList             PrivateOperationKind = "model.list"
-	ModelProbe            PrivateOperationKind = "model.probe"
+	PrivateOperationKindForgeApprovals        PrivateOperationKind = "forge.approvals"
+	PrivateOperationKindForgeChecks           PrivateOperationKind = "forge.checks"
+	PrivateOperationKindForgeInventory        PrivateOperationKind = "forge.inventory"
+	PrivateOperationKindForgeProbe            PrivateOperationKind = "forge.probe"
+	PrivateOperationKindForgeReadChange       PrivateOperationKind = "forge.read_change"
+	PrivateOperationKindForgeReadFile         PrivateOperationKind = "forge.read_file"
+	PrivateOperationKindForgeReconcileChanges PrivateOperationKind = "forge.reconcile_changes"
+	PrivateOperationKindForgeRepository       PrivateOperationKind = "forge.repository"
+	PrivateOperationKindForgeResolveRef       PrivateOperationKind = "forge.resolve_ref"
+	PrivateOperationKindModelList             PrivateOperationKind = "model.list"
+	PrivateOperationKindModelProbe            PrivateOperationKind = "model.probe"
 )
 
 func (e PrivateOperationKind) Valid() bool {
 	switch e {
-	case ForgeApprovals:
+	case PrivateOperationKindForgeApprovals:
 		return true
-	case ForgeChecks:
+	case PrivateOperationKindForgeChecks:
 		return true
-	case ForgeInventory:
+	case PrivateOperationKindForgeInventory:
 		return true
-	case ForgeProbe:
+	case PrivateOperationKindForgeProbe:
 		return true
-	case ForgeReadChange:
+	case PrivateOperationKindForgeReadChange:
 		return true
-	case ForgeReadFile:
+	case PrivateOperationKindForgeReadFile:
 		return true
-	case ForgeReconcileChanges:
+	case PrivateOperationKindForgeReconcileChanges:
 		return true
-	case ForgeRepository:
+	case PrivateOperationKindForgeRepository:
 		return true
-	case ForgeResolveRef:
+	case PrivateOperationKindForgeResolveRef:
 		return true
-	case ModelList:
+	case PrivateOperationKindModelList:
 		return true
-	case ModelProbe:
+	case PrivateOperationKindModelProbe:
 		return true
 	default:
 		return false
@@ -660,8 +707,106 @@ type EventPage struct {
 	Cursor   int64   `json:"cursor"`
 	Items    []Event `json:"items"`
 }
+type ForgeChange struct {
+	AuthorId         string       `json:"author_id"`
+	AuthorLogin      string       `json:"author_login"`
+	AuthorType       string       `json:"author_type"`
+	Body             string       `json:"body"`
+	Draft            bool         `json:"draft"`
+	HeadBranch       string       `json:"head_branch"`
+	HeadRepository   ForgeRepoRef `json:"head_repository"`
+	HeadSha          string       `json:"head_sha"`
+	Id               string       `json:"id"`
+	MergeSha         string       `json:"merge_sha"`
+	MergeStatus      string       `json:"merge_status"`
+	OperationId      string       `json:"operation_id"`
+	Repository       ForgeRepoRef `json:"repository"`
+	State            string       `json:"state"`
+	TargetBranch     string       `json:"target_branch"`
+	TargetRepository ForgeRepoRef `json:"target_repository"`
+	TargetSha        string       `json:"target_sha"`
+	Title            string       `json:"title"`
+	Url              string       `json:"url"`
+}
+type ForgeRepoRef struct {
+	FullName string `json:"full_name"`
+	NativeId string `json:"native_id"`
+}
+type ForgeRepository struct {
+	Archived      bool      `json:"archived"`
+	CloneUrl      string    `json:"clone_url"`
+	DefaultBranch string    `json:"default_branch"`
+	FullName      string    `json:"full_name"`
+	NativeId      string    `json:"native_id"`
+	Permissions   *[]string `json:"permissions"`
+	Private       bool      `json:"private"`
+	Url           string    `json:"url"`
+}
 type Health struct {
 	Status string `json:"status"`
+}
+type InventoryCandidatePage struct {
+	Complete   bool              `json:"complete"`
+	Items      []ForgeRepository `json:"items"`
+	NextCursor *string           `json:"next_cursor,omitempty"`
+}
+type InventoryChangePage struct {
+	Complete          bool          `json:"complete"`
+	ConnectionVersion int64         `json:"connection_version"`
+	Items             []ForgeChange `json:"items"`
+	NextCursor        *string       `json:"next_cursor,omitempty"`
+	ObservedAt        *time.Time    `json:"observed_at,omitempty"`
+	SnapshotState     string        `json:"snapshot_state"`
+}
+type InventoryImportInput struct {
+	All       *bool     `json:"all,omitempty"`
+	NativeIds *[]string `json:"native_ids,omitempty"`
+	TeamIds   *[]string `json:"team_ids,omitempty"`
+}
+type InventoryJob struct {
+	AvailableAt       time.Time         `json:"available_at"`
+	ConnectionId      string            `json:"connection_id"`
+	ConnectionVersion int64             `json:"connection_version"`
+	CreatedAt         time.Time         `json:"created_at"`
+	Failures          int64             `json:"failures"`
+	Id                string            `json:"id"`
+	Kind              InventoryJobKind  `json:"kind"`
+	Namespace         string            `json:"namespace"`
+	OrgId             string            `json:"org_id"`
+	Pages             int64             `json:"pages"`
+	ParentId          *string           `json:"parent_id,omitempty"`
+	Processed         int64             `json:"processed"`
+	Reason            *string           `json:"reason,omitempty"`
+	RepositoryId      *string           `json:"repository_id,omitempty"`
+	State             InventoryJobState `json:"state"`
+	UpdatedAt         time.Time         `json:"updated_at"`
+	Version           int64             `json:"version"`
+}
+type InventoryJobKind string
+type InventoryJobState string
+type InventoryJobPage struct {
+	Complete   bool           `json:"complete"`
+	Items      []InventoryJob `json:"items"`
+	NextCursor *string        `json:"next_cursor,omitempty"`
+}
+type InventorySyncInput struct {
+	ConnectionId string  `json:"connection_id"`
+	Namespace    *string `json:"namespace,omitempty"`
+}
+type InventoryWebhook struct {
+	ConnectionId string `json:"connection_id"`
+	Id           string `json:"id"`
+	Path         string `json:"path"`
+	Revoked      bool   `json:"revoked"`
+	Version      int64  `json:"version"`
+}
+type IssuedInventoryWebhook struct {
+	ConnectionId string `json:"connection_id"`
+	Id           string `json:"id"`
+	Path         string `json:"path"`
+	Revoked      bool   `json:"revoked"`
+	Secret       string `json:"secret"`
+	Version      int64  `json:"version"`
 }
 type Membership struct {
 	AllRepositories bool     `json:"all_repositories"`
@@ -883,20 +1028,24 @@ type PrivateRouteChange struct {
 	Route PrivateRoute `json:"route"`
 }
 type Repository struct {
-	Accessible    bool               `json:"accessible"`
-	Archived      bool               `json:"archived"`
-	ConnectionId  string             `json:"connection_id"`
-	DefaultBranch string             `json:"default_branch"`
-	Id            string             `json:"id"`
-	LastSyncedAt  *time.Time         `json:"last_synced_at"`
-	Name          string             `json:"name"`
-	NativeId      string             `json:"native_id"`
-	OrgId         string             `json:"org_id"`
-	Paused        bool               `json:"paused"`
-	Provider      RepositoryProvider `json:"provider"`
-	TeamIds       []string           `json:"team_ids"`
-	Url           string             `json:"url"`
-	Version       int64              `json:"version"`
+	Accessible        bool               `json:"accessible"`
+	Archived          bool               `json:"archived"`
+	ChangesObservedAt *time.Time         `json:"changes_observed_at,omitempty"`
+	ConnectionId      string             `json:"connection_id"`
+	ConnectionVersion *int64             `json:"connection_version,omitempty"`
+	DefaultBranch     string             `json:"default_branch"`
+	Id                string             `json:"id"`
+	LastSyncedAt      *time.Time         `json:"last_synced_at"`
+	Name              string             `json:"name"`
+	NativeId          string             `json:"native_id"`
+	OrgId             string             `json:"org_id"`
+	Paused            bool               `json:"paused"`
+	Provider          RepositoryProvider `json:"provider"`
+	SyncReason        *string            `json:"sync_reason,omitempty"`
+	SyncState         *string            `json:"sync_state,omitempty"`
+	TeamIds           []string           `json:"team_ids"`
+	Url               string             `json:"url"`
+	Version           int64              `json:"version"`
 }
 type RepositoryProvider string
 type RepositoryPage struct {
@@ -1117,12 +1266,39 @@ type TestConnectionParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type RevokeInventoryWebhookParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type RotateInventoryWebhookParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
 type StreamEventsParams struct {
 	After       *int64  `form:"after,omitempty" json:"after,omitempty"`
 	LastEventID *string `json:"Last-Event-ID,omitempty"`
 }
 type ReplayEventsParams struct {
 	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+}
+type ListInventoryJobsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type StartInventorySyncParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelInventoryJobParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ListInventoryCandidatesParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type ImportInventoryCandidatesParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
 }
 type ListMembershipsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -1159,6 +1335,14 @@ type SimulatePolicyParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type RepositoriesParams struct {
+	Cursor   *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit    *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Q        *string `form:"q,omitempty" json:"q,omitempty"`
+	Provider *string `form:"provider,omitempty" json:"provider,omitempty"`
+	TeamId   *string `form:"team_id,omitempty" json:"team_id,omitempty"`
+	Status   *string `form:"status,omitempty" json:"status,omitempty"`
+}
+type ListInventoryChangesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
@@ -1224,6 +1408,7 @@ type OidcCallbackParams struct {
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type ReceiveForgeWebhookJSONBody map[string]interface{}
 type UploadRunnerArtifactJSONBody = openapi_types.File
 type UploadRunnerArtifactTextBody = openapi_types.File
 type UploadRunnerArtifactParams struct {
@@ -1252,6 +1437,8 @@ type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
+type StartInventorySyncJSONRequestBody = InventorySyncInput
+type ImportInventoryCandidatesJSONRequestBody = InventoryImportInput
 type PutMembershipJSONRequestBody = MembershipInput
 type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
@@ -1262,6 +1449,7 @@ type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest
+type ReceiveForgeWebhookJSONRequestBody ReceiveForgeWebhookJSONBody
 type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
 type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody
 type EnrollRunnerJSONRequestBody EnrollRunnerJSONBody

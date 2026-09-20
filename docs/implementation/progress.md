@@ -21,13 +21,13 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 | T05 | local complete | Astra coordinator/workers | workflow; T01 T02 T03 | PG race/recovery/fairness/budget contention; HTTP/SSE policy+scope+revocation; generation/vet/build pass |
 | T06 | local complete | Astra worker t02_review | policy; T01 T02 | Corpus + PG immutable activation/scopes + HTTP simulation/CSRF/version checks passed |
 | T07 | in progress | Astra | runner; T03 T05 T06 | Sandbox and private routes |
-| T08 | in progress | Luna worker t04_shell | forge/github; T01 T03 | Real adapter, guarded mutations |
+| T08 | in progress | Astra worker t02_identity | forge/github; T01 T03 | Real adapter, guarded mutations |
 | T09 | in progress | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
-| T10 | in progress | Astra coordinator | forge/gitea; T01 T03 | Disposable real server certification |
+| T10 | local complete | Astra coordinator | forge/gitea; T01 T03 | Disposable real server certification |
 | T11 | not started | Luna/Astra | inventory; T05 T08 T09 T10 | Async reconciliation |
-| T12 | not started | Luna | model/openai; T01 T03 T05 | Streaming contracts and live gap |
-| T13 | not started | Luna | model/anthropic; T01 T03 T05 | Streaming contracts and live gap |
-| T14 | not started | Luna | model/google; T01 T03 T05 | Continuation contracts and live gap |
+| T12 | local complete | Luna | model/openai; T01 T03 T05 | Streaming contracts and live gap |
+| T13 | local complete | Luna | model/anthropic; T01 T03 T05 | Streaming contracts and live gap |
+| T14 | in progress | Luna | model/google; T01 T03 T05 | Continuation contracts and live gap |
 | T15 | not started | Luna | model/compatible; T01 T03 T05 | Real local inference qualification |
 | T16 | not started | Astra | agent; T03 T05 T06 T07 | Documented permitted runtime routes |
 | T17 | not started | Luna | portfolio GUI; T02 T03 T04 T11 T12–T16 | Backend-connected onboarding |
@@ -55,7 +55,7 @@ G0 foundation and identity locally verified; subsequent artifact/SSE isolation r
 
 ## Resume
 
-Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ownership. T01–T04/T06 locally complete. Continue T05 lease/budget review+HTTP/startup, T08 GitHub worker, T10 Gitea. Latest server runs8080 in tool session88512; rebuild/restart when wiring T05. Environment is in ignored `.local/development.env`. Never interpret this checkpoint as completion of the full request.
+Read this file, `agents.md`, `backlog.md`, current Git diff and latest ownership checkpoint. T01–T06 and T10 locally complete. T07 runtime/controller integration, T08 security/App auth, T09 security completion and T12–T15 model adapters remain active. Latest server runs8080 session24805; rebuild after runner wiring. Current ignored environment `.local/development.env` holds rotated disposable credentials. Never interpret a checkpoint as completion of the full request.
 
 ## T01 evidence — 2026-09-20
 
@@ -141,3 +141,58 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ow
 - Policy activation and budget configuration/debt emit durable scoped events in the same transaction as audit/accounting. Root tightened scoped-owner repository/team finance access. HTTP task/budget/state routes, actual SSE scope+revocation and startup are wired. Deferred native controllers must register authoritative action validators; unknown actions remain denied.
 - Migration009 belongs to T07 and remains uncommitted with runner work. Generated SQL runner types remain unstaged; preserve them during later generation.
 - Gitea real tests found ordinary merge stale-target race despite outdated-branch protection. Fast-forward-only rejected that race. Native status contexts do not bind publisher: spoofed same-name success could override trusted failure. T10 certifies only demonstrated method/guarantees; policy requiring absent enforcement stays blocked.
+
+## Current checkpoint — runner and provider integration
+
+- T10 root read and reviewed full adapter, then fixed operation target binding, case-sensitive protection, current authorization before every branch write, invalid review identities, empty required responses and uncertain create reconciliation. Real local Gitea1.27.3 race suite passed: package1.098s / native scenarios28.612s; final focused regressions passed. See t10-gitea.md for certified local guarantees and known native enforcement limits. T22/T23 delivery remains separate, G5 not passed.
+- T07.1 root reviewed controller/artifact source and requested issuer reauthorization, invalidation after pool updates, and scope-filtered pagination. Eleven PG runner race tests pass2.489s; artifact1.046s, affected workflow2.514s. Startup/API wiring now added; actual outbound private dispatcher and runner command still pending. Retention service exists; periodic tenant scheduling will wire with T11/T26.
+- T07.2 Astra t02_review owns internal/sandbox/** except contracts.go, cmd/sandbox-tool/**, test/sandboxprobe/** and t07-sandbox.md. Rootless managed run fixed create incompatibility; actual gVisor boundary test passes. Additional process-termination/restart/asset-integrity checks ongoing. Host cgroup filesystem read-only; production resource enforcement correctly remains unavailable here.
+- T08 Astra t02_identity now owns internal/forge/github/** + t08-github.md for App authentication, native CAS, protection/rulesets/merge-queue safety and basic-slice review fixes.
+- T13 Luna t04_shell owns internal/model/anthropic/** + t13-anthropic.md. Official SDK1.74.0 installed; Google SDK1.71.0 pinned for T14. No paid API calls.
+- Root owns all shared manifests/contracts/migrations/OpenAPI/startup/progress, runner command, private transport and T12 review fixes. OpenAI review found invalid continuation shape/order and insufficient schema/usage bounds; fixing before local completion.
+
+## Reviewed integration evidence
+
+- T07 controller/root integration regression: runner2.354s and HTTP control1.574s under race detector passed against disposable PG. Artifact package was filtered out in that command; its full worker suite1.046s was separately run. Generation and targeted vet passed.
+- Root rebuilt static sandbox helper/probe and independently reran the real gVisor suite:8.298s passed. Reviewed all runtime/guest/process source. Fixed Close attempting every workspace on cleanup failure while retaining lock, and opened-file verification before truncation; lifecycle race regressions pass. T07 controller/runtime are ready; private outbound connector and command integration remain.
+- T10 committed e22c355. T12 root corrected continuation history/order, encrypted reasoning preservation, strict output/request/tool bounds, byte estimates, usage-field validation and post-dispatch uncertainty; shared schema and OpenAI race suites passed1.029s/1.033s before final doc changes. Live paid certification remains absent.
+- T07.3 Astra t02_review now owns internal/privateconnector/**, internal/runner/private.go, internal/httpapi/privateconnector.go and t07-private.md. Ready-first fixed-operation dispatch avoids waiting for runner polls while holding tenant mutation locks; credentials/grants remain ephemeral, durable outbox/budget dispatch is committed first and lost responses remain uncertain. Root owns startup/command/factory integration.
+
+## Current model / runner client checkpoint
+
+- Commits79b32dd runner/artifact API and8f4ecb9 sandbox. OpenAI+shared schema committed e358967/5b179a0; root reviewed and meaningful race tests passed. This does not qualify live model APIs.
+- T13 root read all SDK adapter/tests. Fixed incomplete history, response-body leak, complete model pagination, metadata/usage field presence, cache-write accounting, empty-argument tools and callback buffering. Real SDK HTTP fixture round-trip retains thinking signature, whole history and closes both streams. Final race1.050s and vet passed. OfficialAnthropicSDK1.74.0.
+- Luna t04_shell now owns internal/model/google/** + t14-google.md. OfficialGoGenAI1.71.0; root specified total billable thought/output accounting and full opaque continuation.
+- Root internal/runnerclient implements credential persistence/restart/rotation, scoped claim/progress/artifact/broker/result protocol, cancellation heartbeats and redirect denial. Local HTTP race tests passed1.032s. cmd/runner and full processor integration remain pendingT07/T19; do not represent this as the completed runner application.
+- T16 source/installed-runtime research begun independently: CodexCLI0.150.1 exists, official app-server JSON schemas generated into /tmp/reforge-codex-schema using read-only tooling. No login/logout, model turn or paid request performed. Implementation awaits T07 integration; entitlement/isolation must be qualified before activation.
+
+## Current checkpoint — reviewed adapters and private onboarding
+
+- T08 reviewed full source/tests and committed ae9c8f7. Root corrected authenticated probe, inventory identity, request/response boundaries and408 uncertainty. Final race1.161s/vet pass. Live Cloud/GHES native enforcement certification remains open; final retarget-race review noted for follow-up.
+- T07.3 full source reviewed; worker real PG/Gitea suite14.050s passed, including clean-environment supervisor process, lock/revocation,6MiBresult transport and saturated20-connection pool. Ready refresh precedes authorization TX, exact runner/hash is locked in that TX, no DB acquisition during delivery/result. Replay tombstones bounded5min/10k, tested10,001operations. Dedicated/sticky controller topology explicit.
+- Root integrated actual adapter factories, private connection testing and cmd/runner enroll/connector. Private ResolveTx returns noHTTPclient and requires exact active runner; publicfactoryrejectsprivateRoute. BrowserHTTP→encryptedvault→enrolledsupervisor→realGitea1.27.3 probe/revocation regression passed1.496s with other connection tests. Empty onboarding pools carry no job scope and require organisation-wide owner for enrollment. Fullrepairprocessor remainsT19.
+- T14 Google root review found unsafe non-STOP tool delivery, native part reordering, missing legacy call IDs, absent usage treatedaszero, SDK float64 roundtrip and callback uncertainty. Astra t02_review owns Google fixes; concurrent/precision/signature/oversize regression reports1.870s passing, final handoff pending.
+- T15 Luna basic adapter delivered. Root review fixes bounded/duplicateindices, terminalreason, pinnedmodelcaps, opaque numeric preservation and full new-input continuation. Root race1.032s passed before expanded regressions. ActualOllama0.34.2 officialrelease SHA256verified in /tmp/reforge-ollama; disposableCPUserver setup underway, no paidAPI.
+- Current workers: Astra t02_identity GitLab fullsecurity slice; Astra t02_review Googlereviewfix; Luna t04_shell T17.1connections/runnersrealGUI child. ParentT17stillopenuntilinventory/modelagentcapabilities integrated. Root ownssharedcontracts/startup/APIs/factories/T11architecture/runnercommand.
+
+
+## Current checkpoint — inventory foundation and real compatible inference
+
+- T09 full GitLab slice reviewed and committed 27ced85. Root race/vet pass (cached final rerun); fixtures cover retargeting, exact source, native trains, incomplete approval/protection and publisher identity. Live GitLab.com/Self-Managed version/tier certification remains open.
+- T14 Google fixes reviewed and committed cbbb1a1; final root race1.884s/vet passed. No paid API calls. T15 compatible adapter reviewed and committed a80a011; final unit race1.034s/vet passed. Real local Ollama0.34.2/Qwen3:0.6b completed tool+continuation on both Chat Completions and Responses in11.192s. vLLM and paid provider qualification remain open.
+- T07.3 committed0e32af6; final real private PG/Gitea race14.178s, runner2.518s passed. Root factory/CLI startup and generic private forge/model metadata extension currently uncommitted. Model inference through enrolled transport still awaits durable budget/controller integration; metadata tests do not imply inference qualification.
+- T11 Astra t02_identity owns internal/inventory, inventory HTTP, integration scenarios and t11 doc. Reviewed schema copied to migration010 and applied dev/test. Global scheduler catalog contains tenant UUID only; all operational data stays tenant RLS. Root delivers providers.Read fresh-authorization gateway and pure verified webhook decoder. Partial scans cannot remove access; imports remain asynchronous.
+- T16 Astra t02_review owns official app-server bridge/qualification matrix. Actual0.150.1 version/schema inspected; no account cache/login/logout/paid turn accessed. Fixture tests underway; activation requires dated entitlement, identity custody, isolated topology and quota evidence.
+- T17.1 Luna delivered GUI; root review found invalid auth/billing defaults, unusable private initial creation, stale selected versions and incomplete functional browser checks. Worker correcting these; parentT17 remains in progress. Server restarted latest backend at8080. T18 design reconnaissance assigned after those corrections; no dependent implementation yet.
+- All later tickets T18–T28 remain required. G5 is not passed. Persistent goal remains active; no budget invented.
+
+- Follow-up evidence: 39472eb rejects GitHub direct/queue retargeting; final race1.092s. Reviewed public/private provider gateway integration passed3.325s with real PG/Gitea/Ollama metadata and denied-callback test. SQL/OpenAPI generation passed using pinned cached generators. Model inference still has no private paid-turn handler until T19 durable accounting is integrated.
+
+
+## Current checkpoint — cost controls and T11 integration
+
+- User resumed implementation with Astra coordinator only; no Astra workers. Fresh bounded Luna workers own connection GUI, inventory GUI and pure dependency detectors. All handoffs use caveman-full; coordinator retains sensitive implementation and review. Earlier worker ownership entries above are historical.
+- T11 source/tests reviewed completely. Fixed stale change-cache presentation after access removal and verified explicit resync restores polling after terminal credential failure. Combined root real-PG inventory and private Gitea/Ollama integration race suite passed8.811s; targeted vet passed. Includes 1,000-repository asynchronous import, 100 competing claims, durable scheduler restart, signed webhook replay/rotation and enrolled private HTTP sync/import/refresh.
+- T16 bridge committed a912d2b after root review and close-during-startup regression; actual installed Codex0.150.1 schema check plus race2.647s passed. No account login/cache/paid turn accessed. Production qualification/factory remains outstanding.
+- T07.4 pinned source acquisition reviewed; native Gitea pagination/branch-movement proof passed worker7.287s. Fixed-operation gateway integration and coordinator acceptance pending. GitHub native root hash; GitLab/Gitea explicitly record immutable-ref API proof, never an invented native root.
+- T17 GUI remains in progress; T18 detector child underway, coordinator owns discovery persistence/cooperation. T19–T28 remain required; G5 not passed. Goal UI currently reports paused despite resume instruction; tools expose no resume operation. Work continues under user authorization.
