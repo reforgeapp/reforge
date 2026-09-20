@@ -28,6 +28,7 @@ const (
 )
 
 type Provider struct {
+	deliveryGuard   forge.DeliveryGuard
 	authorizeTrain  func(context.Context, forge.TrainGateRequest) error
 	inspector       *Provider
 	config          forge.Config

@@ -31,6 +31,14 @@ var ErrUncertain = errors.New("private operation outcome uncertain; reconcile be
 type Kind string
 
 const (
+	ForgePipelineCancel      Kind = "forge.pipeline_cancel"
+	ForgePipelineInspect     Kind = "forge.pipeline_inspect"
+	ForgeDeliveryWorkflows   Kind = "forge.delivery_workflows"
+	ForgeDeliveryGates       Kind = "forge.delivery_gates"
+	ForgeDeliveryStatus      Kind = "forge.delivery_status"
+	ForgePipelineObserve     Kind = "forge.pipeline_observe"
+	ForgePipelineTrigger     Kind = "forge.pipeline_trigger"
+	ForgePipelineRecover     Kind = "forge.pipeline_recover"
 	ForgeMergeInspect        Kind = "forge.merge_inspect"
 	ForgeReadTrainGate       Kind = "forge.read_train_gate"
 	ForgeReleaseTrainGate    Kind = "forge.release_train_gate"
@@ -105,7 +113,15 @@ type ChecksArgs struct {
 	Repository forge.RepoRef `json:"repository"`
 	CommitSHA  string        `json:"commit_sha"`
 }
+type DeliveryArgs struct {
+	Repository  forge.RepoRef `json:"repository"`
+	Environment string        `json:"environment"`
+	RunID       string        `json:"run_id"`
+}
+
 type Operation struct {
+	Delivery       *DeliveryArgs                `json:"delivery,omitempty"`
+	Pipeline       *forge.PipelineRequest       `json:"pipeline,omitempty"`
 	TrainGate      *forge.TrainGateRequest      `json:"train_gate,omitempty"`
 	ExecutionCheck *forge.ExecutionCheckRequest `json:"execution_check,omitempty"`
 	CancelQueue    *forge.QueueCancelRequest    `json:"cancel_queue,omitempty"`
@@ -134,13 +150,23 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeDeliveryWorkflows:
+		valid = o.Delivery != nil && o.Delivery.Repository.NativeID != "" && len(o.Delivery.Repository.FullName) <= 1024
+	case ForgeDeliveryGates:
+		valid = o.Delivery != nil && o.Delivery.Repository.NativeID != "" && forge.ValidEnvironment(o.Delivery.Environment)
+	case ForgeDeliveryStatus:
+		valid = o.Delivery != nil && o.Delivery.Repository.NativeID != "" && o.Delivery.RunID != "" && len(o.Delivery.RunID) <= 32
+	case ForgePipelineCancel:
+		valid = o.Pipeline != nil && forge.ValidPipelineRequest(*o.Pipeline) && !o.Pipeline.ObserveOnly && o.Pipeline.RunID != "" && len(o.Pipeline.RunID) <= 32
+	case ForgePipelineInspect, ForgePipelineObserve, ForgePipelineTrigger, ForgePipelineRecover:
+		valid = o.Pipeline != nil && forge.ValidPipelineRequest(*o.Pipeline) && o.Pipeline.ObserveOnly == (o.Kind == ForgePipelineObserve || o.Kind == ForgePipelineInspect) && (o.Kind == ForgePipelineObserve || o.Kind == ForgePipelineInspect || o.Pipeline.CorrelationID == o.ID)
 	case ForgeReleaseTrainGate:
 		v := o.TrainGate
 		valid = v != nil && len(v.RulesHash) == 64 && v.OperationID == o.ID && v.Repository.NativeID != "" && len(v.Repository.FullName) <= 1024 && v.ChangeID != "" && len(v.ChangeID) <= 32 && len(v.Gate.JobID) > 0 && len(v.Gate.JobID) <= 32 && len(v.Gate.SHA) == 40 && len(v.Gate.HeadSHA) == 40 && len(v.Gate.TargetSHA) == 40 && len(v.Gate.CIConfigSHA256) == 64
@@ -280,6 +306,9 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	Workflows         []forge.Workflow               `json:"workflows,omitempty"`
+	DeploymentGates   *forge.DeploymentGates         `json:"deployment_gates,omitempty"`
+	Deployment        *forge.DeploymentStatus        `json:"deployment,omitempty"`
 	TrainGate         *forge.TrainGate               `json:"train_gate,omitempty"`
 	ExecutionCheck    *forge.ExecutionCheck          `json:"execution_check,omitempty"`
 	Queue             *forge.QueueState              `json:"queue,omitempty"`
@@ -352,5 +381,5 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 }
 
 func (o Operation) Mutation() bool {
-	return o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeWriteExecutionCheck
+	return o.Kind == ForgePipelineCancel || o.Kind == ForgePipelineTrigger || o.Kind == ForgePipelineRecover || o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeWriteExecutionCheck
 }

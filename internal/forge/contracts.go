@@ -217,39 +217,55 @@ type MergeResult struct {
 }
 
 type Workflow struct {
-	ID   string
-	Name string
-	Ref  string
-	Path string
-	URL  string
+	ID   string `json:"id"`
+	Name string `json:"name"`
+	Ref  string `json:"ref"`
+	Path string `json:"path"`
+	URL  string `json:"url"`
 }
 type PipelineRequest struct {
-	Repository     RepoRef
-	WorkflowID     string
-	Ref            string
-	SourceSHA      string
-	ArtifactDigest string
-	Environment    string
-	CorrelationID  string
-	Inputs         map[string]string
-	ObserveOnly    bool
+	WorkflowSHA    string            `json:"workflow_sha"`
+	RulesHash      string            `json:"rules_hash"`
+	Repository     RepoRef           `json:"repository"`
+	WorkflowID     string            `json:"workflow_id"`
+	WorkflowPath   string            `json:"workflow_path"`
+	ConfigSHA256   string            `json:"config_sha256"`
+	Ref            string            `json:"ref"`
+	SourceSHA      string            `json:"source_sha"`
+	ArtifactDigest string            `json:"artifact_digest"`
+	Environment    string            `json:"environment"`
+	CorrelationID  string            `json:"correlation_id"`
+	Inputs         map[string]string `json:"inputs"`
+	ObserveOnly    bool              `json:"observe_only"`
+	RunID          string            `json:"run_id"`
+	RequestedAt    time.Time         `json:"requested_at"`
 }
 type DeploymentGates struct {
-	State          string
-	NativeEnforced domain.CapabilityState
-	Blockers       []string
-	ApprovalURL    string
+	State          string                 `json:"state"`
+	NativeEnforced domain.CapabilityState `json:"native_enforced"`
+	Blockers       []string               `json:"blockers"`
+	ApprovalURL    string                 `json:"approval_url"`
+	Environment    string                 `json:"environment"`
+	RulesHash      string                 `json:"rules_hash"`
 }
 type DeploymentStatus struct {
-	ID             string
-	State          string
-	SourceSHA      string
-	ArtifactDigest string
-	Environment    string
-	CorrelationID  string
-	URL            string
-	Health         string
-	ObservedAt     time.Time
+	WorkflowSHA    string    `json:"workflow_sha"`
+	CreatedAt      time.Time `json:"created_at"`
+	ID             string    `json:"id"`
+	State          string    `json:"state"`
+	SourceSHA      string    `json:"source_sha"`
+	ArtifactDigest string    `json:"artifact_digest"`
+	Environment    string    `json:"environment"`
+	CorrelationID  string    `json:"correlation_id"`
+	WorkflowID     string    `json:"workflow_id"`
+	WorkflowPath   string    `json:"workflow_path"`
+	Ref            string    `json:"ref"`
+	Event          string    `json:"event"`
+	RunAttempt     int64     `json:"run_attempt"`
+	URL            string    `json:"url"`
+	Health         string    `json:"health"`
+	ObservedAt     time.Time `json:"observed_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
 }
 
 type ForgeInventory interface {

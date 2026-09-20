@@ -221,20 +221,5 @@ func (p *Provider) ReadMergeResult(ctx context.Context, r forge.RepoRef, id stri
 	}
 	return forge.MergeResult{State: change.State, NativeID: change.ID, HeadSHA: change.HeadSHA, MergeSHA: change.MergeSHA, URL: change.URL}, nil
 }
-func (p *Provider) ListAllowedWorkflows(context.Context, forge.RepoRef) ([]forge.Workflow, error) {
-	return nil, failure("unsupported", "Delivery workflow discovery requires the delivery adapter")
-}
-func (p *Provider) TriggerOrObservePipeline(context.Context, forge.PipelineRequest) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Native deployment authorization and attribution are unqualified")
-}
-func (p *Provider) ReadDeploymentGates(context.Context, forge.RepoRef, string) (forge.DeploymentGates, error) {
-	return forge.DeploymentGates{State: "unknown", NativeEnforced: domain.Unknown}, failure("unsupported", "Protected deployment environment inspection is unimplemented")
-}
-func (p *Provider) ReadDeploymentStatus(context.Context, forge.RepoRef, string) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Deployment observation is not enforcement and requires the delivery adapter")
-}
-func (p *Provider) RequestAllowedRecovery(context.Context, forge.PipelineRequest) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Native recovery authorization is unqualified")
-}
 
 var _ forge.Provider = (*Provider)(nil)

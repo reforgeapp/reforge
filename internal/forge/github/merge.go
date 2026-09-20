@@ -267,20 +267,4 @@ func (p *Provider) WithReviewAuthorizer(fn func(context.Context, forge.RepoRef, 
 	return &q
 }
 
-func (p *Provider) ListAllowedWorkflows(context.Context, forge.RepoRef) ([]forge.Workflow, error) {
-	return nil, failure("unsupported", "Delivery workflow qualification belongs to the delivery controller")
-}
-func (p *Provider) TriggerOrObservePipeline(context.Context, forge.PipelineRequest) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Native deployment approval and attribution are not qualified")
-}
-func (p *Provider) ReadDeploymentGates(context.Context, forge.RepoRef, string) (forge.DeploymentGates, error) {
-	return forge.DeploymentGates{State: "unknown", NativeEnforced: domain.Unknown}, failure("unsupported", "Native deployment gate qualification is required")
-}
-func (p *Provider) ReadDeploymentStatus(context.Context, forge.RepoRef, string) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Deployment attribution is not implemented")
-}
-func (p *Provider) RequestAllowedRecovery(context.Context, forge.PipelineRequest) (forge.DeploymentStatus, error) {
-	return forge.DeploymentStatus{}, failure("unsupported", "Recovery authorization and native deployment qualification are required")
-}
-
 var _ forge.Provider = (*Provider)(nil)

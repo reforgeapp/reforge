@@ -56,13 +56,22 @@ func BindForgeOperation(provider forge.Provider, operation Operation) forge.Prov
 		}
 		return nil
 	}
+	delivery := func(ctx context.Context, in forge.PipelineRequest, gates forge.DeploymentGates) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if (operation.Kind != ForgePipelineCancel && operation.Kind != ForgePipelineTrigger && operation.Kind != ForgePipelineRecover) || operation.Pipeline == nil || !same(in, *operation.Pipeline) || gates.RulesHash != in.RulesHash {
+			return auth.ErrForbidden
+		}
+		return nil
+	}
 	switch p := provider.(type) {
 	case *gitea.Provider:
 		return p.WithBranchAuthorizer(branch)
 	case *github.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge)
+		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithDeliveryGuard(delivery)
 	case *gitlab.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithTrainGateAuthorizer(train)
+		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithTrainGateAuthorizer(train).WithDeliveryGuard(delivery)
 	}
 	return provider
 }

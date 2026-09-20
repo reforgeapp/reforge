@@ -256,6 +256,41 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 	}
 	var err error
 	switch op.Kind {
+	case ForgePipelineCancel:
+		provider = BindForgeOperation(provider, op)
+		control, ok := provider.(forge.ForgePipelineControl)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var value forge.DeploymentStatus
+		value, err = control.CancelPipeline(ctx, *op.Pipeline)
+		result.Deployment = &value
+
+	case ForgePipelineInspect:
+		provider = BindForgeOperation(provider, op)
+		var gates forge.DeploymentGates
+		gates, err = forge.InspectPipeline(ctx, provider, *op.Pipeline)
+		result.DeploymentGates = &gates
+
+	case ForgeDeliveryWorkflows:
+		result.Workflows, err = provider.ListAllowedWorkflows(ctx, op.Delivery.Repository)
+	case ForgeDeliveryGates:
+		var gates forge.DeploymentGates
+		gates, err = provider.ReadDeploymentGates(ctx, op.Delivery.Repository, op.Delivery.Environment)
+		result.DeploymentGates = &gates
+	case ForgeDeliveryStatus:
+		var value forge.DeploymentStatus
+		value, err = provider.ReadDeploymentStatus(ctx, op.Delivery.Repository, op.Delivery.RunID)
+		result.Deployment = &value
+	case ForgePipelineObserve, ForgePipelineTrigger, ForgePipelineRecover:
+		provider = BindForgeOperation(provider, op)
+		var value forge.DeploymentStatus
+		if op.Kind == ForgePipelineRecover {
+			value, err = provider.RequestAllowedRecovery(ctx, *op.Pipeline)
+		} else {
+			value, err = provider.TriggerOrObservePipeline(ctx, *op.Pipeline)
+		}
+		result.Deployment = &value
 	case ForgeReadTrainGate, ForgeReleaseTrainGate:
 		provider = BindForgeOperation(provider, op)
 		train, ok := provider.(forge.ForgeTrainGate)

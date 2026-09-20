@@ -29,6 +29,7 @@ const (
 )
 
 type Provider struct {
+	deliveryGuard   forge.DeliveryGuard
 	config          forge.Config
 	base            *url.URL
 	app             *installationAuth
