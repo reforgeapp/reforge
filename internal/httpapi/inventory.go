@@ -104,22 +104,22 @@ func (s *Server) RegisterInventory(service *inventory.Service) {
 		}
 		c.JSON(200, out)
 	})
-	group.GET("/repositories/:repositoryID", func(c *gin.Context) {
+	group.GET("/repositories/:repoID", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
-		out, err := service.Repository(c.Request.Context(), session, c.Param("orgID"), c.Param("repositoryID"))
+		out, err := service.Repository(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"))
 		if err != nil {
 			inventoryFailure(c, err)
 			return
 		}
 		c.JSON(200, out)
 	})
-	group.GET("/repositories/:repositoryID/changes", func(c *gin.Context) {
+	group.GET("/repositories/:repoID/changes", func(c *gin.Context) {
 		limit, cursor, ok := inventoryPage(c)
 		if !ok {
 			return
 		}
 		session, _ := SessionFromContext(c)
-		out, err := service.Changes(c.Request.Context(), session, c.Param("orgID"), c.Param("repositoryID"), limit, cursor)
+		out, err := service.Changes(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"), limit, cursor)
 		if err != nil {
 			inventoryFailure(c, err)
 			return

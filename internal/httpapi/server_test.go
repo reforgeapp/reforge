@@ -10,6 +10,23 @@ import (
 	"testing"
 )
 
+func TestIntegratedRouteRegistration(t *testing.T) {
+	s := New(config.Config{WebDir: t.TempDir()}, nil)
+	s.RegisterIdentity(nil)
+	s.RegisterConnections(nil)
+	s.RegisterPolicy(nil)
+	s.RegisterWorkflow(nil)
+	s.RegisterBudget(nil)
+	s.RegisterRunner(nil)
+	s.RegisterPrivateConnector(nil)
+	s.RegisterInventory(nil)
+	w := httptest.NewRecorder()
+	s.Router.ServeHTTP(w, httptest.NewRequest("GET", "/healthz", nil))
+	if w.Code != 200 {
+		t.Fatalf("registered application health: %d", w.Code)
+	}
+}
+
 func TestRequestBoundaryAndSPAFallback(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("<main>Reforge</main>"), 0600); err != nil {
