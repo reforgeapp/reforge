@@ -1441,6 +1441,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/changes/{changeID}/revalidations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listBotRevalidations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2815,6 +2831,18 @@ export interface components {
             head_sha: string;
             merge_sha: string;
             state: string;
+        };
+        BotRevalidation: {
+
+            task_id: string;
+            change_id: string;
+            companion_id: string;
+
+            state: "pending" | "waiting_companion" | "blocked" | "ready" | "merged" | "closed";
+            reason: string;
+
+            observed_at: string | null;
+            gate?: components["schemas"]["MergeGate"];
         };
     };
     responses: never;
@@ -6720,6 +6748,34 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listBotRevalidations: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+                changeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["BotRevalidation"][];
+                    };
                 };
             };
         };

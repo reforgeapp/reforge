@@ -14,7 +14,7 @@ func (s *Service) inspectionActor(ctx context.Context, tx pgx.Tx, session *auth.
 		return s.auth.ActorTx(ctx, tx, *session, org)
 	}
 	a := domain.Actor{OrgID: org, RepositoryIDs: []string{repo}}
-	err := tx.QueryRow(ctx, `SELECT m.user_id::text,m.role FROM merge_operations o JOIN memberships m ON m.org_id=o.org_id AND m.user_id=o.requested_by WHERE o.org_id=$1 AND o.id=$2 AND o.repository_id=$3 AND o.state='queued' AND NOT o.cancel_requested AND m.role IN ('owner','admin','maintainer') AND (m.all_repositories OR EXISTS(SELECT 1 FROM member_repositories r WHERE r.org_id=o.org_id AND r.user_id=m.user_id AND r.repository_id=o.repository_id) OR EXISTS(SELECT 1 FROM team_memberships tm JOIN team_repositories tr ON tr.org_id=tm.org_id AND tr.team_id=tm.team_id WHERE tm.org_id=o.org_id AND tm.user_id=m.user_id AND tr.repository_id=o.repository_id))`, org, operation, repo).Scan(&a.UserID, &a.Role)
+	err := tx.QueryRow(ctx, `SELECT m.user_id::text,m.role FROM memberships m WHERE m.org_id=$1 AND m.user_id IN (SELECT requested_by FROM merge_operations WHERE org_id=$1 AND id=$2 AND repository_id=$3 AND state='queued' AND NOT cancel_requested UNION ALL SELECT requested_by FROM repair_runs WHERE org_id=$1 AND task_id=$2 AND repository_id=$3 AND state='published') AND m.role IN ('owner','admin','maintainer') AND (m.all_repositories OR EXISTS(SELECT 1 FROM member_repositories r WHERE r.org_id=m.org_id AND r.user_id=m.user_id AND r.repository_id=$3) OR EXISTS(SELECT 1 FROM team_memberships tm JOIN team_repositories tr ON tr.org_id=tm.org_id AND tr.team_id=tm.team_id WHERE tm.org_id=m.org_id AND tm.user_id=m.user_id AND tr.repository_id=$3))`, org, operation, repo).Scan(&a.UserID, &a.Role)
 	if errors.Is(err, pgx.ErrNoRows) {
 		err = auth.ErrForbidden
 	}

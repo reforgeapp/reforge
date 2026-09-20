@@ -402,24 +402,30 @@ type PolicyVersion struct {
 }
 
 type RepairRun struct {
-	OrgID              pgtype.UUID        `json:"org_id"`
-	TaskID             pgtype.UUID        `json:"task_id"`
-	RepositoryID       pgtype.UUID        `json:"repository_id"`
-	FindingID          pgtype.UUID        `json:"finding_id"`
-	RequestedBy        pgtype.UUID        `json:"requested_by"`
-	FindingVersion     int64              `json:"finding_version"`
-	FindingDigest      string             `json:"finding_digest"`
-	Context            []byte             `json:"context"`
-	Report             []byte             `json:"report"`
-	State              string             `json:"state"`
-	Version            int64              `json:"version"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
-	Branch             string             `json:"branch"`
-	CandidateSha       string             `json:"candidate_sha"`
-	CandidateChecks    []byte             `json:"candidate_checks"`
-	NativeChange       []byte             `json:"native_change"`
-	CandidateArtifacts []byte             `json:"candidate_artifacts"`
+	OrgID                  pgtype.UUID        `json:"org_id"`
+	TaskID                 pgtype.UUID        `json:"task_id"`
+	RepositoryID           pgtype.UUID        `json:"repository_id"`
+	FindingID              pgtype.UUID        `json:"finding_id"`
+	RequestedBy            pgtype.UUID        `json:"requested_by"`
+	FindingVersion         int64              `json:"finding_version"`
+	FindingDigest          string             `json:"finding_digest"`
+	Context                []byte             `json:"context"`
+	Report                 []byte             `json:"report"`
+	State                  string             `json:"state"`
+	Version                int64              `json:"version"`
+	CreatedAt              pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt              pgtype.Timestamptz `json:"updated_at"`
+	Branch                 string             `json:"branch"`
+	CandidateSha           string             `json:"candidate_sha"`
+	CandidateChecks        []byte             `json:"candidate_checks"`
+	NativeChange           []byte             `json:"native_change"`
+	CandidateArtifacts     []byte             `json:"candidate_artifacts"`
+	BotGateID              pgtype.UUID        `json:"bot_gate_id"`
+	BotRevalidationVersion int64              `json:"bot_revalidation_version"`
+	BotRevalidationState   string             `json:"bot_revalidation_state"`
+	BotRevalidationReason  string             `json:"bot_revalidation_reason"`
+	BotObserveAfter        pgtype.Timestamptz `json:"bot_observe_after"`
+	BotObservedAt          pgtype.Timestamptz `json:"bot_observed_at"`
 }
 
 type Repository struct {

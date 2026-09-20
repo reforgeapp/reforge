@@ -15,6 +15,15 @@ import (
 
 func (s *Server) RegisterMerge(service *mergecontrol.Service) {
 	group := s.Router.Group("/api/v1/orgs/:orgID", s.IdentitySession())
+	group.GET("/repositories/:repoID/changes/:changeID/revalidations", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		out, err := service.Revalidations(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"), c.Param("changeID"))
+		if err != nil {
+			mergeFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"items": out})
+	})
 	group.GET("/merge-operations", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
 		limit, err := strconv.Atoi(c.DefaultQuery("limit", "50"))

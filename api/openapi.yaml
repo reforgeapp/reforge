@@ -6448,6 +6448,77 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/changes/{changeID}/revalidations": {
+      "get": {
+        "operationId": "listBotRevalidations",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "changeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Native revalidation observations; no automatic merge",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/BotRevalidation"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ]
+      }
     }
   },
   "components": {
@@ -11351,6 +11422,51 @@
           },
           "state": {
             "type": "string"
+          }
+        }
+      },
+      "BotRevalidation": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "change_id",
+          "companion_id",
+          "state",
+          "reason",
+          "observed_at"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "change_id": {
+            "type": "string"
+          },
+          "companion_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "waiting_companion",
+              "blocked",
+              "ready",
+              "merged",
+              "closed"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time",
+            "nullable": true
+          },
+          "gate": {
+            "$ref": "#/components/schemas/MergeGate"
           }
         }
       }

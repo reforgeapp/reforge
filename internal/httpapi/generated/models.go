@@ -2,7 +2,37 @@ package generated
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+const (
+	BotRevalidationStateBlocked          BotRevalidationState = "blocked"
+	BotRevalidationStateClosed           BotRevalidationState = "closed"
+	BotRevalidationStateMerged           BotRevalidationState = "merged"
+	BotRevalidationStatePending          BotRevalidationState = "pending"
+	BotRevalidationStateReady            BotRevalidationState = "ready"
+	BotRevalidationStateWaitingCompanion BotRevalidationState = "waiting_companion"
+)
+
+func (e BotRevalidationState) Valid() bool {
+	switch e {
+	case BotRevalidationStateBlocked:
+		return true
+	case BotRevalidationStateClosed:
+		return true
+	case BotRevalidationStateMerged:
+		return true
+	case BotRevalidationStatePending:
+		return true
+	case BotRevalidationStateReady:
+		return true
+	case BotRevalidationStateWaitingCompanion:
+		return true
+	default:
+		return false
+	}
+}
 
 const (
 	BudgetLimitPeriodCustom  BudgetLimitPeriod = "custom"
@@ -677,6 +707,16 @@ type BootstrapRequest struct {
 	Name  string `json:"name"`
 	Token string `json:"token"`
 }
+type BotRevalidation struct {
+	ChangeId    string               `json:"change_id"`
+	CompanionId string               `json:"companion_id"`
+	Gate        *MergeGate           `json:"gate,omitempty"`
+	ObservedAt  *time.Time           `json:"observed_at"`
+	Reason      string               `json:"reason"`
+	State       BotRevalidationState `json:"state"`
+	TaskId      openapi_types.UUID   `json:"task_id"`
+}
+type BotRevalidationState string
 type BudgetAmount struct {
 	Concurrency  int64 `json:"concurrency"`
 	MicroUsd     int64 `json:"micro_usd"`
@@ -1964,6 +2004,9 @@ type ListInventoryChangesParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 type PreviewProtectedMergeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListBotRevalidationsParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type PutMaintenanceConfigParams struct {

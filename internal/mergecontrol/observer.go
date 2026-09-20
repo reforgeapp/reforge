@@ -187,5 +187,6 @@ func (s *Service) Run(ctx context.Context) error {
 			_, _ = s.Observe(bounded, org, id)
 			cancel()
 		}
+		s.observeNextBotRepair(ctx, org)
 	}
 }
