@@ -68,7 +68,7 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	}
 	add("target_enforcement", strict, "target-enforcement:"+rules.Hash, 0)
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)
-	add("merge_authority", authority.MergeControlled && authority.CooperationVerified, "repository-merge-authority", 0)
+	add("merge_authority", authority.MergeControlled && authority.CooperationVerified && !authority.CompanionsBlocked, "repository-merge-authority", 0)
 	decision := policy.Evaluate(resolved, policy.Input{Action: policy.Merge, MergeMethod: method, Current: binding, Evidence: evidence, Paths: authority.Paths, Usage: authority.Usage, Now: now})
 	return Gate{Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
 }

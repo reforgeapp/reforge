@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -137,7 +138,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	if err != nil {
 		return out, err
 	}
-	if fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion {
+	if fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion || !slices.Equal(fresh.Companions, original.Companions) {
 		return out, auth.ErrConflict
 	}
 	created := false
@@ -215,6 +216,11 @@ func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gat
 		return err
 	}
 	authority.Paths, authority.PathsVerified = gate.Paths, true
+	validCompanions, err := validateCompanionsTx(ctx, tx, org, gate)
+	if err != nil {
+		return err
+	}
+	authority.CompanionsBlocked = !validCompanions
 	files := int64(len(gate.Paths))
 	authority.Usage.ChangedFiles, authority.Usage.ChangedLines = &files, &gate.ChangedLines
 	if Evaluate(gate.Snapshot, resolved, gate.Method, authority, time.Now().UTC()).Decision.Outcome != "allow" {

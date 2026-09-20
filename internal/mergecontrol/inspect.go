@@ -81,6 +81,10 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 	if err != nil {
 		return out, err
 	}
+	companions, err := s.inspectCompanions(ctx, org, repo, id, result.MergeEvidence.Change, check)
+	if err != nil {
+		return out, err
+	}
 	err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if err := check(ctx, tx, connection); err != nil {
 			return err
@@ -101,9 +105,15 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 			return err
 		}
 		authority.Paths, authority.PathsVerified = paths, true
+		validCompanions, err := validateCompanionsTx(ctx, tx, org, Gate{RepositoryID: repo, Snapshot: *result.MergeEvidence, Companions: companions})
+		if err != nil {
+			return err
+		}
+		authority.CompanionsBlocked = !validCompanions
 		files := int64(len(paths))
 		authority.Usage.ChangedFiles, authority.Usage.ChangedLines = &files, &lines
 		out = Evaluate(*result.MergeEvidence, resolved, method, authority, time.Now().UTC())
+		out.Companions = companions
 		out.Paths, out.ChangedLines = paths, lines
 		out.ID, out.RepositoryID, out.ConnectionID, out.ConnectionVersion, out.ConfigurationVersion = domain.NewID(), repo, id, current.Version, cfg.Version
 		raw, _ := json.Marshal(out)

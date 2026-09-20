@@ -9,6 +9,7 @@ import (
 type Snapshot = forge.MergeEvidence
 
 type Gate struct {
+	Companions           []Companion    `json:"companions"`
 	Paths                []string       `json:"paths"`
 	ChangedLines         int64          `json:"changed_lines"`
 	ConfigurationVersion int64          `json:"configuration_version"`
@@ -21,6 +22,14 @@ type Gate struct {
 	Decision             policy.Result  `json:"decision"`
 	Binding              policy.Binding `json:"binding"`
 	ExpiresAt            time.Time      `json:"expires_at"`
+}
+
+type Companion struct {
+	TaskID   string `json:"task_id"`
+	ChangeID string `json:"change_id"`
+	HeadSHA  string `json:"head_sha"`
+	MergeSHA string `json:"merge_sha"`
+	State    string `json:"state"`
 }
 
 type Qualification struct {
@@ -64,6 +73,7 @@ type Operation struct {
 }
 
 type Authority struct {
+	CompanionsBlocked      bool
 	PathsVerified          bool
 	ValidationHead         string
 	ValidationTarget       string
