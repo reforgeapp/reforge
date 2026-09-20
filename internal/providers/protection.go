@@ -10,7 +10,7 @@ import (
 	"reforge/internal/privateconnector"
 )
 
-func (s Service) ForProtection(id string, publishers map[string]string) *Service {
+func (s Service) ForProtection(id string, publishers map[string]string) Client {
 	s.protectionID = id
 	s.publishers = make(map[string]string, len(publishers))
 	for name, publisher := range publishers {

@@ -2,6 +2,7 @@ package mergecontrol
 
 import (
 	"reforge/internal/domain"
+	"reforge/internal/forge"
 	"reforge/internal/policy"
 	"reforge/internal/source"
 	"slices"
@@ -11,6 +12,14 @@ import (
 
 func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, authority Authority, now time.Time) Gate {
 	change, rules := snapshot.Change, snapshot.Rules
+	phase := "merge"
+	queueGate := rules.RequireQueue && authority.ExecutionPublisher != "" && snapshot.ExecutionCheck == (forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: authority.ExecutionPublisher}) && slices.Contains(rules.RequiredChecks, snapshot.ExecutionCheck)
+	if queueGate {
+		phase = "queue_admission"
+		if snapshot.Queue.ID != "" {
+			phase = "queue_execution"
+		}
+	}
 	binding := policy.Binding{Head: change.HeadSHA, Target: change.TargetSHA, Tested: change.HeadSHA, PolicyHash: resolved.Hash, ProviderRules: rules.Hash, CapabilityVersion: snapshot.Capabilities.Provider + "/" + snapshot.Capabilities.ServerVersion}
 	if rules.RequireQueue && snapshot.Queue.TestedSHA != "" {
 		binding.Tested = snapshot.Queue.TestedSHA
@@ -25,11 +34,15 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	}
 	nativeCurrent := snapshot.Native.HeadSHA == change.HeadSHA && snapshot.Native.TargetSHA == change.TargetSHA && snapshot.Native.State == "eligible"
 	ready := (change.State == "open" || change.State == "opened") && !change.Draft && change.AuthorID != "" && change.HeadBranch != "" && change.TargetBranch != "" && source.ValidSHA(change.HeadSHA, "sha1") && source.ValidSHA(change.TargetSHA, "sha1") && change.Repository.NativeID != "" && change.Repository == change.TargetRepository && change.HeadRepository.NativeID != ""
-	qualified := authority.Qualified && authority.QualificationReference != "" && snapshot.Capabilities.Provider != "" && snapshot.Capabilities.ServerVersion != ""
+	qualified := authority.Qualified && authority.QualificationReference != "" && snapshot.Capabilities.Provider != "" && snapshot.Capabilities.ServerVersion != "" && (!rules.RequireQueue || queueGate)
 	add("execution_authority", ready && nativeCurrent && qualified && authority.PathsVerified && !rules.ActorCanBypass, authority.QualificationReference, 0)
 	add("native_rules", rules.State == domain.Supported && source.ValidSHA(rules.Hash, "sha256") && slices.Contains(rules.AllowedMergeMethods, method), "native-rules:"+rules.Hash, 0)
-	trustedChecks := len(rules.RequiredChecks) > 0
+	trustedChecks, checked := true, 0
 	for _, requirement := range rules.RequiredChecks {
+		if queueGate && requirement == snapshot.ExecutionCheck {
+			continue
+		}
+		checked++
 		matched, failed := false, false
 		if requirement.Name == "" || requirement.PublisherID == "" {
 			trustedChecks = false
@@ -47,7 +60,8 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 		}
 		trustedChecks = trustedChecks && matched && !failed
 	}
-	add("native_checks", nativeCurrent && (len(rules.RequiredChecks) == 0 || trustedChecks), "native-checks:"+binding.Tested, 0)
+	add("native_checks", nativeCurrent && trustedChecks, "native-checks:"+binding.Tested, 0)
+	trustedChecks = trustedChecks && checked > 0
 	reviewers := map[string]bool{}
 	for _, approval := range snapshot.Approvals {
 		if approval.ActorID != "" && approval.ActorID != change.AuthorID && approval.HeadSHA == change.HeadSHA && !approval.Dismissed && strings.EqualFold(approval.State, "approved") {
@@ -57,6 +71,9 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	reviews := len(reviewers) >= rules.RequiredApprovals && (!rules.RequireCodeOwners || rules.CodeOwnersEnforced == domain.Supported)
 	add("native_reviews", nativeCurrent && reviews, "native-reviews:"+change.ID, len(reviewers))
 	local := authority.ValidationHead == change.HeadSHA && authority.ValidationTarget == change.TargetSHA && authority.ValidationReference != ""
+	if phase == "queue_execution" {
+		local = false
+	}
 	validationRef := authority.ValidationReference
 	if !local && trustedChecks {
 		validationRef = "native-validation:" + binding.Tested
@@ -65,10 +82,16 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	strict := rules.RequireStrictTarget && rules.StrictTargetEnforced == domain.Supported
 	if rules.RequireQueue {
 		strict = qualified && snapshot.Queue.HeadSHA == change.HeadSHA && snapshot.Queue.TargetSHA == change.TargetSHA && snapshot.Queue.TestedSHA != "" && snapshot.Queue.ID != "" && trustedChecks
+		if queueGate && phase == "queue_admission" {
+			strict = qualified && snapshot.Queue.State == "not_queued" && snapshot.Queue.HeadSHA == change.HeadSHA && snapshot.Queue.TargetSHA == change.TargetSHA
+		}
+		if queueGate && phase == "queue_execution" {
+			strict = strict && source.ValidSHA(snapshot.Queue.TestedSHA, "sha1") && snapshot.Queue.TestedSHA != change.HeadSHA && slices.Contains([]string{"awaiting_checks", "queued", "mergeable"}, snapshot.Queue.State)
+		}
 	}
 	add("target_enforcement", strict, "target-enforcement:"+rules.Hash, 0)
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)
 	add("merge_authority", authority.MergeControlled && authority.CooperationVerified && !authority.CompanionsBlocked, "repository-merge-authority", 0)
 	decision := policy.Evaluate(resolved, policy.Input{Action: policy.Merge, MergeMethod: method, Current: binding, Evidence: evidence, Paths: authority.Paths, Usage: authority.Usage, Now: now})
-	return Gate{Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
+	return Gate{Phase: phase, Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
 }

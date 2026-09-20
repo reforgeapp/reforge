@@ -282,6 +282,8 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		result.Queue = &queue
 	case ForgeMergeInspect:
 		result.MergeEvidence, err = inspectMerge(ctx, provider, *op.Change)
+	case ForgeQueueInspect:
+		result.MergeEvidence, err = inspectQueue(ctx, provider, *op.Change)
 	case ForgeMerge:
 		provider = BindForgeOperation(provider, op)
 		var merged forge.MergeResult

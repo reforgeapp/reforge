@@ -9,6 +9,7 @@ import (
 type Snapshot = forge.MergeEvidence
 
 type Gate struct {
+	Phase                string         `json:"phase"`
 	Companions           []Companion    `json:"companions"`
 	Paths                []string       `json:"paths"`
 	ChangedLines         int64          `json:"changed_lines"`
@@ -73,6 +74,7 @@ type Operation struct {
 }
 
 type Authority struct {
+	ExecutionPublisher     string
 	CompanionsBlocked      bool
 	PathsVerified          bool
 	ValidationHead         string

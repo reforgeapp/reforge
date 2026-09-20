@@ -388,7 +388,7 @@ func (r Result) valid(kind Kind) bool {
 		return count == 1 && r.ExecutionCheck != nil
 	case ForgeQueueState, ForgeCancelQueue:
 		return count == 1 && r.Queue != nil
-	case ForgeMergeInspect:
+	case ForgeMergeInspect, ForgeQueueInspect:
 		return count == 1 && r.MergeEvidence != nil
 	case ForgeMerge, ForgeMergeResult:
 		return count == 1 && r.Merge != nil

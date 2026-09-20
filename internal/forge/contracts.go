@@ -161,14 +161,15 @@ type QueueState struct {
 	TargetSHA string `json:"target_sha"`
 }
 type MergeEvidence struct {
-	Change       Change            `json:"change"`
-	Rules        Rules             `json:"rules"`
-	Checks       []Check           `json:"checks"`
-	Approvals    []Approval        `json:"approvals"`
-	Native       NativeEligibility `json:"native"`
-	Queue        QueueState        `json:"queue"`
-	Capabilities Capabilities      `json:"capabilities"`
-	ObservedAt   time.Time         `json:"observed_at"`
+	ExecutionCheck CheckRule         `json:"execution_check"`
+	Change         Change            `json:"change"`
+	Rules          Rules             `json:"rules"`
+	Checks         []Check           `json:"checks"`
+	Approvals      []Approval        `json:"approvals"`
+	Native         NativeEligibility `json:"native"`
+	Queue          QueueState        `json:"queue"`
+	Capabilities   Capabilities      `json:"capabilities"`
+	ObservedAt     time.Time         `json:"observed_at"`
 }
 
 type CreateChangeRequest struct {
@@ -315,6 +316,12 @@ type ExecutionCheck struct {
 type ForgeExecutionChecks interface {
 	WriteExecutionCheck(context.Context, ExecutionCheckRequest) (ExecutionCheck, error)
 	ReadExecutionCheck(context.Context, RepoRef, string) (ExecutionCheck, error)
+}
+
+const QueueExecutionCheckName = "reforge/merge-policy"
+
+type ForgeQueuePrerequisites interface {
+	EvaluateQueuePrerequisites(context.Context, RepoRef, string) (NativeEligibility, CheckRule, error)
 }
 type ForgeDelivery interface {
 	ListAllowedWorkflows(context.Context, RepoRef) ([]Workflow, error)

@@ -305,10 +305,16 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		case "merge_queue":
 			out.RequireQueue = true
 			var queue struct {
-				Method string `json:"merge_method"`
+				Method   string `json:"merge_method"`
+				Grouping string `json:"grouping_strategy"`
+				Maximum  int    `json:"max_entries_to_merge"`
 			}
 			if json.Unmarshal(rule.Parameters, &queue) != nil {
 				return out, failure("provider", "Invalid merge queue rule")
+			}
+			if queue.Grouping != "ALLGREEN" || queue.Maximum != 1 {
+				out.State = domain.Unknown
+				out.Reason = "Queue qualification requires ALLGREEN and one entry per merge group"
 			}
 			method := strings.ToLower(queue.Method)
 			if method != "merge" && method != "squash" && method != "rebase" {
@@ -453,6 +459,19 @@ func (p *Provider) ReadApprovals(ctx context.Context, r forge.RepoRef, id string
 	return nil, failure("provider", "Review pagination exceeded bound")
 }
 func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRef, id string) (forge.NativeEligibility, error) {
+	return p.evaluateEligibility(ctx, r, id, forge.CheckRule{})
+}
+
+func (p *Provider) EvaluateQueuePrerequisites(ctx context.Context, r forge.RepoRef, id string) (forge.NativeEligibility, forge.CheckRule, error) {
+	if _, err := p.authenticatedBot(ctx); err != nil {
+		return forge.NativeEligibility{}, forge.CheckRule{}, err
+	}
+	check := forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: p.app.appID}
+	state, err := p.evaluateEligibility(ctx, r, id, check)
+	return state, check, err
+}
+
+func (p *Provider) evaluateEligibility(ctx context.Context, r forge.RepoRef, id string, executionCheck forge.CheckRule) (forge.NativeEligibility, error) {
 	out := forge.NativeEligibility{State: "blocked", Blockers: []string{}}
 	change, err := p.ReadChange(ctx, r, id)
 	if err != nil {
@@ -469,6 +488,15 @@ func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRe
 	if rules.ActorCanBypass {
 		out.Blockers = append(out.Blockers, "Operational App can bypass protection")
 	}
+	if executionCheck.Name != "" {
+		bound := false
+		for _, required := range rules.RequiredChecks {
+			bound = bound || required == executionCheck
+		}
+		if !rules.RequireQueue || !bound {
+			out.Blockers = append(out.Blockers, "Native queue must require the execution check from this App")
+		}
+	}
 	if change.State != "open" || change.Draft || (change.MergeStatus != "clean" && !(rules.RequireQueue && (change.MergeStatus == "blocked" || change.MergeStatus == "behind"))) {
 		out.Blockers = append(out.Blockers, "Native pull request state is not clean and open")
 	}
@@ -484,6 +512,9 @@ func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRe
 		return out, err
 	}
 	for _, required := range rules.RequiredChecks {
+		if executionCheck.Name != "" && required == executionCheck {
+			continue
+		}
 		var newest forge.Check
 		var newestID int64
 		for _, check := range checks {

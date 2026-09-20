@@ -21,6 +21,10 @@ import (
 )
 
 func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, change, method, request string) (Gate, error) {
+	return s.inspect(ctx, &session, org, repo, change, method, request, "")
+}
+
+func (s *Service) inspect(ctx context.Context, session *auth.Session, org, repo, change, method, request, operation string) (Gate, error) {
 	var out Gate
 	n, err := strconv.ParseInt(change, 10, 64)
 	if !auth.ValidID(repo) || err != nil || n < 1 || strconv.FormatInt(n, 10) != change || len(method) > 40 {
@@ -29,7 +33,7 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 	var cfg Configuration
 	var ref forge.RepoRef
 	var id string
-	err = s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+	err = s.withInspectionActor(ctx, session, org, repo, operation, func(tx pgx.Tx, a domain.Actor) error {
 		if !auth.CanReadRepository(a, repo) {
 			return auth.ErrForbidden
 		}
@@ -46,7 +50,7 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 	}
 	var connection connections.Connection
 	check := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
-		a, err := s.auth.ActorTx(ctx, tx, session, org)
+		a, err := s.inspectionActor(ctx, tx, session, org, repo, operation)
 		if err != nil {
 			return err
 		}
@@ -70,7 +74,11 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 		connection = c
 		return nil
 	}
-	result, err := s.providers.ForProtection(cfg.InspectorConnectionID, cfg.CheckPublishers).Read(ctx, org, id, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeMergeInspect, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: change}}, check)
+	kind := privateconnector.ForgeMergeInspect
+	if cfg.Qualification.QueueExecutionGate {
+		kind = privateconnector.ForgeQueueInspect
+	}
+	result, err := s.providers.ForProtection(cfg.InspectorConnectionID, cfg.CheckPublishers).Read(ctx, org, id, privateconnector.Operation{ID: domain.NewID(), Kind: kind, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: change}}, check)
 	if err != nil {
 		return out, err
 	}
@@ -85,7 +93,7 @@ func (s *Service) Inspect(ctx context.Context, session auth.Session, org, repo, 
 	if err != nil {
 		return out, err
 	}
-	err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+	err = s.withInspectionActor(ctx, session, org, repo, operation, func(tx pgx.Tx, a domain.Actor) error {
 		if err := check(ctx, tx, connection); err != nil {
 			return err
 		}
@@ -173,7 +181,10 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	}
 	concurrency = max(1, concurrency)
 	out.Usage = policy.Limits{Budget: &zero, Concurrency: &concurrency, Attempts: &one, OpenChanges: &open}
-	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && q.StrictTarget && !snapshot.Rules.RequireQueue
+	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && (q.StrictTarget && !snapshot.Rules.RequireQueue || q.QueueExecutionGate && snapshot.Rules.RequireQueue && c.Provider == "github" && c.Settings.AuthKind == "github_app")
+	if q.QueueExecutionGate && c.Provider == "github" {
+		out.ExecutionPublisher = c.Settings.AppID
+	}
 	if cfg.InspectorConnectionID != "" {
 		inspector, err := s.connections.MetadataTx(ctx, tx, org, cfg.InspectorConnectionID)
 		if err != nil {

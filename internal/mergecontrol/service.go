@@ -24,10 +24,10 @@ type Service struct {
 	auth        *auth.Service
 	connections *connections.Service
 	policies    *policy.Service
-	providers   *providers.Service
+	providers   providers.Client
 }
 
-func New(db *store.Store, identity *auth.Service, connections *connections.Service, policies *policy.Service, providers *providers.Service) *Service {
+func New(db *store.Store, identity *auth.Service, connections *connections.Service, policies *policy.Service, providers providers.Client) *Service {
 	return &Service{db, identity, connections, policies, providers}
 }
 
@@ -92,9 +92,6 @@ func (s *Service) PutConfig(ctx context.Context, session auth.Session, org, repo
 		}
 	}
 	q := in.Qualification
-	if in.Enabled && q.QueueExecutionGate {
-		return Configuration{}, &domain.ProviderError{Kind: "unsupported", Message: "Queue automation requires the native execution-gate controller and a qualified provider profile"}
-	}
 	if in.Enabled && (in.CooperationReference == "" || !q.ExactHead || !q.StrictTarget && !q.QueueExecutionGate || !source.ValidSHA(q.EvidenceSHA256, "sha256") || q.EvidenceReference == "" || len(q.EvidenceReference) > 2048 || q.VerifiedAt.IsZero() || q.VerifiedAt.After(time.Now()) || !q.ExpiresAt.After(time.Now()) || q.ExpiresAt.Sub(q.VerifiedAt) > 30*24*time.Hour) {
 		return Configuration{}, auth.ErrInvalid
 	}
@@ -119,6 +116,9 @@ func (s *Service) PutConfig(ctx context.Context, session auth.Session, org, repo
 		}
 		if in.Enabled && (c.State != "healthy" || q.Provider != c.Provider || q.ServerVersion != c.ServerVersion || q.ConnectionVersion != c.Version) {
 			return auth.ErrConflict
+		}
+		if in.Enabled && q.QueueExecutionGate && (c.Provider != "github" || c.Settings.AuthKind != "github_app" || c.Settings.AppID == "" || in.CheckPublishers[forge.QueueExecutionCheckName] != c.Settings.AppID) {
+			return &domain.ProviderError{Kind: "unsupported", Message: "Queue execution requires a qualified GitHub App and its required reforge/merge-policy check; other profiles remain disabled"}
 		}
 		if in.InspectorConnectionID != "" {
 			inspector, err := s.connections.MetadataTx(ctx, tx, org, in.InspectorConnectionID)

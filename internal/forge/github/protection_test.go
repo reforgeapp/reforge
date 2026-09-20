@@ -51,7 +51,7 @@ func (f *nativeFixture) call(t *testing.T, req *http.Request) (*http.Response, e
 			rules = append(rules, map[string]any{"type": "future_unknown", "ruleset_id": 7})
 		}
 		if strings.HasPrefix(f.mode, "queue") {
-			rules = append(rules, map[string]any{"type": "merge_queue", "ruleset_id": 7, "parameters": map[string]string{"merge_method": "SQUASH"}})
+			rules = append(rules, map[string]any{"type": "merge_queue", "ruleset_id": 7, "parameters": map[string]any{"merge_method": "SQUASH", "grouping_strategy": "ALLGREEN", "max_entries_to_merge": 1}})
 		}
 		if f.mode == "partial_rule" {
 			rules = append(rules, map[string]any{"type": "pull_request", "ruleset_id": 7, "parameters": map[string]any{"required_approving_review_count": 0}})

@@ -32,6 +32,7 @@ type Kind string
 
 const (
 	ForgeMergeInspect        Kind = "forge.merge_inspect"
+	ForgeQueueInspect        Kind = "forge.queue_inspect"
 	ForgeMerge               Kind = "forge.merge"
 	ForgeMergeResult         Kind = "forge.merge_result"
 	ForgeQueueState          Kind = "forge.queue_state"
@@ -146,7 +147,7 @@ func (o Operation) validate() error {
 		valid = o.CancelQueue != nil && o.CancelQueue.OperationID == o.ID && o.CancelQueue.Repository.NativeID != "" && len(o.CancelQueue.Repository.FullName) <= 1024 && len(o.CancelQueue.ExpectedHeadSHA) == 40 && o.CancelQueue.ChangeID != "" && len(o.CancelQueue.ChangeID) <= 32 && o.CancelQueue.QueueID != "" && len(o.CancelQueue.QueueID) <= 256
 	case ForgeMerge:
 		valid = o.Merge != nil && o.Merge.OperationID == o.ID && auth.ValidID(o.Merge.GateID) && len(o.Merge.ExpectedHeadSHA) == 40 && len(o.Merge.ExpectedTargetSHA) == 40 && len(o.Merge.RulesHash) == 64 && o.Merge.ChangeID != ""
-	case ForgeMergeInspect, ForgeMergeResult, ForgeQueueState:
+	case ForgeMergeInspect, ForgeQueueInspect, ForgeMergeResult, ForgeQueueState:
 		valid = o.Change != nil && o.Change.ChangeID != "" && len(o.Change.ChangeID) <= 32 && o.Change.Repository.NativeID != ""
 	case ForgeCommitProof:
 		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""

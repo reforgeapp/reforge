@@ -75,17 +75,25 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 			return auth.ErrConflict
 		}
 		state, reason := observedState(*result.Merge, gate)
+		queueID := current.NativeQueueID
+		if state == "queued" {
+			if queueID == "" {
+				queueID = result.Merge.NativeID
+			} else if queueID != result.Merge.NativeID {
+				state, reason = "reconciling", "Native queue admission changed; fresh authorization is required"
+			}
+		}
 		if current.State == "requested" && state == "reconciling" {
 			state, reason = "blocked", "Controller stopped before dispatch; create a fresh merge preview"
 		}
 		if current.CancelRequested && state == "merged" {
 			reason = "Cancellation lost the race; canonical native merge observed"
 		}
-		if state == current.State && reason == current.Reason {
+		if state == current.State && reason == current.Reason && queueID == current.NativeQueueID {
 			return nil
 		}
 		raw, _ := json.Marshal(result.Merge)
-		if _, err = tx.Exec(ctx, `UPDATE merge_operations SET state=$3,reason=$4,native_result=$5,version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, id, state, reason, raw); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE merge_operations SET state=$3,reason=$4,native_result=$5,native_queue_id=$6,version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, id, state, reason, raw, queueID); err != nil {
 			return err
 		}
 		out, err = operationTx(ctx, tx, org, id)
@@ -94,6 +102,9 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 		}
 		return emit(ctx, tx, org, out.RepositoryID, "", "merge."+state, id, out.Version, "", map[string]any{"state": state, "cancel_requested": out.CancelRequested})
 	})
+	if err == nil && out.State == "queued" && !out.CancelRequested && gate.Phase == "queue_admission" {
+		return s.executeQueueGate(ctx, org, out, gate)
+	}
 	return out, err
 }
 

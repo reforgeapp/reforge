@@ -303,6 +303,20 @@ type MergeConfiguration struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type MergeExecutionCheck struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ID          pgtype.UUID        `json:"id"`
+	OperationID pgtype.UUID        `json:"operation_id"`
+	GateID      pgtype.UUID        `json:"gate_id"`
+	Sha         string             `json:"sha"`
+	Phase       string             `json:"phase"`
+	State       string             `json:"state"`
+	NativeID    string             `json:"native_id"`
+	DispatchID  pgtype.UUID        `json:"dispatch_id"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `json:"updated_at"`
+}
+
 type MergeGate struct {
 	OrgID                pgtype.UUID        `json:"org_id"`
 	ID                   pgtype.UUID        `json:"id"`

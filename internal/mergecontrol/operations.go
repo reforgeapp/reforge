@@ -138,7 +138,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	if err != nil {
 		return out, err
 	}
-	if fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion || !slices.Equal(fresh.Companions, original.Companions) {
+	if fresh.Phase == "queue_execution" || fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion || !slices.Equal(fresh.Companions, original.Companions) {
 		return out, auth.ErrConflict
 	}
 	created := false
@@ -175,6 +175,12 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	})
 	if err != nil || !created {
 		return out, err
+	}
+	if fresh.Phase == "queue_admission" {
+		ready, err := s.publishQueueCheck(ctx, &session, org, out, fresh)
+		if err != nil || !ready {
+			return out, err
+		}
 	}
 	return s.dispatch(ctx, session, org, out, fresh, request)
 }
