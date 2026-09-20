@@ -1,0 +1,230 @@
+package integration
+
+import (
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
+	"reforge/internal/forge"
+	"strconv"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"reforge/internal/auth"
+	"reforge/internal/config"
+	"reforge/internal/connections"
+	"reforge/internal/domain"
+	"reforge/internal/httpapi"
+	"reforge/internal/privateconnector"
+	"reforge/internal/providers"
+	"reforge/internal/runner"
+	"reforge/internal/secrets"
+	"reforge/internal/workflow"
+)
+
+func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
+	if os.Getenv("REFORGE_PRIVATE_GITEA_TEST") != "1" {
+		t.Skip("requires explicit disposable Gitea fixture")
+	}
+	db := authDB(t)
+	identity, server := identityServer(t, db, authConfig())
+	cookie, session := identityLogin(t, identity, server)
+	ctx, cancel := context.WithTimeout(context.Background(), 45*time.Second)
+	defer cancel()
+	org := session.Organisations[0].ID
+	vault, err := secrets.New("test", map[string]string{"test": base64.StdEncoding.EncodeToString([]byte(strings.Repeat("k", 32)))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	svc := connections.New(db, identity, vault, true)
+	jobs := workflow.New(db, identity, func(context.Context, pgx.Tx, workflow.Task, string) (string, error) {
+		return "", errors.New("no repair authority")
+	})
+	runners := runner.New(db, identity, jobs, nil)
+	svc.RegisterRunnerCheck(runners.CheckRunnerTx)
+	pool, err := runners.PutPool(ctx, session, org, "", runner.PoolInput{Name: "Private onboarding " + domain.NewID(), RepositoryIDs: []string{}}, 0, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	enrollment, err := runners.EnrollToken(ctx, session, org, pool.ID, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	supervisor, err := runners.Enroll(ctx, enrollment.Token, "private-onboarding")
+	if err != nil {
+		t.Fatal(err)
+	}
+	connector, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: true, TTL: 2 * time.Second})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer connector.Close()
+	providers.Factory{Development: true}.Register(svc)
+	providers.RegisterPrivate(svc, connector, runners)
+	server.RegisterConnections(svc)
+	transport := httptest.NewUnstartedServer(nil)
+	privateAPI := httpapi.New(config.Config{PublicURL: "http://" + transport.Listener.Addr().String(), Development: true}, db)
+	privateAPI.RegisterPrivateConnector(connector)
+	transport.Config.Handler = privateAPI.Router
+	transport.Start()
+	defer transport.Close()
+	client, err := privateconnector.NewClient(privateconnector.ClientConfig{Endpoint: transport.URL, Credential: supervisor.Token, Target: privateconnector.Target{OrgID: org, RunnerID: supervisor.Runner.ID}, Development: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	token, err := os.ReadFile(filepath.Join(os.Getenv("REFORGE_TEST_ROOT"), ".local/gitea/reforge-bot.token"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	secret := strings.TrimSpace(string(token))
+	clear(token)
+	connection, err := svc.Create(ctx, session, org, connections.CreateRequest{Kind: "forge", Provider: "gitea", Name: "Private onboarding", Endpoint: "http://127.0.0.1:53000", Settings: connections.Settings{AuthKind: "token", BillingRoute: "forge"}, Secret: secret, PrivateRoute: &connections.Route{RunnerID: supervisor.Runner.ID, Host: "127.0.0.1", CIDRs: []string{"127.0.0.1/32"}}}, "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		resolved, err := svc.ResolveTx(ctx, tx, org, connection.ID, supervisor.Runner.ID)
+		if err != nil {
+			return err
+		}
+		if resolved.Client != nil {
+			t.Fatal("control plane received private destination client")
+		}
+		if _, err = (providers.Factory{Development: true}).Forge(ctx, resolved); err == nil {
+			t.Fatal("factory allowed direct private connection")
+		}
+		_, err = svc.ResolveTx(ctx, tx, org, connection.ID, domain.NewID())
+		if !errors.Is(err, connections.ErrRunnerRequired) {
+			t.Fatal("wrong private runner resolved")
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	finished := make(chan error, 1)
+	go func() { finished <- client.RunOnce(ctx) }()
+	headers := map[string]string{"Origin": "http://127.0.0.1:8080", "X-CSRF-Token": session.CSRFToken, "If-Match": "\"1\"", "Content-Type": "application/json"}
+	response := identityRequest(server, "POST", "/api/v1/orgs/"+org+"/connections/"+connection.ID+"/test", "", cookie, headers)
+	if err = <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if response.Code != 200 {
+		t.Fatalf("private probe HTTP%d: %s", response.Code, response.Body.String())
+	}
+	var verified connections.Connection
+	if json.Unmarshal(response.Body.Bytes(), &verified) != nil || verified.State != "healthy" || verified.ServerVersion != "1.27.3" || strings.Contains(response.Body.String(), secret) {
+		t.Fatal("private connection did not verify safely")
+	}
+	reader := providers.New(db, svc, connector, runners, true)
+	read := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeInventory, Inventory: &privateconnector.InventoryArgs{Limit: 100}}
+	authorized := 0
+	go func() { finished <- client.RunOnce(ctx) }()
+	page, readErr := reader.Read(ctx, org, connection.ID, read, func(ctx context.Context, tx pgx.Tx, current connections.Connection) error {
+		authorized++
+		if current.ID != connection.ID || current.Version != verified.Version || current.OrgID != org {
+			return auth.ErrForbidden
+		}
+		return nil
+	})
+	if err = <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if readErr != nil || authorized != 1 || page.Inventory == nil {
+		t.Fatalf("private inventory authorization/result: %v, calls %d", readErr, authorized)
+	}
+	repository := localPrivateRepository(t)
+	reconcile := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReconcileChanges, Changes: &privateconnector.ChangesArgs{Repository: repository}}
+	go func() { finished <- client.RunOnce(ctx) }()
+	reconciled, reconcileErr := reader.Read(ctx, org, connection.ID, reconcile, func(context.Context, pgx.Tx, connections.Connection) error { return nil })
+	if err = <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if reconcileErr != nil || reconciled.Changes == nil || !reconciled.Changes.Complete || len(reconciled.Changes.Items) != 0 {
+		t.Fatalf("actual private change reconciliation: %v", reconcileErr)
+	}
+	read.ID = domain.NewID()
+	go func() { finished <- client.RunOnce(ctx) }()
+	_, readErr = reader.Read(ctx, org, connection.ID, read, func(context.Context, pgx.Tx, connections.Connection) error { return auth.ErrForbidden })
+	if !errors.Is(readErr, auth.ErrForbidden) {
+		t.Fatalf("denied read authorization: %v", readErr)
+	}
+	if err = <-finished; !errors.Is(err, privateconnector.ErrUnavailable) {
+		t.Fatalf("denied grant reached private executor: %v", err)
+	}
+	if os.Getenv("REFORGE_LOCAL_OLLAMA_TEST") == "1" {
+		modelConnection, createErr := svc.Create(ctx, session, org, connections.CreateRequest{Kind: "model", Provider: "compatible", Name: "Private local Ollama", Endpoint: "http://127.0.0.1:55435", Settings: connections.Settings{AuthKind: "api_key", BillingRoute: "direct_api", Model: "qwen3:0.6b", Profile: "ollama"}, PrivateRoute: &connections.Route{RunnerID: supervisor.Runner.ID, Host: "127.0.0.1", CIDRs: []string{"127.0.0.1/32"}}}, "test")
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		go func() { finished <- client.RunOnce(ctx) }()
+		checked, probeErr := svc.Test(ctx, session, org, modelConnection.ID, modelConnection.Version, "test")
+		if err = <-finished; err != nil {
+			t.Fatal(err)
+		}
+		if probeErr != nil || checked.State != "healthy" || len(checked.Capabilities) == 0 {
+			t.Fatalf("private model metadata probe: state %s error %v", checked.State, probeErr)
+		}
+	}
+	if _, err = runners.Claim(ctx, supervisor.Token); err == nil {
+		t.Fatal("empty onboarding pool claimed a repair")
+	}
+	if _, err = svc.Revoke(ctx, session, org, connection.ID, verified.Version, "test"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = svc.Test(ctx, session, org, connection.ID, verified.Version, "test"); !errors.Is(err, connections.ErrRevoked) && !errors.Is(err, auth.ErrConflict) {
+		t.Fatalf("revoked connection not blocked: %v", err)
+	}
+}
+
+func localPrivateRepository(t *testing.T) forge.RepoRef {
+	t.Helper()
+	raw, err := os.ReadFile(filepath.Join(os.Getenv("REFORGE_TEST_ROOT"), ".local/gitea/reforge-admin.token"))
+	if err != nil {
+		t.Fatal("local fixture setup credential missing")
+	}
+	secret := strings.TrimSpace(string(raw))
+	clear(raw)
+	client := &http.Client{Timeout: 5 * time.Second}
+	name := "private-read-" + domain.NewID()
+	body, _ := json.Marshal(map[string]any{"name": name, "auto_init": true, "private": true, "default_branch": "main"})
+	request, _ := http.NewRequest("POST", "http://127.0.0.1:53000/api/v1/admin/users/reforge-bot/repos", strings.NewReader(string(body)))
+	request.Header.Set("Authorization", "token "+secret)
+	request.Header.Set("Content-Type", "application/json")
+	response, err := client.Do(request)
+	if err != nil {
+		t.Fatal("local disposable repository creation failed")
+	}
+	defer response.Body.Close()
+	if response.StatusCode != 201 {
+		t.Fatalf("disposable repository status %d", response.StatusCode)
+	}
+	var repo struct {
+		ID       int64  `json:"id"`
+		FullName string `json:"full_name"`
+	}
+	if json.NewDecoder(response.Body).Decode(&repo) != nil || repo.ID < 1 || !strings.HasSuffix(repo.FullName, "/"+name) {
+		t.Fatal("disposable repository identity missing")
+	}
+	t.Cleanup(func() {
+		request, _ := http.NewRequest("DELETE", "http://127.0.0.1:53000/api/v1/repos/"+repo.FullName, nil)
+		request.Header.Set("Authorization", "token "+secret)
+		response, err := client.Do(request)
+		if err != nil {
+			t.Error("disposable repository cleanup failed")
+			return
+		}
+		response.Body.Close()
+		if response.StatusCode != 204 {
+			t.Errorf("disposable repository cleanup status %d", response.StatusCode)
+		}
+	})
+	return forge.RepoRef{NativeID: strconv.FormatInt(repo.ID, 10), FullName: repo.FullName}
+}

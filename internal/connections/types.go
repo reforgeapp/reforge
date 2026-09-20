@@ -3,6 +3,7 @@ package connections
 import (
 	"context"
 	"encoding/json"
+	"github.com/jackc/pgx/v5"
 	"log/slog"
 	"net/http"
 	"reforge/internal/domain"
@@ -93,3 +94,7 @@ type ProbeResult struct {
 	Reason        string                       `json:"reason"`
 }
 type Prober func(context.Context, Resolved) (ProbeResult, error)
+
+type ProbeCall func(context.Context, pgx.Tx, Resolved) (ProbeResult, error)
+type ProbeAuthorization func(context.Context, ProbeCall) error
+type PrivateProber func(context.Context, Connection, ProbeAuthorization) error

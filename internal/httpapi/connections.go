@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"reforge/internal/connections"
 	"reforge/internal/network"
+	"reforge/internal/privateconnector"
 	"reforge/internal/secrets"
 )
 
@@ -163,6 +164,10 @@ func connectionResponse(c *gin.Context, status int, value connections.Connection
 }
 func connectionFailure(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, privateconnector.ErrUnavailable):
+		Fail(c, 503, "private_unavailable", "Start the enrolled connector and route its polling and this request to the same controller instance", true)
+	case errors.Is(err, privateconnector.ErrUncertain):
+		Fail(c, 409, "private_uncertain", "The private capability probe did not finish; verify runner connectivity and retry this read-only test", true)
 	case errors.Is(err, secrets.ErrKMSUnavailable), errors.Is(err, secrets.ErrInvalid):
 		Fail(c, 503, "encryption_unavailable", "Credential encryption unavailable; ask the operator to verify wrapping keys, AWS credentials and KMS permissions", true)
 	case errors.Is(err, connections.ErrRunnerRequired):

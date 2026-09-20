@@ -10,6 +10,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
+	"reforge/internal/model"
 	"reforge/internal/network"
 	"reforge/internal/runner"
 )
@@ -28,15 +29,31 @@ var ErrUncertain = errors.New("private operation outcome uncertain; reconcile be
 type Kind string
 
 const (
-	GiteaProbe      Kind = "gitea.probe"
-	GiteaInventory  Kind = "gitea.inventory"
-	GiteaRepository Kind = "gitea.repository"
-	GiteaResolveRef Kind = "gitea.resolve_ref"
-	GiteaReadFile   Kind = "gitea.read_file"
-	GiteaReadChange Kind = "gitea.read_change"
-	GiteaChecks     Kind = "gitea.checks"
-	GiteaApprovals  Kind = "gitea.approvals"
+	ForgeProbe            Kind = "forge.probe"
+	ForgeInventory        Kind = "forge.inventory"
+	ForgeRepository       Kind = "forge.repository"
+	ForgeResolveRef       Kind = "forge.resolve_ref"
+	ForgeReadFile         Kind = "forge.read_file"
+	ForgeReadChange       Kind = "forge.read_change"
+	ForgeChecks           Kind = "forge.checks"
+	ForgeApprovals        Kind = "forge.approvals"
+	ForgeReconcileChanges Kind = "forge.reconcile_changes"
+	ModelProbe            Kind = "model.probe"
+	ModelList             Kind = "model.list"
+	GiteaProbe                 = ForgeProbe
+	GiteaInventory             = ForgeInventory
+	GiteaRepository            = ForgeRepository
+	GiteaResolveRef            = ForgeResolveRef
+	GiteaReadFile              = ForgeReadFile
+	GiteaReadChange            = ForgeReadChange
+	GiteaChecks                = ForgeChecks
+	GiteaApprovals             = ForgeApprovals
 )
+
+type ChangesArgs struct {
+	Repository forge.RepoRef `json:"repository"`
+	Cursor     string        `json:"cursor,omitempty"`
+}
 
 type InventoryArgs struct {
 	Namespace string `json:"namespace,omitempty"`
@@ -64,6 +81,7 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
+	Changes    *ChangesArgs    `json:"changes,omitempty"`
 	ID         string          `json:"id"`
 	Kind       Kind            `json:"kind"`
 	Inventory  *InventoryArgs  `json:"inventory,omitempty"`
@@ -74,20 +92,24 @@ type Operation struct {
 	Checks     *ChecksArgs     `json:"checks,omitempty"`
 }
 
+func (o Operation) Validate() error { return o.validate() }
+
 func (o Operation) validate() error {
 	if !auth.ValidID(o.ID) {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil} {
+	for _, present := range []bool{o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
-	case GiteaProbe:
+	case ForgeProbe, ModelProbe, ModelList:
 		valid = count == 0
+	case ForgeReconcileChanges:
+		valid = o.Changes != nil && len(o.Changes.Cursor) <= 32
 	case GiteaInventory:
 		valid = o.Inventory != nil && o.Inventory.Limit > 0 && o.Inventory.Limit <= 100 && len(o.Inventory.Namespace) <= 256 && len(o.Inventory.Cursor) <= 32
 	case GiteaRepository:
@@ -103,7 +125,7 @@ func (o Operation) validate() error {
 	default:
 		return ErrUnsupported
 	}
-	if !valid || o.Kind != GiteaProbe && count != 1 {
+	if !valid || o.Kind != ForgeProbe && o.Kind != ModelProbe && o.Kind != ModelList && count != 1 {
 		return ErrInvalid
 	}
 	b, _ := json.Marshal(o)
@@ -118,6 +140,12 @@ type Target struct {
 	RunnerID string `json:"runner_id"`
 }
 type Connection struct {
+	Kind              string               `json:"kind,omitempty"`
+	AuthKind          string               `json:"auth_kind,omitempty"`
+	AppID             string               `json:"app_id,omitempty"`
+	InstallationID    string               `json:"installation_id,omitempty"`
+	Model             string               `json:"model,omitempty"`
+	Profile           string               `json:"profile,omitempty"`
 	OrgID             string               `json:"org_id"`
 	ID                string               `json:"id"`
 	Version           int64                `json:"version"`
@@ -172,20 +200,24 @@ func (g Grant) GoString() string     { return g.String() }
 func (g Grant) LogValue() slog.Value { return slog.StringValue(g.String()) }
 
 type Failure struct {
-	Code      string `json:"code"`
-	Uncertain bool   `json:"uncertain"`
+	RetryAfterMS int64  `json:"retry_after_ms,omitempty"`
+	Code         string `json:"code"`
+	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
-	OperationID  string                         `json:"operation_id"`
-	Failure      *Failure                       `json:"failure,omitempty"`
-	Capabilities *forge.Capabilities            `json:"capabilities,omitempty"`
-	Inventory    *domain.Page[forge.Repository] `json:"inventory,omitempty"`
-	Repository   *forge.Repository              `json:"repository,omitempty"`
-	SHA          string                         `json:"sha,omitempty"`
-	File         *forge.File                    `json:"file,omitempty"`
-	Change       *forge.Change                  `json:"change,omitempty"`
-	Checks       []forge.Check                  `json:"checks,omitempty"`
-	Approvals    []forge.Approval               `json:"approvals,omitempty"`
+	Changes           *domain.Page[forge.Change]     `json:"changes,omitempty"`
+	ModelCapabilities *model.Capabilities            `json:"model_capabilities,omitempty"`
+	Models            []model.Model                  `json:"models,omitempty"`
+	OperationID       string                         `json:"operation_id"`
+	Failure           *Failure                       `json:"failure,omitempty"`
+	Capabilities      *forge.Capabilities            `json:"capabilities,omitempty"`
+	Inventory         *domain.Page[forge.Repository] `json:"inventory,omitempty"`
+	Repository        *forge.Repository              `json:"repository,omitempty"`
+	SHA               string                         `json:"sha,omitempty"`
+	File              *forge.File                    `json:"file,omitempty"`
+	Change            *forge.Change                  `json:"change,omitempty"`
+	Checks            []forge.Check                  `json:"checks,omitempty"`
+	Approvals         []forge.Approval               `json:"approvals,omitempty"`
 }
 type Authenticate func(context.Context, string) (runner.Runner, error)
 type Deliver func(GrantSpec) (Result, error)

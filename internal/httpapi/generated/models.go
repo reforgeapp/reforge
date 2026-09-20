@@ -248,33 +248,42 @@ func (e PolicyScopeKind) Valid() bool {
 }
 
 const (
-	GiteaApprovals  PrivateOperationKind = "gitea.approvals"
-	GiteaChecks     PrivateOperationKind = "gitea.checks"
-	GiteaInventory  PrivateOperationKind = "gitea.inventory"
-	GiteaProbe      PrivateOperationKind = "gitea.probe"
-	GiteaReadChange PrivateOperationKind = "gitea.read_change"
-	GiteaReadFile   PrivateOperationKind = "gitea.read_file"
-	GiteaRepository PrivateOperationKind = "gitea.repository"
-	GiteaResolveRef PrivateOperationKind = "gitea.resolve_ref"
+	ForgeApprovals        PrivateOperationKind = "forge.approvals"
+	ForgeChecks           PrivateOperationKind = "forge.checks"
+	ForgeInventory        PrivateOperationKind = "forge.inventory"
+	ForgeProbe            PrivateOperationKind = "forge.probe"
+	ForgeReadChange       PrivateOperationKind = "forge.read_change"
+	ForgeReadFile         PrivateOperationKind = "forge.read_file"
+	ForgeReconcileChanges PrivateOperationKind = "forge.reconcile_changes"
+	ForgeRepository       PrivateOperationKind = "forge.repository"
+	ForgeResolveRef       PrivateOperationKind = "forge.resolve_ref"
+	ModelList             PrivateOperationKind = "model.list"
+	ModelProbe            PrivateOperationKind = "model.probe"
 )
 
 func (e PrivateOperationKind) Valid() bool {
 	switch e {
-	case GiteaApprovals:
+	case ForgeApprovals:
 		return true
-	case GiteaChecks:
+	case ForgeChecks:
 		return true
-	case GiteaInventory:
+	case ForgeInventory:
 		return true
-	case GiteaProbe:
+	case ForgeProbe:
 		return true
-	case GiteaReadChange:
+	case ForgeReadChange:
 		return true
-	case GiteaReadFile:
+	case ForgeReadFile:
 		return true
-	case GiteaRepository:
+	case ForgeReconcileChanges:
 		return true
-	case GiteaResolveRef:
+	case ForgeRepository:
+		return true
+	case ForgeResolveRef:
+		return true
+	case ModelList:
+		return true
+	case ModelProbe:
 		return true
 	default:
 		return false
@@ -853,6 +862,7 @@ type PrivateGrant struct {
 }
 type PrivateOperation struct {
 	Change     *map[string]interface{} `json:"change,omitempty"`
+	Changes    *map[string]interface{} `json:"changes,omitempty"`
 	Checks     *map[string]interface{} `json:"checks,omitempty"`
 	File       *map[string]interface{} `json:"file,omitempty"`
 	Id         openapi_types.UUID      `json:"id"`

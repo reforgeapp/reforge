@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"sync"
 	"time"
@@ -286,7 +287,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 					if result.Failure.Uncertain {
 						deliveryErr = ErrUncertain
 					} else {
-						deliveryErr = &domain.ProviderError{Kind: result.Failure.Code, Message: "Private provider operation failed"}
+						deliveryErr = &domain.ProviderError{Kind: result.Failure.Code, Message: "Private provider operation failed", RetryAfter: time.Duration(result.Failure.RetryAfterMS) * time.Millisecond}
 					}
 				}
 			case <-authctx.Done():
@@ -302,7 +303,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 	}
 	e = authorize(authctx, subject, deliver)
 	if e != nil {
-		if attempted {
+		if attempted && (deliveryErr == nil || !errors.Is(e, deliveryErr)) {
 			return result, ErrUncertain
 		}
 		return Result{}, e
@@ -342,7 +343,7 @@ func (c *Connector) Complete(ctx context.Context, credential, grantID, capabilit
 	if e != nil || len(b) > MaxResponse || !result.valid(item.grant.Operation.Kind) {
 		return ErrInvalid
 	}
-	if containsSecret(b, item.grant.Connection.Secret) || result.File != nil && bytes.Contains(result.File.Content, []byte(item.grant.Connection.Secret)) {
+	if containsSecret(b, item.grant.Connection.Secret) || result.File != nil && item.grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(item.grant.Connection.Secret)) {
 		return ErrInvalid
 	}
 	item.consumed = true
@@ -359,22 +360,28 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil} {
+	for _, present := range []bool{r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil} {
 		if present {
 			count++
 		}
 	}
 	if r.Failure != nil {
-		if count != 0 {
+		if count != 0 || r.Failure.RetryAfterMS < 0 || r.Failure.RetryAfterMS > 3600000 {
 			return false
 		}
 		switch r.Failure.Code {
-		case "configuration", "invalid", "identity", "pagination", "unauthorized", "forbidden", "conflict", "provider", "response", "not_found", "rate_limited", "transport", "uncertain", "unsupported", "credential_echo", "expired":
+		case "auth", "scope", "rate_limit", "protocol", "transient", "model_unsupported", "capability_unknown", "quota", "context", "canceled", "invalid_request", "configuration", "invalid", "identity", "pagination", "unauthorized", "forbidden", "conflict", "provider", "response", "not_found", "rate_limited", "transport", "uncertain", "unsupported", "credential_echo", "expired":
 			return true
 		}
 		return false
 	}
 	switch kind {
+	case ForgeReconcileChanges:
+		return count == 1 && r.Changes != nil
+	case ModelProbe:
+		return count == 1 && r.ModelCapabilities != nil
+	case ModelList:
+		return count == 1 && r.Models != nil
 	case GiteaProbe:
 		return count == 1 && r.Capabilities != nil
 	case GiteaInventory:

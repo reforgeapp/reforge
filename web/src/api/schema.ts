@@ -1604,7 +1604,7 @@ export interface components {
 
             id: string;
 
-            kind: "gitea.probe" | "gitea.inventory" | "gitea.repository" | "gitea.resolve_ref" | "gitea.read_file" | "gitea.read_change" | "gitea.checks" | "gitea.approvals";
+            kind: "forge.probe" | "forge.inventory" | "forge.repository" | "forge.resolve_ref" | "forge.read_file" | "forge.read_change" | "forge.checks" | "forge.approvals" | "forge.reconcile_changes" | "model.probe" | "model.list";
             inventory?: {
                 [key: string]: unknown;
             };
@@ -1621,6 +1621,9 @@ export interface components {
                 [key: string]: unknown;
             };
             checks?: {
+                [key: string]: unknown;
+            };
+            changes?: {
                 [key: string]: unknown;
             };
         };

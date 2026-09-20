@@ -11,9 +11,9 @@ The connector delivers typed provider operations to an enrolled trusted supervis
 - `httpapi.Server.RegisterPrivateConnector` registers `POST /runner/v1/private/poll` and `POST /runner/v1/private/results`.
 - `privateconnector.NewClient(ClientConfig)` creates the separate supervisor client. `RunOnce` polls, executes one grant and submits its result. It performs no automatic provider retries. The runner's existing enrollment client supplies the supervisor identity and token.
 
-Poll accepts only an empty JSON object. There is no connection selector, URL, HTTP method, arbitrary request body, or operation-dispatch endpoint for the supervisor. Currently registered operations are Gitea probe, inventory, repository lookup, ref resolution, immutable file read, change read, checks and approvals. Inputs are exact typed argument structures. Merge, branch writes, model inference and unknown enums remain unsupported.
+Poll accepts only an empty JSON object. There is no connection selector, URL, HTTP method, arbitrary request body, or operation-dispatch endpoint for the supervisor. Registered `forge.*` reads cover GitHub, GitLab and Gitea: probe, inventory, repository lookup, ref resolution, immutable file read, change read/reconciliation, checks and approvals. `model.probe` and `model.list` cover the four direct API families; they never invoke inference. Inputs are exact typed argument structures. Merge, branch writes, model inference and unknown enums remain unsupported.
 
-The authorization callback resolves endpoint, CA, approved private route, connection/credential versions and secret from server state. Grant validation binds organization, runner and connection IDs to that route. The executor creates the existing DNS-pinned, redirect-denying `network.Client` from these values and invokes the Gitea adapter. TLS is required; explicit development mode permits plaintext only on a loopback IP. The supervisor cannot enable development mode through a grant.
+The authorization callback resolves endpoint, CA, approved private route, connection/credential versions and secret from server state. Grant validation binds organization, runner and connection IDs to that route. The executor creates the existing DNS-pinned, redirect-denying `network.Client` from these values and invokes the configured adapter. GitHub App authentication remains native installation-token authentication; no private GraphQL writes are registered. TLS is required; explicit development mode permits plaintext only on a loopback IP. The supervisor cannot enable development mode through a grant.
 
 ## Authorization and durable effects
 
@@ -49,3 +49,19 @@ REFORGE_PRIVATE_GITEA_TEST=1 REFORGE_TEST_ROOT=/home/mnorris/repos/reforge GOPAT
 ```
 
 Root integration owns startup registration, runner command coordination, durable intent/budget authorization, connection factories and later model/provider handlers. Hosted sandbox qualification and external G5 remain open.
+
+
+## Integrated onboarding and read gateway
+
+`cmd/runner` now implements enrollment and the private connector. Create an empty onboarding pool in the GUI, request a one-use enrollment token, and save it to a private regular file with mode0600. Empty pools authorize no repository jobs. Run:
+
+```sh
+bin/reforge-runner enroll --endpoint https://reforge.example --credentials /private/runner.json --token-file /private/enrollment.token --name customer-worker
+bin/reforge-runner connector --endpoint https://reforge.example --credentials /private/runner.json
+```
+
+Add `--ca-file /private/controller-ca.pem` for a custom controller CA. Plaintext loopback development additionally requires `--development`; it cannot enable remote plaintext. Enrollment rejects a symlink or group/world-readable token file. Credential persistence is atomic/private; the running connector rotates expiring credentials and stops on revocation. The repair processor is separate T19 work.
+
+`providers.Service.Read` waits for private readiness before opening its tenant transaction. It then locks the organisation, checks current connection/version and active runner/pool credentials, invokes the caller's fresh scope/job-fence callback, resolves the encrypted secret and issues exactly one typed read. Public reads use the same gateway and approved destination transport. Callers separately fence result persistence against connection changes. `providers.DecodeWebhook` invokes signature verification without network access or forge-token resolution.
+
+Real integration against disposable PostgreSQL, enrolled Gitea1.27.3 and Ollama0.34.2 passed3.777s under the race detector: initial private creation, encrypted credential resolution, browser HTTP capability probe, fixed inventory and canonical change reconciliation reads on a disposable repository, callback rejection before grant delivery, empty pool job denial, secretless private model metadata, and revocation. The model metadata probe is not inference certification. Generic connector tests passed9.290s under race; no general URL/proxy or paid operation was added.

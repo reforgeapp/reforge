@@ -79,7 +79,7 @@ func (s *Service) PutPool(ctx context.Context, session auth.Session, org, id str
 	} else if !auth.ValidID(id) {
 		return p, auth.ErrInvalid
 	}
-	if strings.TrimSpace(in.Name) == "" || len(in.Name) > 160 || len(in.RepositoryIDs) == 0 || len(in.RepositoryIDs) > 1000 {
+	if strings.TrimSpace(in.Name) == "" || len(in.Name) > 160 || len(in.RepositoryIDs) > 1000 {
 		return p, auth.ErrInvalid
 	}
 	if in.State == "" {
@@ -125,7 +125,7 @@ func (s *Service) PutPool(ctx context.Context, session auth.Session, org, id str
 		if expected != version || state == "revoked" {
 			return auth.ErrConflict
 		}
-		p = Pool{ID: id, OrgID: org, Name: strings.TrimSpace(in.Name), State: in.State, RepositoryIDs: append([]string(nil), in.RepositoryIDs...), Version: version + 1}
+		p = Pool{ID: id, OrgID: org, Name: strings.TrimSpace(in.Name), State: in.State, RepositoryIDs: append([]string{}, in.RepositoryIDs...), Version: version + 1}
 		if _, err = tx.Exec(ctx, `INSERT INTO runner_pools(org_id,id,name,state,version) VALUES($1,$2,$3,$4,$5) ON CONFLICT(org_id,id) DO UPDATE SET name=EXCLUDED.name,state=EXCLUDED.state,version=EXCLUDED.version`, org, id, p.Name, p.State, p.Version); err != nil {
 			return err
 		}
@@ -439,7 +439,7 @@ func checkPoolAccess(ctx context.Context, tx pgx.Tx, a domain.Actor, pool string
 	if err = rows.Err(); err != nil {
 		return err
 	}
-	if count == 0 {
+	if count == 0 && (a.Role != domain.Owner || !a.AllRepositories) {
 		return auth.ErrForbidden
 	}
 	return nil

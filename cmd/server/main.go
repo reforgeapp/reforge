@@ -16,6 +16,8 @@ import (
 	"reforge/internal/control"
 	"reforge/internal/httpapi"
 	"reforge/internal/policy"
+	"reforge/internal/privateconnector"
+	"reforge/internal/providers"
 	"reforge/internal/runner"
 	"reforge/internal/secrets"
 	"reforge/internal/store"
@@ -68,6 +70,7 @@ func run() error {
 		return err
 	}
 	connectionService := connections.New(db, identity, vault, cfg.Development)
+	providers.Factory{Development: cfg.Development}.Register(connectionService)
 	app.RegisterConnections(connectionService)
 	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
 	if cfg.PolicyFile != "" {
@@ -102,6 +105,13 @@ func run() error {
 	workflows.RegisterScopeCheck(runners.CheckScopeTx)
 	connectionService.RegisterRunnerCheck(runners.CheckRunnerTx)
 	app.RegisterRunner(runners)
+	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 8})
+	if err != nil {
+		return err
+	}
+	defer private.Close()
+	providers.RegisterPrivate(connectionService, private, runners)
+	app.RegisterPrivateConnector(private)
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

@@ -22,13 +22,14 @@ var ErrRevoked = errors.New("connection revoked")
 
 type RunnerCheck func(context.Context, pgx.Tx, string, string) error
 type Service struct {
-	db          *store.Store
-	auth        *auth.Service
-	vault       *secrets.Vault
-	development bool
-	mu          sync.RWMutex
-	probers     map[string]Prober
-	runnerCheck RunnerCheck
+	db           *store.Store
+	auth         *auth.Service
+	vault        *secrets.Vault
+	development  bool
+	mu           sync.RWMutex
+	probers      map[string]Prober
+	runnerCheck  RunnerCheck
+	privateProbe PrivateProber
 }
 
 func New(db *store.Store, identity *auth.Service, vault *secrets.Vault, development bool) *Service {
@@ -38,6 +39,11 @@ func (s *Service) Register(kind, provider string, probe Prober) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.probers[kind+":"+provider] = probe
+}
+func (s *Service) RegisterPrivateProbe(probe PrivateProber) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.privateProbe = probe
 }
 func (s *Service) RegisterRunnerCheck(check RunnerCheck) {
 	s.mu.Lock()
@@ -362,6 +368,13 @@ func (s *Service) SetRoute(ctx context.Context, session auth.Session, orgID, id 
 		return nil
 	})
 }
+func (s *Service) MetadataTx(ctx context.Context, tx pgx.Tx, orgID, id string) (Connection, error) {
+	if !auth.ValidID(orgID) || !auth.ValidID(id) {
+		return Connection{}, auth.ErrForbidden
+	}
+	return load(ctx, tx, orgID, id)
+}
+
 func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID string) (Resolved, error) {
 	var r Resolved
 	if !auth.ValidID(orgID) || !auth.ValidID(id) {
@@ -376,13 +389,20 @@ func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID 
 		return r, ErrRevoked
 	}
 	if r.Connection.Route != nil {
+		if r.Connection.Route.RevokedAt != nil || r.Connection.Route.RunnerID != runnerID {
+			return r, ErrRunnerRequired
+		}
 		if err = s.checkRunner(ctx, tx, orgID, runnerID); err != nil {
 			return r, err
 		}
-	}
-	r.Client, err = network.NewClient(r.Connection.Endpoint, s.options(r.Connection, runnerID))
-	if err != nil {
-		return r, err
+		if _, err = network.ValidateEndpoint(r.Connection.Endpoint, s.options(r.Connection, runnerID)); err != nil {
+			return r, err
+		}
+	} else {
+		r.Client, err = network.NewClient(r.Connection.Endpoint, s.options(r.Connection, ""))
+		if err != nil {
+			return r, err
+		}
 	}
 	if r.Connection.SecretID != nil {
 		var e secrets.Envelope
@@ -403,6 +423,43 @@ func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID 
 	return r, nil
 }
 func (s *Service) Test(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Connection, error) {
+	observed, err := s.Get(ctx, session, orgID, id)
+	if err != nil {
+		return Connection{}, err
+	}
+	if observed.State == "revoked" {
+		return Connection{}, ErrRevoked
+	}
+	if observed.Version != expected {
+		return Connection{}, auth.ErrConflict
+	}
+	s.mu.RLock()
+	privateProbe := s.privateProbe
+	s.mu.RUnlock()
+	if observed.Route != nil && privateProbe != nil {
+		var updated Connection
+		err = privateProbe(ctx, observed, func(probeCtx context.Context, call ProbeCall) error {
+			var updateErr error
+			updated, updateErr = s.change(probeCtx, session, orgID, id, expected, requestID, "connection.tested", func(tx pgx.Tx, c *Connection) error {
+				if c.Route == nil || c.Version != observed.Version || c.Route.RunnerID != observed.Route.RunnerID {
+					return auth.ErrConflict
+				}
+				r, err := s.ResolveTx(probeCtx, tx, orgID, id, c.Route.RunnerID)
+				if err != nil {
+					return err
+				}
+				result, err := call(probeCtx, tx, r)
+				result = redactProbe(result, r.Secret)
+				r.Secret = ""
+				if err != nil {
+					return err
+				}
+				return applyProbe(c, result)
+			})
+			return updateErr
+		})
+		return updated, err
+	}
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.tested", func(tx pgx.Tx, c *Connection) error {
 		s.mu.RLock()
 		probe := s.probers[c.Kind+":"+c.Provider]
@@ -418,6 +475,9 @@ func (s *Service) Test(ctx context.Context, session auth.Session, orgID, id stri
 				return err
 			}
 			result, err = probe(probeCtx, r)
+			if r.Client != nil {
+				r.Client.CloseIdleConnections()
+			}
 			cancel()
 			result = redactProbe(result, r.Secret)
 			r.Secret = ""
@@ -425,20 +485,19 @@ func (s *Service) Test(ctx context.Context, session auth.Session, orgID, id stri
 				result = ProbeResult{State: "degraded", Reason: "Capability test failed; check endpoint, credentials and provider access, then retry", Capabilities: map[string]domain.Capability{}}
 			}
 		}
-		if result.State != "healthy" && result.State != "disabled" && result.State != "degraded" {
-			return auth.ErrInvalid
-		}
-		if result.Capabilities == nil {
-			result.Capabilities = map[string]domain.Capability{}
-		}
-		now := time.Now().UTC()
-		c.State = result.State
-		c.Reason = result.Reason
-		c.Capabilities = result.Capabilities
-		c.ServerVersion = result.ServerVersion
-		c.VerifiedAt = &now
-		return nil
+		return applyProbe(c, result)
 	})
+}
+func applyProbe(c *Connection, result ProbeResult) error {
+	if result.State != "healthy" && result.State != "disabled" && result.State != "degraded" {
+		return auth.ErrInvalid
+	}
+	if result.Capabilities == nil {
+		result.Capabilities = map[string]domain.Capability{}
+	}
+	now := time.Now().UTC()
+	c.State, c.Reason, c.Capabilities, c.ServerVersion, c.VerifiedAt = result.State, result.Reason, result.Capabilities, result.ServerVersion, &now
+	return nil
 }
 func redactProbe(result ProbeResult, secret string) ProbeResult {
 	if secret == "" {

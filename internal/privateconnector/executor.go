@@ -14,6 +14,13 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/forge"
 	"reforge/internal/forge/gitea"
+	"reforge/internal/forge/github"
+	"reforge/internal/forge/gitlab"
+	"reforge/internal/model"
+	"reforge/internal/model/anthropic"
+	"reforge/internal/model/compatible"
+	"reforge/internal/model/google"
+	"reforge/internal/model/openai"
 	"reforge/internal/network"
 )
 
@@ -23,7 +30,19 @@ type Executor struct {
 }
 
 func validateConnection(c Connection, target Target, development bool) error {
-	if !auth.ValidID(c.ID) || c.OrgID != target.OrgID || c.Version < 1 || c.CredentialVersion < 1 || c.Provider != "gitea" || c.Secret == "" || len(c.Secret) > 32768 || len(c.CAPEM) > 128<<10 {
+	if !auth.ValidID(c.ID) || c.OrgID != target.OrgID || c.Version < 1 || c.CredentialVersion < 1 || (c.Secret == "" && c.Provider != "compatible") || len(c.Secret) > 32768 || len(c.CAPEM) > 128<<10 {
+		return ErrInvalid
+	}
+	validProvider := c.Provider == "gitea" || c.Provider == "gitlab" || c.Provider == "github"
+	if c.Kind == "model" {
+		validProvider = c.Provider == "openai" || c.Provider == "anthropic" || c.Provider == "google" || c.Provider == "compatible"
+		if c.Model == "" || len(c.Model) > 512 || len(c.Profile) > 64 {
+			return ErrInvalid
+		}
+	} else if c.Kind != "" && c.Kind != "forge" && c.Kind != "delivery" {
+		return ErrInvalid
+	}
+	if !validProvider {
 		return ErrInvalid
 	}
 	if c.Route.OrgID != target.OrgID || c.Route.RunnerID != target.RunnerID || c.Route.ConnectionID != c.ID {
@@ -63,44 +82,53 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 		return fail("invalid", false)
 	}
 	defer client.CloseIdleConnections()
-	provider, err := gitea.New(forge.Config{OrgID: e.Target.OrgID, ConnectionID: grant.Connection.ID, BaseURL: grant.Connection.Endpoint, Token: grant.Connection.Secret, Client: client})
-	if err != nil {
-		return fail("invalid", false)
-	}
-	op := grant.Operation
-	switch op.Kind {
-	case GiteaProbe:
-		v, err2 := provider.ProbeCapabilities(ctx)
-		result.Capabilities = &v
-		err = err2
-	case GiteaInventory:
-		v, err2 := provider.ListRepositories(ctx, forge.InventoryRequest{Namespace: op.Inventory.Namespace, Cursor: op.Inventory.Cursor, Limit: op.Inventory.Limit})
-		result.Inventory = &v
-		err = err2
-	case GiteaRepository:
-		v, err2 := provider.GetRepository(ctx, op.Repository.Repository)
-		result.Repository = &v
-		err = err2
-	case GiteaResolveRef:
-		result.SHA, err = provider.ResolveRef(ctx, op.Ref.Repository, op.Ref.Ref)
-	case GiteaReadFile:
-		v, err2 := provider.ReadFileAtRef(ctx, op.File.Repository, op.File.Path, op.File.CommitSHA)
-		result.File = &v
-		err = err2
-	case GiteaReadChange:
-		v, err2 := provider.ReadChange(ctx, op.Change.Repository, op.Change.ChangeID)
-		result.Change = &v
-		err = err2
-	case GiteaChecks:
-		result.Checks, err = provider.ListChecks(ctx, op.Checks.Repository, op.Checks.CommitSHA)
-	case GiteaApprovals:
-		result.Approvals, err = provider.ReadApprovals(ctx, op.Change.Repository, op.Change.ChangeID)
-	default:
-		return fail("unsupported", false)
+	if grant.Connection.Kind == "model" {
+		var provider model.ModelProvider
+		cfg := model.Config{Endpoint: grant.Connection.Endpoint, APIKey: grant.Connection.Secret, Model: grant.Connection.Model, Profile: grant.Connection.Profile, Client: client}
+		switch grant.Connection.Provider {
+		case "openai":
+			provider, err = openai.New(cfg)
+		case "anthropic":
+			provider, err = anthropic.New(cfg)
+		case "google":
+			provider, err = google.New(cfg)
+		case "compatible":
+			provider, err = compatible.New(cfg)
+		}
+		if err == nil {
+			switch grant.Operation.Kind {
+			case ModelProbe:
+				var caps model.Capabilities
+				caps, err = provider.Probe(ctx)
+				result.ModelCapabilities = &caps
+			case ModelList:
+				result.Models, err = provider.ListModels(ctx)
+			default:
+				return fail("unsupported", false)
+			}
+		}
+	} else {
+		var provider forge.Provider
+		cfg := forge.Config{OrgID: e.Target.OrgID, ConnectionID: grant.Connection.ID, BaseURL: grant.Connection.Endpoint, Token: grant.Connection.Secret, Client: client}
+		switch grant.Connection.Provider {
+		case "gitea":
+			provider, err = gitea.New(cfg)
+		case "gitlab":
+			provider, err = gitlab.New(cfg)
+		case "github":
+			if grant.Connection.AuthKind == "github_app" {
+				provider, err = github.NewApp(ctx, cfg, github.AppConfig{AppID: grant.Connection.AppID, InstallationID: grant.Connection.InstallationID, PrivateKeyPEM: []byte(grant.Connection.Secret)})
+			} else {
+				provider, err = github.New(cfg)
+			}
+		}
+		if err == nil {
+			result, err = ReadForge(ctx, provider, grant.Operation)
+		}
 	}
 	if err != nil {
 		if p, ok := err.(*domain.ProviderError); ok {
-			return fail(p.Kind, p.Uncertain)
+			return Result{OperationID: grant.Operation.ID, Failure: &Failure{Code: p.Kind, Uncertain: p.Uncertain, RetryAfterMS: min(max(p.RetryAfter.Milliseconds(), 0), 3600000)}}
 		}
 		return fail("provider", false)
 	}
@@ -108,7 +136,7 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 	if err != nil || len(raw) > MaxResponse {
 		return fail("response", false)
 	}
-	if containsSecret(raw, grant.Connection.Secret) || result.File != nil && bytes.Contains(result.File.Content, []byte(grant.Connection.Secret)) {
+	if containsSecret(raw, grant.Connection.Secret) || result.File != nil && grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(grant.Connection.Secret)) {
 		return fail("credential_echo", false)
 	}
 	return result
@@ -138,3 +166,48 @@ func safeControllerURL(endpoint string, development bool) (string, error) {
 	}
 	return strings.TrimSuffix(u.String(), "/"), nil
 }
+
+func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Result, error) {
+	result := Result{OperationID: op.ID}
+	if err := op.validate(); err != nil {
+		return result, err
+	}
+	var err error
+	switch op.Kind {
+	case ForgeProbe:
+		var v forge.Capabilities
+		v, err = provider.ProbeCapabilities(ctx)
+		result.Capabilities = &v
+	case ForgeInventory:
+		var v domain.Page[forge.Repository]
+		v, err = provider.ListRepositories(ctx, forge.InventoryRequest{Namespace: op.Inventory.Namespace, Cursor: op.Inventory.Cursor, Limit: op.Inventory.Limit})
+		result.Inventory = &v
+	case ForgeRepository:
+		var v forge.Repository
+		v, err = provider.GetRepository(ctx, op.Repository.Repository)
+		result.Repository = &v
+	case ForgeResolveRef:
+		result.SHA, err = provider.ResolveRef(ctx, op.Ref.Repository, op.Ref.Ref)
+	case ForgeReadFile:
+		var v forge.File
+		v, err = provider.ReadFileAtRef(ctx, op.File.Repository, op.File.Path, op.File.CommitSHA)
+		result.File = &v
+	case ForgeReadChange:
+		var v forge.Change
+		v, err = provider.ReadChange(ctx, op.Change.Repository, op.Change.ChangeID)
+		result.Change = &v
+	case ForgeChecks:
+		result.Checks, err = provider.ListChecks(ctx, op.Checks.Repository, op.Checks.CommitSHA)
+	case ForgeApprovals:
+		result.Approvals, err = provider.ReadApprovals(ctx, op.Change.Repository, op.Change.ChangeID)
+	case ForgeReconcileChanges:
+		var v domain.Page[forge.Change]
+		v, err = provider.ReconcileChanges(ctx, op.Changes.Repository, op.Changes.Cursor)
+		result.Changes = &v
+	default:
+		return result, ErrUnsupported
+	}
+	return result, err
+}
+
+func ContainsSecret(data []byte, secret string) bool { return containsSecret(data, secret) }

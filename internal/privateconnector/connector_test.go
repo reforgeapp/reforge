@@ -102,6 +102,44 @@ func TestReadyBeforeAuthorizationAndOneUseResult(t *testing.T) {
 		t.Fatal("operation replay accepted")
 	}
 }
+
+func TestKnownReadFailurePreservesBackoffButCommitLossIsUncertain(t *testing.T) {
+	for _, commitLost := range []bool{false, true} {
+		t.Run(fmt.Sprint(commitLost), func(t *testing.T) {
+			f := fixture(t)
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			op := Operation{ID: domain.NewID(), Kind: ForgeProbe}
+			finished := make(chan error, 1)
+			go func() {
+				_, err := f.connector.Dispatch(ctx, f.target, op, func(_ context.Context, _ Ready, deliver Deliver) error {
+					_, err := deliver(f.spec(op.ID))
+					if commitLost {
+						return errors.New("transaction outcome lost")
+					}
+					return err
+				})
+				finished <- err
+			}()
+			grant, err := f.connector.Poll(ctx, f.credential)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if err = f.connector.Complete(ctx, f.credential, grant.ID, grant.ResultCapability, Result{OperationID: op.ID, Failure: &Failure{Code: "rate_limit", RetryAfterMS: 17000}}); err != nil {
+				t.Fatal(err)
+			}
+			err = <-finished
+			var provider *domain.ProviderError
+			if commitLost {
+				if !errors.Is(err, ErrUncertain) {
+					t.Fatalf("commit loss: %v", err)
+				}
+			} else if !errors.As(err, &provider) || provider.Kind != "rate_limit" || provider.RetryAfter != 17*time.Second {
+				t.Fatalf("provider failure/backoff lost: %v", err)
+			}
+		})
+	}
+}
 func TestRevocationAfterReadinessPreventsCredentialDelivery(t *testing.T) {
 	f := fixture(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
