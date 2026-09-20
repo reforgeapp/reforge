@@ -187,6 +187,8 @@ func inventoryJob(c *gin.Context, status int, j inventory.Job) {
 }
 func inventoryFailure(c *gin.Context, err error) {
 	switch {
+	case errors.Is(err, inventory.ErrWebhookUnconfigured):
+		Fail(c, 404, "webhook_unconfigured", "Configure a webhook to receive forge events", false)
 	case errors.Is(err, inventory.ErrStale), errors.Is(err, inventory.ErrIncomplete):
 		Fail(c, 409, "inventory_stale", "Verify the connection and start a new complete inventory sync", false)
 	case errors.Is(err, inventory.ErrBusy):

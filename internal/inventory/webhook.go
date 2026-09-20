@@ -80,9 +80,12 @@ func (s *Service) Webhook(ctx context.Context, session auth.Session, org, connec
 		if err := owner(a); err != nil {
 			return err
 		}
+		if _, err := connection(ctx, tx, org, connectionID); err != nil {
+			return err
+		}
 		err := tx.QueryRow(ctx, `SELECT id::text,connection_id::text,version,revoked_at IS NOT NULL FROM inventory_webhooks WHERE org_id=$1 AND connection_id=$2`, org, connectionID).Scan(&w.ID, &w.ConnectionID, &w.Version, &w.Revoked)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return auth.ErrForbidden
+			return ErrWebhookUnconfigured
 		}
 		w.Path = webhookPath(org, w.ID)
 		return err

@@ -16,6 +16,7 @@ import (
 
 var ErrStale = errors.New("inventory observation or lease is stale")
 var ErrIncomplete = errors.New("provider inventory is incomplete")
+var ErrWebhookUnconfigured = errors.New("webhook is not configured")
 var ErrBusy = errors.New("inventory queue is full")
 
 type Reader interface {

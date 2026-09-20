@@ -480,6 +480,18 @@ func inventorySignature(secret string, body []byte, delivery string) http.Header
 	mac.Write(body)
 	return http.Header{"X-Hub-Signature-256": []string{"sha256=" + hex.EncodeToString(mac.Sum(nil))}, "X-Github-Delivery": []string{delivery}, "X-Github-Event": []string{"pull_request"}}
 }
+func TestInventoryUnconfiguredWebhookRemainsScoped(t *testing.T) {
+	f := newInventoryFixture(t, 0)
+	path := "/api/v1/orgs/" + f.org + "/connections/" + f.connection.ID + "/webhook"
+	response := identityRequest(f.server, "GET", path, "", f.cookie, nil)
+	if response.Code != 404 || !strings.Contains(response.Body.String(), "webhook_unconfigured") {
+		t.Fatalf("unconfigured webhook HTTP%d", response.Code)
+	}
+	response = identityRequest(f.server, "GET", "/api/v1/orgs/"+f.org+"/connections/"+domain.NewID()+"/webhook", "", f.cookie, nil)
+	if response.Code != 403 {
+		t.Fatalf("missing connection HTTP%d", response.Code)
+	}
+}
 func TestInventorySignedWebhookReplayRotationAndPolling(t *testing.T) {
 	f := newInventoryFixture(t, 1)
 	ctx := context.Background()
