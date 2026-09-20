@@ -44,6 +44,10 @@ import (
 
 func TestRepairLiveControllerRunnerAndGitea(t *testing.T) { runLiveRepair(t, false) }
 func TestRepairLiveDependencyUpgrade(t *testing.T)        { runLiveRepair(t, true) }
+func TestRepairLiveProtectedMerge(t *testing.T) {
+	t.Setenv("REFORGE_LIVE_REPAIR_MERGE", "1")
+	runLiveRepair(t, false)
+}
 
 func runLiveRepair(t *testing.T, upgrade bool) {
 	if os.Getenv("REFORGE_LIVE_REPAIR_TEST") != "1" {
@@ -383,6 +387,9 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 		}
 	}
 	t.Log(fmt.Sprintf("real native PR=%s baseline=%s candidate=%s turns=%d", run.Change.ID, run.Context.Plan.BaselineSHA, run.CandidateSHA, run.Report.Turns))
+	if os.Getenv("REFORGE_LIVE_REPAIR_MERGE") == "1" {
+		verifyLiveProtectedMerge(t, ctx, f, policies, discoveries, reader, route, forgeConnection, repositoryID, repo, run, document, native, root)
+	}
 }
 
 type repairFixtureSeed struct {
