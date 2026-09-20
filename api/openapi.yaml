@@ -1732,6 +1732,424 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/policies/effective": {
+      "get": {
+        "operationId": "getEffectivePolicy",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedPolicy"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/policy": {
+      "get": {
+        "operationId": "getRepositoryPolicy",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ResolvedPolicy"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/policies/versions": {
+      "get": {
+        "operationId": "listPolicyVersions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope_kind",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scope_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersionPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createPolicyVersion",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersion"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyVersionCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}": {
+      "get": {
+        "operationId": "getPolicyVersion",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyVersion"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}/simulate": {
+      "post": {
+        "operationId": "simulatePolicy",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicySimulation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicySimulateRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}/activate": {
+      "post": {
+        "operationId": "activatePolicy",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "versionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PolicyBindingVersion"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PolicyActivateRequest"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -2620,6 +3038,585 @@
         },
         "required": [
           "route"
+        ]
+      },
+      "PolicyScope": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "organisation",
+              "team",
+              "repository"
+            ]
+          },
+          "id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id"
+        ]
+      },
+      "PolicyLists": {
+        "type": "object",
+        "properties": {
+          "recipes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "routes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "merge_methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "workflows": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "PolicyLimits": {
+        "type": "object",
+        "properties": {
+          "budget": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "concurrency": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "changed_files": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "changed_lines": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "open_changes": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PolicyDefaults": {
+        "type": "object",
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "branch_prefix": {
+            "type": "string"
+          }
+        }
+      },
+      "PolicyRequirement": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approvals": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "id",
+          "actions"
+        ]
+      },
+      "PolicyDocument": {
+        "type": "object",
+        "properties": {
+          "schema": {
+            "type": "string",
+            "enum": [
+              "maintenance/v1"
+            ]
+          },
+          "allow": {
+            "$ref": "#/components/schemas/PolicyLists"
+          },
+          "deny": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "forbidden_paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "limits": {
+            "$ref": "#/components/schemas/PolicyLimits"
+          },
+          "required": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyRequirement"
+            }
+          },
+          "defaults": {
+            "$ref": "#/components/schemas/PolicyDefaults"
+          },
+          "max_evidence_age_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "schema"
+        ]
+      },
+      "PolicyLayer": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/PolicyScope"
+          },
+          "version_id": {
+            "type": "string"
+          },
+          "binding_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDocument"
+          }
+        },
+        "required": [
+          "scope",
+          "version_id",
+          "binding_version",
+          "policy"
+        ]
+      },
+      "ResolvedPolicy": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "layers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyLayer"
+            }
+          },
+          "primary_team_id": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDocument"
+          },
+          "scope_paused": {
+            "type": "boolean"
+          },
+          "missing_defaults": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "problems": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "hash",
+          "layers",
+          "repository_id",
+          "paused",
+          "policy",
+          "scope_paused",
+          "missing_defaults",
+          "problems"
+        ]
+      },
+      "PolicyEvidenceBinding": {
+        "type": "object",
+        "properties": {
+          "head": {
+            "type": "string"
+          },
+          "target": {
+            "type": "string"
+          },
+          "tested": {
+            "type": "string"
+          },
+          "policy_hash": {
+            "type": "string"
+          },
+          "provider_rules": {
+            "type": "string"
+          },
+          "capability_version": {
+            "type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact": {
+            "type": "string"
+          }
+        }
+      },
+      "PolicyEvidence": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "identity": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "approvals": {
+            "type": "integer"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/PolicyEvidenceBinding"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "reference": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "binding",
+          "observed_at",
+          "reference"
+        ]
+      },
+      "PolicyInput": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string"
+          },
+          "recipe": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "merge_method": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "workflow": {
+            "type": "string"
+          },
+          "starting_policy_hash": {
+            "type": "string"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usage": {
+            "$ref": "#/components/schemas/PolicyLimits"
+          },
+          "current": {
+            "$ref": "#/components/schemas/PolicyEvidenceBinding"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyEvidence"
+            }
+          },
+          "paused_scopes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "now": {
+            "type": "string",
+            "format": "date-time",
+            "readOnly": true
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "PolicyResult": {
+        "type": "object",
+        "properties": {
+          "outcome": {
+            "type": "string",
+            "enum": [
+              "allow",
+              "deny",
+              "unknown"
+            ]
+          },
+          "policy_hash": {
+            "type": "string"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "required_actions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bindings": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyLayer"
+            }
+          },
+          "evidence_references": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "starting_policy_hash": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "outcome",
+          "policy_hash",
+          "blockers",
+          "required_actions",
+          "rules",
+          "bindings",
+          "evidence_references",
+          "starting_policy_hash"
+        ]
+      },
+      "PolicyVersion": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "scope": {
+            "$ref": "#/components/schemas/PolicyScope"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDocument"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "scope",
+          "policy",
+          "hash",
+          "actor_id",
+          "reason",
+          "created_at"
+        ]
+      },
+      "PolicyVersionPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PolicyVersion"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "complete"
+        ]
+      },
+      "PolicySimulation": {
+        "type": "object",
+        "properties": {
+          "hash": {
+            "type": "string"
+          },
+          "resolved": {
+            "$ref": "#/components/schemas/ResolvedPolicy"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/PolicyResult"
+          }
+        },
+        "required": [
+          "hash",
+          "resolved",
+          "decision"
+        ]
+      },
+      "PolicyVersionCreate": {
+        "type": "object",
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/PolicyScope"
+          },
+          "policy": {
+            "$ref": "#/components/schemas/PolicyDocument"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "scope",
+          "policy",
+          "reason"
+        ]
+      },
+      "PolicySimulateRequest": {
+        "type": "object",
+        "properties": {
+          "repository_id": {
+            "type": "string"
+          },
+          "primary_team_id": {
+            "type": "string"
+          },
+          "input": {
+            "$ref": "#/components/schemas/PolicyInput"
+          }
+        },
+        "required": [
+          "input"
+        ]
+      },
+      "PolicyActivateRequest": {
+        "type": "object",
+        "properties": {
+          "repository_id": {
+            "type": "string"
+          },
+          "primary_team_id": {
+            "type": "string"
+          },
+          "simulation_hash": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "simulation_hash",
+          "reason"
+        ]
+      },
+      "PolicyBindingVersion": {
+        "type": "object",
+        "properties": {
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "version"
         ]
       }
     },

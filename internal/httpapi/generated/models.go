@@ -157,6 +157,57 @@ func (e MetaEdition) Valid() bool {
 }
 
 const (
+	Maintenancev1 PolicyDocumentSchema = "maintenance/v1"
+)
+
+func (e PolicyDocumentSchema) Valid() bool {
+	switch e {
+	case Maintenancev1:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	PolicyResultOutcomeAllow   PolicyResultOutcome = "allow"
+	PolicyResultOutcomeDeny    PolicyResultOutcome = "deny"
+	PolicyResultOutcomeUnknown PolicyResultOutcome = "unknown"
+)
+
+func (e PolicyResultOutcome) Valid() bool {
+	switch e {
+	case PolicyResultOutcomeAllow:
+		return true
+	case PolicyResultOutcomeDeny:
+		return true
+	case PolicyResultOutcomeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	PolicyScopeKindOrganisation PolicyScopeKind = "organisation"
+	PolicyScopeKindRepository   PolicyScopeKind = "repository"
+	PolicyScopeKindTeam         PolicyScopeKind = "team"
+)
+
+func (e PolicyScopeKind) Valid() bool {
+	switch e {
+	case PolicyScopeKindOrganisation:
+		return true
+	case PolicyScopeKindRepository:
+		return true
+	case PolicyScopeKindTeam:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Gitea  RepositoryProvider = "gitea"
 	Github RepositoryProvider = "github"
 	Gitlab RepositoryProvider = "gitlab"
@@ -381,6 +432,140 @@ type Organisation struct {
 	Paused  bool   `json:"paused"`
 	Version int64  `json:"version"`
 }
+type PolicyActivateRequest struct {
+	PrimaryTeamId  *string `json:"primary_team_id,omitempty"`
+	Reason         string  `json:"reason"`
+	RepositoryId   *string `json:"repository_id,omitempty"`
+	SimulationHash string  `json:"simulation_hash"`
+}
+type PolicyBindingVersion struct {
+	Version int64 `json:"version"`
+}
+type PolicyDefaults struct {
+	BranchPrefix *string `json:"branch_prefix,omitempty"`
+	Model        *string `json:"model,omitempty"`
+	Route        *string `json:"route,omitempty"`
+}
+type PolicyDocument struct {
+	Allow                 *PolicyLists         `json:"allow,omitempty"`
+	Defaults              *PolicyDefaults      `json:"defaults,omitempty"`
+	Deny                  *[]string            `json:"deny,omitempty"`
+	ForbiddenPaths        *[]string            `json:"forbidden_paths,omitempty"`
+	Limits                *PolicyLimits        `json:"limits,omitempty"`
+	MaxEvidenceAgeSeconds *int64               `json:"max_evidence_age_seconds,omitempty"`
+	Paused                *bool                `json:"paused,omitempty"`
+	Required              *[]PolicyRequirement `json:"required,omitempty"`
+	Schema                PolicyDocumentSchema `json:"schema"`
+}
+type PolicyDocumentSchema string
+type PolicyEvidence struct {
+	Approvals  *int                  `json:"approvals,omitempty"`
+	Binding    PolicyEvidenceBinding `json:"binding"`
+	Id         string                `json:"id"`
+	Identity   *string               `json:"identity,omitempty"`
+	ObservedAt time.Time             `json:"observed_at"`
+	Reference  string                `json:"reference"`
+	State      string                `json:"state"`
+}
+type PolicyEvidenceBinding struct {
+	Artifact          *string `json:"artifact,omitempty"`
+	CapabilityVersion *string `json:"capability_version,omitempty"`
+	Head              *string `json:"head,omitempty"`
+	PolicyHash        *string `json:"policy_hash,omitempty"`
+	ProviderRules     *string `json:"provider_rules,omitempty"`
+	SourceSha         *string `json:"source_sha,omitempty"`
+	Target            *string `json:"target,omitempty"`
+	Tested            *string `json:"tested,omitempty"`
+}
+type PolicyInput struct {
+	Action             string                 `json:"action"`
+	Current            *PolicyEvidenceBinding `json:"current,omitempty"`
+	Environment        *string                `json:"environment,omitempty"`
+	Evidence           *[]PolicyEvidence      `json:"evidence,omitempty"`
+	MergeMethod        *string                `json:"merge_method,omitempty"`
+	Model              *string                `json:"model,omitempty"`
+	Now                *time.Time             `json:"now,omitempty"`
+	Paths              *[]string              `json:"paths,omitempty"`
+	PausedScopes       *[]string              `json:"paused_scopes,omitempty"`
+	Recipe             *string                `json:"recipe,omitempty"`
+	Route              *string                `json:"route,omitempty"`
+	StartingPolicyHash *string                `json:"starting_policy_hash,omitempty"`
+	Usage              *PolicyLimits          `json:"usage,omitempty"`
+	Workflow           *string                `json:"workflow,omitempty"`
+}
+type PolicyLayer struct {
+	BindingVersion int64          `json:"binding_version"`
+	Policy         PolicyDocument `json:"policy"`
+	Scope          PolicyScope    `json:"scope"`
+	VersionId      string         `json:"version_id"`
+}
+type PolicyLimits struct {
+	Attempts     *int64 `json:"attempts,omitempty"`
+	Budget       *int64 `json:"budget,omitempty"`
+	ChangedFiles *int64 `json:"changed_files,omitempty"`
+	ChangedLines *int64 `json:"changed_lines,omitempty"`
+	Concurrency  *int64 `json:"concurrency,omitempty"`
+	OpenChanges  *int64 `json:"open_changes,omitempty"`
+}
+type PolicyLists struct {
+	Environments *[]string `json:"environments,omitempty"`
+	MergeMethods *[]string `json:"merge_methods,omitempty"`
+	Models       *[]string `json:"models,omitempty"`
+	Recipes      *[]string `json:"recipes,omitempty"`
+	Routes       *[]string `json:"routes,omitempty"`
+	Workflows    *[]string `json:"workflows,omitempty"`
+}
+type PolicyRequirement struct {
+	Actions   []string `json:"actions"`
+	Approvals *int     `json:"approvals,omitempty"`
+	Id        string   `json:"id"`
+	Identity  *string  `json:"identity,omitempty"`
+}
+type PolicyResult struct {
+	Bindings           []PolicyLayer       `json:"bindings"`
+	Blockers           []string            `json:"blockers"`
+	EvidenceReferences []string            `json:"evidence_references"`
+	Outcome            PolicyResultOutcome `json:"outcome"`
+	PolicyHash         string              `json:"policy_hash"`
+	RequiredActions    []string            `json:"required_actions"`
+	Rules              []string            `json:"rules"`
+	StartingPolicyHash string              `json:"starting_policy_hash"`
+}
+type PolicyResultOutcome string
+type PolicyScope struct {
+	Id   string          `json:"id"`
+	Kind PolicyScopeKind `json:"kind"`
+}
+type PolicyScopeKind string
+type PolicySimulateRequest struct {
+	Input         PolicyInput `json:"input"`
+	PrimaryTeamId *string     `json:"primary_team_id,omitempty"`
+	RepositoryId  *string     `json:"repository_id,omitempty"`
+}
+type PolicySimulation struct {
+	Decision PolicyResult   `json:"decision"`
+	Hash     string         `json:"hash"`
+	Resolved ResolvedPolicy `json:"resolved"`
+}
+type PolicyVersion struct {
+	ActorId   string         `json:"actor_id"`
+	CreatedAt time.Time      `json:"created_at"`
+	Hash      string         `json:"hash"`
+	Id        string         `json:"id"`
+	Policy    PolicyDocument `json:"policy"`
+	Reason    string         `json:"reason"`
+	Scope     PolicyScope    `json:"scope"`
+}
+type PolicyVersionCreate struct {
+	Policy PolicyDocument `json:"policy"`
+	Reason string         `json:"reason"`
+	Scope  PolicyScope    `json:"scope"`
+}
+type PolicyVersionPage struct {
+	Complete   bool            `json:"complete"`
+	Items      []PolicyVersion `json:"items"`
+	NextCursor *string         `json:"next_cursor,omitempty"`
+}
 type PrivateRoute struct {
 	ApprovedAt *time.Time `json:"approved_at,omitempty"`
 	Cidrs      []string   `json:"cidrs"`
@@ -412,6 +597,17 @@ type RepositoryPage struct {
 	Complete   bool         `json:"complete"`
 	Items      []Repository `json:"items"`
 	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+type ResolvedPolicy struct {
+	Hash            string         `json:"hash"`
+	Layers          []PolicyLayer  `json:"layers"`
+	MissingDefaults []string       `json:"missing_defaults"`
+	Paused          bool           `json:"paused"`
+	Policy          PolicyDocument `json:"policy"`
+	PrimaryTeamId   *string        `json:"primary_team_id,omitempty"`
+	Problems        []string       `json:"problems"`
+	RepositoryId    string         `json:"repository_id"`
+	ScopePaused     bool           `json:"scope_paused"`
 }
 type Role string
 type Session struct {
@@ -508,6 +704,24 @@ type PutMembershipParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
+type GetEffectivePolicyParams struct {
+	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+}
+type ListPolicyVersionsParams struct {
+	ScopeKind *string `form:"scope_kind,omitempty" json:"scope_kind,omitempty"`
+	ScopeId   *string `form:"scope_id,omitempty" json:"scope_id,omitempty"`
+	Cursor    *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+type CreatePolicyVersionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ActivatePolicyParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type SimulatePolicyParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type RepositoriesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -545,5 +759,8 @@ type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
 type PutMembershipJSONRequestBody = MembershipInput
+type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
+type ActivatePolicyJSONRequestBody = PolicyActivateRequest
+type SimulatePolicyJSONRequestBody = PolicySimulateRequest
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest

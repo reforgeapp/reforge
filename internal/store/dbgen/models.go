@@ -93,6 +93,28 @@ type Organisation struct {
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
 
+type PolicyBinding struct {
+	OrgID           pgtype.UUID `json:"org_id"`
+	ScopeKind       string      `json:"scope_kind"`
+	ScopeID         pgtype.UUID `json:"scope_id"`
+	PolicyVersionID pgtype.UUID `json:"policy_version_id"`
+	Version         int64       `json:"version"`
+	PrimaryTeamID   pgtype.UUID `json:"primary_team_id"`
+	SimulationHash  string      `json:"simulation_hash"`
+}
+
+type PolicyVersion struct {
+	OrgID      pgtype.UUID        `json:"org_id"`
+	ID         pgtype.UUID        `json:"id"`
+	ScopeKind  string             `json:"scope_kind"`
+	ScopeID    pgtype.UUID        `json:"scope_id"`
+	Document   []byte             `json:"document"`
+	PolicyHash string             `json:"policy_hash"`
+	ActorID    pgtype.UUID        `json:"actor_id"`
+	Reason     string             `json:"reason"`
+	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
 type Repository struct {
 	OrgID         pgtype.UUID        `json:"org_id"`
 	ID            pgtype.UUID        `json:"id"`

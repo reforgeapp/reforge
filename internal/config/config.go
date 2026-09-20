@@ -26,6 +26,7 @@ type Config struct {
 	KMSRegion          string
 	KMSKeyARN          string
 	KMSPreviousKeyARNs []string
+	PolicyFile         string
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
@@ -47,6 +48,7 @@ func Load() (Config, error) {
 		EncryptionKeyID:  value("REFORGE_ENCRYPTION_KEY_ID", "primary"),
 		KMSRegion:        os.Getenv("REFORGE_KMS_REGION"),
 		KMSKeyARN:        os.Getenv("REFORGE_KMS_KEY_ARN"),
+		PolicyFile:       os.Getenv("REFORGE_POLICY_FILE"),
 		OIDCIssuer:       os.Getenv("REFORGE_OIDC_ISSUER"),
 		OIDCClientID:     os.Getenv("REFORGE_OIDC_CLIENT_ID"),
 		OIDCClientSecret: os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),

@@ -367,6 +367,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/policies/effective": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEffectivePolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRepositoryPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/policies/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listPolicyVersions"];
+        put?: never;
+        post: operations["createPolicyVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getPolicyVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}/simulate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["simulatePolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/policies/versions/{versionID}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["activatePolicy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -590,6 +686,163 @@ export interface components {
         };
         PrivateRouteChange: {
             route: components["schemas"]["PrivateRoute"];
+        };
+        PolicyScope: {
+
+            kind: "organisation" | "team" | "repository";
+            id: string;
+        };
+        PolicyLists: {
+            recipes?: string[];
+            models?: string[];
+            routes?: string[];
+            merge_methods?: string[];
+            environments?: string[];
+            workflows?: string[];
+        };
+        PolicyLimits: {
+
+            budget?: number;
+
+            concurrency?: number;
+
+            attempts?: number;
+
+            changed_files?: number;
+
+            changed_lines?: number;
+
+            open_changes?: number;
+        };
+        PolicyDefaults: {
+            model?: string;
+            route?: string;
+            branch_prefix?: string;
+        };
+        PolicyRequirement: {
+            id: string;
+            identity?: string;
+            actions: string[];
+            approvals?: number;
+        };
+        PolicyDocument: {
+
+            schema: "maintenance/v1";
+            allow?: components["schemas"]["PolicyLists"];
+            deny?: string[];
+            forbidden_paths?: string[];
+            limits?: components["schemas"]["PolicyLimits"];
+            required?: components["schemas"]["PolicyRequirement"][];
+            defaults?: components["schemas"]["PolicyDefaults"];
+
+            max_evidence_age_seconds?: number;
+            paused?: boolean;
+        };
+        PolicyLayer: {
+            scope: components["schemas"]["PolicyScope"];
+            version_id: string;
+
+            binding_version: number;
+            policy: components["schemas"]["PolicyDocument"];
+        };
+        ResolvedPolicy: {
+            hash: string;
+            layers: components["schemas"]["PolicyLayer"][];
+            primary_team_id?: string;
+            repository_id: string;
+            paused: boolean;
+            policy: components["schemas"]["PolicyDocument"];
+            scope_paused: boolean;
+            missing_defaults: string[];
+            problems: string[];
+        };
+        PolicyEvidenceBinding: {
+            head?: string;
+            target?: string;
+            tested?: string;
+            policy_hash?: string;
+            provider_rules?: string;
+            capability_version?: string;
+            source_sha?: string;
+            artifact?: string;
+        };
+        PolicyEvidence: {
+            id: string;
+            identity?: string;
+            state: string;
+            approvals?: number;
+            binding: components["schemas"]["PolicyEvidenceBinding"];
+
+            observed_at: string;
+            reference: string;
+        };
+        PolicyInput: {
+            action: string;
+            recipe?: string;
+            model?: string;
+            route?: string;
+            merge_method?: string;
+            environment?: string;
+            workflow?: string;
+            starting_policy_hash?: string;
+            paths?: string[];
+            usage?: components["schemas"]["PolicyLimits"];
+            current?: components["schemas"]["PolicyEvidenceBinding"];
+            evidence?: components["schemas"]["PolicyEvidence"][];
+            paused_scopes?: string[];
+
+            readonly now?: string;
+        };
+        PolicyResult: {
+
+            outcome: "allow" | "deny" | "unknown";
+            policy_hash: string;
+            blockers: string[];
+            required_actions: string[];
+            rules: string[];
+            bindings: components["schemas"]["PolicyLayer"][];
+            evidence_references: string[];
+            starting_policy_hash: string;
+        };
+        PolicyVersion: {
+            id: string;
+            scope: components["schemas"]["PolicyScope"];
+            policy: components["schemas"]["PolicyDocument"];
+            hash: string;
+            actor_id: string;
+            reason: string;
+
+            created_at: string;
+        };
+        PolicyVersionPage: {
+            items: components["schemas"]["PolicyVersion"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        PolicySimulation: {
+            hash: string;
+            resolved: components["schemas"]["ResolvedPolicy"];
+            decision: components["schemas"]["PolicyResult"];
+        };
+        PolicyVersionCreate: {
+            scope: components["schemas"]["PolicyScope"];
+            policy: components["schemas"]["PolicyDocument"];
+            reason: string;
+        };
+        PolicySimulateRequest: {
+            repository_id?: string;
+            primary_team_id?: string;
+            input: components["schemas"]["PolicyInput"];
+        };
+        PolicyActivateRequest: {
+            repository_id?: string;
+            primary_team_id?: string;
+            simulation_hash: string;
+            reason: string;
+        };
+        PolicyBindingVersion: {
+
+            version: number;
         };
     };
     responses: never;
@@ -1674,6 +1927,252 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Connection"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getEffectivePolicy: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedPolicy"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getRepositoryPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ResolvedPolicy"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listPolicyVersions: {
+        parameters: {
+            query?: {
+                scope_kind?: string;
+                scope_id?: string;
+                cursor?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyVersionPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createPolicyVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyVersionCreate"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyVersion"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getPolicyVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                versionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyVersion"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    simulatePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                versionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicySimulateRequest"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicySimulation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    activatePolicy: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                versionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PolicyActivateRequest"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PolicyBindingVersion"];
                 };
             };
 

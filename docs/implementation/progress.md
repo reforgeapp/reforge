@@ -17,11 +17,11 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 | T01 | local complete | Astra | foundation, shared contracts; none | Build/check/unit tests; PG18.6 race/isolation/migration tests; independent Astra review fixed |
 | T02 | local complete | Astra worker t02_identity | auth/store; T01 | OIDC/scopes/bootstrap implemented; signed local OIDC + PG race tests pass; root all-package race/vet/build passed |
 | T03 | local complete | Astra coordinator + network worker | connections/secrets; T01 T02 | Operator/KMS envelopes, write-only credentials, revoke/rotate/rewrap, guarded routes; race/check/build passed |
-| T04 | in progress | Luna worker t04_shell | web shell; T01 | Browser and cache isolation |
-| T05 | not started | Astra | workflow; T01 T02 T03 | Leases, budgets, outbox, SSE |
-| T06 | in progress | Astra worker t02_review | policy; T01 T02 | Deterministic corpus |
+| T04 | local complete | Luna worker t04_shell | web shell; T01 | 8 browser scenarios, keyboard/390px/axe/deep links/cache revocation; root reviewed |
+| T05 | in progress | Astra workers | workflow; T01 T02 T03 | Leases, budgets, outbox, SSE |
+| T06 | local complete | Astra worker t02_review | policy; T01 T02 | Corpus + PG immutable activation/scopes + HTTP simulation/CSRF/version checks passed |
 | T07 | not started | Astra | runner; T03 T05 T06 | Sandbox and private routes |
-| T08 | not started | Luna/Astra | forge/github; T01 T03 | Real adapter, guarded mutations |
+| T08 | in progress | Luna worker t04_shell | forge/github; T01 T03 | Real adapter, guarded mutations |
 | T09 | not started | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
 | T10 | not started | Astra/Luna | forge/gitea; T01 T03 | Disposable real server certification |
 | T11 | not started | Luna/Astra | inventory; T05 T08 T09 T10 | Async reconciliation |
@@ -101,3 +101,15 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ow
 - Integrated `go test -race ./...`, `make check`, generation drift and application build passed. Initial generated UUID dependency mismatch was corrected with the existing string ID mapping; final whole-package run passed.
 - AWS SDK config1.33.5/KMS1.61.0 use standard credentials, explicit immutable key ARNs and tenant/connection/version context. Contract tests cover wrong context/key, rotation, outage, cancellation and no endpoint override. No live AWS call or certification claimed.
 - Approved private routes require real enrolled-runner registration (T07); unavailable provider adapters stay disabled pending their owning tickets.
+
+## Active ownership after T03
+
+- Astra t02_identity: T05.1 `internal/workflow/**`, `test/integration/workflow_test.go`, `t05-workflow.md`; durable leases, fences, pauses and event replay.
+- Astra t02_review: T05.2 `internal/budget/**`, `t05-budget.md`; hierarchical reservation/accounting.
+- Luna t04_shell: T08.1 `internal/forge/github/adapter.go`, `adapter_test.go`, `t08-github.md`; inventory/events/PR CRUD only. Root later handles App authentication, branch guards/protection/merge/delivery.
+- Coordinator: policy HTTP integration complete, all shared files/migrations/API, next forge security and Gitea local integration. T05 migrations005/006 installed;007 corrects custom-only period validation without rewriting applied checksums.
+
+## T04 / T06 integration evidence
+
+- T04 root reran eight browser scenarios: all pass. Same-page revocation fixture proves cache purge without reload; real backend identity revocation remains covered by T02 PG tests and later SSE/artifact qualification. Identity changes hide scoped content until cache clearing completes.
+- T06 corpus/real PG tests and HTTP create→simulate→activate/history/stale-version/CSRF checks pass under race detector. Integrated vet/build pass. `REFORGE_POLICY_FILE` optionally supplies trusted deployment constraints; absent organisation policy always disables automation. Version history and effective policy endpoints are connected.

@@ -11,6 +11,7 @@ import (
 	"reforge/internal/config"
 	"reforge/internal/connections"
 	"reforge/internal/httpapi"
+	"reforge/internal/policy"
 	"reforge/internal/secrets"
 	"reforge/internal/store"
 	"syscall"
@@ -61,6 +62,22 @@ func run() error {
 		return err
 	}
 	app.RegisterConnections(connections.New(db, identity, vault, cfg.Development))
+	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
+	if cfg.PolicyFile != "" {
+		body, readErr := os.ReadFile(cfg.PolicyFile)
+		if readErr != nil {
+			return errors.New("operator policy file unavailable")
+		}
+		deploymentPolicy, err = policy.Parse(body)
+		if err != nil {
+			return errors.New("operator policy file invalid")
+		}
+	}
+	policies, err := policy.New(db, identity, deploymentPolicy)
+	if err != nil {
+		return err
+	}
+	app.RegisterPolicy(policies)
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
