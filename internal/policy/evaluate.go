@@ -488,3 +488,5 @@ func Evaluate(r Resolved, in Input) Result {
 	}
 	return out
 }
+
+func ForbiddenPath(pattern, file string) bool { return forbidden(pattern, file) }

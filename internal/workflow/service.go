@@ -53,11 +53,11 @@ func (s *Service) checkPolicy(ctx context.Context, tx pgx.Tx, t Task, action str
 	return hash, nil
 }
 
-const taskColumns = `id::text,org_id::text,repository_id::text,operation_id::text,recipe,recipe_version,target_branch,coalesce(model_connection_id::text,''),coalesce(campaign_id::text,''),coalesce(runner_pool_id::text,''),policy_hash,starting_policy_hash,state,reason,version,cancel_version,max_attempts,created_at,model_route`
+const taskColumns = `id::text,org_id::text,repository_id::text,operation_id::text,recipe,recipe_version,target_branch,coalesce(model_connection_id::text,''),coalesce(campaign_id::text,''),coalesce(runner_pool_id::text,''),policy_hash,starting_policy_hash,state,reason,version,cancel_version,cancellation_requested,max_attempts,created_at,model_route`
 
 func scanTask(row pgx.Row) (Task, error) {
 	var t Task
-	err := row.Scan(&t.ID, &t.OrgID, &t.RepositoryID, &t.OperationID, &t.Recipe, &t.RecipeVersion, &t.TargetBranch, &t.ModelConnectionID, &t.CampaignID, &t.RunnerPoolID, &t.PolicyHash, &t.StartingPolicyHash, &t.State, &t.Reason, &t.Version, &t.CancelVersion, &t.MaxAttempts, &t.CreatedAt, &t.ModelRoute)
+	err := row.Scan(&t.ID, &t.OrgID, &t.RepositoryID, &t.OperationID, &t.Recipe, &t.RecipeVersion, &t.TargetBranch, &t.ModelConnectionID, &t.CampaignID, &t.RunnerPoolID, &t.PolicyHash, &t.StartingPolicyHash, &t.State, &t.Reason, &t.Version, &t.CancelVersion, &t.CancellationRequested, &t.MaxAttempts, &t.CreatedAt, &t.ModelRoute)
 	return t, hidden(err)
 }
 func loadTask(ctx context.Context, tx pgx.Tx, orgID, id string) (Task, error) {
@@ -69,6 +69,10 @@ func lockOrg(ctx context.Context, tx pgx.Tx, orgID string) error {
 }
 
 func (s *Service) Enqueue(ctx context.Context, session auth.Session, orgID string, in EnqueueInput, requestID string) (Task, error) {
+	return s.EnqueuePrepared(ctx, session, orgID, in, requestID, nil)
+}
+
+func (s *Service) EnqueuePrepared(ctx context.Context, session auth.Session, orgID string, in EnqueueInput, requestID string, prepare func(context.Context, pgx.Tx, Task) error) (Task, error) {
 	var result Task
 	if !auth.ValidID(in.RepositoryID) || len(in.Recipe) < 1 || len(in.Recipe) > 100 || len(in.RecipeVersion) < 1 || len(in.RecipeVersion) > 100 || len(in.TargetBranch) < 1 || len(in.TargetBranch) > 255 || len(in.IdempotencyKey) < 1 || len(in.IdempotencyKey) > 200 || in.Priority < -10 || in.Priority > 10 {
 		return result, auth.ErrInvalid
@@ -140,6 +144,11 @@ func (s *Service) Enqueue(ctx context.Context, session auth.Session, orgID strin
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO workflow_scheduler(org_id) VALUES($1) ON CONFLICT DO NOTHING`, orgID); err != nil {
 			return err
+		}
+		if prepare != nil {
+			if err = prepare(ctx, tx, result); err != nil {
+				return err
+			}
 		}
 		if err = emitTask(ctx, tx, result, "task.queued", requestID); err != nil {
 			return err
@@ -215,7 +224,7 @@ func setTaskState(ctx context.Context, tx pgx.Tx, t *Task, state domain.TaskStat
 	t.State = state
 	t.Reason = reason
 	t.Version++
-	if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state=$3,reason=$4,version=$5,cancel_version=$6,policy_hash=$7 WHERE org_id=$1 AND id=$2`, t.OrgID, t.ID, t.State, t.Reason, t.Version, t.CancelVersion, t.PolicyHash); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state=$3,reason=$4,version=$5,cancel_version=$6,policy_hash=$7,cancellation_requested=$8 WHERE org_id=$1 AND id=$2`, t.OrgID, t.ID, t.State, t.Reason, t.Version, t.CancelVersion, t.PolicyHash, t.CancellationRequested); err != nil {
 		return err
 	}
 	return emitTask(ctx, tx, *t, "task."+string(state), requestID)
@@ -246,6 +255,7 @@ func (s *Service) Cancel(ctx context.Context, session auth.Session, orgID, id st
 			return err
 		}
 		t.CancelVersion++
+		t.CancellationRequested = true
 		if err = checkUncertain(ctx, tx, orgID, id); errors.Is(err, ErrReconciliation) && !running {
 			if _, err = tx.Exec(ctx, `UPDATE workflow_jobs SET state='reconciling',fence=fence+1 WHERE org_id=$1 AND task_id=$2`, orgID, id); err != nil {
 				return err
@@ -296,6 +306,7 @@ func (s *Service) Resume(ctx context.Context, session auth.Session, orgID, id st
 			return err
 		}
 		t.PolicyHash = hash
+		t.CancellationRequested = false
 		var attempts int
 		if err = tx.QueryRow(ctx, `SELECT attempts FROM workflow_jobs WHERE org_id=$1 AND task_id=$2 FOR UPDATE`, orgID, id).Scan(&attempts); err != nil {
 			return err
@@ -461,4 +472,11 @@ func (s *Service) revokePausedTx(ctx context.Context, tx pgx.Tx, orgID string, p
 		}
 	}
 	return nil
+}
+
+func (s *Service) CheckProposalTx(ctx context.Context, tx pgx.Tx, t Task) (string, error) {
+	if err := checkPauses(ctx, tx, t); err != nil {
+		return "", err
+	}
+	return s.checkPolicy(ctx, tx, t, "enqueue")
 }

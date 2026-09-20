@@ -17,6 +17,7 @@ CREATE TABLE workflow_tasks (
  reason text NOT NULL DEFAULT '',
  version bigint NOT NULL DEFAULT 1,
  cancel_version bigint NOT NULL DEFAULT 0,
+ cancellation_requested boolean NOT NULL DEFAULT false,
  max_attempts integer NOT NULL CHECK(max_attempts BETWEEN 1 AND 10),
  created_by uuid NOT NULL REFERENCES users(id),
  created_at timestamptz NOT NULL DEFAULT now(),

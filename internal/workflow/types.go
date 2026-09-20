@@ -34,25 +34,26 @@ type EnqueueInput struct {
 	Priority          int    `json:"priority"`
 }
 type Task struct {
-	ID                 string           `json:"id"`
-	OrgID              string           `json:"org_id"`
-	RepositoryID       string           `json:"repository_id"`
-	OperationID        string           `json:"operation_id"`
-	Recipe             string           `json:"recipe"`
-	RecipeVersion      string           `json:"recipe_version"`
-	TargetBranch       string           `json:"target_branch"`
-	ModelConnectionID  string           `json:"model_connection_id,omitempty"`
-	ModelRoute         string           `json:"model_route"`
-	CampaignID         string           `json:"campaign_id,omitempty"`
-	RunnerPoolID       string           `json:"runner_pool_id,omitempty"`
-	PolicyHash         string           `json:"policy_hash"`
-	StartingPolicyHash string           `json:"starting_policy_hash"`
-	State              domain.TaskState `json:"state"`
-	Reason             string           `json:"reason"`
-	Version            int64            `json:"version"`
-	CancelVersion      int64            `json:"cancel_version"`
-	MaxAttempts        int              `json:"max_attempts"`
-	CreatedAt          time.Time        `json:"created_at"`
+	ID                    string           `json:"id"`
+	OrgID                 string           `json:"org_id"`
+	RepositoryID          string           `json:"repository_id"`
+	OperationID           string           `json:"operation_id"`
+	Recipe                string           `json:"recipe"`
+	RecipeVersion         string           `json:"recipe_version"`
+	TargetBranch          string           `json:"target_branch"`
+	ModelConnectionID     string           `json:"model_connection_id,omitempty"`
+	ModelRoute            string           `json:"model_route"`
+	CampaignID            string           `json:"campaign_id,omitempty"`
+	RunnerPoolID          string           `json:"runner_pool_id,omitempty"`
+	PolicyHash            string           `json:"policy_hash"`
+	StartingPolicyHash    string           `json:"starting_policy_hash"`
+	State                 domain.TaskState `json:"state"`
+	Reason                string           `json:"reason"`
+	Version               int64            `json:"version"`
+	CancelVersion         int64            `json:"cancel_version"`
+	CancellationRequested bool             `json:"cancellation_requested"`
+	MaxAttempts           int              `json:"max_attempts"`
+	CreatedAt             time.Time        `json:"created_at"`
 }
 type Lease struct {
 	OrgID        string    `json:"org_id"`
