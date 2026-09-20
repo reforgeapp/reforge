@@ -6,6 +6,7 @@ import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { useSession } from './query'
 import { DeploymentSettings } from './DeploymentSettings'
+import { GitOpsPage } from './GitOpsPage'
 import { deploymentAPI, type Configuration, type Gate, type Operation, type PreviewRequest } from '../deployment-api'
 import '../styles/deployment.css'
 
@@ -16,6 +17,17 @@ const outbound = (value?: string) => { try { const url = new URL(value ?? ''); r
 const expired = (gate: Gate) => { const timestamp = Date.parse(gate.expires_at); return !Number.isFinite(timestamp) || timestamp <= Date.now() }
 
 export function DeploymentsPage({ orgID }: { orgID: string }) {
+  const [mode, setMode] = useState<'native' | 'gitops'>('native')
+  return <div className="stack deployment-page">
+    <nav className="row-actions" aria-label="Delivery mode">
+      <Button aria-pressed={mode === 'native'} onClick={() => setMode('native')}>Native pipelines</Button>
+      <Button aria-pressed={mode === 'gitops'} onClick={() => setMode('gitops')}>GitOps promotions</Button>
+    </nav>
+    {mode === 'native' ? <NativeDeploymentsPage key={orgID} orgID={orgID} /> : <GitOpsPage key={orgID} orgID={orgID} />}
+  </div>
+}
+
+function NativeDeploymentsPage({ orgID }: { orgID: string }) {
   const [showSettings,setShowSettings]=useState(false)
   const session = useSession()
   const canWrite = session.data?.memberships.some(item => item.org_id === orgID && ['owner', 'admin', 'maintainer'].includes(item.role)) ?? false
