@@ -1,0 +1,45 @@
+# Decisions and open items
+
+Updated: 2026-09-20.
+
+## Accepted from the owner
+
+- Reforge; Apache-2.0 OSS; Go backend with Gin.
+- GitHub, GitLab and Gitea required.
+- BYO OpenAI, Claude, Google and self-hosted LLMs; supported subscription routes preferred when permitted.
+- Native PR/MR workflow and branch-protection compliance; Renovate/Dependabot cooperation.
+- Hosted multi-tenant service plus self-hosted edition.
+- Primary users: engineering teams managing large repository portfolios.
+- Policy-controlled merging and deployment automation included in v1.
+- Deployments use existing CI/CD and GitOps workflows, including native approval gates.
+- React/TypeScript selected for the frontend; owner accepts an industry-standard frontend.
+- Implementation plan uses Luna/Astra workers; Claude CLI/Opus5 available if useful.
+
+## Proposed defaults
+
+| Decision | Default | Revisit trigger |
+| --- | --- | --- |
+| Name | Reforge | Owner-directed rename |
+| Frontend | React + TypeScript + Vite; TanStack Query/Router; accessible components | Demonstrated implementation need |
+| Backend | Go + Gin modular monolith plus separate Go runner binary | Independent scale/security boundary needs another service |
+| Database | PostgreSQL 18, explicit SQL via pgx/sqlc, SQL migrations | Measured limitation; no embedded SQLite mode in v1 |
+| Durable execution | PostgreSQL job leases + outbox + explicit states | Long-lived orchestration complexity warrants a workflow engine |
+| Live GUI | Authenticated SSE plus ordinary JSON REST | Demonstrated need for bidirectional streaming |
+| Isolation | Per-job sandbox, dedicated runner supervisor | Hosted sandbox gate fails; stop hosted execution until fixed |
+| Authentication | OIDC + scoped organisation membership; bootstrap admin enrolment for self-hosted | Enterprise customer requires another auth standard |
+| Deployment | Existing CI/CD and GitOps workflows, confirmed | Owner selects a direct hosting integration |
+| Licensing | Apache-2.0, confirmed | Owner-directed change before distribution |
+| Business layer | Invite-based hosted pilot; usage metering, no payment integration | Commercial launch |
+| Repository remote | Pending; do not create/publish one during planning | Implementation owner chooses organisation/module path |
+
+## Release gates, not unanswered product questions
+
+- Certify each supported forge/server version against a real test instance and record missing capabilities. Public documentation alone is insufficient for an automated-merge claim.
+- Confirm subscription eligibility for each adapter, account type and hosted/customer-owned topology. Default to BYO API if the official route cannot be established; do not extract or impersonate OAuth credentials.
+- Select and prove one hosted isolation runtime, image policy and runner host boundary before untrusted tenant execution.
+- Exercise native deployment approvals and correlation on each forge; unsupported approval APIs cannot be bypassed by application policy.
+- Owner supplies live test accounts, model budgets, organisation/SSO configuration and hosting destination at the implementation stages that need them. These do not block local fixtures, GUI, contracts or architecture.
+
+## Decision procedure
+
+Record changes here with date and affected requirement/task IDs. Preserve hard requirements; deferring an item needed by G5 moves the release gate rather than silently reducing scope. Treat research documents as evidence, and product/contracts/policies as the selected design. If evidence contradicts a selected design, correct the design and dependent tickets before implementation.
