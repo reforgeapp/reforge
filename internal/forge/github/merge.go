@@ -94,6 +94,9 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if err != nil {
 		return out, err
 	}
+	if eligibility.HeadSHA != in.ExpectedHeadSHA || eligibility.TargetSHA != in.ExpectedTargetSHA {
+		return out, failure("conflict", "Native eligibility is for a different candidate")
+	}
 	if eligibility.State != "eligible" {
 		return out, failure("policy", "Native merge prerequisites are not satisfied")
 	}
@@ -139,6 +142,17 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if head != in.ExpectedHeadSHA || target != in.ExpectedTargetSHA {
 		return out, failure("conflict", "Head or target changed at execution boundary")
 	}
+	confirm := func() error {
+		current, err := p.ReadChange(ctx, in.Repository, in.ChangeID)
+		if err != nil {
+			return err
+		}
+		if current.HeadRepository != change.HeadRepository || current.TargetRepository != change.TargetRepository || current.Repository != change.Repository || current.HeadBranch != change.HeadBranch || current.TargetBranch != change.TargetBranch || current.HeadSHA != in.ExpectedHeadSHA || current.TargetSHA != in.ExpectedTargetSHA || current.State != "open" || current.Draft {
+			return failure("conflict", "Pull request identity or target changed at execution boundary")
+		}
+		change = current
+		return nil
+	}
 	if in.Queue {
 		pull, err := p.queuePull(ctx, in.Repository, in.ChangeID)
 		if err != nil {
@@ -158,6 +172,9 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 			}
 			return forge.MergeResult{State: "queued", NativeID: pull.Queue.ID, HeadSHA: pull.Head, URL: change.URL}, nil
 		}
+		if err = confirm(); err != nil {
+			return out, err
+		}
 		if err = p.mergeGuard(ctx, in, change, rules); err != nil {
 			return out, err
 		}
@@ -176,6 +193,9 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 			return out, transportFailure("POST", "Queue admission requires reconciliation")
 		}
 		return forge.MergeResult{State: "queued", NativeID: result.Enqueue.Entry.ID, HeadSHA: in.ExpectedHeadSHA, URL: change.URL}, nil
+	}
+	if err = confirm(); err != nil {
+		return out, err
 	}
 	if err = p.mergeGuard(ctx, in, change, rules); err != nil {
 		return out, err

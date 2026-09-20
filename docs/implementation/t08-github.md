@@ -31,3 +31,5 @@ Before enabling native writes, qualify a dedicated Cloud test organisation and e
 Validation commands: `GOCACHE=/tmp/reforge-go-build GOMODCACHE=/tmp/reforge-go-mod GOPATH=/tmp/reforge-go go test -race ./internal/forge/github` and the same environment with `go vet ./internal/forge/github`.
 
 Coordinator review added authenticated capability probes (public `/meta` alone cannot validate a revoked credential), repository identity checks in inventory, bounded mutation bodies, missing-response handling, HTTP408 uncertainty and a 1,000-page ceiling for large portfolios. Final local race suite passed1.161s. No live qualification was performed.
+
+Root follow-up verifies eligibility H/B against the requested candidate and rereads the canonical PR immediately before direct merge or queue admission. Repository identity, source/target branches, H/B, open state and draft state must remain unchanged. New direct/queue retargeting regressions passed with the full race suite in 1.092 seconds. Native target-change enforcement still requires version-specific certification.

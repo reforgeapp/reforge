@@ -68,13 +68,16 @@ func (f *nativeFixture) call(t *testing.T, req *http.Request) (*http.Response, e
 		return jsonResponse(200, out), nil
 	case "/repos/acme/repo/pulls/7":
 		pull := pullFixture(2, 7)
+		if strings.Contains(f.mode, "retarget") && f.guards > 0 {
+			pull["base"].(map[string]any)["ref"] = "other"
+		}
 		if f.merged {
 			pull["merged"] = true
 			pull["state"] = "closed"
 			pull["merge_commit_sha"] = testCommit
 		}
 		return jsonResponse(200, pull), nil
-	case "/repos/acme/repo/git/ref/heads/main":
+	case "/repos/acme/repo/git/ref/heads/main", "/repos/acme/repo/git/ref/heads/other":
 		sha := testBase
 		if f.mode == "target_drift" && f.guards > 0 {
 			sha = testCommit
@@ -177,7 +180,7 @@ func TestProtectionAndEligibilityFailClosed(t *testing.T) {
 	}
 }
 func TestNativeMergeAndQueueRequireFreshAuthorizedEvidence(t *testing.T) {
-	for _, mode := range []string{"merge", "target_drift", "revoked", "queue", "queue_base_drift"} {
+	for _, mode := range []string{"merge", "target_drift", "revoked", "retarget", "queue", "queue_retarget", "queue_base_drift"} {
 		t.Run(mode, func(t *testing.T) {
 			f := &nativeFixture{mode: mode}
 			p := fixtureProvider(t, func(req *http.Request) (*http.Response, error) { return f.call(t, req) }).WithMergeGuard(func(_ context.Context, in forge.MergeRequest, change forge.Change, rules forge.Rules) error {
