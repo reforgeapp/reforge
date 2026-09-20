@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import os
 import json
+import re
 from pathlib import Path
 import shutil
 import signal
@@ -8,6 +9,7 @@ import subprocess
 import tempfile
 import threading
 import time
+import sys
 import urllib.parse
 import urllib.request
 import uuid
@@ -16,6 +18,62 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 root = Path(__file__).resolve().parent.parent
 env = dict(os.environ)
 base = 'http://127.0.0.1:8081'
+retain_demo = env.get('REFORGE_KEEP_DEMO') == '1'
+
+def process_starttime(pid):
+    fields = Path(f'/proc/{pid}/stat').read_text().split()
+    return fields[21]
+
+def validate_process(pid, expected_starttime, executable, required_arg):
+    if not isinstance(pid, int) or pid <= 1 or not isinstance(expected_starttime, str):
+        return False
+    try:
+        actual = process_starttime(pid)
+        command = Path(f'/proc/{pid}/exe').resolve()
+        cmdline = Path(f'/proc/{pid}/cmdline').read_bytes().replace(b'\0', b' ').decode()
+        environment = Path(f'/proc/{pid}/environ').read_bytes().replace(b'\0', b' ').decode()
+    except (FileNotFoundError, OSError, ValueError):
+        return False
+    return actual == expected_starttime and command == root / executable and (required_arg in cmdline or required_arg in environment)
+
+if '--cleanup-demo' in sys.argv:
+    manifest_path = root / '.local/demo-repair.json'
+    data = json.loads(manifest_path.read_text())
+    db = data.get('database', '')
+    repo = data.get('native_full_name', '')
+    fixture = data.get('fixture_directory', '')
+    if not re.fullmatch(r'reforge_browser_[0-9a-f]{32}', db):
+        raise SystemExit('refusing unexpected demo database')
+    if not re.fullmatch(r'reforge-bot/browser-repair-[0-9]+', repo):
+        raise SystemExit('refusing unexpected fixture repository')
+    fixture_path = Path(fixture)
+    if fixture_path.parent != Path('/tmp') or not re.fullmatch(r'reforge-repair-fixture-[A-Za-z0-9]+', fixture_path.name):
+        raise SystemExit('refusing unexpected fixture directory')
+    controller_pid = data.get('controller_pid')
+    if Path(f'/proc/{controller_pid}').exists() and not validate_process(controller_pid, data.get('controller_starttime'), 'bin/reforge', 'REFORGE_ADDRESS=127.0.0.1:8081'):
+        raise SystemExit('refusing unexpected controller PID')
+    runner_pid = data.get('runner_pid')
+    if isinstance(runner_pid, int) and Path(f'/proc/{runner_pid}').exists() and not validate_process(runner_pid, data.get('runner_starttime'), 'bin/reforge-runner', '127.0.0.1:8081'):
+        raise SystemExit('refusing unexpected runner PID')
+    credential = Path(data.get('runner_credentials', ''))
+    if credential != fixture_path / 'runner-credentials':
+        raise SystemExit('refusing unexpected runner credential path')
+    if Path(f'/proc/{controller_pid}').exists():
+        os.kill(controller_pid, signal.SIGTERM)
+    if isinstance(runner_pid, int) and Path(f'/proc/{runner_pid}').exists():
+        os.kill(runner_pid, signal.SIGTERM)
+    admin = dict(env, PGHOST='127.0.0.1', PGPORT='55432', PGUSER='mnorris', PGDATABASE='postgres', PGPASSWORD=(root / '.local/pg-admin-password').read_text().strip())
+    subprocess.run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c', 'DROP DATABASE ' + db + ' WITH (FORCE)'], env=admin, check=True, stdout=subprocess.DEVNULL)
+    token = (root / '.local/gitea/reforge-admin.token').read_text().strip()
+    request = urllib.request.Request('http://127.0.0.1:53000/api/v1/repos/' + repo, method='DELETE', headers={'Authorization': 'token ' + token})
+    with urllib.request.urlopen(request, timeout=10):
+        pass
+    shutil.rmtree(fixture_path)
+    shutil.rmtree(root / '.local/repair-demo')
+    manifest_path.unlink()
+    raise SystemExit(0)
+if retain_demo and env.get('REFORGE_CAPTURE_MODEL') == '1':
+    raise SystemExit('REFORGE_CAPTURE_MODEL cannot be combined with REFORGE_KEEP_DEMO')
 for name in ('REFORGE_DATABASE_URL', 'REFORGE_MIGRATION_DATABASE_URL'):
     parsed = urllib.parse.urlsplit(env.get(name, ''))
     if parsed.hostname != '127.0.0.1' or parsed.port != 55432:
@@ -36,7 +94,13 @@ except (OSError, urllib.error.URLError):
     pass
 name = 'reforge_browser_' + uuid.uuid4().hex
 admin = dict(env, PGHOST='127.0.0.1', PGPORT='55432', PGUSER='mnorris', PGDATABASE='postgres', PGPASSWORD=(root / '.local/pg-admin-password').read_text().strip())
-work = Path(tempfile.mkdtemp(prefix='reforge-browser-'))
+if retain_demo:
+    work = root / '.local/repair-demo'
+    if work.exists():
+        raise SystemExit(f'{work} already exists; remove the prior isolated demo before retaining another')
+    work.mkdir(mode=0o700, parents=True)
+else:
+    work = Path(tempfile.mkdtemp(prefix='reforge-browser-'))
 server = None
 proxy = None
 created = False
@@ -151,6 +215,8 @@ try:
     grants = dict(admin, PGDATABASE=name)
     subprocess.run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-f', str(root / 'scripts/runtime-grants.sql')], env=grants, check=True, stdout=subprocess.DEVNULL)
     env.update(REFORGE_MODE='development', REFORGE_FIXTURE_AUTH='true', REFORGE_EDITION='self-hosted', REFORGE_ADDRESS='127.0.0.1:8081', REFORGE_PUBLIC_URL=base, REFORGE_BASE_URL=base, REFORGE_ARTIFACT_DIRECTORY=str(work / 'artifacts'), REFORGE_ISOLATED_BROWSER_DATABASE='1', REFORGE_LIVE_REPAIR_BROWSER='1')
+    if retain_demo:
+        env['REFORGE_DEMO_MANIFEST'] = str(root / '.local/demo-repair.json')
     if env.get('REFORGE_CAPTURE_MODEL') == '1':
         capture_parent = root / '.local/model-capture'
         capture_parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -175,6 +241,17 @@ try:
             time.sleep(0.1)
     else:
         raise RuntimeError('Disposable controller did not become ready')
+    if retain_demo:
+        manifest = root / '.local/demo-repair.json'
+        manifest.write_text(json.dumps({
+            'controller_url': base,
+            'controller_pid': server.pid,
+            'controller_starttime': process_starttime(server.pid),
+            'database': name,
+            'work_directory': str(work),
+            'status': 'running',
+        }, indent=2) + '\n')
+        os.chmod(manifest, 0o600)
     browser = subprocess.Popen(['npx', 'playwright', 'test', 'tests/repair-live.spec.ts', '--workers=1'], cwd=root / 'web', env=env, start_new_session=True)
     try:
         result = browser.wait(timeout=480)
@@ -183,7 +260,8 @@ try:
         raise RuntimeError('Browser repair test timed out') from error
 finally:
     stop_process(browser)
-    stop_process(server)
+    if not retain_demo:
+        stop_process(server)
     if proxy is not None:
         proxy.shutdown()
         proxy.server_close()
@@ -192,7 +270,15 @@ finally:
     if log is not None:
         log.close()
         shutil.copyfile(work / 'controller.log', root / '.local/repair-browser-controller.log')
-    if created:
+    if retain_demo and result != 0:
+        manifest = root / '.local/demo-repair.json'
+        if manifest.exists():
+            data = json.loads(manifest.read_text())
+            data['status'] = 'failed'
+            manifest.write_text(json.dumps(data, indent=2) + '\n')
+            os.chmod(manifest, 0o600)
+    if created and not retain_demo:
         subprocess.run(['psql', '-X', '-w', '-v', 'ON_ERROR_STOP=1', '-c', 'DROP DATABASE ' + name + ' WITH (FORCE)'], env=admin, check=True, stdout=subprocess.DEVNULL)
-    shutil.rmtree(work)
+    if not retain_demo:
+        shutil.rmtree(work)
 raise SystemExit(result)

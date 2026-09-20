@@ -17,6 +17,10 @@ export type RepairFixture = {
   runnerID: string
   connectionID: string
   poolName: string
+  runnerPID: number
+  runnerStarttime: string
+  runnerCredentials: string
+  fixtureDirectory: string
   cleanup: () => Promise<void>
 }
 
@@ -70,9 +74,11 @@ export async function createRepairFixture(page: Page): Promise<RepairFixture> {
     const enrollment = await api<{ token: string }>('POST', `/api/v1/orgs/${orgID}/runner-pools/${poolID}/enrollments`)
     writeFileSync(enrollmentFile, enrollment.token, { mode: 0o600 })
     await run(join(root, 'bin/reforge-runner'), ['enroll', '--endpoint', controller, '--credentials', credentialFile, '--token-file', enrollmentFile, '--name', runnerName, '--development'], root)
-    const connector = spawn(join(root, 'bin/reforge-runner'), ['run', '--endpoint', controller, '--credentials', credentialFile, '--runtime-config', process.env.REFORGE_BROWSER_RUNTIME_CONFIG!, '--development'], { cwd: root, stdio: ['ignore', 'ignore', 'pipe'] })
+    const retainDemo = process.env.REFORGE_KEEP_DEMO === '1'
+    const connector = spawn(join(root, 'bin/reforge-runner'), ['run', '--endpoint', controller, '--credentials', credentialFile, '--runtime-config', process.env.REFORGE_BROWSER_RUNTIME_CONFIG!, '--development'], { cwd: root, detached: retainDemo, stdio: retainDemo ? ['ignore', 'ignore', 'ignore'] : ['ignore', 'ignore', 'pipe'] })
     children.push(connector); childExit.push(new Promise(resolveExit => connector.once('exit', () => resolveExit())))
-    connector.stderr?.on('data', chunk => { runnerStderr = (runnerStderr + String(chunk)).slice(-8192) })
+    if (!retainDemo) connector.stderr?.on('data', chunk => { runnerStderr = (runnerStderr + String(chunk)).slice(-8192) })
+    if (retainDemo) connector.unref()
     const runnersPage = await waitFor(async () => api<{ items: Array<{ id: string; name: string }> }>('GET', `/api/v1/orgs/${orgID}/runner-pools/${poolID}/runners?limit=100`), result => Boolean(result.items.find(item => item.name === runnerName)))
     runnerID = runnersPage.items.find(item => item.name === runnerName)!.id
     const connection = await api<{ id: string }>('POST', `/api/v1/orgs/${orgID}/connections/forges`, { kind: 'forge', provider: 'gitea', name: `browser-repair-forge-${Date.now()}`, endpoint: 'http://127.0.0.1:53000', secret: botToken, settings: { auth_kind: 'token', billing_route: 'forge' }, private_route: { runner_id: runnerID, host: '127.0.0.1', cidrs: ['127.0.0.1/32'] } })
@@ -93,7 +99,8 @@ export async function createRepairFixture(page: Page): Promise<RepairFixture> {
     await api('PUT', `/api/v1/orgs/${orgID}/repositories/${repositoryID}/maintenance`, { repository_id: repositoryID, trusted_bots: maintenance.trusted_bots, merge_authority: maintenance.merge_authority, version: maintenance.version }, { 'If-Match': `"${maintenance.version}"` })
     await api<Job>('POST', `/api/v1/orgs/${orgID}/repositories/${repositoryID}/discovery`)
     await waitFor(async () => api<Job>('GET', `/api/v1/orgs/${orgID}/repositories/${repositoryID}/discovery`), result => result.state === 'complete')
-    return { orgID, repositoryID, repositoryName, nativeFullName: native.full_name, pinnedSHA: branch.commit.id, poolID, runnerID, connectionID, poolName, cleanup: async () => cleanup() }
+    const runnerStarttime = retainDemo ? readFileSync(`/proc/${connector.pid}/stat`, 'utf8').split(/\s+/)[21] : ''
+    return { orgID, repositoryID, repositoryName, nativeFullName: native.full_name, pinnedSHA: branch.commit.id, poolID, runnerID, connectionID, poolName, runnerPID: connector.pid!, runnerStarttime, runnerCredentials: credentialFile, fixtureDirectory: temp, cleanup: async () => cleanup() }
   } catch (error) {
     await cleanup()
     throw error

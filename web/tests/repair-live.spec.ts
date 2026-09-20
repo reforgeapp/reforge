@@ -1,10 +1,11 @@
 import { test, expect, type Page } from '@playwright/test'
-import { readFileSync } from 'node:fs'
+import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 import { createRepairFixture } from './helpers/repair-fixture'
 import { configureRepairAuthority } from './helpers/repair-authority'
 
 test.use({ trace: 'off' })
+const retainDemo = process.env.REFORGE_KEEP_DEMO === '1'
 
 test('executes a real repair and exposes native publication evidence', async ({ page }) => {
   test.skip(process.env.REFORGE_LIVE_REPAIR_BROWSER !== '1', 'requires disposable Gitea, Ollama, runner and gVisor')
@@ -13,6 +14,11 @@ test('executes a real repair and exposes native publication evidence', async ({ 
   await page.setViewportSize({ width: 390, height: 844 })
   await signIn(page)
   const fixture = await createRepairFixture(page)
+  if (process.env.REFORGE_DEMO_MANIFEST) {
+    const manifestPath = process.env.REFORGE_DEMO_MANIFEST
+    const prior = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+    writeFileSync(manifestPath, `${JSON.stringify({ ...prior, org_id: fixture.orgID, repository_id: fixture.repositoryID, native_full_name: fixture.nativeFullName, runner_id: fixture.runnerID, runner_pid: fixture.runnerPID, runner_starttime: fixture.runnerStarttime, runner_credentials: fixture.runnerCredentials, fixture_directory: fixture.fixtureDirectory }, null, 2)}\n`, { mode: 0o600 })
+  }
   let authority: Awaited<ReturnType<typeof configureRepairAuthority>> | undefined
   try {
     authority = await configureRepairAuthority(page, fixture)
@@ -44,6 +50,11 @@ test('executes a real repair and exposes native publication evidence', async ({ 
     const href = await runLink.getAttribute('href')
     const taskID = new URL(href!, 'http://127.0.0.1').searchParams.get('run')
     expect(taskID).toBeTruthy()
+    if (process.env.REFORGE_DEMO_MANIFEST) {
+      const manifestPath = process.env.REFORGE_DEMO_MANIFEST
+      const prior = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+      writeFileSync(manifestPath, `${JSON.stringify({ ...prior, run_id: taskID, run_url: `${process.env.REFORGE_BASE_URL}/org/${fixture.orgID}/runs?run=${taskID}` }, null, 2)}\n`, { mode: 0o600 })
+    }
     await runLink.click()
     const run = page.getByRole('region', { name: /Run / })
     await expect(run).toBeVisible()
@@ -67,10 +78,34 @@ test('executes a real repair and exposes native publication evidence', async ({ 
     expect(artifactHref).toBeTruthy()
     expect((await page.request.get(artifactHref!)).status()).toBe(200)
     const botToken = readFileSync(resolve(process.cwd(), '..', '.local/gitea/reforge-bot.token'), 'utf8').trim()
-    const native = await fetch(`http://127.0.0.1:53000/api/v1/repos/${fixture.nativeFullName}/pulls?state=all`, { headers: { Authorization: `token ${botToken}` } }).then(response => response.json() as Promise<Array<{ head: { sha: string } }>>)
-    expect(native.filter(pull => pull.head.sha === runData.candidate_sha)).toHaveLength(1)
+    const native = await fetch(`http://127.0.0.1:53000/api/v1/repos/${fixture.nativeFullName}/pulls?state=all`, { headers: { Authorization: `token ${botToken}` } }).then(response => response.json() as Promise<Array<{ head: { sha: string }; html_url?: string }>>)
+    const publication = native.filter(pull => pull.head.sha === runData.candidate_sha)
+    expect(publication).toHaveLength(1)
+    const manifestPath = process.env.REFORGE_DEMO_MANIFEST
+    if (manifestPath) {
+      const prior = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, unknown>
+      writeFileSync(manifestPath, `${JSON.stringify({
+        ...prior,
+        controller_url: process.env.REFORGE_BASE_URL,
+        org_id: fixture.orgID,
+        repository_id: fixture.repositoryID,
+        native_full_name: fixture.nativeFullName,
+        runner_id: fixture.runnerID,
+        runner_pid: fixture.runnerPID,
+        runner_starttime: fixture.runnerStarttime,
+        runner_credentials: fixture.runnerCredentials,
+        fixture_directory: fixture.fixtureDirectory,
+        run_id: taskID,
+        run_url: `${process.env.REFORGE_BASE_URL}/org/${fixture.orgID}/runs?run=${taskID}`,
+        native_change_url: publication[0].html_url ?? runData.change?.url,
+        candidate_sha: runData.candidate_sha,
+        status: 'completed',
+      }, null, 2)}\n`, { mode: 0o600 })
+    }
   } finally {
-    try { await authority?.cleanup() } finally { await fixture.cleanup() }
+    if (!retainDemo) {
+      try { await authority?.cleanup() } finally { await fixture.cleanup() }
+    }
   }
 })
 
