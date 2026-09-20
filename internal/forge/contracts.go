@@ -61,6 +61,24 @@ type File struct {
 	SHA     string
 	Content []byte
 }
+type SourceEntry struct {
+	Path string `json:"path"`
+	SHA  string `json:"sha"`
+	Mode string `json:"mode"`
+	Type string `json:"type"`
+}
+type SourceManifest struct {
+	Repository   RepoRef       `json:"repository"`
+	CommitSHA    string        `json:"commit_sha"`
+	TreeSHA      string        `json:"tree_sha"`
+	ObjectFormat string        `json:"object_format"`
+	Proof        string        `json:"proof"`
+	Entries      []SourceEntry `json:"entries"`
+	Complete     bool          `json:"complete"`
+}
+type ForgeSource interface {
+	ReadSourceManifest(context.Context, RepoRef, string) (SourceManifest, error)
+}
 type Event struct {
 	DeliveryID string
 	Kind       string

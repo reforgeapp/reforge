@@ -360,7 +360,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil} {
+	for _, present := range []bool{r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil} {
 		if present {
 			count++
 		}
@@ -376,6 +376,8 @@ func (r Result) valid(kind Kind) bool {
 		return false
 	}
 	switch kind {
+	case ForgeSourceManifest:
+		return count == 1 && r.Manifest != nil
 	case ForgeReconcileChanges:
 		return count == 1 && r.Changes != nil
 	case ModelProbe:

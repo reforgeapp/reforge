@@ -7228,7 +7228,8 @@
               "forge.approvals",
               "forge.reconcile_changes",
               "model.probe",
-              "model.list"
+              "model.list",
+              "forge.source_manifest"
             ]
           },
           "inventory": {
@@ -7256,6 +7257,10 @@
             "additionalProperties": true
           },
           "changes": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "source": {
             "type": "object",
             "additionalProperties": true
           }

@@ -26,6 +26,7 @@ import (
 	"reforge/internal/providers"
 	"reforge/internal/runner"
 	"reforge/internal/secrets"
+	"reforge/internal/source"
 	"reforge/internal/workflow"
 )
 
@@ -151,6 +152,27 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 		t.Fatalf("private inventory authorization/result: %v, calls %d", readErr, authorized)
 	}
 	repository := localPrivateRepository(t)
+	go func() { finished <- client.RunOnce(ctx) }()
+	resolved, resolveErr := reader.Read(ctx, org, connection.ID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: repository, Ref: "main"}}, func(context.Context, pgx.Tx, connections.Connection) error { return nil })
+	if err = <-finished; err != nil || resolveErr != nil {
+		t.Fatalf("private pinned ref: %v %v", err, resolveErr)
+	}
+	sourceReader := reader.SourceReader(org, connection.ID, func(context.Context, pgx.Tx, connections.Connection) error { return nil })
+	manifestRead, fileRead := sourceReader.Manifest, sourceReader.File
+	sourceReader.Manifest = func(ctx context.Context, repo forge.RepoRef, commit string) (forge.SourceManifest, error) {
+		go func() { finished <- client.RunOnce(ctx) }()
+		manifest, err := manifestRead(ctx, repo, commit)
+		return manifest, errors.Join(err, <-finished)
+	}
+	sourceReader.File = func(ctx context.Context, repo forge.RepoRef, path, commit string) (forge.File, error) {
+		go func() { finished <- client.RunOnce(ctx) }()
+		file, err := fileRead(ctx, repo, path, commit)
+		return file, errors.Join(err, <-finished)
+	}
+	snapshot, sourceErr := source.Fetch(ctx, sourceReader, repository, resolved.SHA)
+	if sourceErr != nil || !snapshot.Complete || len(snapshot.Files) == 0 || snapshot.CommitSHA != resolved.SHA {
+		t.Fatalf("private pinned source snapshot: %v", sourceErr)
+	}
 	reconcile := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReconcileChanges, Changes: &privateconnector.ChangesArgs{Repository: repository}}
 	go func() { finished <- client.RunOnce(ctx) }()
 	reconciled, reconcileErr := reader.Read(ctx, org, connection.ID, reconcile, func(context.Context, pgx.Tx, connections.Connection) error { return nil })

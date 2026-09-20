@@ -304,6 +304,7 @@ const (
 	PrivateOperationKindForgeReconcileChanges PrivateOperationKind = "forge.reconcile_changes"
 	PrivateOperationKindForgeRepository       PrivateOperationKind = "forge.repository"
 	PrivateOperationKindForgeResolveRef       PrivateOperationKind = "forge.resolve_ref"
+	PrivateOperationKindForgeSourceManifest   PrivateOperationKind = "forge.source_manifest"
 	PrivateOperationKindModelList             PrivateOperationKind = "model.list"
 	PrivateOperationKindModelProbe            PrivateOperationKind = "model.probe"
 )
@@ -327,6 +328,8 @@ func (e PrivateOperationKind) Valid() bool {
 	case PrivateOperationKindForgeRepository:
 		return true
 	case PrivateOperationKindForgeResolveRef:
+		return true
+	case PrivateOperationKindForgeSourceManifest:
 		return true
 	case PrivateOperationKindModelList:
 		return true
@@ -1015,6 +1018,7 @@ type PrivateOperation struct {
 	Kind       PrivateOperationKind    `json:"kind"`
 	Ref        *map[string]interface{} `json:"ref,omitempty"`
 	Repository *map[string]interface{} `json:"repository,omitempty"`
+	Source     *map[string]interface{} `json:"source,omitempty"`
 }
 type PrivateOperationKind string
 type PrivateRoute struct {

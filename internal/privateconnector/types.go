@@ -34,6 +34,7 @@ const (
 	ForgeRepository       Kind = "forge.repository"
 	ForgeResolveRef       Kind = "forge.resolve_ref"
 	ForgeReadFile         Kind = "forge.read_file"
+	ForgeSourceManifest   Kind = "forge.source_manifest"
 	ForgeReadChange       Kind = "forge.read_change"
 	ForgeChecks           Kind = "forge.checks"
 	ForgeApprovals        Kind = "forge.approvals"
@@ -81,6 +82,7 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
+	Source     *ChecksArgs     `json:"source,omitempty"`
 	Changes    *ChangesArgs    `json:"changes,omitempty"`
 	ID         string          `json:"id"`
 	Kind       Kind            `json:"kind"`
@@ -99,13 +101,15 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil} {
+	for _, present := range []bool{o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeSourceManifest:
+		valid = o.Source != nil && len(o.Source.CommitSHA) == 40 && o.Source.Repository.NativeID != "" && len(o.Source.Repository.NativeID) <= 256 && len(o.Source.Repository.FullName) <= 1024
 	case ForgeProbe, ModelProbe, ModelList:
 		valid = count == 0
 	case ForgeReconcileChanges:
@@ -205,6 +209,7 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	Manifest          *forge.SourceManifest          `json:"manifest,omitempty"`
 	Changes           *domain.Page[forge.Change]     `json:"changes,omitempty"`
 	ModelCapabilities *model.Capabilities            `json:"model_capabilities,omitempty"`
 	Models            []model.Model                  `json:"models,omitempty"`

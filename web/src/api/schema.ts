@@ -1739,7 +1739,7 @@ export interface components {
 
             id: string;
 
-            kind: "forge.probe" | "forge.inventory" | "forge.repository" | "forge.resolve_ref" | "forge.read_file" | "forge.read_change" | "forge.checks" | "forge.approvals" | "forge.reconcile_changes" | "model.probe" | "model.list";
+            kind: "forge.probe" | "forge.inventory" | "forge.repository" | "forge.resolve_ref" | "forge.read_file" | "forge.read_change" | "forge.checks" | "forge.approvals" | "forge.reconcile_changes" | "model.probe" | "model.list" | "forge.source_manifest";
             inventory?: {
                 [key: string]: unknown;
             };
@@ -1759,6 +1759,9 @@ export interface components {
                 [key: string]: unknown;
             };
             changes?: {
+                [key: string]: unknown;
+            };
+            source?: {
                 [key: string]: unknown;
             };
         };

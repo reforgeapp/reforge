@@ -174,6 +174,14 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 	}
 	var err error
 	switch op.Kind {
+	case ForgeSourceManifest:
+		reader, ok := provider.(forge.ForgeSource)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var v forge.SourceManifest
+		v, err = reader.ReadSourceManifest(ctx, op.Source.Repository, op.Source.CommitSHA)
+		result.Manifest = &v
 	case ForgeProbe:
 		var v forge.Capabilities
 		v, err = provider.ProbeCapabilities(ctx)
