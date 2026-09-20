@@ -285,3 +285,13 @@ type Provider interface {
 	ForgeMerge
 	ForgeDelivery
 }
+
+type CommitProof struct {
+	SHA      string   `json:"sha"`
+	Parents  []string `json:"parents"`
+	Message  string   `json:"message"`
+	AuthorID string   `json:"author_id"`
+}
+type ForgeCommits interface {
+	ReadCommitProof(context.Context, RepoRef, string) (CommitProof, error)
+}

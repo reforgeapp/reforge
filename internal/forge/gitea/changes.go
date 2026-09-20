@@ -413,7 +413,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	if e := p.authorizeBranch(ctx, in); e != nil {
 		return "", e
 	}
-	if e := p.request(ctx, "POST", route+"/contents", map[string]any{"branch": stage, "message": in.Message, "files": files, "force_push": false}, &changed); e != nil {
+	if e := p.request(ctx, "POST", route+"/contents", map[string]any{"branch": stage, "message": in.Message + operationMarker(in.OperationID), "files": files, "force_push": false}, &changed); e != nil {
 		return "", e
 	}
 	head := changed.Commit.SHA
