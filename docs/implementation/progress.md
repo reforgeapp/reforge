@@ -6,7 +6,7 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 
 - Planning-only directory inspected; no pre-existing Git repository or product code. Original specifications preserved.
 - Read PLAN, product, GUI, architecture, contracts, policies, decisions, backlog, agents and validation specifications.
-- T01 owns shared contracts, manifests, generated files, migrations and foundation. No worker edits before this freeze.
+- T01 contract freeze reviewed and locally verified. Coordinator retains shared contracts, manifests, generated files and migration numbering. T02/T04 ready.
 - Follow actual dependency edges; local completion unlocks implementation, external certification separately gates release.
 - All commits use real current metadata. No README edits or source comments.
 
@@ -14,7 +14,7 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 
 | Ticket | Status | Owner | Files / dependencies | Evidence / remaining |
 | --- | --- | --- | --- | --- |
-| T01 | in progress | Astra | foundation, shared contracts; none | Establish build, migration, API generation and config tests |
+| T01 | local complete | Astra | foundation, shared contracts; none | Build/check/unit tests; PG18.6 race/isolation/migration tests; independent Astra review fixed |
 | T02 | not started | Astra | auth/store; T01 | OIDC, scopes, RLS, bootstrap |
 | T03 | not started | Astra | connections/secrets; T01 T02 | Envelope encryption, network routes |
 | T04 | not started | Luna | web shell; T01 | Browser and cache isolation |
@@ -45,14 +45,22 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 
 ## Gates
 
-G0–G5 pending. No integration or release certification claimed.
+G0 foundation passed; identity/tenancy still pending T02. G1–G5 pending. No external integration or release certification claimed.
 
 ## Environment and external requirements
 
 - Host has Go 1.23.5, Node 26.7.0, npm 11.19.0, PostgreSQL 12 binaries and cached Chromium. Will install supported build dependencies in task-local paths.
-- Docker client exists; daemon unavailable even outside sandbox. Investigate disposable alternatives for PostgreSQL 18, Gitea and runner qualification.
+- Docker client exists; daemon unavailable even outside sandbox. PostgreSQL 18.6 successfully built from checksum-verified source in `/tmp/reforge-postgres`; live loopback server port 55432, disposable `reforge_dev`/`reforge_test` databases. Gitea and sandbox alternatives remain to investigate.
 - GitHub/GitLab dedicated test credentials, paid model test budgets, account/topology entitlement evidence and hosted isolation infrastructure not supplied. Continue all independent local implementation; record precise certification actions per capability.
 
 ## Resume
 
-Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ownership. Continue T01 until reviewed and locally verified, then T02/T04; T03 after T02. Never interpret this checkpoint as completion of the full request.
+Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ownership. Continue T02/T04; T03 after T02. Foundation server currently running in tool session 57124 on port 8080; stop/rebuild when integrating auth. Environment is in ignored `.local/development.env`. Never interpret this checkpoint as completion of the full request.
+
+## T01 evidence — 2026-09-20
+
+- `make build`, `make check`, `make test`: passed. Go 1.27.1; React 19.3.0; PostgreSQL 18.6. Generated SQL/OpenAPI outputs reproduce, and missing-file drift regression correctly fails.
+- Real PostgreSQL `make test-integration` with race detector: empty migration, idempotent migration, failed migration rollback, applied checksum rejection, 50 competing tenant transactions, no pooled context leakage, denied unscoped insertion, rejected schema-owner/inherited-owner credentials. All passed.
+- Running built Go/Gin server: `/healthz` and `/readyz` 200; `/api/v1/meta` explicitly labels development/fixture auth; SPA deep links serve built assets.
+- Independent Astra review completed; fixes cover inherited privileges, credential serialization/logging, fixture label, generation manifests, dependency notices and all test database URL guards. No live provider calls.
+- Apache-2.0 text, dependency inventory and collected notices added. Final distribution inventory reruns at T28.

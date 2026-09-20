@@ -43,3 +43,12 @@ Updated: 2026-09-20.
 ## Decision procedure
 
 Record changes here with date and affected requirement/task IDs. Preserve hard requirements; deferring an item needed by G5 moves the release gate rather than silently reducing scope. Treat research documents as evidence, and product/contracts/policies as the selected design. If evidence contradicts a selected design, correct the design and dependent tickets before implementation.
+
+## 2026-09-20 — T01 implementation freeze
+
+- Module `reforge`; Go 1.27.1, Gin 1.12.0, pgx 5.11.0, PostgreSQL 18.6; current patches verified against official release sources. React 19.3.0/Vite 8.3.0; TypeScript 5.9.3 selected because openapi-typescript 7.13.0 requires the supported 5.x line. No peer-dependency override.
+- Coordinator owns shared interfaces, OpenAPI/SQL generation and migration ordering. `contracts-freeze.md` records concrete Go boundaries. Cancellation of stateless direct inference is contextual; stateful official runtimes expose explicit cancellation.
+- Runtime database role must lack direct or inherited schema/table/database ownership, bypass, role-management and database-creation privileges. Migration command uses separate credentials and checksum-verified transactional SQL.
+- Explicit development fixture mode requires numeric loopback origins/listening addresses and self-hosted edition; production has no silent fixture fallback.
+- Local Docker daemon unavailable. Built checksum-verified PostgreSQL 18.6 source under `/tmp/reforge-postgres` for actual database tests, using isolated parser build tools. This does not certify the later Compose distribution or hosted sandbox.
+- Source review: [Go releases](https://go.dev/dl/), [PostgreSQL support](https://www.postgresql.org/support/versioning/), [row security](https://www.postgresql.org/docs/current/ddl-rowsecurity.html), [Gin](https://gin-gonic.com/en/docs/).
