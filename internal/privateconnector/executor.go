@@ -34,6 +34,19 @@ func validateConnection(c Connection, target Target, development bool) error {
 	if !auth.ValidID(c.ID) || c.OrgID != target.OrgID || c.Version < 1 || c.CredentialVersion < 1 || (c.Secret == "" && c.Provider != "compatible") || len(c.Secret) > 32768 || len(c.CAPEM) > 128<<10 {
 		return ErrInvalid
 	}
+	if len(c.CheckPublishers) > 100 {
+		return ErrInvalid
+	}
+	for name, publisher := range c.CheckPublishers {
+		if len(name) == 0 || len(name) > 256 || len(publisher) == 0 || len(publisher) > 128 {
+			return ErrInvalid
+		}
+	}
+	if p := c.Protection; p != nil {
+		if c.Provider != "gitea" || (c.Kind != "forge" && c.Kind != "delivery") || !auth.ValidID(p.ID) || p.ID == c.ID || p.Version < 1 || p.CredentialVersion < 1 || p.Secret == "" || len(p.Secret) > 32768 {
+			return ErrInvalid
+		}
+	}
 	validProvider := c.Provider == "gitea" || c.Provider == "gitlab" || c.Provider == "github"
 	if c.Kind == "model" {
 		validProvider = c.Provider == "openai" || c.Provider == "anthropic" || c.Provider == "google" || c.Provider == "compatible"
@@ -135,7 +148,23 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 		cfg := forge.Config{OrgID: e.Target.OrgID, ConnectionID: grant.Connection.ID, BaseURL: grant.Connection.Endpoint, Token: grant.Connection.Secret, Client: transport}
 		switch grant.Connection.Provider {
 		case "gitea":
-			provider, err = gitea.New(cfg)
+			var p *gitea.Provider
+			p, err = gitea.New(cfg)
+			if err == nil {
+				p = p.WithCheckPublishers(grant.Connection.CheckPublishers)
+			}
+			if err == nil && grant.Connection.Protection != nil {
+				readerConfig := cfg
+				readerConfig.ConnectionID = grant.Connection.Protection.ID
+				readerConfig.Token = grant.Connection.Protection.Secret
+				readerConfig.Client = ProtectionHTTP(client)
+				var reader *gitea.Provider
+				reader, err = gitea.New(readerConfig)
+				if err == nil {
+					p, err = p.WithProtectionReader(reader)
+				}
+			}
+			provider = p
 		case "gitlab":
 			provider, err = gitlab.New(cfg)
 
@@ -186,7 +215,7 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 	if err != nil || len(raw) > MaxResponse {
 		return fail("response", false)
 	}
-	if containsSecret(raw, grant.Connection.Secret) || result.File != nil && grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(grant.Connection.Secret)) {
+	if credentialEcho(raw, grant.Connection) || result.File != nil && grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(grant.Connection.Secret)) {
 		return fail("credential_echo", false)
 	}
 	return result
@@ -227,6 +256,17 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 	}
 	var err error
 	switch op.Kind {
+	case ForgeMergeInspect:
+		result.MergeEvidence, err = inspectMerge(ctx, provider, *op.Change)
+	case ForgeMerge:
+		provider = BindForgeOperation(provider, op)
+		var merged forge.MergeResult
+		merged, err = provider.RequestNativeMergeOrQueue(ctx, *op.Merge)
+		result.Merge = &merged
+	case ForgeMergeResult:
+		var merged forge.MergeResult
+		merged, err = provider.ReadMergeResult(ctx, op.Change.Repository, op.Change.ChangeID)
+		result.Merge = &merged
 	case ForgeCommitProof:
 		reader, ok := provider.(forge.ForgeCommits)
 		if !ok {

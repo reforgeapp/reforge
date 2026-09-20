@@ -38,13 +38,22 @@ func BindForgeOperation(provider forge.Provider, operation Operation) forge.Prov
 		}
 		return nil
 	}
+	merge := func(ctx context.Context, in forge.MergeRequest, current forge.Change, rules forge.Rules) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if operation.Kind != ForgeMerge || operation.Merge == nil || !same(in, *operation.Merge) || current.HeadSHA != in.ExpectedHeadSHA || current.TargetSHA != in.ExpectedTargetSHA || rules.Hash != in.RulesHash {
+			return auth.ErrForbidden
+		}
+		return nil
+	}
 	switch p := provider.(type) {
 	case *gitea.Provider:
 		return p.WithBranchAuthorizer(branch)
 	case *github.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change)
+		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge)
 	case *gitlab.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change)
+		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge)
 	}
 	return provider
 }

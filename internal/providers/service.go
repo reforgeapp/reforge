@@ -20,12 +20,14 @@ import (
 )
 
 type Service struct {
-	exclusive   bool
-	db          *store.Store
-	connections *connections.Service
-	private     *privateconnector.Connector
-	runners     *runner.Service
-	factory     Factory
+	protectionID string
+	publishers   map[string]string
+	exclusive    bool
+	db           *store.Store
+	connections  *connections.Service
+	private      *privateconnector.Connector
+	runners      *runner.Service
+	factory      Factory
 }
 
 func New(db *store.Store, connections *connections.Service, private *privateconnector.Connector, runners *runner.Service, development bool) *Service {
@@ -89,8 +91,12 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 			if err != nil {
 				return err
 			}
+			defer closeProtection(&resolved)
 			if resolved.Client != nil {
 				defer resolved.Client.CloseIdleConnections()
+			}
+			if err = s.resolveProtectionTx(ctx, tx, &resolved, runnerID); err != nil {
+				return err
 			}
 			if ready != nil {
 				result, err = deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: PrivateConnection(resolved)})
@@ -105,7 +111,7 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 				return err
 			}
 			raw, err := json.Marshal(result)
-			if err != nil || len(raw) > privateconnector.MaxResponse || privateconnector.ContainsSecret(raw, resolved.Secret) {
+			if err != nil || len(raw) > privateconnector.MaxResponse || exposesCredential(raw, resolved) {
 				return privateconnector.ErrInvalid
 			}
 			return nil

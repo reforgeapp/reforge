@@ -59,5 +59,10 @@ func RegisterPrivate(service *connections.Service, connector *privateconnector.C
 }
 func PrivateConnection(r connections.Resolved) privateconnector.Connection {
 	c := r.Connection
-	return privateconnector.Connection{Kind: c.Kind, AuthKind: c.Settings.AuthKind, AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, Model: c.Settings.Model, Profile: c.Settings.Profile, OrgID: c.OrgID, ID: c.ID, Version: c.Version, CredentialVersion: c.CredentialVersion, Provider: c.Provider, Endpoint: c.Endpoint, CAPEM: []byte(c.Settings.CAPEM), Secret: r.Secret, Route: network.PrivateRoute{OrgID: c.OrgID, ConnectionID: c.ID, RunnerID: c.Route.RunnerID, Host: c.Route.Host, CIDRs: append([]string(nil), c.Route.CIDRs...)}}
+	out := privateconnector.Connection{CheckPublishers: r.CheckPublishers, Kind: c.Kind, AuthKind: c.Settings.AuthKind, AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, Model: c.Settings.Model, Profile: c.Settings.Profile, OrgID: c.OrgID, ID: c.ID, Version: c.Version, CredentialVersion: c.CredentialVersion, Provider: c.Provider, Endpoint: c.Endpoint, CAPEM: []byte(c.Settings.CAPEM), Secret: r.Secret, Route: network.PrivateRoute{OrgID: c.OrgID, ConnectionID: c.ID, RunnerID: c.Route.RunnerID, Host: c.Route.Host, CIDRs: append([]string(nil), c.Route.CIDRs...)}}
+	if r.Protection != nil {
+		p := r.Protection
+		out.Protection = &privateconnector.ProtectionCredential{ID: p.Connection.ID, Version: p.Connection.Version, CredentialVersion: p.Connection.CredentialVersion, Secret: p.Secret}
+	}
+	return out
 }

@@ -271,6 +271,9 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 				delete(c.pending, grant.ID)
 				c.mu.Unlock()
 				item.grant.Connection.Secret = ""
+				if item.grant.Connection.Protection != nil {
+					item.grant.Connection.Protection.Secret = ""
+				}
 				item.grant.ResultCapability = ""
 			}()
 			attempted = true
@@ -348,7 +351,7 @@ func (c *Connector) Complete(ctx context.Context, credential, grantID, capabilit
 	if e != nil || len(b) > MaxResponse || !result.valid(item.grant.Operation.Kind) {
 		return ErrInvalid
 	}
-	if containsSecret(b, item.grant.Connection.Secret) || result.File != nil && item.grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(item.grant.Connection.Secret)) {
+	if credentialEcho(b, item.grant.Connection) || result.File != nil && item.grant.Connection.Secret != "" && bytes.Contains(result.File.Content, []byte(item.grant.Connection.Secret)) {
 		return ErrInvalid
 	}
 	item.consumed = true
@@ -365,7 +368,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil} {
+	for _, present := range []bool{r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil} {
 		if present {
 			count++
 		}
@@ -381,6 +384,10 @@ func (r Result) valid(kind Kind) bool {
 		return false
 	}
 	switch kind {
+	case ForgeMergeInspect:
+		return count == 1 && r.MergeEvidence != nil
+	case ForgeMerge, ForgeMergeResult:
+		return count == 1 && r.Merge != nil
 	case ForgeCommitProof:
 		return count == 1 && r.Commit != nil
 	case ModelTurn:

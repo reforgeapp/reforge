@@ -31,6 +31,9 @@ var ErrUncertain = errors.New("private operation outcome uncertain; reconcile be
 type Kind string
 
 const (
+	ForgeMergeInspect     Kind = "forge.merge_inspect"
+	ForgeMerge            Kind = "forge.merge"
+	ForgeMergeResult      Kind = "forge.merge_result"
 	ForgeCommitProof      Kind = "forge.commit_proof"
 	ForgeUpdateBranch     Kind = "forge.update_branch"
 	ForgeCreateChange     Kind = "forge.create_change"
@@ -96,6 +99,7 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
+	Merge      *forge.MergeRequest        `json:"merge,omitempty"`
 	Commit     *ChecksArgs                `json:"commit,omitempty"`
 	Branch     *forge.UpdateBranchRequest `json:"branch,omitempty"`
 	Create     *forge.CreateChangeRequest `json:"create,omitempty"`
@@ -120,13 +124,17 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeMerge:
+		valid = o.Merge != nil && o.Merge.OperationID == o.ID && auth.ValidID(o.Merge.GateID) && len(o.Merge.ExpectedHeadSHA) == 40 && len(o.Merge.ExpectedTargetSHA) == 40 && len(o.Merge.RulesHash) == 64 && o.Merge.ChangeID != ""
+	case ForgeMergeInspect, ForgeMergeResult:
+		valid = o.Change != nil && o.Change.ChangeID != "" && len(o.Change.ChangeID) <= 32 && o.Change.Repository.NativeID != ""
 	case ForgeCommitProof:
 		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""
 	case ForgeUpdateBranch:
@@ -173,22 +181,35 @@ type Target struct {
 	RunnerID string `json:"runner_id"`
 }
 type Connection struct {
-	Kind              string               `json:"kind,omitempty"`
-	AuthKind          string               `json:"auth_kind,omitempty"`
-	AppID             string               `json:"app_id,omitempty"`
-	InstallationID    string               `json:"installation_id,omitempty"`
-	Model             string               `json:"model,omitempty"`
-	Profile           string               `json:"profile,omitempty"`
-	OrgID             string               `json:"org_id"`
-	ID                string               `json:"id"`
-	Version           int64                `json:"version"`
-	CredentialVersion int64                `json:"credential_version"`
-	Provider          string               `json:"provider"`
-	Endpoint          string               `json:"endpoint"`
-	Route             network.PrivateRoute `json:"route"`
-	CAPEM             []byte               `json:"ca_pem,omitempty"`
-	Secret            string               `json:"-"`
+	Protection        *ProtectionCredential `json:"protection,omitempty"`
+	CheckPublishers   map[string]string     `json:"check_publishers,omitempty"`
+	Kind              string                `json:"kind,omitempty"`
+	AuthKind          string                `json:"auth_kind,omitempty"`
+	AppID             string                `json:"app_id,omitempty"`
+	InstallationID    string                `json:"installation_id,omitempty"`
+	Model             string                `json:"model,omitempty"`
+	Profile           string                `json:"profile,omitempty"`
+	OrgID             string                `json:"org_id"`
+	ID                string                `json:"id"`
+	Version           int64                 `json:"version"`
+	CredentialVersion int64                 `json:"credential_version"`
+	Provider          string                `json:"provider"`
+	Endpoint          string                `json:"endpoint"`
+	Route             network.PrivateRoute  `json:"route"`
+	CAPEM             []byte                `json:"ca_pem,omitempty"`
+	Secret            string                `json:"-"`
 }
+
+type ProtectionCredential struct {
+	ID                string `json:"id"`
+	Version           int64  `json:"version"`
+	CredentialVersion int64  `json:"credential_version"`
+	Secret            string `json:"-"`
+}
+
+func (p ProtectionCredential) String() string       { return "protection credential [redacted]" }
+func (p ProtectionCredential) GoString() string     { return p.String() }
+func (p ProtectionCredential) LogValue() slog.Value { return slog.StringValue(p.String()) }
 
 func (c Connection) String() string       { return "private connection " + c.ID }
 func (c Connection) GoString() string     { return c.String() }
@@ -239,6 +260,8 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	MergeEvidence     *forge.MergeEvidence           `json:"merge_evidence,omitempty"`
+	Merge             *forge.MergeResult             `json:"merge,omitempty"`
 	Commit            *forge.CommitProof             `json:"commit,omitempty"`
 	Turn              *model.TurnResult              `json:"turn,omitempty"`
 	Manifest          *forge.SourceManifest          `json:"manifest,omitempty"`
@@ -262,12 +285,17 @@ type Authorize func(context.Context, Ready, Deliver) error
 
 type wireGrant struct {
 	Grant
-	Secret     string `json:"secret"`
-	Capability string `json:"result_capability"`
+	ProtectionSecret string `json:"protection_secret,omitempty"`
+	Secret           string `json:"secret"`
+	Capability       string `json:"result_capability"`
 }
 
 func (g Grant) MarshalWire() ([]byte, error) {
-	return json.Marshal(wireGrant{Grant: g, Secret: g.Connection.Secret, Capability: g.ResultCapability})
+	w := wireGrant{Grant: g, Secret: g.Connection.Secret, Capability: g.ResultCapability}
+	if g.Connection.Protection != nil {
+		w.ProtectionSecret = g.Connection.Protection.Secret
+	}
+	return json.Marshal(w)
 }
 func DecodeGrant(b []byte) (Grant, error) {
 	if len(b) > MaxGrant {
@@ -278,6 +306,11 @@ func DecodeGrant(b []byte) (Grant, error) {
 		return Grant{}, err
 	}
 	w.Grant.Connection.Secret = w.Secret
+	if w.Grant.Connection.Protection != nil {
+		w.Grant.Connection.Protection.Secret = w.ProtectionSecret
+	} else if w.ProtectionSecret != "" {
+		return Grant{}, ErrInvalid
+	}
 	w.Grant.ResultCapability = w.Capability
 	return w.Grant, nil
 }
@@ -295,4 +328,6 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 	return fallback
 }
 
-func (o Operation) Mutation() bool { return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange }
+func (o Operation) Mutation() bool {
+	return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge
+}

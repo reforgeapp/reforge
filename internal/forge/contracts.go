@@ -160,6 +160,17 @@ type QueueState struct {
 	TestedSHA string
 	TargetSHA string
 }
+type MergeEvidence struct {
+	Change       Change            `json:"change"`
+	Rules        Rules             `json:"rules"`
+	Checks       []Check           `json:"checks"`
+	Approvals    []Approval        `json:"approvals"`
+	Native       NativeEligibility `json:"native"`
+	Queue        QueueState        `json:"queue"`
+	Capabilities Capabilities      `json:"capabilities"`
+	ObservedAt   time.Time         `json:"observed_at"`
+}
+
 type CreateChangeRequest struct {
 	Repository      RepoRef
 	Title           string
@@ -196,11 +207,11 @@ type MergeRequest struct {
 	Queue             bool
 }
 type MergeResult struct {
-	State    string
-	NativeID string
-	MergeSHA string
-	HeadSHA  string
-	URL      string
+	State    string `json:"state"`
+	NativeID string `json:"native_id"`
+	MergeSHA string `json:"merge_sha"`
+	HeadSHA  string `json:"head_sha"`
+	URL      string `json:"url"`
 }
 
 type Workflow struct {

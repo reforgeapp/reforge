@@ -61,17 +61,21 @@ func (s *Service) Write(ctx context.Context, org, id string, op privateconnector
 				return auth.ErrInvalid
 			}
 			resolved, err = s.connections.ResolveTx(ctx, tx, org, id, runnerID)
-			return err
+			if err != nil {
+				return err
+			}
+			return s.resolveProtectionTx(ctx, tx, &resolved, runnerID)
 		})
-		if err != nil {
-			return err
-		}
 		defer func() {
+			closeProtection(&resolved)
 			resolved.Secret = ""
 			if resolved.Client != nil {
 				resolved.Client.CloseIdleConnections()
 			}
 		}()
+		if err != nil {
+			return err
+		}
 		check := func(ctx context.Context) error {
 			return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 				var locked string
@@ -84,6 +88,9 @@ func (s *Service) Write(ctx context.Context, org, id string, op privateconnector
 				}
 				if current.Version != initial.Version || current.State != "healthy" {
 					return auth.ErrConflict
+				}
+				if err = s.checkProtectionTx(ctx, tx, resolved); err != nil {
+					return err
 				}
 				if ready != nil {
 					if err = s.runners.ValidatePrivateSupervisorTx(ctx, tx, ready.Runner, ready.CredentialHash); err != nil {
@@ -106,7 +113,7 @@ func (s *Service) Write(ctx context.Context, org, id string, op privateconnector
 			return err
 		}
 		raw, err := json.Marshal(result)
-		if err != nil || len(raw) > privateconnector.MaxResponse || privateconnector.ContainsSecret(raw, resolved.Secret) {
+		if err != nil || len(raw) > privateconnector.MaxResponse || exposesCredential(raw, resolved) {
 			return privateconnector.ErrUncertain
 		}
 		return nil

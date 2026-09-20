@@ -65,7 +65,23 @@ func (f Factory) Forge(ctx context.Context, r connections.Resolved, checks ...fu
 	case "gitlab":
 		return gitlab.New(cfg)
 	case "gitea":
-		return gitea.New(cfg)
+		p, err := gitea.New(cfg)
+		if err != nil {
+			return nil, err
+		}
+		p = p.WithCheckPublishers(r.CheckPublishers)
+		if r.Protection != nil {
+			readerConfig := cfg
+			readerConfig.ConnectionID = r.Protection.Connection.ID
+			readerConfig.Token = r.Protection.Secret
+			readerConfig.Client = privateconnector.ProtectionHTTP(r.Client)
+			reader, err := gitea.New(readerConfig)
+			if err != nil {
+				return nil, err
+			}
+			return p.WithProtectionReader(reader)
+		}
+		return p, nil
 	default:
 		return nil, &domain.ProviderError{Kind: "unsupported", Message: "Forge provider is not supported"}
 	}

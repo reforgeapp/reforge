@@ -76,9 +76,11 @@ func (r CreateRequest) MarshalJSON() ([]byte, error) {
 }
 
 type Resolved struct {
-	Connection Connection
-	Secret     string       `json:"-"`
-	Client     *http.Client `json:"-"`
+	Protection      *Resolved         `json:"-"`
+	CheckPublishers map[string]string `json:"-"`
+	Connection      Connection
+	Secret          string       `json:"-"`
+	Client          *http.Client `json:"-"`
 }
 
 func (r Resolved) String() string   { return "resolved connection " + r.Connection.ID }
