@@ -60,3 +60,9 @@ Record changes here with date and affected requirement/task IDs. Preserve hard r
 - Empty runner pools support onboarding/private metadata but carry no repository job authority. Paid inference and writes require their own durable budget/intent admission before private dispatch; generic proxy operations are absent.
 - Inventory/import runs asynchronously with bounded provider pages and fresh connection versions. Only a complete authoritative scan can remove repository access. Provider native IDs preserve identity through renames. Webhook payloads prompt authoritative refresh, never grant execution authority.
 - Background tenant scheduling reads a UUID-only catalog; an invoker trigger registers new organisations. Every operational query still uses tenant context/RLS under the restricted runtime role. No cross-tenant payload index or RLS bypass is added.
+
+## Repair recipe v3 — 2026-09-21
+
+Recipe turn ceiling is 16. The eight-turn live dependency fixture exhausted its allowance after reading source/tests/both dependency implementations and making two patches; original-target compatibility was still unresolved. This is a versioned recipe change, not a bypass: frozen plans retain their own ceilings, every model turn requires a fresh budget reservation, and organisation/route/time limits still stop execution. A twelve-turn follow-up reached the correct compatibility diagnosis but exhausted before applying it; sixteen turns passed the real controller/runner/upgrade fixture in153.769s. Local fixture request budgets explicitly allow 16; no paid API budget is introduced.
+
+Validation evidence is reused only while the staged patch and immutable source/target plan are unchanged. Read-only tool turns no longer rerun identical checks or repeat failure logs. Any changed patch invalidates candidate and target results. Explicit `run_checks` still executes. Native candidate validation remains a separate mandatory boundary.

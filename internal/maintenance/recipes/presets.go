@@ -14,7 +14,7 @@ const (
 	inputMaxBytes  = 32 << 20
 	presetMaxFiles = 20
 	presetMaxPatch = 64 << 10
-	presetMaxTurns = 12
+	presetMaxTurns = 16
 	presetTimeout  = 900
 	presetMinTests = 1
 )
@@ -56,7 +56,7 @@ func Build(name string, files map[string][]byte) (Recipe, error) {
 }
 
 func baseRecipe(name string) Recipe {
-	return Recipe{Name: name, Version: "v2", MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
+	return Recipe{Name: name, Version: "v3", MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
 }
 
 func goPreset(paths []string, files map[string][]byte) Recipe {
