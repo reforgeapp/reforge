@@ -10753,6 +10753,10 @@
           },
           "queue_execution_gate": {
             "type": "boolean"
+          },
+          "ci_config_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
           }
         },
         "required": [
@@ -11082,6 +11086,10 @@
               "name",
               "publisher_id"
             ]
+          },
+          "train_gate": {
+            "type": "object",
+            "additionalProperties": true
           }
         },
         "required": [

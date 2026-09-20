@@ -1212,6 +1212,7 @@ type MergePreviewRequest struct {
 	Method string `json:"method"`
 }
 type MergeQualification struct {
+	CiConfigSha256     *string   `json:"ci_config_sha256,omitempty"`
 	ConnectionVersion  int64     `json:"connection_version"`
 	EvidenceReference  string    `json:"evidence_reference"`
 	EvidenceSha256     string    `json:"evidence_sha256"`
@@ -1237,10 +1238,11 @@ type MergeSnapshot struct {
 		Name        string `json:"name"`
 		PublisherId string `json:"publisher_id"`
 	} `json:"execution_check,omitempty"`
-	Native     ForgeNativeEligibility `json:"native"`
-	ObservedAt time.Time              `json:"observed_at"`
-	Queue      ForgeQueueState        `json:"queue"`
-	Rules      ForgeRules             `json:"rules"`
+	Native     ForgeNativeEligibility  `json:"native"`
+	ObservedAt time.Time               `json:"observed_at"`
+	Queue      ForgeQueueState         `json:"queue"`
+	Rules      ForgeRules              `json:"rules"`
+	TrainGate  *map[string]interface{} `json:"train_gate,omitempty"`
 }
 type Meta struct {
 	BootstrapRequired *bool       `json:"bootstrap_required,omitempty"`

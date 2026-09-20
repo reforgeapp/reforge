@@ -2651,6 +2651,7 @@ export interface components {
             exact_head: boolean;
             strict_target: boolean;
             queue_execution_gate: boolean;
+            ci_config_sha256?: string;
         };
         MergeConfiguration: {
 
@@ -2737,6 +2738,9 @@ export interface components {
             execution_check?: {
                 name: string;
                 publisher_id: string;
+            };
+            train_gate?: {
+                [key: string]: unknown;
             };
         };
         MergeGate: {

@@ -10,12 +10,12 @@ const config = { repository_id: repo, version: 4, enabled: true, inspector_conne
 
 test.use({ trace: 'off' })
 
-async function signIn(page: Page, authKind = 'github_app') {
+async function signIn(page: Page, authKind = 'github_app', provider = 'github') {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
   await page.route(`**${base}/repositories?**`, route => route.fulfill({ json: { items: [repository], complete: true } }))
-  await page.route(`**${base}/repositories/${repo}`, route => route.fulfill({ json: repository }))
+  await page.route(`**${base}/repositories/${repo}`, route => route.fulfill({ json: { ...repository, provider } }))
   await page.route(`**${base}/repositories/${repo}/changes?**`, route => route.fulfill({ json: { items: [changeBody], complete: true } }))
-  await page.route(`**${base}/connections/forge-1`, route => route.fulfill({ json: { id: 'forge-1', name: 'Primary', provider: 'github', endpoint: 'https://forge.example', version: 4, state: 'healthy', server_version: '1', settings: { auth_kind: authKind, app_id: authKind === 'github_app' ? '42' : undefined } } }))
+  await page.route(`**${base}/connections/forge-1`, route => route.fulfill({ json: { id: 'forge-1', name: 'Primary', provider, endpoint: 'https://forge.example', version: 4, state: 'healthy', server_version: '1', settings: { auth_kind: authKind, app_id: authKind === 'github_app' ? '42' : undefined } } }))
   await page.route(`**${base}/connections?*`, route => route.fulfill({ json: { items: [], complete: true } }))
   await page.goto(`/org/${org}/changes?repository=${repo}&change=${change}`)
 }
@@ -55,10 +55,39 @@ test('queue execution cannot create another merge operation', async ({ page }) =
 })
 
 test('unsupported profile disables queue execution gate with guidance', async ({ page }) => {
-  await signIn(page, 'token')
+  await signIn(page, 'token', 'gitea')
   await page.route(`**${base}/repositories/${repo}/merge-configuration`, route => route.fulfill({ json: { ...config, qualification: { ...config.qualification, queue_execution_gate: false } } }))
   await page.getByRole('button', { name: 'Merge settings', exact: true }).click()
   await page.getByText('Operator qualification evidence', { exact: true }).click()
   await expect(page.getByRole('checkbox', { name: 'Queue execution gate' })).toBeDisabled()
-  await expect(page.getByText(/requires a healthy GitHub App connection with an App ID/)).toBeVisible()
+  await expect(page.getByText(/requires a healthy GitHub App or GitLab token connection/)).toBeVisible()
+})
+
+test('GitLab token saves queue qualification and CI identity', async ({ page }) => {
+  await signIn(page, 'token', 'gitlab')
+  let body: Record<string, unknown> | undefined
+  await page.route(`**${base}/repositories/${repo}/merge-configuration`, async route => { if (route.request().method() === 'PUT') { body = route.request().postDataJSON(); return route.fulfill({ json: { ...config, version: 5, qualification: { ...config.qualification, provider: 'gitlab', queue_execution_gate: true, ci_config_sha256: 'a'.repeat(64) } } }) } return route.fulfill({ json: { ...config, qualification: { ...config.qualification, provider: 'gitlab', queue_execution_gate: false, ci_config_sha256: '' } } }) })
+  await page.getByRole('button', { name: 'Merge settings', exact: true }).click()
+  await page.getByText('Operator qualification evidence', { exact: true }).click()
+  await page.getByRole('checkbox', { name: 'Queue execution gate' }).check()
+  await page.getByRole('textbox', { name: 'CI configuration SHA-256' }).fill('a'.repeat(64))
+  await page.getByText('Check publishers', { exact: true }).click()
+  await page.getByRole('textbox', { name: 'Publisher 1' }).fill('12345')
+  await page.getByRole('button', { name: 'Save merge settings' }).click()
+  await expect.poll(() => body).toBeTruthy()
+  expect(body?.qualification).toMatchObject({ provider: 'gitlab', queue_execution_gate: true, ci_config_sha256: 'a'.repeat(64) })
+  expect(body?.check_publishers).toEqual({ 'reforge/merge-policy': '12345' })
+})
+
+test('GitLab queue rejection remains actionable', async ({ page }) => {
+  await signIn(page, 'token', 'gitlab')
+  await page.route(`**${base}/repositories/${repo}/merge-configuration`, async route => { if (route.request().method() === 'PUT') return route.fulfill({ status: 400, json: { message: 'GitLab queue execution requires a protected blocking reforge/merge-policy job.' } }); return route.fulfill({ json: { ...config, qualification: { ...config.qualification, provider: 'gitlab', queue_execution_gate: false, ci_config_sha256: '' } } }) })
+  await page.getByRole('button', { name: 'Merge settings', exact: true }).click()
+  await page.getByText('Operator qualification evidence', { exact: true }).click()
+  await page.getByRole('checkbox', { name: 'Queue execution gate' }).check()
+  await page.getByRole('textbox', { name: 'CI configuration SHA-256' }).fill('a'.repeat(64))
+  await page.getByText('Check publishers', { exact: true }).click()
+  await page.getByRole('textbox', { name: 'Publisher 1' }).fill('12345')
+  await page.getByRole('button', { name: 'Save merge settings' }).click()
+  await expect(page.getByRole('alert')).toContainText('protected blocking reforge/merge-policy job')
 })
