@@ -1,6 +1,6 @@
 # Acceptance and qualification matrix
 
-This is a release-evidence template, not a claim of implemented or tested capability. Record results in `progress.md` during implementation. Exact provider/model versions and runtime image digests belong in the resulting support matrix.
+This is a release-evidence template, not a claim of implemented or tested capability. Record results in `progress.md` during implementation. Exact provider/model versions and runtime image digests belong in the resulting support matrix. T29–T31 add V23–V27 below.
 
 ## Required scenarios
 
@@ -28,6 +28,11 @@ This is a release-evidence template, not a claim of implemented or tested capabi
 | V20 | J01–J10 with real backend: keyboard operation, dialog focus, readable gates, empty/error states, sanitised logs and cache reset on org switch | T04/T17/T20/T24/T28, G5 |
 | V21 | 1,000 repos/org, 10,000 total, 100 concurrent jobs and 50 GUI sessions meet product latency targets without retry storms | T25/T28, G5 |
 | V22 | Bounded maintenance evaluation corpus meets product criteria; zero policy bypasses; results broken down by recipe and model profile | T19/T28, G5 |
+| V23 | Every route has one title, one toolbar and dense work surface; no duplicate breadcrumb/eyebrow or generic card introductions; keyboard/390px and actionable error states pass | T29, G5 |
+| V24 | MkDocs end-user/admin/operator docs build and serve in a container, are versioned/searchable and linked from in-app help; clean install needs no host Go/Node/Python or `/tmp` path | T30/T26, G5 |
+| V25 | Claude Code, Codex and `agy` are distinct qualified runtime choices; entitlement, headless, container topology and pre-effect approval evidence required; unknown stays disabled | T16/T31, G2/G5 |
+| V26 | Custom command profile is versioned and admin-approved, binds fixed executable/argv and image digest, records protocol input/events/output/cancel/exit/usage including unknown, and fences revocation | T31/T07/T05, G5 |
+| V27 | SaaS and OSS GUI workflows complete through native auth/approval/provider actions; SQL/curl/raw JSON are not primary workflows; unsupported states show remediation | T29/T30/T16/T26, G5 |
 
 ## External test environments
 

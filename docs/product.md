@@ -1,6 +1,6 @@
 # Product specification
 
-Updated: 2026-09-20. Proposed product decisions except where marked agreed in `../PLAN.md`.
+Updated: 2026-09-21. Proposed product decisions except where marked agreed in `../PLAN.md`. GUI authority: [product rebuild](implementation/product-rebuild.md); prototype has no visual authority.
 
 ## Product
 
@@ -67,6 +67,8 @@ Included in both editions: all three forges, model adapters, policies, recipes, 
 Deferred until evidence requires them: generic workflow canvas, arbitrary user-loaded backend plugins, new code editor, new dependency solver, vector database, autonomous product feature generation, billing engine, SCIM, arbitrary direct production shell access, marketplace, cross-repository atomic releases and direct Kubernetes mutation.
 
 Existing GitOps is the only Kubernetes change path. v1 deployment automation orchestrates an allowlisted existing pipeline or GitOps change; it never receives a cluster-admin credential.
+
+All user workflows must work through GUI in hosted and OSS/self-hosted editions. SQL, curl and raw JSON are diagnostic/admin escape hatches. Provider authentication and native approvals remain authoritative. MkDocs end-user, administrator and operator documentation is versioned, searchable, container-built/served and linked from in-app help.
 
 ## Acceptance journeys
 

@@ -55,3 +55,9 @@ REFORGE_TEST_CODEX=/home/mnorris/.local/bin/codex GOPATH=/tmp/reforge-go GOMODCA
 Root integration owns the isolated runtime factory, durable authorization/accounting, account-qualification records and explicit user-action HTTP routes. External account/custody/entitlement certification remains open.
 
 Coordinator reviewed all bridge, protocol, process and fixture source. Added close-during-startup protection so a late runtime cannot initialize or reopen a closed bridge. The final root race run and pinned binary/schema check are recorded in progress.md.
+
+## 2026-09-21 planning addendum
+
+Agent choices are separate qualification targets: Claude Code, Codex and Google Antigravity CLI `agy`; `agy` is not Gemini CLI. The [Antigravity headless CLI reference](https://antigravity.google/docs/cli/headless/) documents a technical JSON/NDJSON headless surface only. It does not establish subscription entitlement, credential custody, container isolation or approval interception.
+
+Enable a runtime/version/topology only after dated evidence covers entitlement, official authentication, headless operation, container boundary, pre-effect approval, cancellation, output/event/usage handling and revocation. Unknown or unverified status stays disabled with actionable reason. Never convert subscription credentials into API keys or silently switch to a paid API route. T31 custom profiles follow the same gate and bind fixed executable/argv, image digest, protocol and policy/run identity.

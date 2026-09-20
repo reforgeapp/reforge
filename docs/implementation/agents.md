@@ -1,16 +1,16 @@
 # Worker execution runbook
 
-Status: ready to invoke; implementation has not started. Read [PLAN.md](../../PLAN.md) and [backlog.md](backlog.md) first.
+Status: planning pause, 2026-09-21. Do not launch workers or restart implementation from this revision. Read [PLAN.md](../../PLAN.md), [product-rebuild.md](product-rebuild.md) and [backlog.md](backlog.md) when owner resumes.
+
+Current allocation override: root/Astra owns architecture and final review; Luna owns bounded implementation slices including sensitive work under Astra review. Root allocates exclusive Luna ownership for shared files/contracts/migrations after architecture freeze; workers cannot self-expand ownership. No implementation workers during current pause; maximum three Luna workers when resumed. Completion notifications preferred; avoid repeated polling.
 
 ## Initial invocation
 
-Use this as the next implementation instruction:
+Use this as the next implementation instruction after owner resumes work and reconciles `progress.md`:
 
 ```text
-Implement Reforge in /home/mnorris/repos/reforge using PLAN.md and its linked specifications.
-Start with T01, then follow the explicit ticket dependencies in docs/implementation/backlog.md.
-Use Astra for coordination, security-sensitive implementation and final review; use Luna
-for bounded adapters, frontend routes and recipes after their contracts are frozen.
+Implement remaining Reforge work in /home/mnorris/repos/reforge using PLAN.md, linked specifications and current progress. Preserve partial T25 and existing implementation; do not restart completed tickets. Follow explicit dependencies in docs/implementation/backlog.md, including T29–T31.
+Root/Astra owns coordination, architecture and final review. Luna owns bounded implementation slices, including sensitive slices under Astra review.
 Keep no more than three workers active alongside the coordinator. Assign disjoint files.
 Preserve all R01–R13 requirements and both deployment editions. Track each ticket's status,
 checks and remaining qualification evidence in docs/implementation/progress.md.
@@ -30,12 +30,12 @@ The initial T01 checkpoint freezes names, interfaces, enums, SQL migration owner
 | Role | Allocation | Responsibility |
 | --- | --- | --- |
 | Coordinator | Astra | Contracts, graph, shared files, integration, requirement coverage and review |
-| Sensitive implementation | Astra | Identity/tenancy, credentials, budgets, policy, sandbox, official-agent interception, protected merges and deployment |
-| Bounded implementation | Luna | One provider adapter slice, one GUI route/flow, one stack recipe or packaging slice |
+| Sensitive implementation | Luna, Astra review | Identity/tenancy, credentials, budgets, policy, sandbox, official-agent interception, protected merges and deployment |
+| Bounded implementation | Luna, Astra review | One provider adapter slice, one GUI route/flow, one stack recipe or packaging slice |
 | Independent review | Astra | Failure paths, trust boundaries, meaningful tests and acceptance evidence |
 | Optional second opinion | Claude CLI, Opus5 only if actually available | Read-only review of a bounded diff/specification; no required dependency on this runtime/model |
 
-Use explicit model selectors supported by the current worker tool: `gpt-6-astra` and `gpt-5.6-luna`. A worker may not recursively delegate without coordinator allocation. Root plus three is the concurrency ceiling, not a target to fill when useful independent work is unavailable.
+Use `gpt-5.6-luna` for implementation workers; `gpt-6-astra` remains root review/coordinator only. A worker may not recursively delegate without coordinator allocation. Root plus three is the concurrency ceiling, not a target to fill when useful independent work is unavailable.
 
 Split broad tickets into bounded child tasks before implementation. Each child has one observable outcome, exact files, inputs and acceptance checks. Keep the parent open until all children and integration checks pass. Prefer parallel Luna provider implementations only after Astra freezes the common interface; never let adapters invent different policy semantics.
 
@@ -61,7 +61,7 @@ Luna escalation: stop and report if the task requires a new shared interface, pr
 
 1. Inspect the workspace and applicable instructions. Preserve unrelated changes. Create a local Git repository only as part of implementation if none exists; use `reforge` as provisional Go module until the owner chooses a remote.
 2. Create `progress.md` with ticket, child, status, owner, files, dependencies, evidence and remaining gate. Statuses: `not started`, `in progress`, `review`, `local complete`, `certified`, `blocked`.
-3. Coordinator allocates exclusive file ownership. Use isolated worktrees when helpful; a shared checkout is acceptable only for disjoint edits. Coordinator alone owns dependency manifests/locks, shared interfaces, OpenAPI and migration numbering. Workers propose shared edits for integration.
+3. Coordinator allocates exclusive file ownership. After architecture freeze, coordinator may allocate specific shared files/contracts/migrations to Luna for implementation; root retains review/integration authority. Use isolated worktrees when helpful; workers cannot self-expand ownership. Coordinator controls dependency manifests/locks, shared interfaces, OpenAPI and migration numbering unless explicitly allocated.
 4. Dispatch only ready children. UI can use typed fixtures before its backend exists, but the parent remains open until the real endpoint flow is integrated. Never advertise fixture progress as a working provider integration.
 5. Worker runs the narrow acceptance checks and supplies its diff. Astra reads the complete change, checks error paths and confirms the tests exercise the stated risk. Run broader integration checks only when the change or unresolved concerns warrant them.
 6. Integrate a small bounded change per task. Use accurate commit metadata if committing; do not rewrite authorship or fabricate development history. Update evidence and affected specifications before dispatching dependent work.

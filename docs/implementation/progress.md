@@ -1,6 +1,13 @@
 # Implementation progress
 
-Updated: 2026-09-21. Coordinator: Astra X-High. Persistent goal UI paused; user resumed work, no tool resume operation; full T01–T28 scope authorised. Only disposable local provider mutations authorised; no customer mutation, paid API qualification, publication or external deployment authorised.
+Updated: 2026-09-21. Planning-only revision. Existing implementation evidence below is historical and preserved; no implementation restart, worker launch, build, certification or external mutation authorised by this revision. Current progress source authoritative for status.
+
+## Planning revision status
+
+- Prior GUI completion acceptance superseded by T29 full GUI rebuild/refactor. Prototype historical; no visual authority.
+- T29 full GUI rebuild, T30 MkDocs documentation and T31 custom command runtime are new planned tickets. T28 dependency graph explicitly names every prerequisite and remains acyclic.
+- Current allocation override: root/Astra architecture and final review; Luna bounded implementations including sensitive slices under Astra review; no implementation workers during current pause; maximum three Luna workers when resumed.
+- Planning checks: 31-ticket dependency graph acyclic; local Markdown link targets and fence balance pass across changed/new docs. No application tests run or required for this docs-only revision.
 
 ## Execution state
 
@@ -39,9 +46,12 @@ Updated: 2026-09-21. Coordinator: Astra X-High. Persistent goal UI paused; user 
 | T23 | local complete | Astra | GitOps; T06 T08 T09 T10 T21 | Protected delivery and provenance |
 | T24 | local complete | Luna | control GUI; T04 T06 T20 T21 T22 T23 | Policy/deployment/usage/audit |
 | T25 | in progress | Astra/Luna | campaigns; T05 T06 T18 T19 T21 T23 T24 | Pinned canaries/fairness |
-| T26 | not started | Luna/Astra | deploy/operator; T02 T03 T07 T16 T22 T23 | Install, restore, operations |
-| T27 | not started | Astra | qualification; T19 T21 T22 T23 T25 T26 | Isolation/concurrency/recovery |
-| T28 | not started | Astra/Luna | handoff; all prior | Browser/load/corpus/licences; G5 open |
+| T26 | not started | Luna/Astra | deploy/operator; T02 T03 T07 T16 T22 T23 T31 | Install, restore, operations |
+| T27 | not started | Astra/Luna review | qualification; T19 T21 T22 T23 T25 T26 T29 T30 T31 | Isolation/concurrency/recovery |
+| T28 | not started | Astra/Luna | handoff; explicit T01–T27,T29–T31 | Browser/load/corpus/licences; G5 open |
+| T29 | not started | Luna/Astra review | GUI rebuild; T04,T16,T17,T20,T24,T25,T31 | Route coverage, visual regression and SaaS/OSS workflow evidence pending |
+| T30 | not started | Luna/Astra review | MkDocs; T16,T19,T21,T22,T23,T26,T29,T31 | Container docs build/serve and linked help pending |
+| T31 | not started | Luna/Astra review | custom runtime; T03,T05,T06,T07 | Profile protocol, qualification and container acceptance pending |
 
 ## Gates
 

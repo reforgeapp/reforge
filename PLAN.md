@@ -1,9 +1,9 @@
-# Reforge — build plan
+# Reforge — implementation plan
 
-Status: build-ready specification; product implementation has not started.
-Updated: 2026-09-20. Product: Reforge. Directory: `/home/mnorris/repos/reforge`. Go package github.com/sindef/reforge.
+Status: planning revision only. Existing implementation and progress history preserved; no implementation restart authorised.
+Updated: 2026-09-21. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
 
-## Agreed requirements
+## Release requirements
 
 | ID | Requirement | Release commitment |
 | --- | --- | --- |
@@ -21,67 +21,63 @@ Updated: 2026-09-20. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
 | R12 | Explicit Luna/Astra implementation plan | Bounded tickets, dependencies, exclusive file ownership and Astra review of sensitive work |
 | R13 | Persistent, build-ready specification | This index, product/UX/architecture/contracts/policy plans, research and executable task instructions |
 
-## Read in this order
+## Product-wide interface gate
 
-1. [Product scope](docs/product.md): users, outcomes, maintenance catalogue and v1 boundaries.
-2. [GUI specification](docs/design/gui.md): screens, navigation and complete workflows.
-3. [Architecture](docs/architecture.md): services, isolation, storage and deployment.
-4. [Contracts](docs/contracts.md): records, APIs, events and adapter contracts.
-5. [Policies and lifecycle](docs/policies.md): branching, bot coordination, merge and deployment state machines.
-6. [Implementation backlog](docs/implementation/backlog.md): task IDs, dependencies and acceptance checks.
-7. [Worker runbook](docs/implementation/agents.md): implementation invocation and Luna/Astra allocation.
-8. [Decisions](docs/decisions.md): accepted choices, assumptions and gates.
+Every route uses one page title, one breadcrumb/context line and one primary toolbar. No repeated eyebrow and breadcrumb, generic introductory copy, or explanatory header above every card. Tables, filters, dense toolbars and work surfaces carry the task. Help is on demand through contextual links, searchable MkDocs and an in-app help drawer. Labels, keyboard access, focus, field descriptions, actionable errors, security notices and stale/unknown states remain mandatory.
 
-Open the [offline GUI prototype](docs/design/prototype.html) in a browser to explore the visual direction and core workflow. It uses synthetic data and simulated actions. The [acceptance matrix](docs/implementation/validation.md) defines the implementation evidence required at release.
+Rundeck operator-console information density and AWX operational workflows are reference material for hierarchy and interaction only. No code, branding or visual assets are copied. `docs/design/prototype.html` is obsolete synthetic history with no visual authority; `docs/implementation/product-rebuild.md` and `docs/design/gui.md` govern the rebuild.
 
-Research inputs:
+## Documentation and distribution commitments
 
-- [Competitor evidence](docs/research/competition.md)
-- [Forge capabilities](docs/research/forge-integrations.md)
-- [Model and subscription integrations](docs/research/model-integrations.md)
+MkDocs end-user, administrator and operator documentation is a dedicated release deliverable. Versioned, searchable docs are built and served in containers and linked from contextual in-app help. Every component is containerised: Go control plane/GUI, controllers, migrator, runner, agent profiles, validation images, docs and local dependencies. Compose supports clean installation without host Go/Node/Python or repository-specific `/tmp` paths; hosted operation is versioned GitOps. Native provider authentication and approvals remain required. Chosen runtime host prerequisites and privilege model are explicit; Docker is not tenant isolation. No API/task container receives a Docker socket, credentials are never baked into images, and direct SQL/curl/JSON is never a primary workflow.
 
-## Delivery sequence
+## Read order
+
+1. [Product](docs/product.md) and [rebuild specification](docs/implementation/product-rebuild.md)
+2. [GUI](docs/design/gui.md)
+3. [Architecture](docs/architecture.md)
+4. [Contracts](docs/contracts.md)
+5. [Policies](docs/policies.md)
+6. [Backlog](docs/implementation/backlog.md), [validation](docs/implementation/validation.md), [progress](docs/implementation/progress.md)
+7. [Worker runbook](docs/implementation/agents.md) and [decisions](docs/decisions.md)
+
+## Delivery gates
 
 | Gate | Deliverable | Required proof |
 | --- | --- | --- |
-| G0 | Contracts and runnable foundation | Versioned API; tenant isolation; session/RBAC; migration and development environment |
-| G1 | Read-only portfolio across all three forges | Onboarding, inventory, bot detection, branch-rule visibility, model capability probes |
-| G2 | End-to-end repair with human-reviewed PR | Reproduce failure, repair in isolation, validate, publish once, show evidence in GUI |
-| G3 | Policy-controlled merge | Per-provider protection contract tests; stale evidence invalidation; queue/train handling |
-| G4 | Policy-controlled deployment | Existing CI/CD/GitOps workflow, native approvals, exact artifact attribution, failed rollout handling |
-| G5 | Portfolio-scale v1 release | Hosted isolation and self-hosted install; all R01–R13 checks; accessibility and recovery tests |
+| G0 | Contracts and runnable foundation | Versioned API, tenancy, sessions/RBAC, migration, clean container build |
+| G1 | Read-only portfolio | All three forges, inventory, bot detection, capability probes |
+| G2 | Human-reviewed repair | Reproduction, isolated repair, validation, one attributable publication |
+| G3 | Policy-controlled merge | Provider protection contracts, fresh evidence and queue/train handling |
+| G4 | Policy-controlled delivery | Existing CI/CD/GitOps, native approvals, artifact attribution and recovery |
+| G5 | Portfolio-scale release | Full GUI rebuild, docs, clean install, hosted isolation, OSS/self-hosted checks, R01–R13 |
 
-G2 is a useful private alpha, not fulfilment of the complete v1 request. G5 requires GitHub, GitLab and Gitea, all four model families, and policy-controlled merge/deployment support within documented capabilities. Unsupported server versions remain visible and read-only/PR-only with a reason.
+G2 is a useful private alpha, not complete v1. G5 requires GitHub, GitLab and Gitea, all four model families, qualified agent routes and policy-controlled merge/deployment support within documented capabilities. Unsupported versions remain visible and read-only/PR-only with reason.
 
 ## First demonstration
 
-Connect a GitHub organisation, a GitLab group and a Gitea organisation. Import repositories. Detect an existing Renovate PR whose build failed. Show the failing baseline, propose an independently valid compatibility repair on an app-owned branch, run checks, and present the linked change and merge order in the GUI. Revalidate the original bot update after the repair merges. Reconcile required reviews and branch rules, merge only when eligible, then observe a pre-authorised staging deployment. Show an intentionally blocked production deployment awaiting its native approval. If the repair cannot stand alone, require the reviewed handoff described in the policy specification.
+Connect a GitHub organisation, GitLab group and Gitea organisation. Import repositories. Detect an existing Renovate PR whose build failed. Show failing baseline, propose an independently valid compatibility repair on an app-owned branch, run checks, present linked change and merge order in GUI, revalidate original bot update, reconcile reviews and branch rules, merge only when eligible, observe pre-authorised staging deployment, and show production deployment blocked pending native approval. If repair cannot stand alone, require reviewed handoff under policy.
 
 ## Requirement ownership
 
 | Requirement | Primary tickets |
 | --- | --- |
-| R01 OSS and GUI | T01, T04, T17, T20, T24, T26 |
-| R02 Go/Gin | T01 and backend tickets T02–T03, T05–T16, T18–T19, T21–T23, T25 |
-| R03 Hosted/self-hosted | T02–T03, T07, T26–T28 |
-| R04 Large portfolios | T05, T11, T17, T25, T28 |
-| R05 All three forges | T08–T11, T21–T23, T28 |
-| R06 PR/MR publication | T08–T10, T19–T20 |
-| R07 Branch protection | T06, T08–T10, T21, T27 |
-| R08 Dependency bots | T11, T18–T19, T21 |
-| R09 Model families | T12–T15, T19, T28 |
-| R10 Permitted subscriptions | T03, T07, T16, T17, T26, T28 |
-| R11 Merge/deployment | T06, T21–T25, T27–T28 |
-| R12 Worker plan | Worker runbook; applies to T01–T28 |
-| R13 Persistent specification | This planning package; T01 contract freeze and T28 handoff |
+| R01 | T01, T04, T17, T20, T24, T26, T29, T30 |
+| R02 | T01–T03, T05–T16, T18–T19, T21–T23, T25, T31 |
+| R03 | T02–T03, T07, T26–T28, T31 |
+| R04 | T05, T11, T17, T25, T28, T29 |
+| R05 | T08–T11, T28, T29 |
+| R06 | T08–T10, T19–T21, T29 |
+| R07 | T06, T08–T10, T21, T27, T29 |
+| R08 | T11, T18–T19, T21 |
+| R09 | T12–T15, T19, T28, T31 |
+| R10 | T03, T07, T16, T17, T26, T28, T31 |
+| R11 | T06, T21–T25, T27–T29 |
+| R12 | `docs/implementation/agents.md` and ticket records |
+| R13 | This package, T01, T28–T31 |
 
-## Implementation readiness
+## Planning checks
 
-- Product name: Reforge. Module/import namespace is provisional until a repository remote is chosen.
-- Licence: Apache-2.0. Add the standard licence and applicable dependency notices during foundation.
-- Live provider credentials and dedicated test organisations are required only for integration certification; recorded fixtures cover local development.
-- A provider's consumer subscription is never treated as a generic API credential. Unverified subscription routes remain disabled while API integration ships.
-- Hosted execution must pass the isolation gate before untrusted customer repositories run.
-- This task produced specifications and an offline synthetic GUI prototype. Service implementation begins with T01; the worker runbook contains the launch instruction.
+This revision records planning-only pause, preserves implementation evidence, supersedes prior GUI completion acceptance, and adds explicit acyclic dependencies for T29–T31. No certification, entitlement, release or implementation restart claimed. Root/Astra performs final architecture/review; Luna owns assigned slices when work resumes.
 
-Planning checks completed: internal document links and Markdown fences pass; all 28 ticket dependencies form an acyclic graph; every R01–R13 requirement has build ownership; independent Astra review found no remaining critical/high specification issues. Prototype JavaScript passes `node --check` and uses no external script/style dependencies. Browser rendering and live provider/inference integrations have not been tested in this planning environment.
+Research inputs: [competition](docs/research/competition.md), [forge capabilities](docs/research/forge-integrations.md), [model integrations](docs/research/model-integrations.md). Official planning references: [Rundeck getting started](https://docs.rundeck.com/docs/manual/03-getting-started.html), [Rundeck activity](https://docs.rundeck.com/docs/manual/08-activity.html), [AWX guide](https://docs.ansible.com/projects/awx/en/24.6.1/userguide/index.html), [Antigravity headless CLI](https://antigravity.google/docs/cli/headless/), [MkDocs](https://www.mkdocs.org/). These references support interaction/protocol planning only; they do not certify entitlement, isolation or provider support.

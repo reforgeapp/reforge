@@ -1,12 +1,13 @@
 # Implementation backlog
 
-Updated: 2026-09-20. All tickets are `not started`. Execute only after the owner invokes implementation. Planning artifacts and the synthetic prototype are already present; production code is not.
+Updated: 2026-09-21. Planning revision only; preserve implementation status/history in `progress.md`. Prior GUI completion acceptance is superseded by T29. Do not restart implementation until owner resumes it.
 
 ## Working rules
 
 - R01–R13 in `../../PLAN.md` are release requirements. No worker may silently defer one.
 - Root/coordinator owns shared contracts, module/package manifests, migrations ordering and integration branches.
 - Astra owns ambiguous/security-sensitive architecture, tenancy, execution, protection/merge and deployment work. Luna owns bounded adapter/UI/recipe work after contracts are frozen. Every Luna change receives root/Astra review.
+- Current allocation override: Luna owns implementation slices, including sensitive slices under Astra review. Root/Astra owns architecture, integration and final review, and allocates exclusive Luna ownership for shared files/contracts/migrations only after architecture freezes. Workers cannot self-expand ownership; historical labels do not authorize unallocated edits.
 - A ticket is complete only with implementation, its stated functional verification, documentation update and a reviewable diff. Mocks alone cannot certify a real forge or subscription entitlement.
 - Small bounded commits per ticket; preserve unrelated user changes. No deployment, publishing a public repo or real customer mutation is part of local build tickets.
 - Source comments and README files are not created unless explicitly authorised by the owner; use named types, clear structure and the existing docs. Do not add trivial tests to inflate coverage.
@@ -22,7 +23,9 @@ Updated: 2026-09-20. All tickets are `not started`. Execute only after the owner
 | W4 | T12 OpenAI, T13 Anthropic, T14 Google, T15 compatible inference, T16 official agents | API adapters in separate directories; agent bridge Astra; freeze dependency manifests via root |
 | W5 | T17 portfolio GUI, T18 discovery/bots, T19 repair/validation, T20 evidence GUI | Interface-backed GUI can run alongside backend tickets; integrate one full vertical slice early |
 | W6 | T21 merge controller, T22 direct CI/CD, T23 GitOps delivery, T24 control GUI | Certified APIs and full tests; no parallel ownership of state transitions |
-| W7 | T25 campaigns, T26 distribution/operations, T27 isolation/recovery qualification, T28 release qualification | Integrate, benchmark and qualify before release |
+| W7 | T25 campaigns, T31 custom command runtime, T29 GUI design child | Design and runtime contracts proceed after their explicit prerequisites |
+| W8 | T26 distribution/operations, T27 isolation/recovery qualification, T29 GUI route completion, T30 MkDocs documentation | Integrate bounded work; T28 remains final release qualification |
+| W9 | T28 release qualification and operator handoff | Final integrated qualification |
 
 Waves describe coordination, not permission to ignore exact dependencies below. Cap active workers to the available slots, normally root plus three. Root reviews/integrates continuously; do not wait until every branch is finished.
 
@@ -51,7 +54,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 ### T04 — GUI shell and design system
 
 - Owner: Luna, Astra reviews authorisation assumptions. Dependencies: T01. Own: `web/src/app`, `web/src/components`, styles/tokens.
-- Build: shell/navigation, organisation scope, URL filters, query client, status/gate components, accessible tables/dialogs, standard empty/loading/error/stale states. Use prototype as visual direction, GUI spec as authority.
+- Build: shell/navigation, organisation scope, URL filters, query client, status/gate components, accessible tables/dialogs, standard empty/loading/error/stale states. Use `docs/implementation/product-rebuild.md` and GUI spec as authority; prototype is historical only.
 - Accept: keyboard navigation and responsive shell; deep links/back restore state; organisation switch clears cached tenant data; all demo data confined to explicit design/development fixtures.
 
 ### T05 — Durable jobs, events, budgets and reconciliation
@@ -124,6 +127,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 - Owner: Astra. Dependencies: T03, T05, T06, T07. Own: `internal/agent`, pinned optional runtime packaging and support matrix.
 - Build: Codex documented app-server bridge first; Claude official binary bridge and Gemini CLI only under qualified terms/topology. Native approval handling, cancellation/resume and isolated-command support mandatory for mutation.
+- Build: official bridges remain T16-owned. Add Google Antigravity CLI `agy` as distinct qualification target; it is not Gemini CLI. T31 custom profiles reuse this lifecycle contract but do not replace official bridge ownership.
 - Accept: actual runtime version tested for auth/logout/revocation/quota, approvals before effects, credential custody and shell isolation. An approval request is not simulated from a post-execution event. Subscription route status/billing visible; no API fallback without explicit permission/budget.
 - Gate: eligible documented subscription/workspace route preferred when available; uncertain route disabled with reason. Direct API support for all required model families remains mandatory. No unsupported promise of universal subscription access.
 
@@ -131,6 +135,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 - Owner: Luna. Dependencies: T02, T03, T04, T11; model forms depend on T12–T16 capabilities. Own: repository/onboarding/connection/runner list routes.
 - Build: import wizard for all forges, repository detail/baseline, scoped filters/saved views, connection health/model billing-route/capabilities, write-only rotation and enrolment UX.
+- Build: GUI must expose actual SaaS and OSS/self-hosted qualification flows for auth/bootstrap, runner placement, model/agent capability probes, entitlement/quota status and revocation. Unsupported or unverified runtime/topology stays disabled with actionable remediation; fixture-only screens cannot close T17.
 - Accept: J01/J08; keyboard onboarding across three providers, private-route failure recovery, stale/unsupported capability states, no exposed credential values.
 
 ### T18 — Finding discovery and dependency-bot coordination
@@ -183,21 +188,40 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T26 — Self-hosted distribution and hosted operations
 
-- Owner: Luna packaging under Astra review. Dependencies: T02, T03, T07, T16, T22, T23. Own: `deploy`, operator docs and upgrade tooling.
-- Build: Compose edition, signed/pinned images, optional official-runtime packages with correct notices, outbound customer workers, hosted reference infrastructure/GitOps, backup/restore/retention/migrations, diagnostics.
+- Owner: Luna packaging under Astra review. Dependencies: T02, T03, T07, T16, T22, T23, T31. Own: `deploy`, operator docs and upgrade tooling.
+- Build: Compose edition, signed/pinned images, optional official-runtime packages with correct notices, outbound customer workers, hosted reference infrastructure/GitOps, backup/restore/retention/migrations, diagnostics. Containerise server/GUI, controllers, migrator, runner, agent profiles, validation images, docs and local dependencies. Clean install needs no host Go/Node/Python or repository-specific `/tmp` paths. Document chosen runtime host capabilities; Docker is not tenant isolation. No API/task container gets a Docker socket; credentials never bake into images.
 - Accept: J09 from clean installation; restore encrypted credentials using backed-up keys; safe failed migration recovery; runner drain/rotation; same GUI/features in both editions; no Docker socket in API container.
 
 ### T27 — Isolation, concurrency and recovery qualification
 
-- Owner: Astra. Dependencies: T19, T21, T22, T23, T25, T26. Own: cross-cutting scenario corpus and qualification report; fixes go back to owning tickets.
+- Owner: Astra. Dependencies: T19, T21, T22, T23, T25, T26, T29, T30, T31. Own: cross-cutting scenario corpus and qualification report; fixes go back to owning tickets.
 - Build/run: hostile repository suite, cross-tenant/team tests, DB/RLS under pooling, lease/queue/outbox crash injections, budget contention, forged/replayed webhooks, revoked identities and encrypted backup restore.
+- Build/run: qualify all containerised components and clean-install/upgrade paths, chosen sandbox host prerequisites, custom profile protocol and docs/help route integrity alongside hostile repository and recovery suites. Docker socket and baked-credential checks are mandatory.
 - Accept: J06–J10; zero policy bypasses; record every failing scenario and rerun only affected checks after fixes. Hosted untrusted execution stays disabled until isolation proof passes.
 
 ### T28 — Release qualification and operator handoff
 
-- Owner: Astra coordinator with Luna browser/packaging assistance. Dependencies: all prior tickets. Own: release support matrix, acceptance report and remaining documentation.
+- Owner: Astra coordinator with Luna browser/packaging assistance. Dependencies: T01,T02,T03,T04,T05,T06,T07,T08,T09,T10,T11,T12,T13,T14,T15,T16,T17,T18,T19,T20,T21,T22,T23,T24,T25,T26,T27,T29,T30,T31. Explicit acyclic list; no shorthand “all prior tickets”. Own: release support matrix, acceptance report and remaining documentation.
 - Run: documented product journeys, browser accessibility/empty/error states, real forge tests, model/agent support matrix, maintenance corpus, 10,000-repo deployment load, 100 concurrent runs, upgrade/restore, licence/dependency inventory.
 - Accept: G5 checklist below, reproducible build artifacts, operator commands, documented limitations, known issues and support version ranges. No public release until owner invokes publication.
+
+### T29 — Full GUI rebuild and visual regression
+
+- Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. Design child T29a depends only on T04 and may start early. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links.
+- Build: rebuild shell/navigation/design system/forms/tables/work surfaces across every route in `docs/implementation/product-rebuild.md`; support SaaS and OSS workflows; enforce one-title/one-toolbar/interface-copy gate; retain labels, security notices, actionable errors, stale/unknown/unsupported states and on-demand help. Rundeck/AWX are interaction references only; prototype has no visual authority.
+- Accept: route coverage and operation/help matrix complete; populated and empty/error/blocked/stale states use persisted records; keyboard/390px checks pass; runner screenshot shows one title, one toolbar and dense table; no SQL/curl/JSON primary journey; visual captures store route/runtime metadata.
+
+### T30 — Versioned MkDocs end-user, administrator and operator documentation
+
+- Owner: Luna; Astra reviews security and operational claims. Dependencies: T16,T19,T21,T22,T23,T26,T29,T31. T30 may draft earlier; release acceptance waits on these flows.
+- Build: versioned/searchable MkDocs site, container build and served docs, in-app deep links/help drawer; document clean Compose install, hosted GitOps, provider auth, native approvals, runner host prerequisites, secret custody, unsupported capabilities and recovery. Reference https://www.mkdocs.org/.
+- Accept: docs container builds/serves from clean environment; every route family links help; SaaS and OSS workflows executable from docs; no entitlement or certification claim lacks evidence.
+
+### T31 — Administrator-approved custom command runtime profiles
+
+- Owner: Astra for security/runtime contracts; Luna may implement bounded forms. Dependencies: T03,T05,T06,T07. Profile identity is versioned and binds executable, fixed argv, container image digest, protocol version, input/events/output/cancel/exit/usage semantics, approval record and policy/run references.
+- Build: tenant cannot submit arbitrary shell or executable path; runner executes only approved image/profile with typed argv/input and no shell interpolation; enforce wall-clock/output/turn/concurrency budgets; isolated secret custody; protocol records malformed events, unknown usage, cancellation, timeout and nonzero exit; audit approval/revocation; visible capability state.
+- Accept: real local container test covers input/output, malformed events, nonzero exit, timeout, cancellation, revocation and secret isolation. Exit 0 never means validated repair. Entitlement, headless mode, container topology, approval interception and exact runtime/version each evidenced before enablement; unsupported/unverified combinations visibly disabled with actionable reason; run/profile/policy/image digest immutable and revocation fences future effects.
 
 ## G5 release checklist
 
@@ -210,9 +234,13 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 - [ ] Eligible subscription bridge(s) documented/tested; ineligible routes disabled; no token harvesting or silent billed fallback.
 - [ ] Policy-controlled merge plus existing CI/CD/GitOps deployments work, including portable Gitea delivery and native approval gates.
 - [ ] GUI journeys J01–J10, accessibility and meaningful errors complete with real data.
+- [ ] T29 route coverage passes one-title/one-toolbar/dense-work-surface gate with restrained interface copy, no generic explanations and no copied assets; all SaaS and OSS workflows use real records.
+- [ ] T30 MkDocs end-user/admin/operator docs are versioned/searchable, container-built/served and linked from in-app help.
+- [ ] T31 custom profiles are admin-approved, digest-pinned, protocol-qualified and visibly disabled until entitlement/headless/container/approval gates pass.
+- [ ] All components containerised; clean install needs no host Go/Node/Python or repository `/tmp`; chosen runtime host prerequisites documented; Docker is not tenant isolation.
 - [ ] Isolation, race, crash, budget, retention, restore and load gates pass.
 - [ ] Version-specific support/limitations and unresolved external entitlement limits accurately published.
 
 ## First implementation invocation
 
-Start T01 only. Then integrate T02/T03/T04 before dispatching broader parallel work. A screenshot-only frontend or a server with mocked provider mutations does not satisfy G1/G2. Follow `agents.md` for worker prompts and integration discipline.
+On resume, reconcile `progress.md`, preserve partial T25 and dispatch only ready children. T29–T31 follow explicit dependencies; a screenshot-only frontend or server with mocked provider mutations does not satisfy G1/G2. Follow `agents.md` for worker prompts and integration discipline.

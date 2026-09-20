@@ -1,6 +1,10 @@
 # Architecture
 
-Updated: 2026-09-20. Design targets; not implemented capabilities.
+Updated: 2026-09-21. Design targets; not implemented capabilities. T29–T31 planning constraints apply.
+
+## Rebuild and runtime constraints
+
+All components are containerised: Go control plane/GUI, controllers, migrator, runner, approved agent profiles, validation images, docs and local dependencies. Compose clean install must not require host Go/Node/Python or repository-specific `/tmp` paths. Hosted deployment uses versioned GitOps. Chosen sandbox runtime host prerequisites and privilege model must be documented; Docker alone is never tenant isolation. API/task containers receive no Docker socket, and credentials are never baked into images. Official provider authentication and native approvals are required; unsupported or unverified capabilities remain disabled with reason.
 
 ## Stack and repository layout
 

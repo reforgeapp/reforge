@@ -1,6 +1,10 @@
 # Reforge GUI specification
 
-Updated: 2026-09-20. First-class product surface for engineering portfolios.
+Updated: 2026-09-21. T29 rebuild authority; prior prototype direction is superseded.
+
+## Rebuild authority
+
+Apply [product-rebuild](../implementation/product-rebuild.md) across every route. Rundeck and AWX guide information density and operator workflow research only; no code or visual copying. Each route has one page title, one breadcrumb/context line and one primary toolbar. Remove duplicate breadcrumb/eyebrow headings and generic page/card introductions. Dense tables, filters and work surfaces carry context. Help is on demand through contextual links, versioned/searchable MkDocs and the in-app help drawer. Retain labels, accessibility, security notices, actionable errors, visible disabled reasons and unknown/stale states.
 
 ## Design stance
 
@@ -141,4 +145,4 @@ Organisation: team membership, repository access, OIDC configuration, deployment
 
 ## Prototype
 
-`prototype.html` is an offline, synthetic interaction prototype for reviewing information architecture and visual direction. It is not a working service and makes no network calls. Its buttons must identify simulated results; it is not evidence that any integration has been implemented.
+`prototype.html` is obsolete historical material. It is an offline synthetic interaction prototype, has no visual authority, is not a working service, makes no network calls and cannot evidence any integration.

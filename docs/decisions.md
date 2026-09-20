@@ -1,6 +1,13 @@
 # Decisions and open items
 
-Updated: 2026-09-20.
+Updated: 2026-09-21.
+
+## 2026-09-21 — planning-only GUI/runtime rebuild
+
+- T29 is one coordinated GUI rebuild/refactor across shell, navigation, design system, forms, tables and every route. Prior GUI completion acceptance is superseded; prototype is historical and has no visual authority.
+- T30 is dedicated versioned/searchable MkDocs end-user, administrator and operator documentation, container-built/served and linked from in-app help.
+- T31 defines versioned administrator-approved custom executable/argv profiles bound to image digest, protocol, policy and run. Claude Code, Codex and Google Antigravity CLI `agy` remain distinct. Runtime qualification requires entitlement, headless, container topology and pre-effect approval evidence; unverified means disabled, not successful.
+- Planning pause records no implementation restart, release certification or provider entitlement. Existing progress evidence remains historical and current progress is authoritative for implementation state.
 
 ## Accepted from the owner
 
