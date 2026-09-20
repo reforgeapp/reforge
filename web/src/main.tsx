@@ -1,25 +1,50 @@
-import React, { useEffect, useState } from 'react'
+import React from 'react'
 import { createRoot } from 'react-dom/client'
-import type { components } from './api/schema'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { RouterProvider, createRootRoute, createRoute, createRouter, redirect } from '@tanstack/react-router'
+import { AppShell } from './app/AppShell'
+import { SectionPage } from './app/SectionPage'
+import { SignInPage } from './app/SignInPage'
+import { api } from './api/client'
+import './styles/tokens.css'
+import './styles/app.css'
 
-function App() {
-  const [meta, setMeta] = useState<components['schemas']['Meta']>()
-  const [error, setError] = useState(false)
-  useEffect(() => {
-    const controller = new AbortController()
-    fetch('/api/v1/meta', { signal: controller.signal })
-      .then(response => { if (!response.ok) throw new Error('Unavailable'); return response.json() })
-      .then(setMeta)
-      .catch(() => { if (!controller.signal.aborted) setError(true) })
-    return () => controller.abort()
-  }, [])
-  return <main>
-    <h1>Reforge</h1>
-    {meta?.fixture_auth && <p role="status">Development · fixture authentication</p>}
-    {error ? <p role="alert">Cannot reach Reforge. Reload to retry.</p> : !meta ? <p role="status">Connecting…</p> : <p>Repository maintenance</p>}
-  </main>
-}
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1, refetchOnWindowFocus: false } },
+})
+
+const rootRoute = createRootRoute({
+  validateSearch: (search: Record<string, unknown>) => ({ q: typeof search.q === 'string' ? search.q : undefined }),
+  component: AppShell,
+})
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/',
+  beforeLoad: async () => {
+    try {
+      const session = await queryClient.ensureQueryData({ queryKey: ['session'], queryFn: api.getSession })
+      const org = session.organisations[0]
+      if (org) throw redirect({ to: '/org/$orgID/$section', params: { orgID: org.id, section: 'overview' }, search: { q: undefined } })
+    } catch (error) {
+      if (error instanceof Response || (error && typeof error === 'object' && 'to' in error)) throw error
+      throw redirect({ to: '/sign-in', search: { q: undefined } })
+    }
+  },
+  component: () => null,
+})
+const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: SignInPage })
+const sectionRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/org/$orgID/$section',
+  component: SectionPage,
+})
+const routeTree = rootRoute.addChildren([indexRoute, signInRoute, sectionRoute])
+const router = createRouter({ routeTree })
+
+declare module '@tanstack/react-router' { interface Register { router: typeof router } }
 
 createRoot(document.getElementById('root')!).render(
-  <React.StrictMode><App /></React.StrictMode>,
+  <React.StrictMode>
+    <QueryClientProvider client={queryClient}><RouterProvider router={router} /></QueryClientProvider>
+  </React.StrictMode>,
 )
