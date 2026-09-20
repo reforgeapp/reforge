@@ -113,6 +113,30 @@ func TestEngineHandsOffChangedTargetProtection(t *testing.T) {
 	}
 }
 
+func TestEngineBoundsTextOnlyRetry(t *testing.T) {
+	for _, recover := range []bool{false, true} {
+		plan, files := testPlan(t)
+		plan.Recipe.MaxTurns = 6
+		plan.Digest = planDigest(plan)
+		runtime := &retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}
+		turns := 0
+		engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+			turns++
+			if turns == 2 && !strings.Contains(in.Messages[len(in.Messages)-1].Text, "No verified repair") {
+				t.Fatal("text-only continuation lacks tool guidance")
+			}
+			if recover && turns == 2 {
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "patch", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}}}, nil
+			}
+			return model.TurnResult{Text: "The source needs a correction"}, nil
+		}}
+		report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+		if turns != 2 || recover && (err != nil || report.State != "validated") || !recover && (err != ErrHandoff || report.State != "handoff" || len(report.Patches) != 0) {
+			t.Fatalf("text-only retry recover=%t turns=%d state=%s error=%v", recover, turns, report.State, err)
+		}
+	}
+}
+
 func snapshotForEngine(t *testing.T, commit string, files map[string][]byte) sandbox.Snapshot {
 	t.Helper()
 	entries := make([]guest.File, 0, len(files))

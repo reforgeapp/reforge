@@ -172,6 +172,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	}
 	messages := []model.Message{{Role: "user", Text: prompt}}
 	var continuation json.RawMessage
+	textRetry := false
 	patches := map[string]sandbox.Patch{}
 	ordered := func() []sandbox.Patch {
 		names := make([]string, 0, len(patches))
@@ -282,6 +283,11 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			}
 		}
 		if !verified && len(result.ToolCalls) == 0 {
+			if !textRetry && turn+1 < p.Recipe.MaxTurns {
+				textRetry = true
+				messages = append(messages, model.Message{Role: "user", Text: "No verified repair was applied. Use the supplied tools to inspect the failure and replace the complete source file with apply_patch, preserving its public exports. Then run_checks. Tests and dependency files remain protected. If repair is not possible within these constraints, explain the blocker."})
+				continue
+			}
 			return fail("Model stopped without a verified repair", ErrHandoff)
 		}
 		if verified {
