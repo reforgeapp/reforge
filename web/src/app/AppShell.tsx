@@ -18,11 +18,23 @@ export function AppShell() {
   const [navOpen, setNavOpen] = useState(false)
   const [orgDialog, setOrgDialog] = useState(false)
   const [search, setSearch] = useState(routeSearch.q ?? '')
+  const [visibleUserID, setVisibleUserID] = useState<string | undefined>(undefined)
   const active = sectionFor(params.section)
   const org = session.data?.organisations.find(item => item.id === params.orgID)
   const orgs = session.data?.organisations ?? []
 
   useEffect(() => setSearch(routeSearch.q ?? ''), [routeSearch.q])
+
+  useEffect(() => {
+    if (session.error instanceof ReforgeAPIError && session.error.status === 401) {
+      clearOrganisationQueries(queryClient)
+      setVisibleUserID(undefined)
+      return
+    }
+    const userID = session.data?.user.id
+    if (userID && visibleUserID && visibleUserID !== userID) clearOrganisationQueries(queryClient)
+    if (userID) setVisibleUserID(userID)
+  }, [queryClient, session.data?.user.id, session.error, visibleUserID])
 
   const updateSearch = (value: string) => {
     setSearch(value)
@@ -44,7 +56,7 @@ export function AppShell() {
   if (session.isLoading || metaLoading) return <main className="centered-page"><StatePanel kind="loading" title="Opening Reforge" detail="Checking your session and application status." /></main>
   if (session.error instanceof ReforgeAPIError && session.error.status === 401) return <SignInPage />
   if (session.error) return <main className="centered-page"><StatePanel kind="error" title="Session unavailable" detail={session.error.message} action={<Button onClick={() => session.refetch()}>Retry</Button>} /></main>
-  if (!session.data) return <Outlet />
+  if (!session.data || visibleUserID !== session.data.user.id) return <main className="centered-page"><StatePanel kind="loading" title="Checking access" detail="" /></main>
   if (params.orgID && !org) return <main className="centered-page"><StatePanel kind="blocked" title="Organisation access denied" detail="Your session does not include this organisation. Choose an organisation you can access from its deep link." /></main>
   if (!org) return <main className="centered-page"><StatePanel kind="empty" title="No organisation access" detail="Your account is signed in, but has no organisation membership." /></main>
 
@@ -64,7 +76,7 @@ export function AppShell() {
       <header className="topbar">
         <button className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" onClick={() => setNavOpen(open => !open)}>☰<span className="sr-only">Menu</span></button>
         <div className="breadcrumbs"><span className="eyebrow">{active.group === 'admin' ? 'Administration' : 'Workspace'}</span><span aria-hidden="true">/</span><strong>{active.label}</strong></div>
-        <div className="topbar-actions"><span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} aria-label={meta?.development ? 'Development server' : 'Connected'} /><label className="search-box"><span className="sr-only">Search repositories</span><span aria-hidden="true">⌕</span><input value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></label><Button className="org-button" onClick={() => setOrgDialog(true)} aria-haspopup="dialog" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span>{org.name}<span aria-hidden="true">⌄</span></Button></div>
+        <div className="topbar-actions"><span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} /><label className="search-box"><span className="sr-only">Search repositories</span><span aria-hidden="true">⌕</span><input value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></label><Button className="org-button" onClick={() => setOrgDialog(true)} aria-haspopup="dialog" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span>{org.name}<span aria-hidden="true">⌄</span></Button></div>
       </header>
       {meta?.development && <div className="fixture-banner" role="status"><span aria-hidden="true">◆</span><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
       {org.paused && <div className="pause-banner" role="status"><span aria-hidden="true">Ⅱ</span><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}

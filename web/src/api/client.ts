@@ -43,7 +43,7 @@ async function request<T>(path: string, init: RequestInit = {}, csrfToken?: stri
 
 export const api = {
   getMeta: () => request<Meta>('/api/v1/meta'),
-  getSession: () => request<Session>('/api/v1/session'),
+  getSession: (signal?: AbortSignal) => request<Session>('/api/v1/session', { signal }),
   getRepositories: (orgID: string, params: { cursor?: string; limit?: number; query?: string; signal?: AbortSignal } = {}) => {
     const search = new URLSearchParams()
     if (params.cursor) search.set('cursor', params.cursor)

@@ -8,6 +8,8 @@ Checks completed locally:
 
 - `npm run typecheck`
 - `npm run build`
-- Playwright checks are configured for `npx playwright test` against the running local server. They were not completed in this checkout because PostgreSQL was unavailable to the T02 identity binary; the restricted browser runner also requires `PLAYWRIGHT_CHROMIUM_PATH` when its bundled revision is absent.
+- Session queries poll active tabs every 30 seconds and tenant queries are cancelled/removed on 401 or user identity changes. `PLAYWRIGHT_CHROMIUM_PATH=/home/mnorris/.cache/ms-playwright/chromium-1223/chrome-linux64/chrome npx playwright test` passed against the live T02 development server: 8 tests passed in 2.7 seconds. The suite covers sign-in and the explicit fixture banner, protected and invalid organisation deep links, deep links and URL search with back restoration, keyboard focus, narrow viewport navigation, organisation dialog focus/escape handling, same-page session-revocation cache purge, and axe accessibility checks. The session-revocation check uses Playwright route instrumentation with a labelled sensitive repository fixture as an isolated shell check; it does not certify backend revocation. The cached Chromium requires escalated local service access in this runner.
 
 The repository, finding, run, change, deployment and administration routes are shell placeholders for their owning tickets. They intentionally contain no synthetic records or mutation claims. Full acceptance requires T02 identity, later persisted portfolio endpoints, event transport and the integrated browser matrix.
+
+Coordinator review also gates rendering across identity changes until scoped cache clearing completes; no previous-user content is painted during that transition.

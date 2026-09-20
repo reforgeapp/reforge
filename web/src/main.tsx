@@ -5,7 +5,7 @@ import { RouterProvider, createRootRoute, createRoute, createRouter, redirect } 
 import { AppShell } from './app/AppShell'
 import { SectionPage } from './app/SectionPage'
 import { SignInPage } from './app/SignInPage'
-import { api } from './api/client'
+import { sessionQuery } from './app/query'
 import './styles/tokens.css'
 import './styles/app.css'
 
@@ -22,7 +22,7 @@ const indexRoute = createRoute({
   path: '/',
   beforeLoad: async () => {
     try {
-      const session = await queryClient.ensureQueryData({ queryKey: ['session'], queryFn: api.getSession })
+      const session = await queryClient.ensureQueryData(sessionQuery())
       const org = session.organisations[0]
       if (org) throw redirect({ to: '/org/$orgID/$section', params: { orgID: org.id, section: 'overview' }, search: { q: undefined } })
     } catch (error) {
