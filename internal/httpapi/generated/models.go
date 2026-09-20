@@ -5,6 +5,44 @@ import (
 )
 
 const (
+	BudgetLimitPeriodCustom  BudgetLimitPeriod = "custom"
+	BudgetLimitPeriodDaily   BudgetLimitPeriod = "daily"
+	BudgetLimitPeriodMonthly BudgetLimitPeriod = "monthly"
+)
+
+func (e BudgetLimitPeriod) Valid() bool {
+	switch e {
+	case BudgetLimitPeriodCustom:
+		return true
+	case BudgetLimitPeriodDaily:
+		return true
+	case BudgetLimitPeriodMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	BudgetLimitInputPeriodCustom  BudgetLimitInputPeriod = "custom"
+	BudgetLimitInputPeriodDaily   BudgetLimitInputPeriod = "daily"
+	BudgetLimitInputPeriodMonthly BudgetLimitInputPeriod = "monthly"
+)
+
+func (e BudgetLimitInputPeriod) Valid() bool {
+	switch e {
+	case BudgetLimitInputPeriodCustom:
+		return true
+	case BudgetLimitInputPeriodDaily:
+		return true
+	case BudgetLimitInputPeriodMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	CapabilityStateSupported   CapabilityState = "supported"
 	CapabilityStateUnknown     CapabilityState = "unknown"
 	CapabilityStateUnsupported CapabilityState = "unsupported"
@@ -308,6 +346,108 @@ type BootstrapRequest struct {
 	Name  string `json:"name"`
 	Token string `json:"token"`
 }
+type BudgetAmount struct {
+	Concurrency  int64 `json:"concurrency"`
+	MicroUsd     int64 `json:"micro_usd"`
+	Milliseconds int64 `json:"milliseconds"`
+	Requests     int64 `json:"requests"`
+	Tokens       int64 `json:"tokens"`
+}
+type BudgetCaps struct {
+	Concurrency  *int64 `json:"concurrency,omitempty"`
+	MicroUsd     *int64 `json:"micro_usd,omitempty"`
+	Milliseconds *int64 `json:"milliseconds,omitempty"`
+	Requests     *int64 `json:"requests,omitempty"`
+	Tokens       *int64 `json:"tokens,omitempty"`
+}
+type BudgetLimit struct {
+	Caps    BudgetCaps        `json:"caps"`
+	End     *time.Time        `json:"end,omitempty"`
+	Held    BudgetAmount      `json:"held"`
+	Paused  bool              `json:"paused"`
+	Period  BudgetLimitPeriod `json:"period"`
+	Scope   BudgetScope       `json:"scope"`
+	Spent   BudgetAmount      `json:"spent"`
+	Start   *time.Time        `json:"start,omitempty"`
+	Version int64             `json:"version"`
+}
+type BudgetLimitPeriod string
+type BudgetLimitInput struct {
+	Caps   BudgetCaps             `json:"caps"`
+	End    *time.Time             `json:"end,omitempty"`
+	Paused bool                   `json:"paused"`
+	Period BudgetLimitInputPeriod `json:"period"`
+	Start  *time.Time             `json:"start,omitempty"`
+}
+type BudgetLimitInputPeriod string
+type BudgetQuote struct {
+	InputTokens     int64  `json:"input_tokens"`
+	MaxMilliseconds int64  `json:"max_milliseconds"`
+	MaxOutputTokens int64  `json:"max_output_tokens"`
+	MaxRequests     int64  `json:"max_requests"`
+	Model           string `json:"model"`
+	OperationId     string `json:"operation_id"`
+	Route           string `json:"route"`
+	RouteVersion    int64  `json:"route_version"`
+}
+type BudgetReservation struct {
+	Actual            *BudgetAmount         `json:"actual,omitempty"`
+	CampaignId        *string               `json:"campaign_id,omitempty"`
+	ConnectionId      string                `json:"connection_id"`
+	ConnectionVersion int64                 `json:"connection_version"`
+	CreatedAt         time.Time             `json:"created_at"`
+	Debt              BudgetAmount          `json:"debt"`
+	DispatchedAt      *time.Time            `json:"dispatched_at,omitempty"`
+	Id                string                `json:"id"`
+	Lease             WorkflowLease         `json:"lease"`
+	Maximum           BudgetAmount          `json:"maximum"`
+	Quote             BudgetQuote           `json:"quote"`
+	Reference         *string               `json:"reference,omitempty"`
+	Route             BudgetRoute           `json:"route"`
+	Scopes            []BudgetScopeSnapshot `json:"scopes"`
+	State             string                `json:"state"`
+}
+type BudgetRoute struct {
+	ConnectionId             string `json:"connection_id"`
+	InputMicroUsdPerMillion  int64  `json:"input_micro_usd_per_million"`
+	MaxInputTokens           int64  `json:"max_input_tokens"`
+	MaxMilliseconds          int64  `json:"max_milliseconds"`
+	MaxOutputTokens          int64  `json:"max_output_tokens"`
+	MaxRequests              int64  `json:"max_requests"`
+	Mode                     string `json:"mode"`
+	Model                    string `json:"model"`
+	Name                     string `json:"name"`
+	OutputMicroUsdPerMillion int64  `json:"output_micro_usd_per_million"`
+	Paused                   bool   `json:"paused"`
+	PricingVersion           string `json:"pricing_version"`
+	QualificationRef         string `json:"qualification_ref"`
+	Qualified                bool   `json:"qualified"`
+	RequestMicroUsd          int64  `json:"request_micro_usd"`
+	Version                  int64  `json:"version"`
+}
+type BudgetRouteInput struct {
+	InputMicroUsdPerMillion  int64  `json:"input_micro_usd_per_million"`
+	MaxInputTokens           int64  `json:"max_input_tokens"`
+	MaxMilliseconds          int64  `json:"max_milliseconds"`
+	MaxOutputTokens          int64  `json:"max_output_tokens"`
+	MaxRequests              int64  `json:"max_requests"`
+	Mode                     string `json:"mode"`
+	Model                    string `json:"model"`
+	Name                     string `json:"name"`
+	OutputMicroUsdPerMillion int64  `json:"output_micro_usd_per_million"`
+	Paused                   bool   `json:"paused"`
+	PricingVersion           string `json:"pricing_version"`
+	RequestMicroUsd          int64  `json:"request_micro_usd"`
+}
+type BudgetScope struct {
+	Id   string `json:"id"`
+	Kind string `json:"kind"`
+}
+type BudgetScopeSnapshot struct {
+	PeriodStart time.Time   `json:"period_start"`
+	Scope       BudgetScope `json:"scope"`
+	Version     int64       `json:"version"`
+}
 type Capability struct {
 	LastChecked time.Time       `json:"last_checked"`
 	Reason      string          `json:"reason"`
@@ -394,6 +534,11 @@ type Event struct {
 	RequestId        string                 `json:"request_id"`
 	Type             string                 `json:"type"`
 }
+type EventPage struct {
+	Complete bool    `json:"complete"`
+	Cursor   int64   `json:"cursor"`
+	Items    []Event `json:"items"`
+}
 type Health struct {
 	Status string `json:"status"`
 }
@@ -431,6 +576,15 @@ type Organisation struct {
 	Name    string `json:"name"`
 	Paused  bool   `json:"paused"`
 	Version int64  `json:"version"`
+}
+type Pause struct {
+	Id      string `json:"id"`
+	Kind    string `json:"kind"`
+	Paused  bool   `json:"paused"`
+	Version int64  `json:"version"`
+}
+type PauseInput struct {
+	Paused bool `json:"paused"`
 }
 type PolicyActivateRequest struct {
 	PrimaryTeamId  *string `json:"primary_team_id,omitempty"`
@@ -620,6 +774,46 @@ type Session struct {
 		Name  string `json:"name"`
 	} `json:"user"`
 }
+type Task struct {
+	CampaignId         *string   `json:"campaign_id,omitempty"`
+	CancelVersion      int64     `json:"cancel_version"`
+	CreatedAt          time.Time `json:"created_at"`
+	Id                 string    `json:"id"`
+	MaxAttempts        int64     `json:"max_attempts"`
+	ModelConnectionId  *string   `json:"model_connection_id,omitempty"`
+	ModelRoute         string    `json:"model_route"`
+	OperationId        string    `json:"operation_id"`
+	OrgId              string    `json:"org_id"`
+	PolicyHash         string    `json:"policy_hash"`
+	Reason             string    `json:"reason"`
+	Recipe             string    `json:"recipe"`
+	RecipeVersion      string    `json:"recipe_version"`
+	RepositoryId       string    `json:"repository_id"`
+	RunnerPoolId       *string   `json:"runner_pool_id,omitempty"`
+	StartingPolicyHash string    `json:"starting_policy_hash"`
+	State              TaskState `json:"state"`
+	TargetBranch       string    `json:"target_branch"`
+	Version            int64     `json:"version"`
+}
+type TaskCreate struct {
+	CampaignId        *string `json:"campaign_id,omitempty"`
+	IdempotencyKey    string  `json:"idempotency_key"`
+	MaxAttempts       *int64  `json:"max_attempts,omitempty"`
+	ModelConnectionId *string `json:"model_connection_id,omitempty"`
+	ModelRoute        *string `json:"model_route,omitempty"`
+	PolicyHash        *string `json:"policy_hash,omitempty"`
+	Priority          *int64  `json:"priority,omitempty"`
+	Recipe            string  `json:"recipe"`
+	RecipeVersion     string  `json:"recipe_version"`
+	RepositoryId      string  `json:"repository_id"`
+	RunnerPoolId      *string `json:"runner_pool_id,omitempty"`
+	TargetBranch      string  `json:"target_branch"`
+}
+type TaskPage struct {
+	Complete   bool    `json:"complete"`
+	Items      []Task  `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
 type TaskState string
 type Team struct {
 	Id            string   `json:"id"`
@@ -635,6 +829,30 @@ type TeamPage struct {
 	Complete   bool    `json:"complete"`
 	Items      []Team  `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
+}
+type WorkflowLease struct {
+	AttemptId    string    `json:"attempt_id"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	Fence        int64     `json:"fence"`
+	JobId        string    `json:"job_id"`
+	OperationId  string    `json:"operation_id"`
+	OrgId        string    `json:"org_id"`
+	PolicyHash   string    `json:"policy_hash"`
+	RepositoryId string    `json:"repository_id"`
+	TaskId       string    `json:"task_id"`
+	WorkerId     string    `json:"worker_id"`
+}
+type GetBudgetRouteParams struct {
+	Model *string `form:"model,omitempty" json:"model,omitempty"`
+	Route *string `form:"route,omitempty" json:"route,omitempty"`
+}
+type PutBudgetRouteParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type PutBudgetParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
 }
 type ListConnectionsParams struct {
 	Kind   *string `form:"kind,omitempty" json:"kind,omitempty"`
@@ -692,6 +910,13 @@ type TestConnectionParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type StreamEventsParams struct {
+	After       *int64  `form:"after,omitempty" json:"after,omitempty"`
+	LastEventID *string `json:"Last-Event-ID,omitempty"`
+}
+type ReplayEventsParams struct {
+	After *int64 `form:"after,omitempty" json:"after,omitempty"`
+}
 type ListMembershipsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -701,6 +926,10 @@ type DeleteMembershipParams struct {
 	IfMatch    string `json:"If-Match"`
 }
 type PutMembershipParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type SetPauseParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
@@ -725,6 +954,21 @@ type SimulatePolicyParams struct {
 type RepositoriesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type ListTasksParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int64  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type EnqueueTaskParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelTaskParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ResumeTaskParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
 }
 type ListTeamsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -751,6 +995,8 @@ type OidcCallbackParams struct {
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type PutBudgetRouteJSONRequestBody = BudgetRouteInput
+type PutBudgetJSONRequestBody = BudgetLimitInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
 type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
 type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate
@@ -759,8 +1005,10 @@ type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
 type PutMembershipJSONRequestBody = MembershipInput
+type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
 type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
+type EnqueueTaskJSONRequestBody = TaskCreate
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest

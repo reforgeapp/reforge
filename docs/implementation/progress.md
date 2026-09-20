@@ -18,12 +18,12 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 | T02 | local complete | Astra worker t02_identity | auth/store; T01 | OIDC/scopes/bootstrap implemented; signed local OIDC + PG race tests pass; root all-package race/vet/build passed |
 | T03 | local complete | Astra coordinator + network worker | connections/secrets; T01 T02 | Operator/KMS envelopes, write-only credentials, revoke/rotate/rewrap, guarded routes; race/check/build passed |
 | T04 | local complete | Luna worker t04_shell | web shell; T01 | 8 browser scenarios, keyboard/390px/axe/deep links/cache revocation; root reviewed |
-| T05 | in progress | Astra workers | workflow; T01 T02 T03 | Leases, budgets, outbox, SSE |
+| T05 | local complete | Astra coordinator/workers | workflow; T01 T02 T03 | PG race/recovery/fairness/budget contention; HTTP/SSE policy+scope+revocation; generation/vet/build pass |
 | T06 | local complete | Astra worker t02_review | policy; T01 T02 | Corpus + PG immutable activation/scopes + HTTP simulation/CSRF/version checks passed |
-| T07 | not started | Astra | runner; T03 T05 T06 | Sandbox and private routes |
+| T07 | in progress | Astra | runner; T03 T05 T06 | Sandbox and private routes |
 | T08 | in progress | Luna worker t04_shell | forge/github; T01 T03 | Real adapter, guarded mutations |
-| T09 | not started | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
-| T10 | not started | Astra/Luna | forge/gitea; T01 T03 | Disposable real server certification |
+| T09 | in progress | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
+| T10 | in progress | Astra coordinator | forge/gitea; T01 T03 | Disposable real server certification |
 | T11 | not started | Luna/Astra | inventory; T05 T08 T09 T10 | Async reconciliation |
 | T12 | not started | Luna | model/openai; T01 T03 T05 | Streaming contracts and live gap |
 | T13 | not started | Luna | model/anthropic; T01 T03 T05 | Streaming contracts and live gap |
@@ -55,7 +55,7 @@ G0 foundation and identity locally verified; subsequent artifact/SSE isolation r
 
 ## Resume
 
-Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ownership. Continue T03/T04/T06; T05/T08–T10 follow reviewed T03. Development server is running on port 8080 in tool session 50662; rebuild/restart after wiring new services. Environment is in ignored `.local/development.env`. Never interpret this checkpoint as completion of the full request.
+Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ownership. T01–T04/T06 locally complete. Continue T05 lease/budget review+HTTP/startup, T08 GitHub worker, T10 Gitea. Latest server runs8080 in tool session88512; rebuild/restart when wiring T05. Environment is in ignored `.local/development.env`. Never interpret this checkpoint as completion of the full request.
 
 ## T01 evidence — 2026-09-20
 
@@ -113,3 +113,31 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and active worker ow
 
 - T04 root reran eight browser scenarios: all pass. Same-page revocation fixture proves cache purge without reload; real backend identity revocation remains covered by T02 PG tests and later SSE/artifact qualification. Identity changes hide scoped content until cache clearing completes.
 - T06 corpus/real PG tests and HTTP create→simulate→activate/history/stale-version/CSRF checks pass under race detector. Integrated vet/build pass. `REFORGE_POLICY_FILE` optionally supplies trusted deployment constraints; absent organisation policy always disables automation. Version history and effective policy endpoints are connected.
+
+## Current integration checkpoint
+
+- Commits:20eb5e0 T03,8093e69 finalT04fixes,04a0fac T06. T05/T08work in progress, do not stop.
+- T05 root owns `internal/httpapi/workflow.go` (task/pause/events/replay/SSE) and `test/integration/events_http_test.go`. Actual HTTP streaming scope/session revocation test passed under race detector (2.089s). Startup/OpenAPI/budgetroutes/policy-admission still to wire.
+- T05 review fixed audit actor attribution, JSONinteger preservation, bounded recovery, registered scope validation, permanent pause fence revocation, injected freshpolicy/dependency check for budgetdispatch, returnedspend truth and immutable modelroute. Migration008 adds model_route; applied dev/test. Root needs final integrated tests and review before localcomplete.
+- Gitea1.27.3 running loopback53000 session33422, work `.local/gitea`. Three local qualification accounts (admin,bot,reviewer), password/token files0600 ignored. Bot/reviewer tokens scoped repository/issue/readuser/org. Swagger saved `.local/gitea-api.json`. No customerrepo or paidprovider touched.
+- Gitea API supports PUT branches/{branch} with old_commit_id,new_commit_id,force=false. Plan staged immutable app commit then exact-old guard; must qualify actual head movement, outdated reviews, requiredchecks and stricttarget before claims. No Giteaadapter code yet.
+- Forge Change contract adds head_repository and target_repository immutable RepoRefs so fork source identity is not inferred from names. Adapters must populate and controllers bindboth.
+
+## Active checkpoint — T05 integration / T07–T10
+
+- Root integrated HTTP workflow/task/pause/replay/SSE and budget configuration/reservation reads. `control.Authority` resolves current policy and explicit model+connection/route admission; privileged action validators remain fail-closed until their owning controllers register authoritative evidence checks. No synthetic evidence is supplied at queue admission.
+- Real PG `TestTaskBudgetHTTPAndCurrentPolicyDispatch -race` passed: missing policy/unapproved route blocked, versioned budget writes, fresh policy rejects reserved dispatch, unregistered publication denied, CSRF required. OpenAPI schemas/routes added; generation and broader checks next.
+- Final T05 worker suites passed: workflow six PG race tests including 100 claims and 201 expired writers; budget five PG race scenarios including 100 contenders/tightest ceiling. Root still reviews integrated diff before marking local complete.
+- Disposable local DB passwords rotated after accidental worker tool-output exposure; source current ignored `.local/development.env`. Existing Go server needs restart with new credentials.
+- T07 Astra `t02_identity`: owns internal/runner/**, artifact/store.go+tests, httpapi/runner.go, t07 doc, and workflow/leases.go additions for server-scoped claims, same-transaction completion and permanent revocation. Coordinator owns sandbox runtime/cmd/config/startup/migrations/API. Migration009 applied dev/test: pools, enrollments, runner/job credentials, artifact metadata and composite task/repo/attempt FKs.
+- T09 Luna `t04_shell`: owns forge/gitlab/adapter.go, adapter_test.go and t09 doc; inventory/events/MR CRUD, excluding guarded branches/protection/merge/delivery.
+- T10 Astra `t02_review`: owns forge/gitea/**, test/forge/gitea/** and t10 doc; full adapter plus actual local contract scenarios. Local read-only inspector token available .local/gitea/reforge-inspector.token. Gitea requires repo-admin role for rule inspection, so read-only inspector is separate from nonadmin operational bot; default rules unknown without inspector. All mutations remain bot-sourced. Root to add explicit tenant-bound inspector connection config/factory.
+- GitHub Luna slice delivered, root review found remaining issues before integration: installation inventory response is an object (currently array decoder), operation lookup must itself check actual connection actor before CreateChange adopts it, no empty-file rejection, bounded pagination loop must not trust repeated next pages, repository identity should derive from base.repo when response lacks top-level repository, current target ref must be fetched for authoritative ReadChange. Root will fix with T08 App/security work. No GitHub certification claimed.
+
+## T05 local completion
+
+- Commits ba27cd0 durable fenced workflow and e3a2f97 hierarchical reservations. Root read worker source and reviewed scope/policy/pause/idempotency/recovery fixes before integration.
+- Final integrated PG race run: budget2.471s, policy1.132s, integration5.716s, all passed. Targeted vet, SQL/OpenAPI generation drift and server build passed. A broad make check encountered formatting drift in concurrently written T07 files; this was not a test failure, final whole-workspace check remains T07 integration/T28.
+- Policy activation and budget configuration/debt emit durable scoped events in the same transaction as audit/accounting. Root tightened scoped-owner repository/team finance access. HTTP task/budget/state routes, actual SSE scope+revocation and startup are wired. Deferred native controllers must register authoritative action validators; unknown actions remain denied.
+- Migration009 belongs to T07 and remains uncommitted with runner work. Generated SQL runner types remain unstaged; preserve them during later generation.
+- Gitea real tests found ordinary merge stale-target race despite outdated-branch protection. Fast-forward-only rejected that race. Native status contexts do not bind publisher: spoofed same-name success could override trusted failure. T10 certifies only demonstrated method/guarantees; policy requiring absent enforcement stays blocked.

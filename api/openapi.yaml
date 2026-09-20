@@ -2150,6 +2150,828 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/tasks": {
+      "get": {
+        "operationId": "listTasks",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TaskPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "enqueueTask",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/TaskCreate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/tasks/{taskID}": {
+      "get": {
+        "operationId": "getTask",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/tasks/{taskID}/cancel": {
+      "post": {
+        "operationId": "cancelTask",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/tasks/{taskID}/resume": {
+      "post": {
+        "operationId": "resumeTask",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "taskID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Task"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/pauses/{scopeKind}/{scopeID}": {
+      "put": {
+        "operationId": "setPause",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeKind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Pause"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PauseInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/events/replay": {
+      "get": {
+        "operationId": "replayEvents",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/events": {
+      "get": {
+        "operationId": "streamEvents",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "after",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "format": "int64"
+            }
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/budgets/{scopeKind}/{scopeID}": {
+      "get": {
+        "operationId": "getBudget",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeKind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetLimit"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putBudget",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeKind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "scopeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetLimit"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetLimitInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/budget-routes/{connectionID}": {
+      "get": {
+        "operationId": "getBudgetRoute",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "model",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "route",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetRoute"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putBudgetRoute",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetRoute"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BudgetRouteInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/usage/{reservationID}": {
+      "get": {
+        "operationId": "getReservation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "reservationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetReservation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -3618,6 +4440,702 @@
         "required": [
           "version"
         ]
+      },
+      "Task": {
+        "type": "object",
+        "required": [
+          "id",
+          "org_id",
+          "repository_id",
+          "operation_id",
+          "recipe",
+          "recipe_version",
+          "target_branch",
+          "model_route",
+          "policy_hash",
+          "starting_policy_hash",
+          "reason",
+          "state",
+          "version",
+          "cancel_version",
+          "max_attempts",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "org_id": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "recipe": {
+            "type": "string"
+          },
+          "recipe_version": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "model_connection_id": {
+            "type": "string"
+          },
+          "model_route": {
+            "type": "string"
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "runner_pool_id": {
+            "type": "string"
+          },
+          "policy_hash": {
+            "type": "string"
+          },
+          "starting_policy_hash": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "state": {
+            "$ref": "#/components/schemas/TaskState"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "cancel_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "TaskPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "complete"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Task"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "TaskCreate": {
+        "type": "object",
+        "required": [
+          "repository_id",
+          "recipe",
+          "recipe_version",
+          "target_branch",
+          "idempotency_key"
+        ],
+        "properties": {
+          "repository_id": {
+            "type": "string"
+          },
+          "recipe": {
+            "type": "string"
+          },
+          "recipe_version": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "model_connection_id": {
+            "type": "string"
+          },
+          "model_route": {
+            "type": "string"
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "runner_pool_id": {
+            "type": "string"
+          },
+          "policy_hash": {
+            "type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          },
+          "max_attempts": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "priority": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "Pause": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id",
+          "paused",
+          "version"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "PauseInput": {
+        "type": "object",
+        "required": [
+          "paused"
+        ],
+        "properties": {
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "EventPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "cursor",
+          "complete"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Event"
+            }
+          },
+          "cursor": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BudgetScope": {
+        "type": "object",
+        "required": [
+          "kind",
+          "id"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          }
+        }
+      },
+      "BudgetAmount": {
+        "type": "object",
+        "required": [
+          "micro_usd",
+          "tokens",
+          "milliseconds",
+          "requests",
+          "concurrency"
+        ],
+        "properties": {
+          "micro_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "milliseconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "requests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "concurrency": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "BudgetCaps": {
+        "type": "object",
+        "required": [],
+        "properties": {
+          "micro_usd": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "tokens": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "milliseconds": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "requests": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          },
+          "concurrency": {
+            "type": "integer",
+            "format": "int64",
+            "nullable": true
+          }
+        }
+      },
+      "BudgetLimit": {
+        "type": "object",
+        "required": [
+          "scope",
+          "period",
+          "caps",
+          "paused",
+          "version",
+          "held",
+          "spent"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/BudgetScope"
+          },
+          "period": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "monthly",
+              "custom"
+            ]
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "caps": {
+            "$ref": "#/components/schemas/BudgetCaps"
+          },
+          "paused": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "held": {
+            "$ref": "#/components/schemas/BudgetAmount"
+          },
+          "spent": {
+            "$ref": "#/components/schemas/BudgetAmount"
+          }
+        }
+      },
+      "BudgetLimitInput": {
+        "type": "object",
+        "required": [
+          "period",
+          "caps",
+          "paused"
+        ],
+        "properties": {
+          "period": {
+            "type": "string",
+            "enum": [
+              "daily",
+              "monthly",
+              "custom"
+            ]
+          },
+          "start": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "end": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "caps": {
+            "$ref": "#/components/schemas/BudgetCaps"
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BudgetRoute": {
+        "type": "object",
+        "required": [
+          "connection_id",
+          "model",
+          "name",
+          "mode",
+          "pricing_version",
+          "qualification_ref",
+          "input_micro_usd_per_million",
+          "output_micro_usd_per_million",
+          "request_micro_usd",
+          "max_input_tokens",
+          "max_output_tokens",
+          "max_milliseconds",
+          "max_requests",
+          "version",
+          "qualified",
+          "paused"
+        ],
+        "properties": {
+          "connection_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "pricing_version": {
+            "type": "string"
+          },
+          "qualification_ref": {
+            "type": "string"
+          },
+          "input_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "output_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_micro_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_input_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_milliseconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_requests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "qualified": {
+            "type": "boolean"
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "BudgetRouteInput": {
+        "type": "object",
+        "required": [
+          "model",
+          "name",
+          "mode",
+          "pricing_version",
+          "input_micro_usd_per_million",
+          "output_micro_usd_per_million",
+          "request_micro_usd",
+          "max_input_tokens",
+          "max_output_tokens",
+          "max_milliseconds",
+          "max_requests",
+          "paused"
+        ],
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "mode": {
+            "type": "string"
+          },
+          "pricing_version": {
+            "type": "string"
+          },
+          "input_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "output_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request_micro_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_input_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_milliseconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_requests": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paused": {
+            "type": "boolean"
+          }
+        }
+      },
+      "WorkflowLease": {
+        "type": "object",
+        "required": [
+          "org_id",
+          "repository_id",
+          "task_id",
+          "job_id",
+          "attempt_id",
+          "operation_id",
+          "worker_id",
+          "policy_hash",
+          "fence",
+          "expires_at"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "task_id": {
+            "type": "string"
+          },
+          "job_id": {
+            "type": "string"
+          },
+          "attempt_id": {
+            "type": "string"
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "worker_id": {
+            "type": "string"
+          },
+          "policy_hash": {
+            "type": "string"
+          },
+          "fence": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BudgetQuote": {
+        "type": "object",
+        "required": [
+          "operation_id",
+          "model",
+          "route",
+          "route_version",
+          "input_tokens",
+          "max_output_tokens",
+          "max_milliseconds",
+          "max_requests"
+        ],
+        "properties": {
+          "operation_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "route_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "input_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_output_tokens": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_milliseconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_requests": {
+            "type": "integer",
+            "format": "int64"
+          }
+        }
+      },
+      "BudgetScopeSnapshot": {
+        "type": "object",
+        "required": [
+          "scope",
+          "version",
+          "period_start"
+        ],
+        "properties": {
+          "scope": {
+            "$ref": "#/components/schemas/BudgetScope"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "BudgetReservation": {
+        "type": "object",
+        "required": [
+          "id",
+          "connection_id",
+          "state",
+          "lease",
+          "quote",
+          "connection_version",
+          "route",
+          "scopes",
+          "maximum",
+          "debt",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "campaign_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "reference": {
+            "type": "string"
+          },
+          "lease": {
+            "$ref": "#/components/schemas/WorkflowLease"
+          },
+          "quote": {
+            "$ref": "#/components/schemas/BudgetQuote"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "route": {
+            "$ref": "#/components/schemas/BudgetRoute"
+          },
+          "scopes": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/BudgetScopeSnapshot"
+            }
+          },
+          "maximum": {
+            "$ref": "#/components/schemas/BudgetAmount"
+          },
+          "actual": {
+            "$ref": "#/components/schemas/BudgetAmount"
+          },
+          "debt": {
+            "$ref": "#/components/schemas/BudgetAmount"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "dispatched_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
       }
     },
     "securitySchemes": {

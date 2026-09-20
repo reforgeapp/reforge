@@ -463,6 +463,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listTasks"];
+        put?: never;
+        post: operations["enqueueTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/tasks/{taskID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/tasks/{taskID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/tasks/{taskID}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resumeTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/pauses/{scopeKind}/{scopeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["setPause"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/events/replay": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["replayEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["streamEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/budgets/{scopeKind}/{scopeID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBudget"];
+        put: operations["putBudget"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/budget-routes/{connectionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getBudgetRoute"];
+        put: operations["putBudgetRoute"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/usage/{reservationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getReservation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -843,6 +1003,224 @@ export interface components {
         PolicyBindingVersion: {
 
             version: number;
+        };
+        Task: {
+            id: string;
+            org_id: string;
+            repository_id: string;
+            operation_id: string;
+            recipe: string;
+            recipe_version: string;
+            target_branch: string;
+            model_connection_id?: string;
+            model_route: string;
+            campaign_id?: string;
+            runner_pool_id?: string;
+            policy_hash: string;
+            starting_policy_hash: string;
+            reason: string;
+            state: components["schemas"]["TaskState"];
+
+            version: number;
+
+            cancel_version: number;
+
+            max_attempts: number;
+
+            created_at: string;
+        };
+        TaskPage: {
+            items: components["schemas"]["Task"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        TaskCreate: {
+            repository_id: string;
+            recipe: string;
+            recipe_version: string;
+            target_branch: string;
+            model_connection_id?: string;
+            model_route?: string;
+            campaign_id?: string;
+            runner_pool_id?: string;
+            policy_hash?: string;
+            idempotency_key: string;
+
+            max_attempts?: number;
+
+            priority?: number;
+        };
+        Pause: {
+            kind: string;
+            id: string;
+            paused: boolean;
+
+            version: number;
+        };
+        PauseInput: {
+            paused: boolean;
+        };
+        EventPage: {
+            items: components["schemas"]["Event"][];
+
+            cursor: number;
+            complete: boolean;
+        };
+        BudgetScope: {
+            kind: string;
+            id: string;
+        };
+        BudgetAmount: {
+
+            micro_usd: number;
+
+            tokens: number;
+
+            milliseconds: number;
+
+            requests: number;
+
+            concurrency: number;
+        };
+        BudgetCaps: {
+
+            micro_usd?: number | null;
+
+            tokens?: number | null;
+
+            milliseconds?: number | null;
+
+            requests?: number | null;
+
+            concurrency?: number | null;
+        };
+        BudgetLimit: {
+            scope: components["schemas"]["BudgetScope"];
+
+            period: "daily" | "monthly" | "custom";
+
+            start?: string;
+
+            end?: string;
+            caps: components["schemas"]["BudgetCaps"];
+            paused: boolean;
+
+            version: number;
+            held: components["schemas"]["BudgetAmount"];
+            spent: components["schemas"]["BudgetAmount"];
+        };
+        BudgetLimitInput: {
+
+            period: "daily" | "monthly" | "custom";
+
+            start?: string;
+
+            end?: string;
+            caps: components["schemas"]["BudgetCaps"];
+            paused: boolean;
+        };
+        BudgetRoute: {
+            connection_id: string;
+            model: string;
+            name: string;
+            mode: string;
+            pricing_version: string;
+            qualification_ref: string;
+
+            input_micro_usd_per_million: number;
+
+            output_micro_usd_per_million: number;
+
+            request_micro_usd: number;
+
+            max_input_tokens: number;
+
+            max_output_tokens: number;
+
+            max_milliseconds: number;
+
+            max_requests: number;
+
+            version: number;
+            qualified: boolean;
+            paused: boolean;
+        };
+        BudgetRouteInput: {
+            model: string;
+            name: string;
+            mode: string;
+            pricing_version: string;
+
+            input_micro_usd_per_million: number;
+
+            output_micro_usd_per_million: number;
+
+            request_micro_usd: number;
+
+            max_input_tokens: number;
+
+            max_output_tokens: number;
+
+            max_milliseconds: number;
+
+            max_requests: number;
+            paused: boolean;
+        };
+        WorkflowLease: {
+            org_id: string;
+            repository_id: string;
+            task_id: string;
+            job_id: string;
+            attempt_id: string;
+            operation_id: string;
+            worker_id: string;
+            policy_hash: string;
+
+            fence: number;
+
+            expires_at: string;
+        };
+        BudgetQuote: {
+            operation_id: string;
+            model: string;
+            route: string;
+
+            route_version: number;
+
+            input_tokens: number;
+
+            max_output_tokens: number;
+
+            max_milliseconds: number;
+
+            max_requests: number;
+        };
+        BudgetScopeSnapshot: {
+            scope: components["schemas"]["BudgetScope"];
+
+            version: number;
+
+            period_start: string;
+        };
+        BudgetReservation: {
+            id: string;
+            connection_id: string;
+            campaign_id?: string;
+            state: string;
+            reference?: string;
+            lease: components["schemas"]["WorkflowLease"];
+            quote: components["schemas"]["BudgetQuote"];
+
+            connection_version: number;
+            route: components["schemas"]["BudgetRoute"];
+            scopes: components["schemas"]["BudgetScopeSnapshot"][];
+            maximum: components["schemas"]["BudgetAmount"];
+            actual?: components["schemas"]["BudgetAmount"];
+            debt: components["schemas"]["BudgetAmount"];
+
+            created_at: string;
+
+            dispatched_at?: string;
         };
     };
     responses: never;
@@ -2173,6 +2551,466 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["PolicyBindingVersion"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listTasks: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    enqueueTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskCreate"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                taskID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                taskID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    resumeTask: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                taskID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Task"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    setPause: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                scopeKind: string;
+                scopeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PauseInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Pause"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    replayEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    streamEvents: {
+        parameters: {
+            query?: {
+                after?: number;
+            };
+            header?: {
+                "Last-Event-ID"?: string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": string;
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getBudget: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                scopeKind: string;
+                scopeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetLimit"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putBudget: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                scopeKind: string;
+                scopeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetLimitInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetLimit"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getBudgetRoute: {
+        parameters: {
+            query?: {
+                model?: string;
+                route?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRoute"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putBudgetRoute: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BudgetRouteInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRoute"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getReservation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                reservationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetReservation"];
                 };
             };
 

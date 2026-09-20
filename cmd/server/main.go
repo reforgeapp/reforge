@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"errors"
+	"github.com/jackc/pgx/v5"
 	"log/slog"
 	"net/http"
 	"os"
 	"os/signal"
 	"reforge/internal/auth"
+	"reforge/internal/budget"
 	"reforge/internal/config"
 	"reforge/internal/connections"
+	"reforge/internal/control"
 	"reforge/internal/httpapi"
 	"reforge/internal/policy"
 	"reforge/internal/secrets"
 	"reforge/internal/store"
+	"reforge/internal/workflow"
 	"syscall"
 	"time"
 )
@@ -78,6 +82,14 @@ func run() error {
 		return err
 	}
 	app.RegisterPolicy(policies)
+	authority := control.NewAuthority(policies)
+	workflows := workflow.New(db, identity, authority.Check)
+	app.RegisterWorkflow(workflows)
+	budgets := budget.New(db, identity, func(ctx context.Context, tx pgx.Tx, lease budget.Lease) error {
+		_, err := workflows.ValidateFenceTx(ctx, tx, workflow.Lease(lease), "budget")
+		return err
+	}, nil)
+	app.RegisterBudget(budgets)
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

@@ -11,6 +11,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/domain"
 	"reforge/internal/store"
+	"reforge/internal/workflow"
 )
 
 type Service struct {
@@ -275,7 +276,15 @@ func (s *Service) Activate(ctx context.Context, session auth.Session, orgID, ver
 		if err != nil {
 			return err
 		}
-		return emit(ctx, tx, orgID, a.UserID, "policy.changed", v.ID, requestID, map[string]any{"scope": v.Scope, "binding_version": version, "hash": v.Hash, "reason": reason, "simulation_hash": proof})
+		if err := emit(ctx, tx, orgID, a.UserID, "policy.changed", v.ID, requestID, map[string]any{"scope": v.Scope, "binding_version": version, "hash": v.Hash, "reason": reason, "simulation_hash": proof}); err != nil {
+			return err
+		}
+		repositoryID := ""
+		if v.Scope.Kind == "repository" {
+			repositoryID = v.Scope.ID
+		}
+		data, _ := json.Marshal(map[string]any{"scope": v.Scope, "binding_version": version, "policy_version_id": v.ID})
+		return workflow.EmitTx(ctx, tx, domain.Event{OrgID: orgID, RepositoryID: repositoryID, Type: "policy.changed", AggregateType: "policy", AggregateID: v.ID, AggregateVersion: version, DataVersion: 1, Data: data, RequestID: requestID})
 	})
 	return version, err
 }
