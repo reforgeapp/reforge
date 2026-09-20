@@ -3,6 +3,7 @@ package inventory
 import (
 	"context"
 	"errors"
+	"reforge/internal/auth"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -179,4 +180,19 @@ func (s *Service) Run(ctx context.Context, worker string) error {
 		case <-timer.C:
 		}
 	}
+}
+
+func RequestRefreshTx(ctx context.Context, tx pgx.Tx, org, repo string) error {
+	var id string
+	if err := tx.QueryRow(ctx, `SELECT r.connection_id::text FROM repositories r JOIN inventory_repository_state s ON s.org_id=r.org_id AND s.repository_id=r.id JOIN connections c ON c.org_id=r.org_id AND c.id=r.connection_id WHERE r.org_id=$1 AND r.id=$2 AND r.accessible AND NOT r.archived AND c.state='healthy' AND s.namespace=coalesce(c.settings->>'namespace','')`, org, repo).Scan(&id); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return auth.ErrForbidden
+		}
+		return err
+	}
+	c, err := connection(ctx, tx, org, id)
+	if err != nil {
+		return err
+	}
+	return queueRefresh(ctx, tx, c, repo)
 }

@@ -47,7 +47,12 @@ func (s *Service) StartScan(ctx context.Context, session auth.Session, org, repo
 			return auth.ErrForbidden
 		}
 		if err := inventory.RequireFreshTx(ctx, tx, org, repo); err != nil {
-			return err
+			if !errors.Is(err, inventory.ErrStale) {
+				return err
+			}
+			if err = inventory.RequestRefreshTx(ctx, tx, org, repo); err != nil {
+				return err
+			}
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_scans(org_id,repository_id,requested_by) VALUES($1,$2,$3) ON CONFLICT(org_id,repository_id) DO UPDATE SET state=CASE WHEN maintenance_scans.state='running' AND maintenance_scans.lease_until>clock_timestamp() THEN maintenance_scans.state ELSE 'queued' END,available_at=clock_timestamp(),requested_by=excluded.requested_by,reason='',version=maintenance_scans.version+1`, org, repo, a.UserID); err != nil {
 			return err
@@ -83,6 +88,13 @@ func (s *Service) claim(ctx context.Context, org string) (*scanLease, error) {
 			return nil
 		}
 		if err != nil {
+			return err
+		}
+		if err := inventory.RequireFreshTx(ctx, tx, org, lease.Repo); err != nil {
+			if !errors.Is(err, inventory.ErrStale) {
+				return err
+			}
+			_, err = tx.Exec(ctx, `UPDATE maintenance_scans SET state='queued',available_at=clock_timestamp()+interval '5 seconds',reason='Waiting for a fresh native inventory observation',version=version+1 WHERE org_id=$1 AND repository_id=$2`, org, lease.Repo)
 			return err
 		}
 		cfg, err := configTx(ctx, tx, org, lease.Repo)
