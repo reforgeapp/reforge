@@ -28,6 +28,9 @@ func loadBindings(ctx context.Context, tx pgx.Tx, m *Membership) error {
 }
 
 func liveActor(ctx context.Context, tx pgx.Tx, session Session, orgID string) (domain.Actor, error) {
+	if session.automation != nil {
+		return session.automation.actor(ctx, tx, orgID, session.User.ID)
+	}
 	a := domain.Actor{UserID: session.User.ID, OrgID: orgID, SessionID: session.ID}
 	var active bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM sessions WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now())`, session.ID, session.User.ID).Scan(&active); err != nil {
@@ -425,6 +428,14 @@ func (s *Service) DeleteTeam(ctx context.Context, session Session, orgID, teamID
 }
 
 func lockSession(ctx context.Context, tx pgx.Tx, session Session) error {
+	if session.automation != nil {
+		var org string
+		if e := tx.QueryRow(ctx, `SELECT current_setting('reforge.org_id',true)`).Scan(&org); e != nil {
+			return e
+		}
+		_, e := session.automation.actor(ctx, tx, org, session.User.ID)
+		return e
+	}
 	var id string
 	err := tx.QueryRow(ctx, `SELECT id::text FROM sessions WHERE id=$1 AND user_id=$2 AND revoked_at IS NULL AND expires_at>now() FOR SHARE`, session.ID, session.User.ID).Scan(&id)
 	if errors.Is(err, pgx.ErrNoRows) {

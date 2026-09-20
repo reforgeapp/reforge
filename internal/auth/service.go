@@ -58,6 +58,7 @@ type User struct {
 }
 
 type Session struct {
+	automation    *automationGrant
 	ID            string                `json:"-"`
 	User          User                  `json:"user"`
 	Organisations []domain.Organisation `json:"organisations"`
