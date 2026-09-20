@@ -1121,6 +1121,230 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/repair-recipes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listRepairRecipes"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repair-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewRepair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repair-runs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["enqueueRepair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repair-runs/{taskID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRepairRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repair-runs/{taskID}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcileRepair"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/context": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["runnerRepairContext"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/run": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["runnerRepairRun"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/source/{sha}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["runnerRepairSnapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runnerRepairReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/stage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runnerRepairStage"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runnerRepairPublish"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/model-turns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runnerModelTurn"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/repair-baseline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getRepairBaseline"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runner/v1/repair/native-checks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["runnerRecordNativeChecks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1532,6 +1756,7 @@ export interface components {
             max_attempts: number;
 
             created_at: string;
+            cancellation_requested: boolean;
         };
         TaskPage: {
             items: components["schemas"]["Task"][];
@@ -2118,6 +2343,201 @@ export interface components {
             version: number;
 
             observed_at?: string;
+        };
+        RepairInput: {
+
+            finding_id: string;
+
+            finding_version: number;
+            recipe: string;
+
+            model_connection_id: string;
+            model_route: string;
+
+            runner_pool_id: string;
+            plan_digest?: string;
+            idempotency_key?: string;
+        };
+        RepairCommand: {
+            id: string;
+            args: string[] | null;
+            directory: string;
+
+            timeout_seconds: number;
+            report_format: string;
+        };
+        RepairRecipe: {
+            name: string;
+            version: string;
+            commands: components["schemas"]["RepairCommand"][] | null;
+            protected_paths: string[] | null;
+            manifest_paths: string[] | null;
+
+            minimum_tests: number;
+
+            max_files: number;
+
+            max_patch_bytes: number;
+
+            max_turns: number;
+
+            timeout_seconds: number;
+        };
+        RepairPlan: {
+            authority_hash?: string;
+
+            max_changed_lines: number;
+
+            version: number;
+            baseline_sha: string;
+            target_sha: string;
+            image: string;
+            recipe: components["schemas"]["RepairRecipe"];
+            protected_hashes: {
+                [key: string]: string;
+            };
+            forbidden_paths: string[] | null;
+            digest: string;
+        };
+        RepairCheck: {
+            command_id: string;
+
+            exit_code: number;
+            output_sha256: string;
+            complete: boolean;
+            cases: {
+                [key: string]: string;
+            };
+            reason: string;
+            excerpt?: string;
+        };
+        RepairPatch: {
+            path: string;
+
+            content: string;
+            delete?: boolean;
+        };
+        RepairReport: {
+            diff?: string;
+            plan_digest: string;
+            state: string;
+            reason: string;
+            baseline: components["schemas"]["RepairCheck"][] | null;
+            candidate: components["schemas"]["RepairCheck"][] | null;
+            target: components["schemas"]["RepairCheck"][] | null;
+            patches: components["schemas"]["RepairPatch"][] | null;
+            artifacts: string[] | null;
+
+            turns: number;
+        };
+        RepairExecution: {
+
+            max_attempts: number;
+            native_head_sha?: string;
+            request: components["schemas"]["RepairInput"];
+            plan: components["schemas"]["RepairPlan"];
+            baseline_repository: components["schemas"]["ForgeRepoRef"];
+            repository: components["schemas"]["ForgeRepoRef"];
+
+            connection_id: string;
+
+            connection_version: number;
+            model: string;
+
+            max_output_tokens: number;
+
+            turn_timeout_ms: number;
+            finding: components["schemas"]["Finding"];
+            policy_hash: string;
+        };
+        RepairPreview: {
+            context: components["schemas"]["RepairExecution"];
+            blockers: string[] | null;
+
+            expires_at: string;
+        };
+        RepairRun: {
+            candidate_artifacts: string[] | null;
+            branch: string;
+            candidate_sha: string;
+            candidate_checks: components["schemas"]["RepairCheck"][] | null;
+            change?: components["schemas"]["ForgeChange"];
+            task: components["schemas"]["Task"];
+            context: components["schemas"]["RepairExecution"];
+            report?: components["schemas"]["RepairReport"];
+            state: string;
+
+            version: number;
+
+            updated_at: string;
+        };
+        RepairPublication: {
+            head_sha: string;
+            plan_digest: string;
+            checks: components["schemas"]["RepairCheck"][] | null;
+            artifact_ids: string[] | null;
+        };
+        SourceFile: {
+            path: string;
+
+            content: string;
+            executable?: boolean;
+            delete?: boolean;
+        };
+        PinnedSnapshot: {
+            commit_sha: string;
+            complete: boolean;
+            manifest_sha256: string;
+            files: components["schemas"]["SourceFile"][] | null;
+        };
+        ModelTool: {
+            name: string;
+            description: string;
+            schema: unknown;
+        };
+        ModelToolCall: {
+            id: string;
+            name: string;
+            arguments: unknown;
+        };
+        ModelMessage: {
+            role: string;
+            text: string;
+            tool_calls?: components["schemas"]["ModelToolCall"][] | null;
+            tool_call_id?: string;
+        };
+        ModelUsage: {
+
+            input_tokens: number;
+
+            output_tokens: number;
+
+            cache_tokens: number;
+
+            cache_creation_tokens: number;
+            known: boolean;
+            source: string;
+        };
+        ModelTurn: {
+
+            operation_id: string;
+            model: string;
+            system: string;
+            messages: components["schemas"]["ModelMessage"][] | null;
+            tools: components["schemas"]["ModelTool"][] | null;
+
+            max_output_tokens: number;
+            continuation?: unknown;
+
+            timeout_ms: number;
+        };
+        ModelTurnResult: {
+            provider_id: string;
+            text: string;
+            tool_calls: components["schemas"]["ModelToolCall"][] | null;
+            usage: components["schemas"]["ModelUsage"];
+            continuation?: unknown;
+            finish_reason: string;
         };
     };
     responses: never;
@@ -5271,6 +5691,464 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DiscoveryScan"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listRepairRecipes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        [key: string]: string;
+                    };
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    previewRepair: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairPreview"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    enqueueRepair: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getRepairRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                taskID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    reconcileRepair: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                taskID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairContext: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairExecution"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairRun: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairSnapshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                sha: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PinnedSnapshot"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairReport"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairStage: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRepairPublish: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairPublication"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerModelTurn: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelTurn"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelTurnResult"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getRepairBaseline: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        run: components["schemas"]["RepairRun"] | null;
+                    };
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    runnerRecordNativeChecks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RepairPublication"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RepairRun"];
                 };
             };
 

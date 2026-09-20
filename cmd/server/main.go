@@ -18,6 +18,8 @@ import (
 	"reforge/internal/httpapi"
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
+	"reforge/internal/maintenance/repair"
+	"reforge/internal/modelbroker"
 	"reforge/internal/policy"
 	"reforge/internal/privateconnector"
 	"reforge/internal/providers"
@@ -25,6 +27,7 @@ import (
 	"reforge/internal/secrets"
 	"reforge/internal/store"
 	"reforge/internal/workflow"
+	"sync"
 	"syscall"
 	"time"
 )
@@ -115,15 +118,47 @@ func run() error {
 	defer private.Close()
 	providers.RegisterPrivate(connectionService, private, runners)
 	app.RegisterPrivateConnector(private)
+	authority.Register("model.turn", func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
+		if t.State != domain.TaskPlanning && t.State != domain.TaskRepairing {
+			return workflow.ErrPolicy
+		}
+		return nil
+	})
+	modelBroker := modelbroker.New(db, runners, connectionService, budgets, private, vault, cfg.Development)
+	app.RegisterModelBroker(modelBroker)
 	providerReads := providers.New(db, connectionService, private, runners, cfg.Development)
 	portfolio := inventory.New(db, identity, vault, providerReads, providers.DecodeWebhook)
 	app.RegisterInventory(portfolio)
 	inventoryContext, stopInventory := context.WithCancel(ctx)
-	inventoryDone := make(chan struct{})
-	go func() { defer close(inventoryDone); _ = portfolio.Run(inventoryContext, "inventory-"+domain.NewID()) }()
-	defer func() { stopInventory(); <-inventoryDone }()
+	var inventoryDone sync.WaitGroup
+	for i := 0; i < 4; i++ {
+		inventoryDone.Add(1)
+		go func() { defer inventoryDone.Done(); _ = portfolio.Run(inventoryContext, "inventory-"+domain.NewID()) }()
+	}
+	defer func() { stopInventory(); inventoryDone.Wait() }()
 	discoveries := discovery.New(db, identity, providerReads)
 	app.RegisterDiscovery(discoveries)
+	repairs := repair.New(db, identity, discoveries, workflows, runners, policies, budgets, connectionService, providerReads.ForExecution(), cfg.RepairImages)
+	app.RegisterRepair(repairs)
+	runners.CompletionCheck = repairs.CheckCompletion
+	authority.Register("repair.stage", repairs.CheckStage)
+	authority.Register("stage", repairs.CheckStage)
+	authority.Register("publish", repairs.CheckPublish)
+	authority.Register("outbox.dispatch", func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
+		if t.State == domain.TaskValidating {
+			return repairs.CheckStage(ctx, tx, t, p)
+		}
+		return repairs.CheckPublish(ctx, tx, t, p)
+	})
+	modelBroker.AuthorizeReservation = repairs.CheckModelTx
+	for _, action := range []string{"repair.source", "repair.report"} {
+		authority.Register(action, func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
+			if t.State != domain.TaskReproducing && t.State != domain.TaskPlanning && t.State != domain.TaskRepairing && t.State != domain.TaskValidating && t.State != domain.TaskPublishing {
+				return workflow.ErrPolicy
+			}
+			return nil
+		})
+	}
 	discoveryContext, stopDiscovery := context.WithCancel(ctx)
 	discoveryDone := make(chan struct{})
 	go func() { defer close(discoveryDone); _ = discoveries.Run(discoveryContext) }()

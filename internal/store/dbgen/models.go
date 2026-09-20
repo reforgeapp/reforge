@@ -295,6 +295,21 @@ type Membership struct {
 	Version         int64       `json:"version"`
 }
 
+type ModelTurn struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	AttemptID      pgtype.UUID        `json:"attempt_id"`
+	RepositoryID   pgtype.UUID        `json:"repository_id"`
+	ReservationID  pgtype.UUID        `json:"reservation_id"`
+	RequestHash    string             `json:"request_hash"`
+	State          string             `json:"state"`
+	ResultEnvelope []byte             `json:"result_envelope"`
+	Usage          []byte             `json:"usage"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+}
+
 type OidcLogin struct {
 	StateHash   string             `json:"state_hash"`
 	BrowserHash string             `json:"browser_hash"`
@@ -331,6 +346,27 @@ type PolicyVersion struct {
 	ActorID    pgtype.UUID        `json:"actor_id"`
 	Reason     string             `json:"reason"`
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
+}
+
+type RepairRun struct {
+	OrgID              pgtype.UUID        `json:"org_id"`
+	TaskID             pgtype.UUID        `json:"task_id"`
+	RepositoryID       pgtype.UUID        `json:"repository_id"`
+	FindingID          pgtype.UUID        `json:"finding_id"`
+	RequestedBy        pgtype.UUID        `json:"requested_by"`
+	FindingVersion     int64              `json:"finding_version"`
+	FindingDigest      string             `json:"finding_digest"`
+	Context            []byte             `json:"context"`
+	Report             []byte             `json:"report"`
+	State              string             `json:"state"`
+	Version            int64              `json:"version"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+	Branch             string             `json:"branch"`
+	CandidateSha       string             `json:"candidate_sha"`
+	CandidateChecks    []byte             `json:"candidate_checks"`
+	NativeChange       []byte             `json:"native_change"`
+	CandidateArtifacts []byte             `json:"candidate_artifacts"`
 }
 
 type Repository struct {
@@ -528,26 +564,27 @@ type WorkflowScheduler struct {
 }
 
 type WorkflowTask struct {
-	OrgID              pgtype.UUID        `json:"org_id"`
-	ID                 pgtype.UUID        `json:"id"`
-	RepositoryID       pgtype.UUID        `json:"repository_id"`
-	OperationID        pgtype.UUID        `json:"operation_id"`
-	IdempotencyKey     string             `json:"idempotency_key"`
-	RequestHash        string             `json:"request_hash"`
-	Recipe             string             `json:"recipe"`
-	RecipeVersion      string             `json:"recipe_version"`
-	TargetBranch       string             `json:"target_branch"`
-	ModelConnectionID  pgtype.UUID        `json:"model_connection_id"`
-	CampaignID         pgtype.UUID        `json:"campaign_id"`
-	RunnerPoolID       pgtype.UUID        `json:"runner_pool_id"`
-	PolicyHash         string             `json:"policy_hash"`
-	StartingPolicyHash string             `json:"starting_policy_hash"`
-	State              string             `json:"state"`
-	Reason             string             `json:"reason"`
-	Version            int64              `json:"version"`
-	CancelVersion      int64              `json:"cancel_version"`
-	MaxAttempts        int32              `json:"max_attempts"`
-	CreatedBy          pgtype.UUID        `json:"created_by"`
-	CreatedAt          pgtype.Timestamptz `json:"created_at"`
-	ModelRoute         string             `json:"model_route"`
+	OrgID                 pgtype.UUID        `json:"org_id"`
+	ID                    pgtype.UUID        `json:"id"`
+	RepositoryID          pgtype.UUID        `json:"repository_id"`
+	OperationID           pgtype.UUID        `json:"operation_id"`
+	IdempotencyKey        string             `json:"idempotency_key"`
+	RequestHash           string             `json:"request_hash"`
+	Recipe                string             `json:"recipe"`
+	RecipeVersion         string             `json:"recipe_version"`
+	TargetBranch          string             `json:"target_branch"`
+	ModelConnectionID     pgtype.UUID        `json:"model_connection_id"`
+	CampaignID            pgtype.UUID        `json:"campaign_id"`
+	RunnerPoolID          pgtype.UUID        `json:"runner_pool_id"`
+	PolicyHash            string             `json:"policy_hash"`
+	StartingPolicyHash    string             `json:"starting_policy_hash"`
+	State                 string             `json:"state"`
+	Reason                string             `json:"reason"`
+	Version               int64              `json:"version"`
+	CancelVersion         int64              `json:"cancel_version"`
+	MaxAttempts           int32              `json:"max_attempts"`
+	CreatedBy             pgtype.UUID        `json:"created_by"`
+	CreatedAt             pgtype.Timestamptz `json:"created_at"`
+	ModelRoute            string             `json:"model_route"`
+	CancellationRequested bool               `json:"cancellation_requested"`
 }

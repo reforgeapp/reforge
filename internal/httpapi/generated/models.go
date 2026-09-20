@@ -2,8 +2,6 @@ package generated
 
 import (
 	"time"
-
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -652,28 +650,28 @@ type APIError struct {
 	Retryable bool                    `json:"retryable"`
 }
 type AdvisoryInput struct {
-	AdvisoryId    string             `json:"advisory_id"`
-	AffectedRange string             `json:"affected_range"`
-	CommitSha     string             `json:"commit_sha"`
-	Ecosystem     string             `json:"ecosystem"`
-	Package       string             `json:"package"`
-	Path          string             `json:"path"`
-	ReferenceUrl  string             `json:"reference_url"`
-	RepositoryId  openapi_types.UUID `json:"repository_id"`
-	Severity      string             `json:"severity"`
-	Title         string             `json:"title"`
+	AdvisoryId    string `json:"advisory_id"`
+	AffectedRange string `json:"affected_range"`
+	CommitSha     string `json:"commit_sha"`
+	Ecosystem     string `json:"ecosystem"`
+	Package       string `json:"package"`
+	Path          string `json:"path"`
+	ReferenceUrl  string `json:"reference_url"`
+	RepositoryId  string `json:"repository_id"`
+	Severity      string `json:"severity"`
+	Title         string `json:"title"`
 }
 type ArtifactMetadata struct {
-	CreatedAt    time.Time          `json:"created_at"`
-	ExpiresAt    time.Time          `json:"expires_at"`
-	Id           openapi_types.UUID `json:"id"`
-	MediaType    string             `json:"media_type"`
-	Name         string             `json:"name"`
-	OrgId        openapi_types.UUID `json:"org_id"`
-	RepositoryId openapi_types.UUID `json:"repository_id"`
-	Sha256       string             `json:"sha256"`
-	Size         int64              `json:"size"`
-	TaskId       openapi_types.UUID `json:"task_id"`
+	CreatedAt    time.Time `json:"created_at"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	Id           string    `json:"id"`
+	MediaType    string    `json:"media_type"`
+	Name         string    `json:"name"`
+	OrgId        string    `json:"org_id"`
+	RepositoryId string    `json:"repository_id"`
+	Sha256       string    `json:"sha256"`
+	Size         int64     `json:"size"`
+	TaskId       string    `json:"task_id"`
 }
 type BootstrapRequest struct {
 	Name  string `json:"name"`
@@ -857,7 +855,7 @@ type DeploymentState string
 type DiscoveryScan struct {
 	ObservedAt   *time.Time         `json:"observed_at,omitempty"`
 	Reason       string             `json:"reason"`
-	RepositoryId openapi_types.UUID `json:"repository_id"`
+	RepositoryId string             `json:"repository_id"`
 	State        DiscoveryScanState `json:"state"`
 	Version      int64              `json:"version"`
 }
@@ -885,23 +883,23 @@ type EventPage struct {
 	Items    []Event `json:"items"`
 }
 type Finding struct {
-	AssignedTo     *openapi_types.UUID `json:"assigned_to,omitempty"`
+	AssignedTo     *string             `json:"assigned_to,omitempty"`
 	Category       string              `json:"category"`
 	Evidence       MaintenanceEvidence `json:"evidence"`
 	EvidenceDigest string              `json:"evidence_digest"`
 	Fingerprint    string              `json:"fingerprint"`
 	FirstSeen      time.Time           `json:"first_seen"`
-	Id             openapi_types.UUID  `json:"id"`
+	Id             string              `json:"id"`
 	LastSeen       time.Time           `json:"last_seen"`
-	OrgId          openapi_types.UUID  `json:"org_id"`
+	OrgId          string              `json:"org_id"`
 	Reason         string              `json:"reason"`
-	RepositoryId   openapi_types.UUID  `json:"repository_id"`
+	RepositoryId   string              `json:"repository_id"`
 	Severity       FindingSeverity     `json:"severity"`
 	SnoozeUntil    *time.Time          `json:"snooze_until,omitempty"`
 	Source         string              `json:"source"`
 	SourceId       string              `json:"source_id"`
 	State          FindingState        `json:"state"`
-	SupersededBy   *openapi_types.UUID `json:"superseded_by,omitempty"`
+	SupersededBy   *string             `json:"superseded_by,omitempty"`
 	Title          string              `json:"title"`
 	Version        int64               `json:"version"`
 }
@@ -1036,7 +1034,7 @@ type MaintenanceBotStatus struct {
 type MaintenanceBotStatusAutomerge string
 type MaintenanceConfig struct {
 	MergeAuthority MaintenanceConfigMergeAuthority `json:"merge_authority"`
-	RepositoryId   openapi_types.UUID              `json:"repository_id"`
+	RepositoryId   string                          `json:"repository_id"`
 	TrustedBots    []MaintenanceBotIdentity        `json:"trusted_bots"`
 	Version        int64                           `json:"version"`
 }
@@ -1065,7 +1063,7 @@ type MaintenanceEvidence struct {
 	} `json:"checks"`
 	Complete          bool                    `json:"complete"`
 	ConfigVersion     int64                   `json:"config_version"`
-	ConnectionId      openapi_types.UUID      `json:"connection_id"`
+	ConnectionId      string                  `json:"connection_id"`
 	ConnectionVersion int64                   `json:"connection_version"`
 	Dependencies      []MaintenanceDependency `json:"dependencies"`
 	HeadOwnership     *string                 `json:"head_ownership,omitempty"`
@@ -1106,6 +1104,48 @@ type Meta struct {
 	Version           string      `json:"version"`
 }
 type MetaEdition string
+type ModelMessage struct {
+	Role       string           `json:"role"`
+	Text       string           `json:"text"`
+	ToolCallId *string          `json:"tool_call_id,omitempty"`
+	ToolCalls  *[]ModelToolCall `json:"tool_calls,omitempty"`
+}
+type ModelTool struct {
+	Description string      `json:"description"`
+	Name        string      `json:"name"`
+	Schema      interface{} `json:"schema"`
+}
+type ModelToolCall struct {
+	Arguments interface{} `json:"arguments"`
+	Id        string      `json:"id"`
+	Name      string      `json:"name"`
+}
+type ModelTurn struct {
+	Continuation    interface{}     `json:"continuation,omitempty"`
+	MaxOutputTokens int64           `json:"max_output_tokens"`
+	Messages        *[]ModelMessage `json:"messages"`
+	Model           string          `json:"model"`
+	OperationId     string          `json:"operation_id"`
+	System          string          `json:"system"`
+	TimeoutMs       int64           `json:"timeout_ms"`
+	Tools           *[]ModelTool    `json:"tools"`
+}
+type ModelTurnResult struct {
+	Continuation interface{}      `json:"continuation,omitempty"`
+	FinishReason string           `json:"finish_reason"`
+	ProviderId   string           `json:"provider_id"`
+	Text         string           `json:"text"`
+	ToolCalls    *[]ModelToolCall `json:"tool_calls"`
+	Usage        ModelUsage       `json:"usage"`
+}
+type ModelUsage struct {
+	CacheCreationTokens int64  `json:"cache_creation_tokens"`
+	CacheTokens         int64  `json:"cache_tokens"`
+	InputTokens         int64  `json:"input_tokens"`
+	Known               bool   `json:"known"`
+	OutputTokens        int64  `json:"output_tokens"`
+	Source              string `json:"source"`
+}
 type Organisation struct {
 	Id      string `json:"id"`
 	Name    string `json:"name"`
@@ -1120,6 +1160,12 @@ type Pause struct {
 }
 type PauseInput struct {
 	Paused bool `json:"paused"`
+}
+type PinnedSnapshot struct {
+	CommitSha      string        `json:"commit_sha"`
+	Complete       bool          `json:"complete"`
+	Files          *[]SourceFile `json:"files"`
+	ManifestSha256 string        `json:"manifest_sha256"`
 }
 type PolicyActivateRequest struct {
 	PrimaryTeamId  *string `json:"primary_team_id,omitempty"`
@@ -1256,21 +1302,21 @@ type PolicyVersionPage struct {
 	NextCursor *string         `json:"next_cursor,omitempty"`
 }
 type PrivateCompletion struct {
-	GrantId openapi_types.UUID     `json:"grant_id"`
+	GrantId string                 `json:"grant_id"`
 	Result  map[string]interface{} `json:"result"`
 }
 type PrivateGrant struct {
-	AuthorityId      openapi_types.UUID     `json:"authority_id"`
+	AuthorityId      string                 `json:"authority_id"`
 	Connection       map[string]interface{} `json:"connection"`
 	ExpiresAt        time.Time              `json:"expires_at"`
-	Id               openapi_types.UUID     `json:"id"`
+	Id               string                 `json:"id"`
 	Operation        PrivateOperation       `json:"operation"`
 	ResultCapability string                 `json:"result_capability"`
 	RunnerVersion    *int64                 `json:"runner_version,omitempty"`
 	Secret           string                 `json:"secret"`
 	Target           struct {
-		OrgId    openapi_types.UUID `json:"org_id"`
-		RunnerId openapi_types.UUID `json:"runner_id"`
+		OrgId    string `json:"org_id"`
+		RunnerId string `json:"runner_id"`
 	} `json:"target"`
 	TimeoutMs int `json:"timeout_ms"`
 }
@@ -1279,7 +1325,7 @@ type PrivateOperation struct {
 	Changes    *map[string]interface{} `json:"changes,omitempty"`
 	Checks     *map[string]interface{} `json:"checks,omitempty"`
 	File       *map[string]interface{} `json:"file,omitempty"`
-	Id         openapi_types.UUID      `json:"id"`
+	Id         string                  `json:"id"`
 	Inventory  *map[string]interface{} `json:"inventory,omitempty"`
 	Kind       PrivateOperationKind    `json:"kind"`
 	Ref        *map[string]interface{} `json:"ref,omitempty"`
@@ -1296,6 +1342,112 @@ type PrivateRoute struct {
 }
 type PrivateRouteChange struct {
 	Route PrivateRoute `json:"route"`
+}
+type RepairCheck struct {
+	Cases        map[string]string `json:"cases"`
+	CommandId    string            `json:"command_id"`
+	Complete     bool              `json:"complete"`
+	Excerpt      *string           `json:"excerpt,omitempty"`
+	ExitCode     int64             `json:"exit_code"`
+	OutputSha256 string            `json:"output_sha256"`
+	Reason       string            `json:"reason"`
+}
+type RepairCommand struct {
+	Args           *[]string `json:"args"`
+	Directory      string    `json:"directory"`
+	Id             string    `json:"id"`
+	ReportFormat   string    `json:"report_format"`
+	TimeoutSeconds int64     `json:"timeout_seconds"`
+}
+type RepairExecution struct {
+	BaselineRepository ForgeRepoRef `json:"baseline_repository"`
+	ConnectionId       string       `json:"connection_id"`
+	ConnectionVersion  int64        `json:"connection_version"`
+	Finding            Finding      `json:"finding"`
+	MaxAttempts        int64        `json:"max_attempts"`
+	MaxOutputTokens    int64        `json:"max_output_tokens"`
+	Model              string       `json:"model"`
+	NativeHeadSha      *string      `json:"native_head_sha,omitempty"`
+	Plan               RepairPlan   `json:"plan"`
+	PolicyHash         string       `json:"policy_hash"`
+	Repository         ForgeRepoRef `json:"repository"`
+	Request            RepairInput  `json:"request"`
+	TurnTimeoutMs      int64        `json:"turn_timeout_ms"`
+}
+type RepairInput struct {
+	FindingId         string  `json:"finding_id"`
+	FindingVersion    int64   `json:"finding_version"`
+	IdempotencyKey    *string `json:"idempotency_key,omitempty"`
+	ModelConnectionId string  `json:"model_connection_id"`
+	ModelRoute        string  `json:"model_route"`
+	PlanDigest        *string `json:"plan_digest,omitempty"`
+	Recipe            string  `json:"recipe"`
+	RunnerPoolId      string  `json:"runner_pool_id"`
+}
+type RepairPatch struct {
+	Content []byte `json:"content"`
+	Delete  *bool  `json:"delete,omitempty"`
+	Path    string `json:"path"`
+}
+type RepairPlan struct {
+	AuthorityHash   *string           `json:"authority_hash,omitempty"`
+	BaselineSha     string            `json:"baseline_sha"`
+	Digest          string            `json:"digest"`
+	ForbiddenPaths  *[]string         `json:"forbidden_paths"`
+	Image           string            `json:"image"`
+	MaxChangedLines int64             `json:"max_changed_lines"`
+	ProtectedHashes map[string]string `json:"protected_hashes"`
+	Recipe          RepairRecipe      `json:"recipe"`
+	TargetSha       string            `json:"target_sha"`
+	Version         int64             `json:"version"`
+}
+type RepairPreview struct {
+	Blockers  *[]string       `json:"blockers"`
+	Context   RepairExecution `json:"context"`
+	ExpiresAt time.Time       `json:"expires_at"`
+}
+type RepairPublication struct {
+	ArtifactIds *[]string      `json:"artifact_ids"`
+	Checks      *[]RepairCheck `json:"checks"`
+	HeadSha     string         `json:"head_sha"`
+	PlanDigest  string         `json:"plan_digest"`
+}
+type RepairRecipe struct {
+	Commands       *[]RepairCommand `json:"commands"`
+	ManifestPaths  *[]string        `json:"manifest_paths"`
+	MaxFiles       int64            `json:"max_files"`
+	MaxPatchBytes  int64            `json:"max_patch_bytes"`
+	MaxTurns       int64            `json:"max_turns"`
+	MinimumTests   int64            `json:"minimum_tests"`
+	Name           string           `json:"name"`
+	ProtectedPaths *[]string        `json:"protected_paths"`
+	TimeoutSeconds int64            `json:"timeout_seconds"`
+	Version        string           `json:"version"`
+}
+type RepairReport struct {
+	Artifacts  *[]string      `json:"artifacts"`
+	Baseline   *[]RepairCheck `json:"baseline"`
+	Candidate  *[]RepairCheck `json:"candidate"`
+	Diff       *string        `json:"diff,omitempty"`
+	Patches    *[]RepairPatch `json:"patches"`
+	PlanDigest string         `json:"plan_digest"`
+	Reason     string         `json:"reason"`
+	State      string         `json:"state"`
+	Target     *[]RepairCheck `json:"target"`
+	Turns      int64          `json:"turns"`
+}
+type RepairRun struct {
+	Branch             string          `json:"branch"`
+	CandidateArtifacts *[]string       `json:"candidate_artifacts"`
+	CandidateChecks    *[]RepairCheck  `json:"candidate_checks"`
+	CandidateSha       string          `json:"candidate_sha"`
+	Change             *ForgeChange    `json:"change,omitempty"`
+	Context            RepairExecution `json:"context"`
+	Report             *RepairReport   `json:"report,omitempty"`
+	State              string          `json:"state"`
+	Task               Task            `json:"task"`
+	UpdatedAt          time.Time       `json:"updated_at"`
+	Version            int64           `json:"version"`
 }
 type Repository struct {
 	Accessible        bool               `json:"accessible"`
@@ -1336,13 +1488,13 @@ type ResolvedPolicy struct {
 }
 type Role string
 type Runner struct {
-	CredentialExpiresAt time.Time          `json:"credential_expires_at"`
-	Id                  openapi_types.UUID `json:"id"`
-	Name                string             `json:"name"`
-	OrgId               openapi_types.UUID `json:"org_id"`
-	PoolId              openapi_types.UUID `json:"pool_id"`
-	State               string             `json:"state"`
-	Version             int64              `json:"version"`
+	CredentialExpiresAt time.Time `json:"credential_expires_at"`
+	Id                  string    `json:"id"`
+	Name                string    `json:"name"`
+	OrgId               string    `json:"org_id"`
+	PoolId              string    `json:"pool_id"`
+	State               string    `json:"state"`
+	Version             int64     `json:"version"`
 }
 type RunnerAssignment struct {
 	ExpiresAt time.Time     `json:"expires_at"`
@@ -1371,17 +1523,17 @@ type RunnerPage struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 type RunnerPool struct {
-	Id            openapi_types.UUID   `json:"id"`
-	Name          string               `json:"name"`
-	OrgId         openapi_types.UUID   `json:"org_id"`
-	RepositoryIds []openapi_types.UUID `json:"repository_ids"`
-	State         RunnerPoolState      `json:"state"`
-	Version       int64                `json:"version"`
+	Id            string          `json:"id"`
+	Name          string          `json:"name"`
+	OrgId         string          `json:"org_id"`
+	RepositoryIds []string        `json:"repository_ids"`
+	State         RunnerPoolState `json:"state"`
+	Version       int64           `json:"version"`
 }
 type RunnerPoolState string
 type RunnerPoolInput struct {
 	Name          string                `json:"name"`
-	RepositoryIds []openapi_types.UUID  `json:"repository_ids"`
+	RepositoryIds []string              `json:"repository_ids"`
 	State         *RunnerPoolInputState `json:"state,omitempty"`
 }
 type RunnerPoolInputState string
@@ -1400,26 +1552,33 @@ type Session struct {
 		Name  string `json:"name"`
 	} `json:"user"`
 }
+type SourceFile struct {
+	Content    []byte `json:"content"`
+	Delete     *bool  `json:"delete,omitempty"`
+	Executable *bool  `json:"executable,omitempty"`
+	Path       string `json:"path"`
+}
 type Task struct {
-	CampaignId         *string   `json:"campaign_id,omitempty"`
-	CancelVersion      int64     `json:"cancel_version"`
-	CreatedAt          time.Time `json:"created_at"`
-	Id                 string    `json:"id"`
-	MaxAttempts        int64     `json:"max_attempts"`
-	ModelConnectionId  *string   `json:"model_connection_id,omitempty"`
-	ModelRoute         string    `json:"model_route"`
-	OperationId        string    `json:"operation_id"`
-	OrgId              string    `json:"org_id"`
-	PolicyHash         string    `json:"policy_hash"`
-	Reason             string    `json:"reason"`
-	Recipe             string    `json:"recipe"`
-	RecipeVersion      string    `json:"recipe_version"`
-	RepositoryId       string    `json:"repository_id"`
-	RunnerPoolId       *string   `json:"runner_pool_id,omitempty"`
-	StartingPolicyHash string    `json:"starting_policy_hash"`
-	State              TaskState `json:"state"`
-	TargetBranch       string    `json:"target_branch"`
-	Version            int64     `json:"version"`
+	CampaignId            *string   `json:"campaign_id,omitempty"`
+	CancelVersion         int64     `json:"cancel_version"`
+	CancellationRequested bool      `json:"cancellation_requested"`
+	CreatedAt             time.Time `json:"created_at"`
+	Id                    string    `json:"id"`
+	MaxAttempts           int64     `json:"max_attempts"`
+	ModelConnectionId     *string   `json:"model_connection_id,omitempty"`
+	ModelRoute            string    `json:"model_route"`
+	OperationId           string    `json:"operation_id"`
+	OrgId                 string    `json:"org_id"`
+	PolicyHash            string    `json:"policy_hash"`
+	Reason                string    `json:"reason"`
+	Recipe                string    `json:"recipe"`
+	RecipeVersion         string    `json:"recipe_version"`
+	RepositoryId          string    `json:"repository_id"`
+	RunnerPoolId          *string   `json:"runner_pool_id,omitempty"`
+	StartingPolicyHash    string    `json:"starting_policy_hash"`
+	State                 TaskState `json:"state"`
+	TargetBranch          string    `json:"target_branch"`
+	Version               int64     `json:"version"`
 }
 type TaskCreate struct {
 	CampaignId        *string `json:"campaign_id,omitempty"`
@@ -1616,6 +1775,16 @@ type ActivatePolicyParams struct {
 type SimulatePolicyParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type PreviewRepairParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type EnqueueRepairParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ReconcileRepairParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
 type RepositoriesParams struct {
 	Cursor   *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit    *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1694,8 +1863,8 @@ type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type ReceiveForgeWebhookJSONBody map[string]interface{}
-type UploadRunnerArtifactJSONBody = openapi_types.File
-type UploadRunnerArtifactTextBody = openapi_types.File
+type UploadRunnerArtifactJSONBody = []byte
+type UploadRunnerArtifactTextBody = []byte
 type UploadRunnerArtifactParams struct {
 	XArtifactName string `json:"X-Artifact-Name"`
 }
@@ -1703,7 +1872,7 @@ type EnrollRunnerJSONBody struct {
 	Name string `json:"name"`
 }
 type InvokeRunnerOperationJSONBody struct {
-	ConnectionId openapi_types.UUID     `json:"connection_id"`
+	ConnectionId string                 `json:"connection_id"`
 	Input        map[string]interface{} `json:"input"`
 }
 type PollPrivateGrantJSONBody = map[string]interface{}
@@ -1731,6 +1900,8 @@ type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
 type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
+type PreviewRepairJSONRequestBody = RepairInput
+type EnqueueRepairJSONRequestBody = RepairInput
 type PutMaintenanceConfigJSONRequestBody = MaintenanceConfig
 type CreateRunnerPoolJSONRequestBody = RunnerPoolInput
 type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
@@ -1741,8 +1912,12 @@ type ReceiveForgeWebhookJSONRequestBody ReceiveForgeWebhookJSONBody
 type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
 type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody
 type EnrollRunnerJSONRequestBody EnrollRunnerJSONBody
+type RunnerModelTurnJSONRequestBody = ModelTurn
 type InvokeRunnerOperationJSONRequestBody InvokeRunnerOperationJSONBody
 type PollPrivateGrantJSONRequestBody = PollPrivateGrantJSONBody
 type CompletePrivateGrantJSONRequestBody = PrivateCompletion
 type RunnerProgressJSONRequestBody RunnerProgressJSONBody
+type RunnerRecordNativeChecksJSONRequestBody = RepairPublication
+type RunnerRepairPublishJSONRequestBody = RepairPublication
+type RunnerRepairReportJSONRequestBody = RepairReport
 type RunnerResultJSONRequestBody = RunnerCompletion

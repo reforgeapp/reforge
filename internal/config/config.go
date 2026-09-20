@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net"
@@ -13,6 +14,7 @@ import (
 )
 
 type Config struct {
+	RepairImages       map[string]string
 	Address            string
 	PublicURL          string
 	DatabaseURL        string
@@ -57,6 +59,11 @@ func Load() (Config, error) {
 		OIDCClientSecret:  os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
 		BootstrapToken:    os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
 	}
+	if raw := os.Getenv("REFORGE_REPAIR_IMAGES"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &c.RepairImages); err != nil {
+			return c, errors.New("REFORGE_REPAIR_IMAGES must map recipe names to sha256 image digests")
+		}
+	}
 	var pathErr error
 	c.ArtifactDirectory, pathErr = filepath.Abs(c.ArtifactDirectory)
 	if pathErr != nil {
@@ -84,6 +91,12 @@ func Load() (Config, error) {
 }
 
 func (c Config) Validate() error {
+	for name, digest := range c.RepairImages {
+		body, err := hex.DecodeString(strings.TrimPrefix(digest, "sha256:"))
+		if (name != "go" && name != "javascript" && name != "python") || !strings.HasPrefix(digest, "sha256:") || err != nil || len(body) != 32 || strings.ToLower(digest) != digest {
+			return errors.New("REFORGE_REPAIR_IMAGES requires supported recipe names and lowercase sha256 image digests")
+		}
+	}
 	if c.DatabaseURL == "" {
 		return errors.New("REFORGE_DATABASE_URL is required")
 	}
