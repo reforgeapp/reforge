@@ -23,7 +23,8 @@ func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("model", c.Model), slog.String("profile", c.Profile))
 }
 
-func (c Config) String() string { return "model connection " + c.Model }
+func (c Config) String() string   { return "model connection " + c.Model }
+func (c Config) GoString() string { return c.String() }
 
 type Tool struct {
 	Name        string          `json:"name"`
