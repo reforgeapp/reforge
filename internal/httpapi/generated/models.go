@@ -1258,6 +1258,106 @@ type ForgeRules struct {
 	State                string           `json:"state"`
 	StrictTargetEnforced string           `json:"strict_target_enforced"`
 }
+type GitOpsConfiguration struct {
+	DeadlineSeconds       int64    `json:"deadline_seconds"`
+	DeliveryRepositoryId  string   `json:"delivery_repository_id"`
+	Enabled               bool     `json:"enabled"`
+	Environment           string   `json:"environment"`
+	HealthChecks          []string `json:"health_checks"`
+	HealthPublicKey       string   `json:"health_public_key"`
+	ImageRepository       string   `json:"image_repository"`
+	ManifestPath          string   `json:"manifest_path"`
+	MaxEvidenceAgeSeconds int64    `json:"max_evidence_age_seconds"`
+	ObservationSeconds    int64    `json:"observation_seconds"`
+	Pointer               string   `json:"pointer"`
+	ProvenancePublicKey   string   `json:"provenance_public_key"`
+	RecoveryAllowed       bool     `json:"recovery_allowed"`
+	SourceRepositoryId    string   `json:"source_repository_id"`
+	TargetBranch          string   `json:"target_branch"`
+	Version               int64    `json:"version"`
+}
+type GitOpsConfigurationPage struct {
+	Items []GitOpsConfiguration `json:"items"`
+}
+type GitOpsDetail struct {
+	Gate      GitOpsGate      `json:"gate"`
+	Health    *GitOpsHealth   `json:"health,omitempty"`
+	Promotion GitOpsPromotion `json:"promotion"`
+}
+type GitOpsGate struct {
+	After         string              `json:"after"`
+	Before        string              `json:"before"`
+	Blockers      []string            `json:"blockers"`
+	Configuration GitOpsConfiguration `json:"configuration"`
+	Decision      PolicyResult        `json:"decision"`
+	Delivery      struct {
+		FullName string `json:"full_name"`
+		NativeId string `json:"native_id"`
+	} `json:"delivery"`
+	DeliveryConnectionId      string             `json:"delivery_connection_id"`
+	DeliveryConnectionVersion int64              `json:"delivery_connection_version"`
+	DeliveryPolicyHash        string             `json:"delivery_policy_hash"`
+	ExpiresAt                 time.Time          `json:"expires_at"`
+	Id                        string             `json:"id"`
+	ManifestSha256            string             `json:"manifest_sha256"`
+	OperationId               string             `json:"operation_id"`
+	PatchedManifest           []byte             `json:"patched_manifest"`
+	Request                   GitOpsPreviewInput `json:"request"`
+	Source                    struct {
+		FullName string `json:"full_name"`
+		NativeId string `json:"native_id"`
+	} `json:"source"`
+	SourceConnectionId      string `json:"source_connection_id"`
+	SourceConnectionVersion int64  `json:"source_connection_version"`
+	SourcePolicyHash        string `json:"source_policy_hash"`
+	TargetSha               string `json:"target_sha"`
+}
+type GitOpsHealth struct {
+	ArtifactDigest       string          `json:"artifact_digest"`
+	Checks               map[string]bool `json:"checks"`
+	ConfigurationVersion int64           `json:"configuration_version"`
+	DeliveryRevision     string          `json:"delivery_revision"`
+	Environment          string          `json:"environment"`
+	Healthy              bool            `json:"healthy"`
+	Nonce                string          `json:"nonce"`
+	ObservedAt           time.Time       `json:"observed_at"`
+	OrgId                string          `json:"org_id"`
+	PromotionId          string          `json:"promotion_id"`
+	SourceSha            string          `json:"source_sha"`
+}
+type GitOpsPreviewInput struct {
+	ArtifactDigest     string                   `json:"artifact_digest"`
+	ChangeId           string                   `json:"change_id"`
+	Provenance         SignedArtifactProvenance `json:"provenance"`
+	RecoveryOf         *string                  `json:"recovery_of,omitempty"`
+	RestorePromotionId *string                  `json:"restore_promotion_id,omitempty"`
+	SourceSha          string                   `json:"source_sha"`
+}
+type GitOpsPromotion struct {
+	Branch               string       `json:"branch"`
+	CancelRequested      bool         `json:"cancel_requested"`
+	CandidateSha         string       `json:"candidate_sha"`
+	Change               *ForgeChange `json:"change,omitempty"`
+	CreatedAt            time.Time    `json:"created_at"`
+	DeliveryRepositoryId string       `json:"delivery_repository_id"`
+	Environment          string       `json:"environment"`
+	FinishedAt           *time.Time   `json:"finished_at,omitempty"`
+	GateId               string       `json:"gate_id"`
+	Id                   string       `json:"id"`
+	MergeSha             string       `json:"merge_sha"`
+	Reason               string       `json:"reason"`
+	RecoveryOf           *string      `json:"recovery_of,omitempty"`
+	RequestedBy          string       `json:"requested_by"`
+	SourceRepositoryId   string       `json:"source_repository_id"`
+	State                string       `json:"state"`
+	UpdatedAt            time.Time    `json:"updated_at"`
+	Version              int64        `json:"version"`
+}
+type GitOpsPromotionPage struct {
+	Complete   bool              `json:"complete"`
+	Items      []GitOpsPromotion `json:"items"`
+	NextCursor *string           `json:"next_cursor,omitempty"`
+}
 type Health struct {
 	Status string `json:"status"`
 }
@@ -2064,6 +2164,9 @@ type WorkflowLease struct {
 type SubmitDeploymentHealthParams struct {
 	XReforgeSignature string `json:"X-Reforge-Signature"`
 }
+type SubmitGitOpsHealthParams struct {
+	XReforgeSignature string `json:"X-Reforge-Signature"`
+}
 type GetBudgetRouteParams struct {
 	Model *string `form:"model,omitempty" json:"model,omitempty"`
 	Route *string `form:"route,omitempty" json:"route,omitempty"`
@@ -2184,6 +2287,37 @@ type ListFindingsParams struct {
 }
 type UpdateFindingParams struct {
 	IfMatch string `json:"If-Match"`
+}
+type PutGitOpsConfigurationParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type PreviewGitOpsPromotionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListGitOpsPromotionsParams struct {
+	Environment *string `form:"environment,omitempty" json:"environment,omitempty"`
+	Cursor      *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit       *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type RequestGitOpsPromotionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelGitOpsPromotionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ContinueGitOpsPromotionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type RequestGitOpsMergeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type PreviewGitOpsMergeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ObserveGitOpsPromotionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type ListInventoryJobsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -2373,6 +2507,7 @@ type RunnerProgressJSONBody struct {
 	State TaskState `json:"state"`
 }
 type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
+type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
@@ -2388,6 +2523,11 @@ type TrackDeploymentJSONRequestBody = DeploymentTrackInput
 type RequestDeploymentJSONRequestBody = DeploymentRequestInput
 type ImportAdvisoryJSONRequestBody = AdvisoryInput
 type UpdateFindingJSONRequestBody = FindingUpdate
+type PutGitOpsConfigurationJSONRequestBody = GitOpsConfiguration
+type PreviewGitOpsPromotionJSONRequestBody = GitOpsPreviewInput
+type RequestGitOpsPromotionJSONRequestBody = DeploymentRequestInput
+type RequestGitOpsMergeJSONRequestBody = MergeRequestInput
+type PreviewGitOpsMergeJSONRequestBody = MergePreviewRequest
 type StartInventorySyncJSONRequestBody = InventorySyncInput
 type ImportInventoryCandidatesJSONRequestBody = InventoryImportInput
 type PutMembershipJSONRequestBody = MembershipInput

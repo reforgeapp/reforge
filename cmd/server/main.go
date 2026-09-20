@@ -16,6 +16,7 @@ import (
 	"reforge/internal/control"
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
+	"reforge/internal/gitops"
 	"reforge/internal/httpapi"
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
@@ -144,6 +145,12 @@ func run() error {
 	app.RegisterRepair(repairs)
 	merges := mergecontrol.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterMerge(merges)
+	promotions := gitops.New(db, identity, connectionService, policies, providerReads, merges)
+	app.RegisterGitOps(promotions)
+	gitopsContext, stopGitops := context.WithCancel(ctx)
+	gitopsDone := make(chan struct{})
+	go func() { defer close(gitopsDone); _ = promotions.Run(gitopsContext) }()
+	defer func() { stopGitops(); <-gitopsDone }()
 	deliveries := deployment.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterDeployment(deliveries)
 	deliveryContext, stopDelivery := context.WithCancel(ctx)
