@@ -2734,6 +2734,10 @@ export interface components {
             capabilities: components["schemas"]["ForgeMergeCapabilities"];
 
             observed_at: string;
+            execution_check?: {
+                name: string;
+                publisher_id: string;
+            };
         };
         MergeGate: {
 
@@ -2756,6 +2760,7 @@ export interface components {
             decision: components["schemas"]["PolicyResult"];
             binding: components["schemas"]["PolicyEvidenceBinding"];
             companions: components["schemas"]["MergeCompanion"][];
+            phase?: string;
         };
         ForgeMergeResult: {
             state: string;

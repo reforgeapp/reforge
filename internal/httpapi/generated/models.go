@@ -1184,6 +1184,7 @@ type MergeGate struct {
 	Id                   string                `json:"id"`
 	Method               string                `json:"method"`
 	Paths                []string              `json:"paths"`
+	Phase                *string               `json:"phase,omitempty"`
 	RepositoryId         string                `json:"repository_id"`
 	Snapshot             MergeSnapshot         `json:"snapshot"`
 }
@@ -1228,14 +1229,18 @@ type MergeRequestInput struct {
 	IdempotencyKey string `json:"idempotency_key"`
 }
 type MergeSnapshot struct {
-	Approvals    []ForgeApproval        `json:"approvals"`
-	Capabilities ForgeMergeCapabilities `json:"capabilities"`
-	Change       ForgeChange            `json:"change"`
-	Checks       []ForgeCheck           `json:"checks"`
-	Native       ForgeNativeEligibility `json:"native"`
-	ObservedAt   time.Time              `json:"observed_at"`
-	Queue        ForgeQueueState        `json:"queue"`
-	Rules        ForgeRules             `json:"rules"`
+	Approvals      []ForgeApproval        `json:"approvals"`
+	Capabilities   ForgeMergeCapabilities `json:"capabilities"`
+	Change         ForgeChange            `json:"change"`
+	Checks         []ForgeCheck           `json:"checks"`
+	ExecutionCheck *struct {
+		Name        string `json:"name"`
+		PublisherId string `json:"publisher_id"`
+	} `json:"execution_check,omitempty"`
+	Native     ForgeNativeEligibility `json:"native"`
+	ObservedAt time.Time              `json:"observed_at"`
+	Queue      ForgeQueueState        `json:"queue"`
+	Rules      ForgeRules             `json:"rules"`
 }
 type Meta struct {
 	BootstrapRequired *bool       `json:"bootstrap_required,omitempty"`

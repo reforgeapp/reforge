@@ -38,3 +38,6 @@ button, input { font: inherit; } button { cursor: pointer; } button:disabled { c
 @media (max-width: 720px) { .subsection-actions { align-items: flex-start; flex-direction: column; } .form-grid { grid-template-columns: 1fr; } .form-grid .wide { grid-column: auto; } .dialog-body { padding: 15px; } .dialog { width: min(96vw, 430px); } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; } }
 .table-card { min-width: 0; }
+.state-card.merge-review { display: block; min-width: 0; }
+.merge-review > *, .merge-review .detail-list > div { min-width: 0; }
+.merge-review .button { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }

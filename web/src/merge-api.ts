@@ -8,8 +8,9 @@ export type Change = {
 }
 type Evidence = { id?: string; state?: string; reference?: string; binding?: { head?: string; target?: string }; observed_at?: string }
 export type Gate = {
+  phase?: 'merge' | 'queue_admission' | 'queue_execution'
   id: string; repository_id: string; connection_id: string; connection_version: number; configuration_version: number
-  method: string; expires_at: string; snapshot: { change: Change; rules: { state: string; reason: string; hash: string; required_checks: Array<{ name: string; publisher_id: string }>; required_approvals: number; require_code_owners: boolean }; checks: Array<{ name: string; publisher_id: string; head_sha: string; conclusion: string; status: string }>; approvals: Array<{ actor_id: string; state: string; head_sha: string; dismissed: boolean }>; native: { state: string; head_sha: string; target_sha: string; url?: string }; capabilities: { provider: string; server_version: string } }
+  method: string; expires_at: string; snapshot: { queue?: { id: string; state: string; head_sha: string; target_sha: string; tested_sha: string }; execution_check?: { name: string; publisher_id: string }; change: Change; rules: { state: string; reason: string; hash: string; required_checks: Array<{ name: string; publisher_id: string }>; required_approvals: number; require_code_owners: boolean }; checks: Array<{ name: string; publisher_id: string; head_sha: string; conclusion: string; status: string }>; approvals: Array<{ actor_id: string; state: string; head_sha: string; dismissed: boolean }>; native: { state: string; head_sha: string; target_sha: string; url?: string }; capabilities: { provider: string; server_version: string } }
   decision: { outcome: string; blockers: string[]; required_actions: string[]; rules: string[]; evidence?: Evidence[] }; binding: { head: string; target: string; tested: string; policy_hash: string; provider_rules: string }; companions?: Array<{ task_id: string; change_id: string; head_sha: string; merge_sha: string; state: 'repair_pending' | 'merge_pending' | 'merged' }>
 }
 export type OperationPage = { items: Operation[]; next_cursor?: string; complete: boolean }

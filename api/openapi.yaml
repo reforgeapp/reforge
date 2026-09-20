@@ -11067,6 +11067,21 @@
           "observed_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "execution_check": {
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "publisher_id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "name",
+              "publisher_id"
+            ]
           }
         },
         "required": [
@@ -11137,6 +11152,9 @@
             "items": {
               "$ref": "#/components/schemas/MergeCompanion"
             }
+          },
+          "phase": {
+            "type": "string"
           }
         },
         "required": [
