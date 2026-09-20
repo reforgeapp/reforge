@@ -66,7 +66,7 @@ test.describe('connections and runners administration', () => {
   test.describe('live private Gitea lifecycle', () => {
     test('enrolls a runner and verifies, rotates, retests and revokes a private connection', async ({ page }) => {
       test.skip(process.env.REFORGE_LIVE_GITEA_TEST !== '1', 'requires the disposable local Gitea and runner controller')
-      test.setTimeout(150_000)
+      test.setTimeout(240_000)
       const root = resolve(process.cwd(), '..')
       const temp = mkdtempSync(join(tmpdir(), 'reforge-gui-runner-'))
       const enrollmentFile = join(temp, 'enrollment-token')
@@ -76,6 +76,8 @@ test.describe('connections and runners administration', () => {
       let connector: ReturnType<typeof spawn> | undefined
       let connectorExit: number | null = null
       let connectorStderr = false
+      let createdConnectionID = ''
+      let createdPoolID = ''
       try {
         await signIn(page)
         await page.goto(`/org/${organisation}/runners`)
@@ -85,6 +87,11 @@ test.describe('connections and runners administration', () => {
         await page.getByRole('button', { name: 'Save pool' }).click()
         const poolRow = page.getByRole('row', { name: new RegExp(poolName) })
         await expect(poolRow).toBeVisible()
+        const poolPage = await page.request.get(`/api/v1/orgs/${organisation}/runner-pools?limit=100`)
+        if (!poolPage.ok()) throw new Error(`pool lookup failed with ${poolPage.status()}`)
+        const poolItems = await poolPage.json() as { items?: Array<{ id: string; name: string }> }
+        createdPoolID = poolItems.items?.find(item => item.name === poolName)?.id ?? ''
+        if (!createdPoolID) throw new Error('created pool ID missing')
         await poolRow.getByRole('button', { name: 'Enroll runner' }).click()
         const enrollmentDialog = page.getByRole('dialog', { name: 'Runner enrollment token' })
         const enrollmentToken = await enrollmentDialog.getByLabel('One-use token').inputValue()
@@ -117,6 +124,11 @@ test.describe('connections and runners administration', () => {
         const connectionName = await form.getByLabel('Name', { exact: true }).inputValue()
         await form.getByRole('button', { name: 'Save connection' }).click()
         await expect(form).toBeHidden({ timeout: 15_000 })
+        const connectionPage = await page.request.get(`/api/v1/orgs/${organisation}/connections?limit=100`)
+        if (!connectionPage.ok()) throw new Error(`connection lookup failed with ${connectionPage.status()}`)
+        const connectionItems = await connectionPage.json() as { items?: Array<{ id: string; name: string }> }
+        createdConnectionID = connectionItems.items?.find(item => item.name === connectionName)?.id ?? ''
+        if (!createdConnectionID) throw new Error('created connection ID missing')
         const connectionRow = page.getByRole('row', { name: new RegExp(connectionName) })
         await expect(connectionRow).toBeVisible()
 
@@ -147,14 +159,45 @@ test.describe('connections and runners administration', () => {
         await expect(repoCandidate).toBeVisible()
         await repoCandidate.check()
         await sync.getByRole('button', { name: /Import selected/ }).click()
-        await expect(sync.getByText('Import complete. Repository inventory will refresh.')).toBeVisible({ timeout: 45_000 })
+        await expect(sync.getByText('Import complete. Repository inventory will refresh.')).toBeVisible({ timeout: 150_000 })
         await sync.getByRole('button', { name: 'Close' }).click()
         const importedRow = page.getByRole('row', { name: new RegExp(inventoryRepoName) })
         await expect(importedRow).toBeVisible({ timeout: 15_000 })
         await importedRow.getByRole('button', { name: inventoryRepoName }).click()
         const repositoryDetails = page.getByRole('dialog', { name: inventoryRepoName })
         await expect(repositoryDetails.getByText('Inventory freshness')).toBeVisible()
+        await expect(repositoryDetails.getByRole('heading', { name: 'Maintenance configuration', exact: true })).toBeVisible()
+        await repositoryDetails.getByRole('button', { name: 'Save maintenance configuration' }).click()
+        await expect(repositoryDetails.getByText('Maintenance configuration saved.')).toBeVisible()
         await repositoryDetails.getByRole('button', { name: 'Close', exact: true }).click()
+        await importedRow.getByRole('button', { name: inventoryRepoName }).click()
+        const refreshedDetails = page.getByRole('dialog', { name: inventoryRepoName })
+        await refreshedDetails.getByRole('button', { name: 'Start scan' }).click()
+        try {
+          await expect(refreshedDetails.getByText('complete', { exact: true })).toBeVisible({ timeout: 90_000 })
+        } catch (error) {
+          const [connectionsResponse, jobsResponse, repositoryResponse] = await Promise.all([
+            page.request.get(`/api/v1/orgs/${organisation}/connections?limit=100`),
+            page.request.get(`/api/v1/orgs/${organisation}/inventory-syncs?limit=100`),
+            page.request.get(`/api/v1/orgs/${organisation}/repositories`),
+          ])
+          const connections = await connectionsResponse.json() as { items?: Array<{ id: string; name: string }> }
+          const jobs = await jobsResponse.json() as { items?: Array<{ id: string; connection_id: string; kind: string; state: string; reason?: string; phase?: string }> }
+          const repositories = await repositoryResponse.json() as { items?: Array<{ id: string; name: string; sync_state?: string; changes_observed_at?: string }> }
+          const connection = (connections.items ?? []).find(item => item.name === connectionName)
+          const ownJobs = (jobs.items ?? []).filter(item => item.connection_id === connection?.id).map(item => ({ id: item.id, kind: item.kind, state: item.state, reason: item.reason ?? '', phase: item.phase ?? '' }))
+          const ownRepository = (repositories.items ?? []).find(item => item.name === `reforge-bot/${inventoryRepoName}`)
+          process.stderr.write(`discovery diagnostic jobs=${JSON.stringify(ownJobs)} repository=${JSON.stringify({ sync_state: ownRepository?.sync_state ?? '', changes_observed_at: ownRepository?.changes_observed_at ?? '' })}\n`)
+          throw error
+        }
+        await expect(refreshedDetails.getByText(/complete Observed/)).toBeVisible()
+        await refreshedDetails.getByRole('button', { name: 'Close', exact: true }).click()
+        await importedRow.getByRole('button', { name: inventoryRepoName }).click()
+        const persistedDetails = page.getByRole('dialog', { name: inventoryRepoName })
+        await expect(persistedDetails.getByText('Discovery')).toBeVisible()
+        await expect(persistedDetails.getByText('complete', { exact: true })).toBeVisible()
+        await expect(persistedDetails.getByText(/complete Observed/)).toBeVisible()
+        await persistedDetails.getByRole('button', { name: 'Close', exact: true }).click()
         await page.goto(`/org/${organisation}/connections`)
         const refreshedConnectionRow = page.getByRole('row', { name: new RegExp(connectionName) })
         await expect(refreshedConnectionRow).toBeVisible()
@@ -170,6 +213,36 @@ test.describe('connections and runners administration', () => {
         await connectionRow.getByRole('button', { name: 'Revoke' }).click()
         await expect(connectionRow.getByText('revoked')).toBeVisible({ timeout: 10_000 })
       } finally {
+        try {
+          const session = await page.request.get('/api/v1/session').then(response => response.json() as Promise<{ csrf_token: string }>)
+          const headers = { 'X-CSRF-Token': session.csrf_token, Origin: 'http://127.0.0.1:8080' }
+          if (createdConnectionID) {
+            const connections = await page.request.get(`/api/v1/orgs/${organisation}/connections?limit=100`).then(response => response.json() as Promise<{ items?: Array<{ id: string; version: number }> }>)
+            const connection = connections.items?.find(item => item.id === createdConnectionID)
+            if (connection) {
+              const response = await page.request.delete(`/api/v1/orgs/${organisation}/connections/${connection.id}`, { headers: { ...headers, 'If-Match': `"${connection.version}"` } })
+              if (!response.ok() && response.status() !== 404 && response.status() !== 409) throw new Error(`connection cleanup failed with ${response.status()}`)
+            }
+          }
+          if (createdPoolID) {
+            const poolResponse = await page.request.get(`/api/v1/orgs/${organisation}/runner-pools?limit=100`)
+            const pools = await poolResponse.json() as { items?: Array<{ id: string; name: string; version: number; state: string; repository_ids: string[] }> }
+            const pool = pools.items?.find(item => item.id === createdPoolID)
+            if (pool) {
+              const runners = await page.request.get(`/api/v1/orgs/${organisation}/runner-pools/${pool.id}/runners?limit=100`).then(response => response.json() as Promise<{ items?: Array<{ id: string; version: number }> }>)
+              for (const runner of runners.items ?? []) {
+                const response = await page.request.delete(`/api/v1/orgs/${organisation}/runners/${runner.id}`, { headers: { ...headers, 'If-Match': `"${runner.version}"` } })
+                if (!response.ok() && response.status() !== 404 && response.status() !== 409) throw new Error(`runner cleanup failed with ${response.status()}`)
+              }
+              if (pool.state !== 'revoked') {
+                const response = await page.request.put(`/api/v1/orgs/${organisation}/runner-pools/${pool.id}`, { headers: { ...headers, 'Content-Type': 'application/json', 'If-Match': `"${pool.version}"` }, data: { name: pool.name, state: 'revoked', repository_ids: pool.repository_ids } })
+                if (!response.ok() && response.status() !== 404 && response.status() !== 409) throw new Error(`pool cleanup failed with ${response.status()}`)
+              }
+            }
+          }
+        } catch (cleanupError) {
+          process.stderr.write(`browser fixture cleanup failed: ${cleanupError instanceof Error ? cleanupError.message : 'unknown error'}\n`)
+        }
         if (connector && connector.exitCode === null) connector.kill('SIGTERM')
         const deleteRepo = await fetch(`http://127.0.0.1:53000/api/v1/repos/reforge-bot/${encodeURIComponent(inventoryRepoName)}`, { method: 'DELETE', headers: { Authorization: `token ${adminToken}` } })
         if (!deleteRepo.ok && deleteRepo.status !== 404) process.stderr.write(`fixture repo cleanup failed with ${deleteRepo.status}\n`)

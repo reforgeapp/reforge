@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { inventoryAPI } from '../api/inventory'
 import { useSession } from './query'
+import { RepositoryBaseline } from './RepositoryBaseline'
 import { Button, Dialog } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -14,6 +15,7 @@ type Repository = components['schemas']['Repository']
 type Job = components['schemas']['InventoryJob']
 type Candidate = components['schemas']['ForgeRepository']
 type SavedView = { q: string; provider: string; teamID: string; status: string }
+type MaintenanceConfig = components['schemas']['MaintenanceConfig']
 
 const statuses = ['all', 'active', 'archived', 'paused', 'missing', 'stale']
 const tone = (value: string) => value === 'active' || value === 'complete' || value === 'fresh' ? 'green' : value === 'failed' || value === 'missing' ? 'red' : value === 'paused' || value === 'stale' || value === 'running' ? 'amber' : 'neutral'
@@ -34,6 +36,7 @@ export function RepositoriesPage({ orgID }: { orgID: string }) {
   const [syncOpen, setSyncOpen] = useState(false)
   const [savedName, setSavedName] = useState('')
   const [savedSelection, setSavedSelection] = useState('')
+  const qTimer = useRef<number | undefined>(undefined)
   const [savedViews, setSavedViews] = useState<Record<string, SavedView>>({})
   const [notice, setNotice] = useState('')
   const teams = useQuery({ queryKey: ['org', orgID, 'teams'], queryFn: ({ signal }) => inventoryAPI.teams(orgID, signal) })
@@ -41,6 +44,7 @@ export function RepositoriesPage({ orgID }: { orgID: string }) {
   const result = useQuery({ queryKey: ['org', orgID, 'inventory-repositories', { q, provider, teamID, status, cursor }], queryFn: ({ signal }) => inventoryAPI.repositories(orgID, { q, provider: provider || undefined, team_id: teamID || undefined, status: status === 'all' ? undefined : status, cursor, limit: 50, signal }) })
   useEffect(() => { if (result.data) setRows(previous => cursor ? [...new Map([...previous, ...result.data.items].map(item => [item.id, item])).values()] : result.data.items) }, [cursor, result.data])
   useEffect(() => { setQ(routeSearch.q ?? ''); setProvider(routeSearch.provider ?? ''); setTeamID(routeSearch.team_id ?? ''); setStatus(routeSearch.status ?? 'all'); setCursor(undefined); setRows([]) }, [routeSearch.q, routeSearch.provider, routeSearch.team_id, routeSearch.status])
+  useEffect(() => () => { if (qTimer.current) window.clearTimeout(qTimer.current) }, [])
   useEffect(() => { setDetailID(routeSearch.repository ?? '') }, [routeSearch.repository])
   useEffect(() => {
     const key = `reforge.saved-views.${session.data?.user.id ?? 'unknown'}.${orgID}`
@@ -57,7 +61,7 @@ export function RepositoriesPage({ orgID }: { orgID: string }) {
     } catch { setNotice('Saved views unavailable in this browser.') }
   }, [orgID, session.data?.user.id])
   const updateURL = (next: Record<string, string>, replace = true) => { const current = { ...routeSearch }; Object.entries(next).forEach(([key, value]) => { if (value) current[key] = value; else delete current[key] }); void navigate({ search: current, replace }) }
-  const filter = (setter: (value: string) => void, key: string, value: string, replace = true) => { setter(value); setCursor(undefined); setRows([]); updateURL({ [key]: value }, replace) }
+  const filter = (setter: (value: string) => void, key: string, value: string, replace = true) => { setter(value); setCursor(undefined); setRows([]); if (key === 'q') { if (qTimer.current) window.clearTimeout(qTimer.current); qTimer.current = window.setTimeout(() => updateURL({ q: value }, replace), 1000) } else updateURL({ [key]: value }, replace) }
   const persistViews = (views: typeof savedViews) => { try { localStorage.setItem(`reforge.saved-views.${session.data?.user.id ?? 'unknown'}.${orgID}`, JSON.stringify(views)); setSavedViews(views); setNotice('Saved view saved.'); return true } catch { setNotice('Saved views could not be saved.'); return false } }
   const saveView = () => { const name = savedName.trim(); if (!name || name.length > 80) { setNotice('Use a view name between 1 and 80 characters.'); return }; if (!Object.hasOwn(savedViews, name) && Object.keys(savedViews).length >= 25) { setNotice('Delete a saved view before adding another.'); return }; if (persistViews({ ...savedViews, [name]: { q, provider, teamID, status } })) { setNotice(`Saved view “${name}”.`); setSavedName('') } }
   const loadView = (name: string) => { const view = savedViews[name]; if (!view) return; setQ(view.q); setProvider(view.provider); setTeamID(view.teamID); setStatus(view.status); setCursor(undefined); setRows([]); updateURL({ q: view.q, provider: view.provider, team_id: view.teamID, status: view.status }, false) }
@@ -91,7 +95,10 @@ function SyncDialog({ open, orgID, csrf, connections, teams, onClose, onDone }: 
 }
 
 function RepositoryDetail({ orgID, repositoryID, onClose }: { orgID: string; repositoryID: string; onClose: () => void }) {
+  const session = useSession()
   const repository = useQuery({ queryKey: ['org', orgID, 'repository', repositoryID], queryFn: ({ signal }) => inventoryAPI.repository(orgID, repositoryID, signal) })
+  const maintenance = useQuery({ queryKey: ['org', orgID, 'repository', repositoryID, 'maintenance'], queryFn: ({ signal }) => inventoryAPI.maintenance(orgID, repositoryID, signal), enabled: !!repository.data })
+  const discovery = useQuery({ queryKey: ['org', orgID, 'repository', repositoryID, 'discovery'], queryFn: ({ signal }) => inventoryAPI.discovery(orgID, repositoryID, signal), enabled: !!repository.data, refetchInterval: query => ['queued', 'running'].includes(query.state.data?.state ?? '') ? 1500 : false })
   const [changeCursor, setChangeCursor] = useState<string>()
   const [changeItems, setChangeItems] = useState<components['schemas']['ForgeChange'][]>([])
   const changes = useQuery({ queryKey: ['org', orgID, 'repository', repositoryID, 'changes', changeCursor], queryFn: ({ signal }) => inventoryAPI.changes(orgID, repositoryID, { limit: 50, cursor: changeCursor, signal }), enabled: !!repository.data })
@@ -99,5 +106,19 @@ function RepositoryDetail({ orgID, repositoryID, onClose }: { orgID: string; rep
   if (repository.isLoading) return <Dialog open title="Repository" onClose={onClose}><StatePanel kind="loading" title="Loading repository" detail="Fetching current inventory and freshness." /></Dialog>
   if (repository.error || !repository.data) return <Dialog open title="Repository unavailable" onClose={onClose}><StatePanel kind="error" title="Repository could not be loaded" detail={text(repository.error)} action={<Button onClick={() => repository.refetch()}>Retry</Button>} /></Dialog>
   const repo = repository.data
-  return <Dialog open title={repo.name} onClose={onClose}><div className="stack"><dl className="detail-list"><div><dt>Forge</dt><dd>{repo.provider}</dd></div><div><dt>URL</dt><dd><a href={repo.url} target="_blank" rel="noreferrer">Native repository</a></dd></div><div><dt>Branch</dt><dd>{repo.default_branch}</dd></div><div><dt>Inventory freshness</dt><dd>{repo.last_synced_at ? new Date(repo.last_synced_at).toLocaleString() : 'Never synced'}</dd></div><div><dt>Sync state</dt><dd>{repo.sync_state ?? 'unknown'}{repo.sync_reason ? ` · ${repo.sync_reason}` : ''}</dd></div><div><dt>Baseline</dt><dd>Not yet recorded</dd></div><div><dt>Changes observed</dt><dd>{repo.changes_observed_at ? new Date(repo.changes_observed_at).toLocaleString() : 'Never observed'}</dd></div></dl>{changes.error && <p className="error-text" role="alert">Changes unavailable: {text(changes.error)}</p>}{changes.data?.snapshot_state !== 'fresh' && !changes.error && <p className="table-meta">Change snapshot is {changes.data?.snapshot_state ?? 'unavailable'}; native changes may be incomplete.</p>}<h3>Native changes</h3>{changeItems.length ? <ul className="compact-list">{changeItems.map(change => <li key={change.id}><a href={change.url} target="_blank" rel="noreferrer">{change.title}</a> · {change.state}</li>)}</ul> : <EmptyTable label="No persisted changes available." />}{changes.data?.complete === false && <Button disabled={changes.isFetching} onClick={() => setChangeCursor(changes.data?.next_cursor)}>{changes.isFetching ? 'Loading…' : 'Load more changes'}</Button>}<Button onClick={onClose}>Close</Button></div></Dialog>
+  return <Dialog open title={repo.name} onClose={onClose}><div className="stack"><dl className="detail-list"><div><dt>Forge</dt><dd>{repo.provider}</dd></div><div><dt>URL</dt><dd><a href={repo.url} target="_blank" rel="noreferrer">Native repository</a></dd></div><div><dt>Branch</dt><dd>{repo.default_branch}</dd></div><div><dt>Inventory freshness</dt><dd>{repo.last_synced_at ? new Date(repo.last_synced_at).toLocaleString() : 'Never synced'}</dd></div><div><dt>Sync state</dt><dd>{repo.sync_state ?? 'unknown'}{repo.sync_reason ? ` · ${repo.sync_reason}` : ''}</dd></div><div><dt>Changes observed</dt><dd>{repo.changes_observed_at ? new Date(repo.changes_observed_at).toLocaleString() : 'Never observed'}</dd></div></dl>{changes.error && <p className="error-text" role="alert">Changes unavailable: {text(changes.error)}</p>}{changes.data?.snapshot_state !== 'fresh' && !changes.error && <p className="table-meta">Change snapshot is {changes.data?.snapshot_state ?? 'unavailable'}; native changes may be incomplete.</p>}<h3>Native changes</h3>{changeItems.length ? <ul className="compact-list">{changeItems.map(change => <li key={change.id}><a href={change.url} target="_blank" rel="noreferrer">{change.title}</a> · {change.state}</li>)}</ul> : <EmptyTable label="No persisted changes available." />}{changes.data?.complete === false && <Button disabled={changes.isFetching} onClick={() => setChangeCursor(changes.data?.next_cursor)}>{changes.isFetching ? 'Loading…' : 'Load more changes'}</Button>}<RepositoryBaseline orgID={orgID} repositoryID={repositoryID} /><DiscoveryPanel orgID={orgID} repositoryID={repositoryID} csrf={session.data?.csrf_token ?? ''} scan={discovery.data} error={discovery.error} onRetry={() => void discovery.refetch()} /><MaintenancePanel orgID={orgID} repositoryID={repositoryID} csrf={session.data?.csrf_token ?? ''} config={maintenance.data} error={maintenance.error} onRetry={() => void maintenance.refetch()} onSaved={() => void maintenance.refetch()} /><Button onClick={onClose}>Close</Button></div></Dialog>
+}
+
+function DiscoveryPanel({ orgID, repositoryID, csrf, scan, error, onRetry }: { orgID: string; repositoryID: string; csrf: string; scan?: components['schemas']['DiscoveryScan']; error: unknown; onRetry: () => void }) {
+  const [busy, setBusy] = useState(false); const [message, setMessage] = useState('')
+  const start = async () => { setBusy(true); setMessage(''); try { await inventoryAPI.startDiscovery(orgID, repositoryID, csrf); onRetry() } catch (reason) { setMessage(text(reason)) } finally { setBusy(false) } }
+  return <section className="detail-section"><h3>Discovery</h3>{error ? <p className="error-text" role="alert">{text(error)} <Button onClick={onRetry}>Retry</Button></p> : null}<p><StatusBadge label={scan?.state ?? 'not_started'} tone={tone(scan?.state ?? 'not_started')} /> {scan?.observed_at ? `Observed ${new Date(scan.observed_at).toLocaleString()}` : 'No scan recorded'}</p>{scan?.reason && <p className="table-meta">{scan.reason}</p>}{message && <p className="error-text" role="alert">{message}</p>}<Button disabled={busy || !csrf || ['queued', 'running'].includes(scan?.state ?? '')} onClick={start}>{busy ? 'Starting…' : 'Start scan'}</Button></section>
+}
+
+function MaintenancePanel({ orgID, repositoryID, csrf, config, error, onRetry, onSaved }: { orgID: string; repositoryID: string; csrf: string; config?: MaintenanceConfig; error: unknown; onRetry: () => void; onSaved: () => void }) {
+  const [authority, setAuthority] = useState<MaintenanceConfig['merge_authority']>('observe'); const [bots, setBots] = useState<MaintenanceConfig['trusted_bots']>([]); const [kind, setKind] = useState<'renovate' | 'dependabot'>('renovate'); const [actorID, setActorID] = useState(''); const [busy, setBusy] = useState(false); const [message, setMessage] = useState('')
+  useEffect(() => { if (config) { setAuthority(config.merge_authority); setBots(config.trusted_bots) } }, [config])
+  const save = async () => { if (!config) return; setBusy(true); setMessage(''); try { await inventoryAPI.updateMaintenance(orgID, repositoryID, config.version, { repository_id: repositoryID, trusted_bots: bots, merge_authority: authority, version: config.version }, csrf); setMessage('Maintenance configuration saved.'); onSaved() } catch (reason) { setMessage(text(reason)) } finally { setBusy(false) } }
+  const addBot = () => { if (!actorID.trim() || bots.some(bot => bot.kind === kind && bot.actor_id === actorID.trim())) return; setBots([...bots, { kind, actor_id: actorID.trim() }]); setActorID('') }
+  return <section className="detail-section"><h3>Maintenance configuration</h3>{error ? <p className="error-text" role="alert">{text(error)} <Button onClick={onRetry}>Retry</Button></p> : null}{config && <><label>Requested merge authority<select value={authority} onChange={event => setAuthority(event.target.value as MaintenanceConfig['merge_authority'])}><option value="observe">Observe</option><option value="reforge">Reforge</option><option value="bot">Bot</option></select></label><fieldset><legend>Trusted native bot identities</legend>{bots.map((bot, index) => <p key={`${bot.kind}-${bot.actor_id}`} className="table-meta">{bot.kind} · {bot.actor_id} <Button onClick={() => setBots(bots.filter((_, item) => item !== index))}>Remove</Button></p>)}<div className="row-actions"><select aria-label="Bot kind" value={kind} onChange={event => setKind(event.target.value as 'renovate' | 'dependabot')}><option value="renovate">Renovate</option><option value="dependabot">Dependabot</option></select><input aria-label="Native actor ID" value={actorID} onChange={event => setActorID(event.target.value)} placeholder="Verified native actor ID" /><Button onClick={addBot}>Add identity</Button></div></fieldset>{message && <p className={message.includes('saved') ? 'table-meta' : 'error-text'} role="alert">{message}</p>}<Button className="button button-primary" disabled={busy || !csrf} onClick={save}>{busy ? 'Saving…' : 'Save maintenance configuration'}</Button></>}</section>
 }

@@ -11,6 +11,8 @@ type InventoryWebhook = components['schemas']['InventoryWebhook']
 type IssuedWebhook = components['schemas']['IssuedInventoryWebhook']
 type ChangePage = components['schemas']['InventoryChangePage']
 type TeamPage = components['schemas']['TeamPage']
+type MaintenanceConfig = components['schemas']['MaintenanceConfig']
+type DiscoveryScan = components['schemas']['DiscoveryScan']
 
 const path = (orgID: string, suffix: string) => `/api/v1/orgs/${encodeURIComponent(orgID)}${suffix}`
 const tag = (version: number) => `"${version}"`
@@ -29,12 +31,16 @@ export const inventoryAPI = {
   startSync: (orgID: string, connectionID: string, namespace: string, csrf: string) => apiRequest<InventoryJob>(path(orgID, '/inventory-syncs'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ connection_id: connectionID, ...(namespace ? { namespace } : {}) }) }, csrf),
   jobs: (orgID: string, signal?: AbortSignal) => apiRequest<InventoryJobPage>(path(orgID, '/inventory-syncs?limit=20'), { signal }),
   job: (orgID: string, syncID: string, signal?: AbortSignal) => apiRequest<InventoryJob>(path(orgID, `/inventory-syncs/${encodeURIComponent(syncID)}`), { signal }),
-  cancel: (orgID: string, syncID: string, version: number, csrf: string) => apiRequest<InventoryJob>(path(orgID, `/inventory-syncs/${encodeURIComponent(syncID)}`), { method: 'DELETE', headers: { 'If-Match': tag(version) } }, csrf),
+  cancel: (orgID: string, syncID: string, version: number, csrf: string) => apiRequest<InventoryJob>(path(orgID, `/inventory-syncs/${encodeURIComponent(syncID)}`), { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'If-Match': tag(version) } }, csrf),
   candidates: (orgID: string, syncID: string, cursor?: string, signal?: AbortSignal) => apiRequest<CandidatePage>(path(orgID, `/inventory-syncs/${encodeURIComponent(syncID)}/candidates${query({ cursor, limit: 200 })}`), { signal }),
   import: (orgID: string, syncID: string, version: number, input: ImportInput, csrf: string) => apiRequest<InventoryJob>(path(orgID, `/inventory-syncs/${encodeURIComponent(syncID)}/import`), { method: 'POST', headers: { 'Content-Type': 'application/json', 'If-Match': tag(version) }, body: JSON.stringify(input) }, csrf),
   webhook: (orgID: string, connectionID: string, signal?: AbortSignal) => apiRequest<InventoryWebhook>(path(orgID, `/connections/${encodeURIComponent(connectionID)}/webhook`), { signal }),
-  issueWebhook: (orgID: string, connectionID: string, version: number, csrf: string) => apiRequest<IssuedWebhook>(path(orgID, `/connections/${encodeURIComponent(connectionID)}/webhook`), { method: 'PUT', headers: { 'If-Match': tag(version) } }, csrf),
-  revokeWebhook: (orgID: string, connectionID: string, version: number, csrf: string) => apiRequest<void>(path(orgID, `/connections/${encodeURIComponent(connectionID)}/webhook`), { method: 'DELETE', headers: { 'If-Match': tag(version) } }, csrf),
+  issueWebhook: (orgID: string, connectionID: string, version: number, csrf: string) => apiRequest<IssuedWebhook>(path(orgID, `/connections/${encodeURIComponent(connectionID)}/webhook`), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': tag(version) } }, csrf),
+  revokeWebhook: (orgID: string, connectionID: string, version: number, csrf: string) => apiRequest<void>(path(orgID, `/connections/${encodeURIComponent(connectionID)}/webhook`), { method: 'DELETE', headers: { 'Content-Type': 'application/json', 'If-Match': tag(version) } }, csrf),
+  maintenance: (orgID: string, repositoryID: string, signal?: AbortSignal) => apiRequest<MaintenanceConfig>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/maintenance`), { signal }),
+  updateMaintenance: (orgID: string, repositoryID: string, version: number, config: MaintenanceConfig, csrf: string) => apiRequest<MaintenanceConfig>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/maintenance`), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': tag(version) }, body: JSON.stringify(config) }, csrf),
+  discovery: (orgID: string, repositoryID: string, signal?: AbortSignal) => apiRequest<DiscoveryScan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/discovery`), { signal }),
+  startDiscovery: (orgID: string, repositoryID: string, csrf: string) => apiRequest<DiscoveryScan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/discovery`), { method: 'POST' }, csrf),
 }
 
 async function collectPages<T>(fetchPage: (cursor?: string) => Promise<{ items: T[]; next_cursor?: string; complete: boolean }>, signal?: AbortSignal) {
