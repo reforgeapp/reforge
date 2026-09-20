@@ -20,6 +20,7 @@ func TestIntegratedRouteRegistration(t *testing.T) {
 	s.RegisterRunner(nil)
 	s.RegisterPrivateConnector(nil)
 	s.RegisterInventory(nil)
+	s.RegisterDiscovery(nil)
 	w := httptest.NewRecorder()
 	s.Router.ServeHTTP(w, httptest.NewRequest("GET", "/healthz", nil))
 	if w.Code != 200 {

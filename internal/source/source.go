@@ -55,6 +55,10 @@ func objectSHA(format, kind string, content []byte) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+func VerifyBlob(format, expected string, content []byte) bool {
+	return ValidSHA(expected, format) && objectSHA(format, "blob", content) == expected
+}
+
 func ValidEntry(e forge.SourceEntry, format string) bool {
 	if !guest.ValidPath(e.Path) || !utf8.ValidString(e.Path) || !ValidSHA(e.SHA, format) {
 		return false

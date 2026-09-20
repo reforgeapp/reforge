@@ -22,6 +22,7 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/httpapi"
 	"reforge/internal/inventory"
+	"reforge/internal/maintenance/discovery"
 	"reforge/internal/privateconnector"
 	"reforge/internal/providers"
 	"reforge/internal/runner"
@@ -262,6 +263,34 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 	changes, changesErr := portfolio.Changes(ctx, session, org, lease.RepositoryID, 100, "")
 	if changesErr != nil || changes.SnapshotState != "fresh" {
 		t.Fatalf("private change snapshot freshness %s: %v", changes.SnapshotState, changesErr)
+	}
+	discoveries := discovery.New(db, identity, reader)
+	server.RegisterDiscovery(discoveries)
+	scanResponse := identityRequest(server, "POST", "/api/v1/orgs/"+org+"/repositories/"+detail.ID+"/discovery", "", cookie, headers)
+	if scanResponse.Code != 202 {
+		t.Fatalf("private discovery queue HTTP%d: %s", scanResponse.Code, scanResponse.Body.String())
+	}
+	discoveryContext, stopDiscovery := context.WithCancel(ctx)
+	connectorDone := make(chan error, 1)
+	go func() {
+		for discoveryContext.Err() == nil {
+			if err := client.RunOnce(discoveryContext); err != nil && !errors.Is(err, privateconnector.ErrUnavailable) && !errors.Is(err, privateconnector.ErrConflict) {
+				connectorDone <- err
+				return
+			}
+		}
+		connectorDone <- discoveryContext.Err()
+	}()
+	worked, discoveryErr := discoveries.RunOrganisationOnce(discoveryContext, org)
+	stopDiscovery()
+	<-connectorDone
+	discoveryState, stateErr := discoveries.ScanStatus(ctx, session, org, detail.ID)
+	if discoveryErr != nil || stateErr != nil || !worked || discoveryState.State != "complete" {
+		t.Fatalf("actual private discovery: worked=%v state=%s error=%v state_error=%v", worked, discoveryState.State, discoveryErr, stateErr)
+	}
+	findings, findingsErr := discoveries.List(ctx, session, org, 20, "", discovery.Filter{RepositoryID: detail.ID})
+	if findingsErr != nil || len(findings.Items) != 1 || findings.Items[0].Category != "renovate_onboarding" || !findings.Items[0].Evidence.Complete {
+		t.Fatalf("canonical private discovery findings: %d %v", len(findings.Items), findingsErr)
 	}
 	read.ID = domain.NewID()
 	go func() { finished <- client.RunOnce(ctx) }()

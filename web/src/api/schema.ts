@@ -1041,6 +1041,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/findings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listFindings"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/findings/{findingID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getFinding"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["updateFinding"];
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/findings/advisories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["importAdvisory"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMaintenanceConfig"];
+        put: operations["putMaintenanceConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/discovery": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDiscoveryScan"];
+        put?: never;
+        post: operations["startDiscoveryScan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1905,6 +1985,137 @@ export interface components {
             snapshot_state: string;
 
             connection_version: number;
+
+            observed_at?: string;
+        };
+        MaintenanceDependency: {
+            ecosystem: string;
+            manifest: string;
+            name: string;
+            from: string;
+            to: string;
+        };
+        MaintenanceBotIdentity: {
+
+            kind: "renovate" | "dependabot";
+            actor_id: string;
+        };
+        MaintenanceBotStatus: {
+            present: boolean;
+
+            automerge: "enabled" | "disabled" | "unknown";
+        };
+        MaintenanceBotConfig: {
+            renovate: components["schemas"]["MaintenanceBotStatus"];
+            dependabot: components["schemas"]["MaintenanceBotStatus"];
+        };
+        MaintenanceConfig: {
+
+            repository_id: string;
+            trusted_bots: components["schemas"]["MaintenanceBotIdentity"][];
+
+            merge_authority: "observe" | "reforge" | "bot";
+
+            version: number;
+        };
+        MaintenanceEvidence: {
+            provenance: string;
+
+            connection_id: string;
+
+            connection_version: number;
+
+            config_version: number;
+            head_sha: string;
+            target_sha: string;
+            target_branch: string;
+            change?: components["schemas"]["ForgeChange"];
+            checks: {
+                id: string;
+                name: string;
+                publisher_id: string;
+                head_sha: string;
+                status: string;
+                conclusion: string;
+                url: string;
+            }[];
+            dependencies: components["schemas"]["MaintenanceDependency"][];
+            bot?: string;
+            ownership: string;
+            head_ownership?: string;
+            merge_blockers?: string[];
+            bot_config?: components["schemas"]["MaintenanceBotConfig"];
+            complete: boolean;
+            blockers: string[];
+            advisory_id?: string;
+            reference_url?: string;
+        };
+        Finding: {
+
+            id: string;
+
+            org_id: string;
+
+            repository_id: string;
+            source: string;
+            source_id: string;
+            category: string;
+
+            severity: "info" | "low" | "medium" | "high" | "critical";
+            title: string;
+            evidence: components["schemas"]["MaintenanceEvidence"];
+            fingerprint: string;
+            evidence_digest: string;
+
+            state: "open" | "dismissed" | "snoozed" | "resolved" | "superseded";
+            reason: string;
+
+            assigned_to?: string;
+
+            snooze_until?: string;
+
+            superseded_by?: string;
+
+            version: number;
+
+            first_seen: string;
+
+            last_seen: string;
+        };
+        FindingPage: {
+            items: components["schemas"]["Finding"][];
+            complete: boolean;
+            next_cursor?: string;
+        };
+        FindingUpdate: {
+
+            action: "assign" | "dismiss" | "snooze" | "reopen";
+            reason?: string;
+            assigned_to?: string;
+
+            snooze_until?: string;
+        };
+        AdvisoryInput: {
+            advisory_id: string;
+            title: string;
+            severity: string;
+            reference_url: string;
+            path: string;
+            package: string;
+            ecosystem: string;
+            affected_range: string;
+            commit_sha: string;
+
+            repository_id: string;
+        };
+        DiscoveryScan: {
+
+            repository_id: string;
+
+            state: "not_started" | "queued" | "running" | "complete" | "failed" | "stale";
+            reason: string;
+
+            version: number;
 
             observed_at?: string;
         };
@@ -4672,6 +4883,15 @@ export interface operations {
                 };
             };
 
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+
             default: {
                 headers: {
                     [name: string]: unknown;
@@ -4774,6 +4994,284 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listFindings: {
+        parameters: {
+            query?: {
+                limit?: number;
+                cursor?: string;
+                q?: string;
+                repository_id?: string;
+                state?: string;
+                category?: string;
+                severity?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FindingPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                findingID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateFinding: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                findingID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["FindingUpdate"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    importAdvisory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AdvisoryInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Finding"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getMaintenanceConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceConfig"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putMaintenanceConfig: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceConfig"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceConfig"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getDiscoveryScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryScan"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    startDiscoveryScan: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscoveryScan"];
+                };
             };
 
             default: {

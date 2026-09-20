@@ -213,6 +213,74 @@ type InventoryWebhook struct {
 	CreatedAt    pgtype.Timestamptz `json:"created_at"`
 }
 
+type MaintenanceConfig struct {
+	OrgID          pgtype.UUID `json:"org_id"`
+	RepositoryID   pgtype.UUID `json:"repository_id"`
+	TrustedBots    []byte      `json:"trusted_bots"`
+	MergeAuthority string      `json:"merge_authority"`
+	Version        int64       `json:"version"`
+}
+
+type MaintenanceFinding struct {
+	OrgID              pgtype.UUID        `json:"org_id"`
+	ID                 pgtype.UUID        `json:"id"`
+	RepositoryID       pgtype.UUID        `json:"repository_id"`
+	Fingerprint        string             `json:"fingerprint"`
+	FingerprintVersion int32              `json:"fingerprint_version"`
+	Source             string             `json:"source"`
+	SourceID           string             `json:"source_id"`
+	Category           string             `json:"category"`
+	Severity           string             `json:"severity"`
+	Title              string             `json:"title"`
+	Evidence           []byte             `json:"evidence"`
+	EvidenceDigest     string             `json:"evidence_digest"`
+	State              string             `json:"state"`
+	Reason             string             `json:"reason"`
+	AssignedTo         pgtype.UUID        `json:"assigned_to"`
+	SnoozeUntil        pgtype.Timestamptz `json:"snooze_until"`
+	SupersededBy       pgtype.UUID        `json:"superseded_by"`
+	Version            int64              `json:"version"`
+	FirstSeen          pgtype.Timestamptz `json:"first_seen"`
+	LastSeen           pgtype.Timestamptz `json:"last_seen"`
+}
+
+type MaintenanceObservation struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	FindingID      pgtype.UUID        `json:"finding_id"`
+	EvidenceDigest string             `json:"evidence_digest"`
+	Evidence       []byte             `json:"evidence"`
+	ObservedAt     pgtype.Timestamptz `json:"observed_at"`
+}
+
+type MaintenanceRepair struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	FindingID      pgtype.UUID        `json:"finding_id"`
+	RepositoryID   pgtype.UUID        `json:"repository_id"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	EvidenceDigest string             `json:"evidence_digest"`
+	Active         bool               `json:"active"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type MaintenanceScan struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	RequestedBy  pgtype.UUID        `json:"requested_by"`
+	State        string             `json:"state"`
+	Reason       string             `json:"reason"`
+	Fence        int64              `json:"fence"`
+	LeaseUntil   pgtype.Timestamptz `json:"lease_until"`
+	AvailableAt  pgtype.Timestamptz `json:"available_at"`
+	ObservedAt   pgtype.Timestamptz `json:"observed_at"`
+	Version      int64              `json:"version"`
+}
+
+type MaintenanceSchedulerCursor struct {
+	ID    bool        `json:"id"`
+	OrgID pgtype.UUID `json:"org_id"`
+}
+
 type MemberRepository struct {
 	OrgID        pgtype.UUID `json:"org_id"`
 	UserID       pgtype.UUID `json:"user_id"`

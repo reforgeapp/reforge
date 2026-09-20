@@ -181,6 +181,106 @@ func (e DeploymentState) Valid() bool {
 }
 
 const (
+	DiscoveryScanStateComplete   DiscoveryScanState = "complete"
+	DiscoveryScanStateFailed     DiscoveryScanState = "failed"
+	DiscoveryScanStateNotStarted DiscoveryScanState = "not_started"
+	DiscoveryScanStateQueued     DiscoveryScanState = "queued"
+	DiscoveryScanStateRunning    DiscoveryScanState = "running"
+	DiscoveryScanStateStale      DiscoveryScanState = "stale"
+)
+
+func (e DiscoveryScanState) Valid() bool {
+	switch e {
+	case DiscoveryScanStateComplete:
+		return true
+	case DiscoveryScanStateFailed:
+		return true
+	case DiscoveryScanStateNotStarted:
+		return true
+	case DiscoveryScanStateQueued:
+		return true
+	case DiscoveryScanStateRunning:
+		return true
+	case DiscoveryScanStateStale:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	Critical FindingSeverity = "critical"
+	High     FindingSeverity = "high"
+	Info     FindingSeverity = "info"
+	Low      FindingSeverity = "low"
+	Medium   FindingSeverity = "medium"
+)
+
+func (e FindingSeverity) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case High:
+		return true
+	case Info:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	FindingStateDismissed  FindingState = "dismissed"
+	FindingStateOpen       FindingState = "open"
+	FindingStateResolved   FindingState = "resolved"
+	FindingStateSnoozed    FindingState = "snoozed"
+	FindingStateSuperseded FindingState = "superseded"
+)
+
+func (e FindingState) Valid() bool {
+	switch e {
+	case FindingStateDismissed:
+		return true
+	case FindingStateOpen:
+		return true
+	case FindingStateResolved:
+		return true
+	case FindingStateSnoozed:
+		return true
+	case FindingStateSuperseded:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	Assign  FindingUpdateAction = "assign"
+	Dismiss FindingUpdateAction = "dismiss"
+	Reopen  FindingUpdateAction = "reopen"
+	Snooze  FindingUpdateAction = "snooze"
+)
+
+func (e FindingUpdateAction) Valid() bool {
+	switch e {
+	case Assign:
+		return true
+	case Dismiss:
+		return true
+	case Reopen:
+		return true
+	case Snooze:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Import  InventoryJobKind = "import"
 	Refresh InventoryJobKind = "refresh"
 	Scan    InventoryJobKind = "scan"
@@ -221,6 +321,60 @@ func (e InventoryJobState) Valid() bool {
 	case InventoryJobStateRunning:
 		return true
 	case InventoryJobStateStale:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	Dependabot MaintenanceBotIdentityKind = "dependabot"
+	Renovate   MaintenanceBotIdentityKind = "renovate"
+)
+
+func (e MaintenanceBotIdentityKind) Valid() bool {
+	switch e {
+	case Dependabot:
+		return true
+	case Renovate:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	MaintenanceBotStatusAutomergeDisabled MaintenanceBotStatusAutomerge = "disabled"
+	MaintenanceBotStatusAutomergeEnabled  MaintenanceBotStatusAutomerge = "enabled"
+	MaintenanceBotStatusAutomergeUnknown  MaintenanceBotStatusAutomerge = "unknown"
+)
+
+func (e MaintenanceBotStatusAutomerge) Valid() bool {
+	switch e {
+	case MaintenanceBotStatusAutomergeDisabled:
+		return true
+	case MaintenanceBotStatusAutomergeEnabled:
+		return true
+	case MaintenanceBotStatusAutomergeUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	Bot     MaintenanceConfigMergeAuthority = "bot"
+	Observe MaintenanceConfigMergeAuthority = "observe"
+	Reforge MaintenanceConfigMergeAuthority = "reforge"
+)
+
+func (e MaintenanceConfigMergeAuthority) Valid() bool {
+	switch e {
+	case Bot:
+		return true
+	case Observe:
+		return true
+	case Reforge:
 		return true
 	default:
 		return false
@@ -497,6 +651,18 @@ type APIError struct {
 	RequestId string                  `json:"request_id"`
 	Retryable bool                    `json:"retryable"`
 }
+type AdvisoryInput struct {
+	AdvisoryId    string             `json:"advisory_id"`
+	AffectedRange string             `json:"affected_range"`
+	CommitSha     string             `json:"commit_sha"`
+	Ecosystem     string             `json:"ecosystem"`
+	Package       string             `json:"package"`
+	Path          string             `json:"path"`
+	ReferenceUrl  string             `json:"reference_url"`
+	RepositoryId  openapi_types.UUID `json:"repository_id"`
+	Severity      string             `json:"severity"`
+	Title         string             `json:"title"`
+}
 type ArtifactMetadata struct {
 	CreatedAt    time.Time          `json:"created_at"`
 	ExpiresAt    time.Time          `json:"expires_at"`
@@ -688,6 +854,14 @@ type Decision struct {
 }
 type DecisionOutcome string
 type DeploymentState string
+type DiscoveryScan struct {
+	ObservedAt   *time.Time         `json:"observed_at,omitempty"`
+	Reason       string             `json:"reason"`
+	RepositoryId openapi_types.UUID `json:"repository_id"`
+	State        DiscoveryScanState `json:"state"`
+	Version      int64              `json:"version"`
+}
+type DiscoveryScanState string
 type EnrollmentToken struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Token     string    `json:"token"`
@@ -710,6 +884,41 @@ type EventPage struct {
 	Cursor   int64   `json:"cursor"`
 	Items    []Event `json:"items"`
 }
+type Finding struct {
+	AssignedTo     *openapi_types.UUID `json:"assigned_to,omitempty"`
+	Category       string              `json:"category"`
+	Evidence       MaintenanceEvidence `json:"evidence"`
+	EvidenceDigest string              `json:"evidence_digest"`
+	Fingerprint    string              `json:"fingerprint"`
+	FirstSeen      time.Time           `json:"first_seen"`
+	Id             openapi_types.UUID  `json:"id"`
+	LastSeen       time.Time           `json:"last_seen"`
+	OrgId          openapi_types.UUID  `json:"org_id"`
+	Reason         string              `json:"reason"`
+	RepositoryId   openapi_types.UUID  `json:"repository_id"`
+	Severity       FindingSeverity     `json:"severity"`
+	SnoozeUntil    *time.Time          `json:"snooze_until,omitempty"`
+	Source         string              `json:"source"`
+	SourceId       string              `json:"source_id"`
+	State          FindingState        `json:"state"`
+	SupersededBy   *openapi_types.UUID `json:"superseded_by,omitempty"`
+	Title          string              `json:"title"`
+	Version        int64               `json:"version"`
+}
+type FindingSeverity string
+type FindingState string
+type FindingPage struct {
+	Complete   bool      `json:"complete"`
+	Items      []Finding `json:"items"`
+	NextCursor *string   `json:"next_cursor,omitempty"`
+}
+type FindingUpdate struct {
+	Action      FindingUpdateAction `json:"action"`
+	AssignedTo  *string             `json:"assigned_to,omitempty"`
+	Reason      *string             `json:"reason,omitempty"`
+	SnoozeUntil *time.Time          `json:"snooze_until,omitempty"`
+}
+type FindingUpdateAction string
 type ForgeChange struct {
 	AuthorId         string       `json:"author_id"`
 	AuthorLogin      string       `json:"author_login"`
@@ -810,6 +1019,63 @@ type IssuedInventoryWebhook struct {
 	Revoked      bool   `json:"revoked"`
 	Secret       string `json:"secret"`
 	Version      int64  `json:"version"`
+}
+type MaintenanceBotConfig struct {
+	Dependabot MaintenanceBotStatus `json:"dependabot"`
+	Renovate   MaintenanceBotStatus `json:"renovate"`
+}
+type MaintenanceBotIdentity struct {
+	ActorId string                     `json:"actor_id"`
+	Kind    MaintenanceBotIdentityKind `json:"kind"`
+}
+type MaintenanceBotIdentityKind string
+type MaintenanceBotStatus struct {
+	Automerge MaintenanceBotStatusAutomerge `json:"automerge"`
+	Present   bool                          `json:"present"`
+}
+type MaintenanceBotStatusAutomerge string
+type MaintenanceConfig struct {
+	MergeAuthority MaintenanceConfigMergeAuthority `json:"merge_authority"`
+	RepositoryId   openapi_types.UUID              `json:"repository_id"`
+	TrustedBots    []MaintenanceBotIdentity        `json:"trusted_bots"`
+	Version        int64                           `json:"version"`
+}
+type MaintenanceConfigMergeAuthority string
+type MaintenanceDependency struct {
+	Ecosystem string `json:"ecosystem"`
+	From      string `json:"from"`
+	Manifest  string `json:"manifest"`
+	Name      string `json:"name"`
+	To        string `json:"to"`
+}
+type MaintenanceEvidence struct {
+	AdvisoryId *string               `json:"advisory_id,omitempty"`
+	Blockers   []string              `json:"blockers"`
+	Bot        *string               `json:"bot,omitempty"`
+	BotConfig  *MaintenanceBotConfig `json:"bot_config,omitempty"`
+	Change     *ForgeChange          `json:"change,omitempty"`
+	Checks     []struct {
+		Conclusion  string `json:"conclusion"`
+		HeadSha     string `json:"head_sha"`
+		Id          string `json:"id"`
+		Name        string `json:"name"`
+		PublisherId string `json:"publisher_id"`
+		Status      string `json:"status"`
+		Url         string `json:"url"`
+	} `json:"checks"`
+	Complete          bool                    `json:"complete"`
+	ConfigVersion     int64                   `json:"config_version"`
+	ConnectionId      openapi_types.UUID      `json:"connection_id"`
+	ConnectionVersion int64                   `json:"connection_version"`
+	Dependencies      []MaintenanceDependency `json:"dependencies"`
+	HeadOwnership     *string                 `json:"head_ownership,omitempty"`
+	HeadSha           string                  `json:"head_sha"`
+	MergeBlockers     *[]string               `json:"merge_blockers,omitempty"`
+	Ownership         string                  `json:"ownership"`
+	Provenance        string                  `json:"provenance"`
+	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
+	TargetBranch      string                  `json:"target_branch"`
+	TargetSha         string                  `json:"target_sha"`
 }
 type Membership struct {
 	AllRepositories bool     `json:"all_repositories"`
@@ -1285,6 +1551,18 @@ type StreamEventsParams struct {
 type ReplayEventsParams struct {
 	After *int64 `form:"after,omitempty" json:"after,omitempty"`
 }
+type ListFindingsParams struct {
+	Limit        *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor       *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Q            *string `form:"q,omitempty" json:"q,omitempty"`
+	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	State        *string `form:"state,omitempty" json:"state,omitempty"`
+	Category     *string `form:"category,omitempty" json:"category,omitempty"`
+	Severity     *string `form:"severity,omitempty" json:"severity,omitempty"`
+}
+type UpdateFindingParams struct {
+	IfMatch string `json:"If-Match"`
+}
 type ListInventoryJobsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1349,6 +1627,9 @@ type RepositoriesParams struct {
 type ListInventoryChangesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type PutMaintenanceConfigParams struct {
+	IfMatch string `json:"If-Match"`
 }
 type ListRunnerPoolsParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1441,6 +1722,8 @@ type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
+type ImportAdvisoryJSONRequestBody = AdvisoryInput
+type UpdateFindingJSONRequestBody = FindingUpdate
 type StartInventorySyncJSONRequestBody = InventorySyncInput
 type ImportInventoryCandidatesJSONRequestBody = InventoryImportInput
 type PutMembershipJSONRequestBody = MembershipInput
@@ -1448,6 +1731,7 @@ type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
 type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
+type PutMaintenanceConfigJSONRequestBody = MaintenanceConfig
 type CreateRunnerPoolJSONRequestBody = RunnerPoolInput
 type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate

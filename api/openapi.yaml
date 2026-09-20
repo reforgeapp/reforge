@@ -4550,6 +4550,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Authorized forge connection has no webhook; configure using If-Match: \"0\"",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
           }
         }
       },
@@ -4715,6 +4725,460 @@
           },
           "default": {
             "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/findings": {
+      "get": {
+        "operationId": "listFindings",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "severity",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/FindingPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/findings/{findingID}": {
+      "get": {
+        "operationId": "getFinding",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "findingID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "operationId": "updateFinding",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "findingID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/FindingUpdate"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/findings/advisories": {
+      "post": {
+        "operationId": "importAdvisory",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AdvisoryInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/maintenance": {
+      "get": {
+        "operationId": "getMaintenanceConfig",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceConfig"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMaintenanceConfig",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceConfig"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceConfig"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/discovery": {
+      "get": {
+        "operationId": "getDiscoveryScan",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryScan"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "startDiscoveryScan",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Accepted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DiscoveryScan"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
             "content": {
               "application/json": {
                 "schema": {
@@ -7760,6 +8224,479 @@
           "complete",
           "snapshot_state",
           "connection_version"
+        ]
+      },
+      "MaintenanceDependency": {
+        "type": "object",
+        "properties": {
+          "ecosystem": {
+            "type": "string"
+          },
+          "manifest": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "ecosystem",
+          "manifest",
+          "name",
+          "from",
+          "to"
+        ]
+      },
+      "MaintenanceBotIdentity": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "renovate",
+              "dependabot"
+            ]
+          },
+          "actor_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "actor_id"
+        ]
+      },
+      "MaintenanceBotStatus": {
+        "type": "object",
+        "properties": {
+          "present": {
+            "type": "boolean"
+          },
+          "automerge": {
+            "type": "string",
+            "enum": [
+              "enabled",
+              "disabled",
+              "unknown"
+            ]
+          }
+        },
+        "required": [
+          "present",
+          "automerge"
+        ]
+      },
+      "MaintenanceBotConfig": {
+        "type": "object",
+        "properties": {
+          "renovate": {
+            "$ref": "#/components/schemas/MaintenanceBotStatus"
+          },
+          "dependabot": {
+            "$ref": "#/components/schemas/MaintenanceBotStatus"
+          }
+        },
+        "required": [
+          "renovate",
+          "dependabot"
+        ]
+      },
+      "MaintenanceConfig": {
+        "type": "object",
+        "properties": {
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "trusted_bots": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceBotIdentity"
+            }
+          },
+          "merge_authority": {
+            "type": "string",
+            "enum": [
+              "observe",
+              "reforge",
+              "bot"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "repository_id",
+          "trusted_bots",
+          "merge_authority",
+          "version"
+        ]
+      },
+      "MaintenanceEvidence": {
+        "type": "object",
+        "properties": {
+          "provenance": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "config_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "target_sha": {
+            "type": "string"
+          },
+          "target_branch": {
+            "type": "string"
+          },
+          "change": {
+            "$ref": "#/components/schemas/ForgeChange"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "publisher_id": {
+                  "type": "string"
+                },
+                "head_sha": {
+                  "type": "string"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "conclusion": {
+                  "type": "string"
+                },
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "name",
+                "publisher_id",
+                "head_sha",
+                "status",
+                "conclusion",
+                "url"
+              ]
+            }
+          },
+          "dependencies": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MaintenanceDependency"
+            }
+          },
+          "bot": {
+            "type": "string"
+          },
+          "ownership": {
+            "type": "string"
+          },
+          "head_ownership": {
+            "type": "string"
+          },
+          "merge_blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "bot_config": {
+            "$ref": "#/components/schemas/MaintenanceBotConfig"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "advisory_id": {
+            "type": "string"
+          },
+          "reference_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "provenance",
+          "connection_id",
+          "connection_version",
+          "config_version",
+          "head_sha",
+          "target_sha",
+          "target_branch",
+          "ownership",
+          "complete",
+          "checks",
+          "dependencies",
+          "blockers"
+        ]
+      },
+      "Finding": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "org_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "source": {
+            "type": "string"
+          },
+          "source_id": {
+            "type": "string"
+          },
+          "category": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string",
+            "enum": [
+              "info",
+              "low",
+              "medium",
+              "high",
+              "critical"
+            ]
+          },
+          "title": {
+            "type": "string"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/MaintenanceEvidence"
+          },
+          "fingerprint": {
+            "type": "string"
+          },
+          "evidence_digest": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "open",
+              "dismissed",
+              "snoozed",
+              "resolved",
+              "superseded"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "assigned_to": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "snooze_until": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "superseded_by": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "first_seen": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "last_seen": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "org_id",
+          "repository_id",
+          "source",
+          "source_id",
+          "category",
+          "severity",
+          "title",
+          "evidence",
+          "fingerprint",
+          "evidence_digest",
+          "state",
+          "reason",
+          "version",
+          "first_seen",
+          "last_seen"
+        ]
+      },
+      "FindingPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Finding"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "complete"
+        ]
+      },
+      "FindingUpdate": {
+        "type": "object",
+        "properties": {
+          "action": {
+            "type": "string",
+            "enum": [
+              "assign",
+              "dismiss",
+              "snooze",
+              "reopen"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "assigned_to": {
+            "type": "string"
+          },
+          "snooze_until": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "action"
+        ]
+      },
+      "AdvisoryInput": {
+        "type": "object",
+        "properties": {
+          "advisory_id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "reference_url": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "package": {
+            "type": "string"
+          },
+          "ecosystem": {
+            "type": "string"
+          },
+          "affected_range": {
+            "type": "string"
+          },
+          "commit_sha": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          }
+        },
+        "required": [
+          "advisory_id",
+          "title",
+          "severity",
+          "reference_url",
+          "path",
+          "package",
+          "ecosystem",
+          "affected_range",
+          "commit_sha",
+          "repository_id"
+        ]
+      },
+      "DiscoveryScan": {
+        "type": "object",
+        "properties": {
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "not_started",
+              "queued",
+              "running",
+              "complete",
+              "failed",
+              "stale"
+            ]
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "repository_id",
+          "state",
+          "reason",
+          "version"
         ]
       }
     },

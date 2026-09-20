@@ -1,6 +1,6 @@
 # Implementation progress
 
-Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 scope authorised. No live provider mutation, paid API qualification, publication or external deployment authorised.
+Updated: 2026-09-20. Coordinator: Astra X-High. Persistent goal UI paused; user resumed work, no tool resume operation; full T01–T28 scope authorised. No live provider mutation, paid API qualification, publication or external deployment authorised.
 
 ## Execution state
 
@@ -21,18 +21,18 @@ Updated: 2026-09-20. Coordinator: Astra. Persistent goal active; full T01–T28 
 | T05 | local complete | Astra coordinator/workers | workflow; T01 T02 T03 | PG race/recovery/fairness/budget contention; HTTP/SSE policy+scope+revocation; generation/vet/build pass |
 | T06 | local complete | Astra worker t02_review | policy; T01 T02 | Corpus + PG immutable activation/scopes + HTTP simulation/CSRF/version checks passed |
 | T07 | in progress | Astra | runner; T03 T05 T06 | Sandbox and private routes |
-| T08 | in progress | Astra worker t02_identity | forge/github; T01 T03 | Real adapter, guarded mutations |
-| T09 | in progress | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
+| T08 | local complete | Astra worker t02_identity | forge/github; T01 T03 | Real adapter, guarded mutations |
+| T09 | local complete | Luna/Astra | forge/gitlab; T01 T03 | Real adapter, guarded mutations |
 | T10 | local complete | Astra coordinator | forge/gitea; T01 T03 | Disposable real server certification |
-| T11 | not started | Luna/Astra | inventory; T05 T08 T09 T10 | Async reconciliation |
+| T11 | local complete | Luna/Astra | inventory; T05 T08 T09 T10 | Async reconciliation |
 | T12 | local complete | Luna | model/openai; T01 T03 T05 | Streaming contracts and live gap |
 | T13 | local complete | Luna | model/anthropic; T01 T03 T05 | Streaming contracts and live gap |
-| T14 | in progress | Luna | model/google; T01 T03 T05 | Continuation contracts and live gap |
-| T15 | not started | Luna | model/compatible; T01 T03 T05 | Real local inference qualification |
-| T16 | not started | Astra | agent; T03 T05 T06 T07 | Documented permitted runtime routes |
-| T17 | not started | Luna | portfolio GUI; T02 T03 T04 T11 T12–T16 | Backend-connected onboarding |
-| T18 | not started | Astra/Luna | discovery; T05 T06 T11 | Bot ownership and deduplication |
-| T19 | not started | Astra/Luna | repair/recipes; T07 T12 T13 T14 T15 T18 | Real repair loop and trusted validation |
+| T14 | local complete | Luna | model/google; T01 T03 T05 | Continuation contracts and live gap |
+| T15 | local complete | Luna | model/compatible; T01 T03 T05 | Real local inference qualification |
+| T16 | in progress | Astra | agent; T03 T05 T06 T07 | Documented permitted runtime routes |
+| T17 | in progress | Luna | portfolio GUI; T02 T03 T04 T11 T12–T16 | Backend-connected onboarding |
+| T18 | local complete | Astra/Luna | discovery; T05 T06 T11 | Bot ownership and deduplication |
+| T19 | in progress | Astra/Luna | repair/recipes; T07 T12 T13 T14 T15 T18 | Real repair loop and trusted validation |
 | T20 | not started | Luna | evidence GUI; T04 T17 T18 T19 | Connected finding/run/change flows |
 | T21 | not started | Astra | merge; T06 T08 T09 T10 T19 | Exact revisions/native protection |
 | T22 | not started | Astra | pipelines; T05 T06 T08 T09 T10 T21 | Native approval and correlation |
@@ -196,3 +196,14 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and latest ownership
 - T16 bridge committed a912d2b after root review and close-during-startup regression; actual installed Codex0.150.1 schema check plus race2.647s passed. No account login/cache/paid turn accessed. Production qualification/factory remains outstanding.
 - T07.4 pinned source acquisition reviewed; native Gitea pagination/branch-movement proof passed worker7.287s. Fixed-operation gateway integration and coordinator acceptance pending. GitHub native root hash; GitLab/Gitea explicitly record immutable-ref API proof, never an invented native root.
 - T17 GUI remains in progress; T18 detector child underway, coordinator owns discovery persistence/cooperation. T19–T28 remain required; G5 not passed. Goal UI currently reports paused despite resume instruction; tools expose no resume operation. Work continues under user authorization.
+
+## Current checkpoint — discovery and GUI review
+
+- Root only Astra; new/continued workers Luna, caveman-full, bounded ownership. Currently luna_connections owns connection GUI webhook followup; remaining workers idle. Root owns discovery/core security and integration.
+- Commits4487848 inventory,002bf4d route-registration fix,a9ba270 verified pinned source reads. T11 local complete; T08/T09/T12–T15 local adapters complete, external qualification separate.
+- T17 real private Gitea browser journey passed7.7s: enrollment, credential connection/probe, native repository preview/select/import/detail freshness, rotation and revocation. Inventory keyboard/narrow/error/back/deep-link/saved-view tests worker3pass. Root fixed duplicate modal IDs, detail navigation clearing rows and saved-view error overwrite. Webhook GUI and baseline remain.
+- T18 migration013 applied to disposable dev/test; durable scoped findings/config/scans/history, versioned suppression, immutable bot identities, overlapping repair guards, source/check discovery, import advisories and HTTP endpoints implemented. Root reviewed worker detector and HTTP/test changes, fixed ambiguous Python parsing and test fixture/version errors. Real PG/private Gitea/Ollama discovery integration race6.262s passed. Remaining: scanner recovery/overlap tests, final source review, startup verification and commit.
+- No paid calls or external repository writes. G5 remains open; T19–T28 required. Server currently75294 lacks latest discovery wiring until rebuild/restart. Environment/services unchanged; use ignored .local/development.env without printing secrets.
+
+- T18 final root PG race3.483s passed; canonical scanner recovery/bot/conflict fixtures reviewed. Complete private discovery previously6.262s; focused detector/discovery/HTTP race and vet pass. Startup registers/routes/runs discovery, server9460 at8080. T18 local complete; T19 core repair and Luna recipe child now active.
+- T17 latest production build and browser connection suite5passed, including actual private Gitea webhook issue/rotation/revoke and inventory; repository suite3passed3.0s after precise search selectors. Retried only affected tests. No live credentials printed; browser traces disabled for credential flows. Baseline display still awaits T19.
