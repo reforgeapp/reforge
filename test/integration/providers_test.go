@@ -336,7 +336,7 @@ func localPrivateRepository(t *testing.T) forge.RepoRef {
 	clear(raw)
 	client := &http.Client{Timeout: 5 * time.Second}
 	name := "private-read-" + domain.NewID()
-	body, _ := json.Marshal(map[string]any{"name": name, "auto_init": true, "private": true, "default_branch": "main"})
+	body, _ := json.Marshal(map[string]any{"name": name, "auto_init": false, "private": true, "default_branch": "main"})
 	request, _ := http.NewRequest("POST", "http://127.0.0.1:53000/api/v1/admin/users/reforge-bot/repos", strings.NewReader(string(body)))
 	request.Header.Set("Authorization", "token "+secret)
 	request.Header.Set("Content-Type", "application/json")
@@ -368,5 +368,17 @@ func localPrivateRepository(t *testing.T) forge.RepoRef {
 			t.Errorf("disposable repository cleanup status %d", response.StatusCode)
 		}
 	})
+	seed := strings.NewReader(`{"branch":"main","message":"Initialize disposable fixture","content":"Zml4dHVyZQo="}`)
+	initial, _ := http.NewRequest("POST", "http://127.0.0.1:53000/api/v1/repos/"+repo.FullName+"/contents/.reforge-fixture", seed)
+	initial.Header.Set("Authorization", "token "+secret)
+	initial.Header.Set("Content-Type", "application/json")
+	seeded, err := client.Do(initial)
+	if err != nil {
+		t.Fatal("disposable fixture initialization failed")
+	}
+	seeded.Body.Close()
+	if seeded.StatusCode != http.StatusCreated {
+		t.Fatalf("fixture initialization HTTP%d", seeded.StatusCode)
+	}
 	return forge.RepoRef{NativeID: strconv.FormatInt(repo.ID, 10), FullName: repo.FullName}
 }
