@@ -92,6 +92,33 @@ func TestEngineRetriesAfterTargetCompatibilityFailure(t *testing.T) {
 	}
 }
 
+func TestEngineKeepsValidationAcrossReadOnlyTurns(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.BaselineSHA, plan.TargetSHA = strings.Repeat("b", 40), strings.Repeat("c", 40)
+	plan.Recipe.MaxTurns = 4
+	plan.Digest = planDigest(plan)
+	runtime := &retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}
+	turn := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+		turn++
+		call := model.ToolCall{ID: "read", Name: "read_file", Arguments: []byte(`{"path":"value.js"}`)}
+		if turn == 1 {
+			call = model.ToolCall{ID: "first", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.kind='first'; exports.add=(a,b)=>a+b"}`)}
+		}
+		if turn == 4 {
+			call = model.ToolCall{ID: "revised", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.kind='compatible'; exports.add=(a,b)=>a+b"}`)}
+		}
+		return model.TurnResult{ToolCalls: []model.ToolCall{call}}, nil
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || turn != 4 || len(runtime.requests) != 5 {
+		t.Fatalf("read turns repeated frozen validation or reused changed-patch evidence: state=%s turns=%d workspaces=%d err=%v", report.State, turn, len(runtime.requests), err)
+	}
+	if len(report.Patches) != 1 || !strings.Contains(string(report.Patches[0].Content), "compatible") {
+		t.Fatal("stale candidate accepted")
+	}
+}
+
 func TestEngineHandsOffChangedTargetProtection(t *testing.T) {
 	plan, files := testPlan(t)
 	baseSHA, targetSHA := strings.Repeat("b", 40), strings.Repeat("c", 40)

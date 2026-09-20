@@ -174,6 +174,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	var continuation json.RawMessage
 	textRetry := false
 	patches := map[string]sandbox.Patch{}
+	patchRevision, checkedRevision, targetRevision := 0, -1, -1
 	ordered := func() []sandbox.Patch {
 		names := make([]string, 0, len(patches))
 		for name := range patches {
@@ -198,7 +199,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
 		}
-		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "You repair source using only the supplied bounded tools. Follow the frozen validation plan.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
+		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "You repair source using only the supplied bounded tools. Follow the frozen validation plan. Call tools directly to read, edit and validate; describing a patch does not apply it. Preserve behavior for both original and upgraded dependency versions and for all supported inputs. Do not hard-code test outputs. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
 			return fail("Model route stopped; review budget, authorization or unresolved usage", err)
 		}
@@ -212,7 +213,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		} else {
 			messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
 		}
-		verified := false
+		verified := checkedRevision == patchRevision && Verified(p, out.Baseline, out.Candidate)
 		for _, call := range result.ToolCalls {
 			var input struct {
 				Path    string `json:"path"`
@@ -248,8 +249,11 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					}
 					reply = "Patch rejected: protected path, content or size limit"
 				} else {
+					if !existed || !bytes.Equal(previous.Content, patches[input.Path].Content) {
+						patchRevision++
+					}
 					reply = "Patch staged; run_checks required"
-					verified = false
+					verified = checkedRevision == patchRevision && Verified(p, out.Baseline, out.Candidate)
 				}
 			case "run_checks":
 				proposed := ordered()
@@ -262,6 +266,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					return fail("Candidate environment failed or modified protected validation", checkErr)
 				}
 				out.Candidate = candidate
+				checkedRevision = patchRevision
 				body, _ := json.Marshal(candidate)
 				reply = string(body)
 				verified = Verified(p, out.Baseline, candidate)
@@ -270,12 +275,13 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			}
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
 		}
-		if !verified && len(patches) > 0 && CheckPatch(p, files, ordered()) == nil {
+		if !verified && checkedRevision != patchRevision && len(patches) > 0 && CheckPatch(p, files, ordered()) == nil {
 			candidate, checkErr := e.validate(ctx, p, p.BaselineSHA, ordered(), fmt.Sprintf("candidate-final-%d", turn+1), &out)
 			if checkErr != nil {
 				return fail("Supervisor validation failed or modified protected files", checkErr)
 			}
 			out.Candidate = candidate
+			checkedRevision = patchRevision
 			verified = Verified(p, out.Baseline, candidate)
 			if !verified && len(result.ToolCalls) > 0 {
 				body, _ := json.Marshal(candidate)
@@ -301,13 +307,26 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					return fail("Patched source differs between upgrade and target; reconcile before companion publication", ErrHandoff)
 				}
 			}
-			out.Target, err = e.validate(ctx, independent, p.TargetSHA, out.Patches, fmt.Sprintf("target-%d", turn+1), &out)
-			if err != nil {
-				return fail("Target environment failed or modified protected validation", err)
+			newTarget := targetRevision != patchRevision
+			if newTarget {
+				out.Target, err = e.validate(ctx, independent, p.TargetSHA, out.Patches, fmt.Sprintf("target-%d", turn+1), &out)
+				if err != nil {
+					return fail("Target environment failed or modified protected validation", err)
+				}
+				targetRevision = patchRevision
 			}
 			if !Verified(p, out.Baseline, out.Target) {
-				feedback, _ := json.Marshal(out.Target)
-				messages = append(messages, model.Message{Role: "user", Text: "The patch passes the upgraded dependency but fails on the original target branch. Revise source for compatibility with BOTH versions. Read target files with read_target_file. Target results:\n" + string(feedback)})
+				if newTarget {
+					feedback, _ := json.Marshal(out.Target)
+					messages = append(messages, model.Message{Role: "user", Text: "The patch passes the upgraded dependency but fails on the original target branch. Revise source for compatibility with BOTH versions. Read target files with read_target_file. Target results:\n" + string(feedback)})
+				}
+				if len(result.ToolCalls) == 0 {
+					if textRetry || turn+1 >= p.Recipe.MaxTurns {
+						return fail("Model stopped without a target-compatible repair", ErrHandoff)
+					}
+					textRetry = true
+					messages = append(messages, model.Message{Role: "user", Text: "Target compatibility still fails. Apply the revised source using apply_patch; describing the revision does not stage it."})
+				}
 				continue
 			}
 			if err = e.stage(ctx, "validating"); err != nil {
