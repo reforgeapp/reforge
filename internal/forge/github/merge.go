@@ -20,6 +20,9 @@ type graphPull struct {
 		Base  *struct {
 			OID string `json:"oid"`
 		} `json:"baseCommit"`
+		HeadCommit *struct {
+			OID string `json:"oid"`
+		} `json:"headCommit"`
 	} `json:"mergeQueueEntry"`
 }
 
@@ -35,7 +38,7 @@ func (p *Provider) queuePull(ctx context.Context, r forge.RepoRef, id string) (g
 	if len(parts) != 2 || err != nil || n <= 0 || !positive(r.NativeID) {
 		return graphPull{}, failure("invalid", "Immutable repository and pull request required")
 	}
-	err = p.graphql(ctx, `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){databaseId pullRequest(number:$number){id headRefOid baseRefOid mergeQueueEntry{id state baseCommit{oid}}}}}`, map[string]any{"owner": parts[0], "name": parts[1], "number": n}, &out, false)
+	err = p.graphql(ctx, `query($owner:String!,$name:String!,$number:Int!){repository(owner:$owner,name:$name){databaseId pullRequest(number:$number){id headRefOid baseRefOid mergeQueueEntry{id state baseCommit{oid} headCommit{oid}}}}}`, map[string]any{"owner": parts[0], "name": parts[1], "number": n}, &out, false)
 	if err != nil {
 		return graphPull{}, err
 	}
@@ -67,7 +70,32 @@ func (p *Provider) ReadQueueState(ctx context.Context, r forge.RepoRef, id strin
 	if pull.Queue.Base != nil && validSHA(pull.Queue.Base.OID) {
 		out.TargetSHA = pull.Queue.Base.OID
 	}
+	if pull.Queue.Base == nil || pull.Queue.Base.OID != pull.Base || !validSHA(pull.Queue.Base.OID) || pull.Queue.HeadCommit == nil || !validSHA(pull.Queue.HeadCommit.OID) || pull.Queue.HeadCommit.OID == pull.Head {
+		return out, nil
+	}
+	candidate := pull.Queue.HeadCommit.OID
+	proof, err := p.ReadCommitProof(ctx, r, candidate)
+	if err != nil || proof.SHA != candidate || len(proof.Parents) != 2 || !containsParent(proof.Parents, pull.Head) || !containsParent(proof.Parents, pull.Base) {
+		return out, nil
+	}
+	fresh, err := p.queuePull(ctx, r, id)
+	if err != nil {
+		return out, err
+	}
+	if fresh.Queue == nil || fresh.Queue.ID != pull.Queue.ID || fresh.Head != pull.Head || fresh.Base != pull.Base || fresh.Queue.Base == nil || fresh.Queue.Base.OID != pull.Queue.Base.OID || fresh.Queue.HeadCommit == nil || fresh.Queue.HeadCommit.OID != candidate {
+		return out, failure("conflict", "Queue candidate changed during commit proof")
+	}
+	out.TestedSHA = candidate
 	return out, nil
+}
+
+func containsParent(parents []string, want string) bool {
+	for _, parent := range parents {
+		if parent == want {
+			return true
+		}
+	}
+	return false
 }
 func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.MergeRequest) (forge.MergeResult, error) {
 	var out forge.MergeResult
