@@ -13,6 +13,7 @@ import (
 	"reforge/internal/budget"
 	"reforge/internal/connections"
 	"reforge/internal/model"
+	"reforge/internal/network"
 	"reforge/internal/privateconnector"
 	"reforge/internal/providers"
 	"reforge/internal/runner"
@@ -248,7 +249,12 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	} else {
 		if err = prepare(ctx, nil); err == nil {
 			err = execute(ctx, func(callctx context.Context) (model.TurnResult, error) {
-				resolved.Client.Timeout = time.Duration(in.TimeoutMS) * time.Millisecond
+				scoped, err := network.WithTimeout(resolved.Client, time.Duration(in.TimeoutMS)*time.Millisecond)
+				if err != nil {
+					return model.TurnResult{}, err
+				}
+				defer scoped.CloseIdleConnections()
+				resolved.Client = scoped
 				provider, err := s.factory.Model(resolved)
 				if err != nil {
 					return model.TurnResult{}, err

@@ -88,7 +88,12 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 			if grant.Operation.Turn.Model != grant.Connection.Model {
 				return fail("invalid", false)
 			}
-			client.Timeout = grant.Operation.MaximumTTL()
+			scoped, err := network.WithTimeout(client, grant.Operation.MaximumTTL())
+			if err != nil {
+				return fail("invalid", false)
+			}
+			defer scoped.CloseIdleConnections()
+			client = scoped
 		}
 		var provider model.ModelProvider
 		cfg := model.Config{Endpoint: grant.Connection.Endpoint, APIKey: grant.Connection.Secret, Model: grant.Connection.Model, Profile: grant.Connection.Profile, Client: client}

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 )
 
 func routeOptions(host string, cidrs ...string) Options {
@@ -301,5 +302,35 @@ func TestLocalRedirectAndCustomCA(t *testing.T) {
 	options.CAPEM = []byte("not a certificate")
 	if _, err = NewClient(server.URL+"/api", options); err == nil {
 		t.Fatal("invalid CA accepted")
+	}
+}
+
+func TestTurnTimeoutRetainsDestinationBoundary(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { time.Sleep(20 * time.Millisecond); w.WriteHeader(204) }))
+	defer server.Close()
+	endpoint, _ := url.Parse(server.URL)
+	options := routeOptions(endpoint.Hostname(), "127.0.0.1/32")
+	options.Development = true
+	original, err := NewClient(server.URL+"/api", options)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer original.CloseIdleConnections()
+	original.Transport.(*transport).transport.ResponseHeaderTimeout = time.Millisecond
+	scoped, err := WithTimeout(original, time.Second)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer scoped.CloseIdleConnections()
+	response, err := scoped.Get(server.URL + "/api/model")
+	if err != nil {
+		t.Fatal(err)
+	}
+	response.Body.Close()
+	if _, err = scoped.Get(server.URL + "/outside"); !errors.Is(err, ErrRequest) {
+		t.Fatalf("timeout escaped path boundary: %v", err)
+	}
+	if original.Transport.(*transport).transport.ResponseHeaderTimeout != time.Millisecond {
+		t.Fatal("original transport changed")
 	}
 }
