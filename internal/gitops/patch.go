@@ -10,6 +10,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/goccy/go-yaml/ast"
+	"github.com/goccy/go-yaml/lexer"
 	"github.com/goccy/go-yaml/parser"
 	"github.com/goccy/go-yaml/token"
 )
@@ -86,14 +87,30 @@ func PatchManifest(content []byte, pointer, expected, desired string) ([]byte, e
 }
 
 func parseManifest(content []byte, pointer string) (*ast.File, ast.ScalarNode, error) {
-	if len(content) == 0 || len(content) > maxManifestSize {
+	if len(content) == 0 || len(content) > maxManifestSize || !utf8.Valid(content) {
 		return nil, nil, fmt.Errorf("manifest is empty or exceeds 1 MiB")
 	}
 	segments, err := pointerSegments(pointer)
 	if err != nil {
 		return nil, nil, err
 	}
-	file, err := parser.ParseBytes(content, 0)
+	tokens := lexer.Tokenize(string(content))
+	if len(tokens) > 100000 {
+		return nil, nil, fmt.Errorf("manifest exceeds token limit")
+	}
+	depth := 0
+	for _, item := range tokens {
+		switch item.Type {
+		case token.SequenceStartType, token.MappingStartType:
+			depth++
+		case token.SequenceEndType, token.MappingEndType:
+			depth--
+		}
+		if depth > 128 || item.Position != nil && item.Position.IndentLevel > 128 {
+			return nil, nil, fmt.Errorf("manifest exceeds nesting limit")
+		}
+	}
+	file, err := parser.Parse(tokens, 0)
 	if err != nil || len(file.Docs) != 1 {
 		if err != nil {
 			return nil, nil, fmt.Errorf("invalid manifest: %w", err)
