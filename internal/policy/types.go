@@ -106,6 +106,7 @@ type Evidence struct {
 }
 
 type Input struct {
+	Stage              string     `json:"stage,omitempty"`
 	Action             Action     `json:"action"`
 	Recipe             string     `json:"recipe"`
 	Model              string     `json:"model"`
