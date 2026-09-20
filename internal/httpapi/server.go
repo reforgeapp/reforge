@@ -64,7 +64,11 @@ func (s *Server) boundaries() gin.HandlerFunc {
 		if !s.Config.Development {
 			c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
-		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, 2<<20)
+		bodyLimit := int64(2 << 20)
+		if c.Request.Method == http.MethodPost && c.Request.URL.Path == "/runner/v1/private/results" {
+			bodyLimit = 6 << 20
+		}
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, bodyLimit)
 		start := time.Now()
 		defer func() {
 			if recover() != nil {

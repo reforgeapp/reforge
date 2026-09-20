@@ -3885,6 +3885,98 @@
           }
         }
       }
+    },
+    "/runner/v1/private/poll": {
+      "post": {
+        "operationId": "pollPrivateGrant",
+        "security": [
+          {
+            "runnerBearer": []
+          }
+        ],
+        "description": "Long-poll for one server-authorized fixed operation; controller affinity is required.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PrivateGrant"
+                }
+              }
+            }
+          },
+          "204": {
+            "description": "No operation available"
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/runner/v1/private/results": {
+      "post": {
+        "operationId": "completePrivateGrant",
+        "security": [
+          {
+            "runnerBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "in": "header",
+            "name": "X-Private-Result-Capability",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PrivateCompletion"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6353,6 +6445,142 @@
             "type": "boolean"
           }
         }
+      },
+      "PrivateOperation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "gitea.probe",
+              "gitea.inventory",
+              "gitea.repository",
+              "gitea.resolve_ref",
+              "gitea.read_file",
+              "gitea.read_change",
+              "gitea.checks",
+              "gitea.approvals"
+            ]
+          },
+          "inventory": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "repository": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "ref": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "file": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "change": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "id",
+          "kind"
+        ]
+      },
+      "PrivateGrant": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "runner_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "target": {
+            "type": "object",
+            "properties": {
+              "org_id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "runner_id": {
+                "type": "string",
+                "format": "uuid"
+              }
+            },
+            "required": [
+              "org_id",
+              "runner_id"
+            ]
+          },
+          "operation": {
+            "$ref": "#/components/schemas/PrivateOperation"
+          },
+          "authority_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "connection": {
+            "type": "object",
+            "additionalProperties": true
+          },
+          "timeout_ms": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 30000
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "secret": {
+            "type": "string",
+            "description": "Ephemeral provider credential for the authenticated trusted supervisor only."
+          },
+          "result_capability": {
+            "type": "string",
+            "description": "One-use grant-bound completion capability."
+          }
+        },
+        "required": [
+          "id",
+          "target",
+          "operation",
+          "authority_id",
+          "connection",
+          "timeout_ms",
+          "expires_at",
+          "secret",
+          "result_capability"
+        ]
+      },
+      "PrivateCompletion": {
+        "type": "object",
+        "properties": {
+          "grant_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "result": {
+            "type": "object",
+            "additionalProperties": true
+          }
+        },
+        "required": [
+          "grant_id",
+          "result"
+        ]
       }
     },
     "securitySchemes": {

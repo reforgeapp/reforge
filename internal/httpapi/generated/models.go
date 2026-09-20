@@ -248,6 +248,40 @@ func (e PolicyScopeKind) Valid() bool {
 }
 
 const (
+	GiteaApprovals  PrivateOperationKind = "gitea.approvals"
+	GiteaChecks     PrivateOperationKind = "gitea.checks"
+	GiteaInventory  PrivateOperationKind = "gitea.inventory"
+	GiteaProbe      PrivateOperationKind = "gitea.probe"
+	GiteaReadChange PrivateOperationKind = "gitea.read_change"
+	GiteaReadFile   PrivateOperationKind = "gitea.read_file"
+	GiteaRepository PrivateOperationKind = "gitea.repository"
+	GiteaResolveRef PrivateOperationKind = "gitea.resolve_ref"
+)
+
+func (e PrivateOperationKind) Valid() bool {
+	switch e {
+	case GiteaApprovals:
+		return true
+	case GiteaChecks:
+		return true
+	case GiteaInventory:
+		return true
+	case GiteaProbe:
+		return true
+	case GiteaReadChange:
+		return true
+	case GiteaReadFile:
+		return true
+	case GiteaRepository:
+		return true
+	case GiteaResolveRef:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Gitea  RepositoryProvider = "gitea"
 	Github RepositoryProvider = "github"
 	Gitlab RepositoryProvider = "gitlab"
@@ -798,6 +832,36 @@ type PolicyVersionPage struct {
 	Items      []PolicyVersion `json:"items"`
 	NextCursor *string         `json:"next_cursor,omitempty"`
 }
+type PrivateCompletion struct {
+	GrantId openapi_types.UUID     `json:"grant_id"`
+	Result  map[string]interface{} `json:"result"`
+}
+type PrivateGrant struct {
+	AuthorityId      openapi_types.UUID     `json:"authority_id"`
+	Connection       map[string]interface{} `json:"connection"`
+	ExpiresAt        time.Time              `json:"expires_at"`
+	Id               openapi_types.UUID     `json:"id"`
+	Operation        PrivateOperation       `json:"operation"`
+	ResultCapability string                 `json:"result_capability"`
+	RunnerVersion    *int64                 `json:"runner_version,omitempty"`
+	Secret           string                 `json:"secret"`
+	Target           struct {
+		OrgId    openapi_types.UUID `json:"org_id"`
+		RunnerId openapi_types.UUID `json:"runner_id"`
+	} `json:"target"`
+	TimeoutMs int `json:"timeout_ms"`
+}
+type PrivateOperation struct {
+	Change     *map[string]interface{} `json:"change,omitempty"`
+	Checks     *map[string]interface{} `json:"checks,omitempty"`
+	File       *map[string]interface{} `json:"file,omitempty"`
+	Id         openapi_types.UUID      `json:"id"`
+	Inventory  *map[string]interface{} `json:"inventory,omitempty"`
+	Kind       PrivateOperationKind    `json:"kind"`
+	Ref        *map[string]interface{} `json:"ref,omitempty"`
+	Repository *map[string]interface{} `json:"repository,omitempty"`
+}
+type PrivateOperationKind string
 type PrivateRoute struct {
 	ApprovedAt *time.Time `json:"approved_at,omitempty"`
 	Cidrs      []string   `json:"cidrs"`
@@ -1162,6 +1226,10 @@ type InvokeRunnerOperationJSONBody struct {
 	ConnectionId openapi_types.UUID     `json:"connection_id"`
 	Input        map[string]interface{} `json:"input"`
 }
+type PollPrivateGrantJSONBody = map[string]interface{}
+type CompletePrivateGrantParams struct {
+	XPrivateResultCapability string `json:"X-Private-Result-Capability"`
+}
 type RunnerProgressJSONBody struct {
 	State TaskState `json:"state"`
 }
@@ -1188,5 +1256,7 @@ type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
 type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody
 type EnrollRunnerJSONRequestBody EnrollRunnerJSONBody
 type InvokeRunnerOperationJSONRequestBody InvokeRunnerOperationJSONBody
+type PollPrivateGrantJSONRequestBody = PollPrivateGrantJSONBody
+type CompletePrivateGrantJSONRequestBody = PrivateCompletion
 type RunnerProgressJSONRequestBody RunnerProgressJSONBody
 type RunnerResultJSONRequestBody = RunnerCompletion
