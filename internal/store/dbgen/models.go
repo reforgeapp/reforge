@@ -168,3 +168,110 @@ type User struct {
 	Email     string             `json:"email"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
 }
+
+type WorkflowAttempt struct {
+	OrgID      pgtype.UUID        `json:"org_id"`
+	ID         pgtype.UUID        `json:"id"`
+	TaskID     pgtype.UUID        `json:"task_id"`
+	JobID      pgtype.UUID        `json:"job_id"`
+	Number     int32              `json:"number"`
+	Fence      int64              `json:"fence"`
+	LeaseOwner string             `json:"lease_owner"`
+	State      string             `json:"state"`
+	StartedAt  pgtype.Timestamptz `json:"started_at"`
+	EndedAt    pgtype.Timestamptz `json:"ended_at"`
+}
+
+type WorkflowEvent struct {
+	OrgID            pgtype.UUID        `json:"org_id"`
+	ID               int64              `json:"id"`
+	RepositoryID     pgtype.UUID        `json:"repository_id"`
+	Type             string             `json:"type"`
+	AggregateType    string             `json:"aggregate_type"`
+	AggregateID      pgtype.UUID        `json:"aggregate_id"`
+	AggregateVersion int64              `json:"aggregate_version"`
+	OccurredAt       pgtype.Timestamptz `json:"occurred_at"`
+	RequestID        string             `json:"request_id"`
+	DataVersion      int32              `json:"data_version"`
+	Data             []byte             `json:"data"`
+}
+
+type WorkflowEventHead struct {
+	OrgID         pgtype.UUID `json:"org_id"`
+	LastID        int64       `json:"last_id"`
+	RetainedAfter int64       `json:"retained_after"`
+}
+
+type WorkflowJob struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	OperationID    pgtype.UUID        `json:"operation_id"`
+	State          string             `json:"state"`
+	Fence          int64              `json:"fence"`
+	Attempts       int32              `json:"attempts"`
+	LeaseOwner     string             `json:"lease_owner"`
+	LeaseExpiresAt pgtype.Timestamptz `json:"lease_expires_at"`
+	AvailableAt    pgtype.Timestamptz `json:"available_at"`
+	Priority       int32              `json:"priority"`
+}
+
+type WorkflowOutbox struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	RepositoryID   pgtype.UUID        `json:"repository_id"`
+	OperationID    pgtype.UUID        `json:"operation_id"`
+	Kind           string             `json:"kind"`
+	IdempotencyKey string             `json:"idempotency_key"`
+	Payload        []byte             `json:"payload"`
+	PayloadHash    string             `json:"payload_hash"`
+	State          string             `json:"state"`
+	DispatchCount  int32              `json:"dispatch_count"`
+	Evidence       string             `json:"evidence"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type WorkflowPause struct {
+	OrgID     pgtype.UUID `json:"org_id"`
+	ScopeKind string      `json:"scope_kind"`
+	ScopeID   string      `json:"scope_id"`
+	Paused    bool        `json:"paused"`
+	Version   int64       `json:"version"`
+}
+
+type WorkflowRepoFairness struct {
+	OrgID         pgtype.UUID        `json:"org_id"`
+	RepositoryID  pgtype.UUID        `json:"repository_id"`
+	LastClaimedAt pgtype.Timestamptz `json:"last_claimed_at"`
+}
+
+type WorkflowScheduler struct {
+	OrgID         pgtype.UUID        `json:"org_id"`
+	LastClaimedAt pgtype.Timestamptz `json:"last_claimed_at"`
+}
+
+type WorkflowTask struct {
+	OrgID              pgtype.UUID        `json:"org_id"`
+	ID                 pgtype.UUID        `json:"id"`
+	RepositoryID       pgtype.UUID        `json:"repository_id"`
+	OperationID        pgtype.UUID        `json:"operation_id"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestHash        string             `json:"request_hash"`
+	Recipe             string             `json:"recipe"`
+	RecipeVersion      string             `json:"recipe_version"`
+	TargetBranch       string             `json:"target_branch"`
+	ModelConnectionID  pgtype.UUID        `json:"model_connection_id"`
+	CampaignID         pgtype.UUID        `json:"campaign_id"`
+	RunnerPoolID       pgtype.UUID        `json:"runner_pool_id"`
+	PolicyHash         string             `json:"policy_hash"`
+	StartingPolicyHash string             `json:"starting_policy_hash"`
+	State              string             `json:"state"`
+	Reason             string             `json:"reason"`
+	Version            int64              `json:"version"`
+	CancelVersion      int64              `json:"cancel_version"`
+	MaxAttempts        int32              `json:"max_attempts"`
+	CreatedBy          pgtype.UUID        `json:"created_by"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	ModelRoute         string             `json:"model_route"`
+}
