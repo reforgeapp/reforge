@@ -3,7 +3,7 @@ package config
 import "testing"
 
 func TestFixtureModeCannotEscapeLoopback(t *testing.T) {
-	base := Config{Address: "127.0.0.1:8080", PublicURL: "http://127.0.0.1:8080", DatabaseURL: "postgres://db", Development: true, FixtureAuth: true, Edition: "self-hosted", EncryptionKey: "test"}
+	base := Config{Address: "127.0.0.1:8080", PublicURL: "http://127.0.0.1:8080", DatabaseURL: "postgres://db", Development: true, FixtureAuth: true, Edition: "self-hosted", EncryptionKey: "dGVzdHRlc3R0ZXN0dGVzdHRlc3R0ZXN0dGVzdHRlc3Q="}
 	if err := base.Validate(); err != nil {
 		t.Fatal(err)
 	}

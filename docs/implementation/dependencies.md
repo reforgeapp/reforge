@@ -4,33 +4,51 @@ Generated from pinned Go modules and npm lockfile. Includes development tools. F
 
 | Dependency | Version | Licence evidence |
 | --- | --- | --- |
+| cloud.google.com/go/compute/metadata | v0.3.0 | review required |
+| github.com/aws/aws-sdk-go-v2 | v1.47.0 | included |
+| github.com/aws/aws-sdk-go-v2/config | v1.33.5 | included |
+| github.com/aws/aws-sdk-go-v2/credentials | v1.20.5 | included |
+| github.com/aws/aws-sdk-go-v2/feature/ec2/imds | v1.20.0 | included |
+| github.com/aws/aws-sdk-go-v2/internal/configsources | v1.5.3 | included |
+| github.com/aws/aws-sdk-go-v2/internal/endpoints/v2 | v2.8.3 | included |
+| github.com/aws/aws-sdk-go-v2/internal/v4a | v1.5.3 | included |
+| github.com/aws/aws-sdk-go-v2/service/internal/accept-encoding | v1.13.19 | included |
+| github.com/aws/aws-sdk-go-v2/service/internal/presigned-url | v1.14.3 | included |
+| github.com/aws/aws-sdk-go-v2/service/kms | v1.61.0 | included |
+| github.com/aws/aws-sdk-go-v2/service/signin | v1.10.0 | included |
+| github.com/aws/aws-sdk-go-v2/service/sso | v1.38.0 | included |
+| github.com/aws/aws-sdk-go-v2/service/ssooidc | v1.43.0 | included |
+| github.com/aws/aws-sdk-go-v2/service/sts | v1.51.0 | included |
+| github.com/aws/smithy-go | v1.28.1 | included |
 | github.com/bytedance/gopkg | v0.1.3 | included |
 | github.com/bytedance/sonic | v1.15.0 | included |
 | github.com/bytedance/sonic/loader | v0.5.0 | included |
 | github.com/cloudwego/base64x | v0.1.6 | included |
+| github.com/coreos/go-oidc/v3 | v3.21.0 | included |
 | github.com/davecgh/go-spew | v1.1.1 | included |
 | github.com/gabriel-vasile/mimetype | v1.4.12 | included |
 | github.com/gin-contrib/sse | v1.1.0 | included |
 | github.com/gin-gonic/gin | v1.12.0 | included |
+| github.com/go-jose/go-jose/v4 | v4.1.4 | included |
 | github.com/go-playground/assert/v2 | v2.2.0 | included |
 | github.com/go-playground/locales | v0.14.1 | included |
 | github.com/go-playground/universal-translator | v0.18.1 | included |
 | github.com/go-playground/validator/v10 | v10.30.1 | included |
 | github.com/goccy/go-json | v0.10.5 | included |
 | github.com/goccy/go-yaml | v1.19.2 | included |
-| github.com/golang/protobuf | v1.5.0 | included |
+| github.com/golang/protobuf | v1.5.0 | review required |
 | github.com/google/go-cmp | v0.7.0 | included |
-| github.com/google/gofuzz | v1.0.0 | included |
+| github.com/google/gofuzz | v1.0.0 | review required |
 | github.com/jackc/pgpassfile | v1.0.0 | included |
 | github.com/jackc/pgservicefile | v0.0.0-20240606120523-5a60cdf6a761 | included |
 | github.com/jackc/pgx/v5 | v5.11.0 | included |
 | github.com/jackc/puddle/v2 | v2.2.2 | included |
-| github.com/jordanlewis/gcassert | v0.0.0-20250430164644-389ef753e22e | included |
+| github.com/jordanlewis/gcassert | v0.0.0-20250430164644-389ef753e22e | review required |
 | github.com/json-iterator/go | v1.1.12 | included |
-| github.com/klauspost/compress | v1.17.6 | included |
+| github.com/klauspost/compress | v1.17.6 | review required |
 | github.com/klauspost/cpuid/v2 | v2.3.0 | included |
-| github.com/kr/pretty | v0.3.1 | included |
-| github.com/kr/text | v0.2.0 | included |
+| github.com/kr/pretty | v0.3.1 | review required |
+| github.com/kr/text | v0.2.0 | review required |
 | github.com/leodido/go-urn | v1.4.0 | included |
 | github.com/mattn/go-isatty | v0.0.20 | included |
 | github.com/modern-go/concurrent | v0.0.0-20180306012644-bacd9c7ef1dd | included |
@@ -39,30 +57,31 @@ Generated from pinned Go modules and npm lockfile. Includes development tools. F
 | github.com/pmezard/go-difflib | v1.0.0 | included |
 | github.com/quic-go/qpack | v0.6.0 | included |
 | github.com/quic-go/quic-go | v0.59.0 | included |
-| github.com/rogpeppe/go-internal | v1.10.0 | included |
-| github.com/stretchr/objx | v0.5.2 | included |
+| github.com/rogpeppe/go-internal | v1.10.0 | review required |
+| github.com/stretchr/objx | v0.5.2 | review required |
 | github.com/stretchr/testify | v1.11.1 | included |
 | github.com/twitchyliquid64/golang-asm | v0.15.1 | included |
 | github.com/ugorji/go/codec | v1.3.1 | included |
-| github.com/xdg-go/pbkdf2 | v1.0.0 | included |
-| github.com/xdg-go/scram | v1.2.0 | included |
-| github.com/xdg-go/stringprep | v1.0.4 | included |
-| github.com/youmark/pkcs8 | v0.0.0-20240726163527-a2c0da244d78 | included |
+| github.com/xdg-go/pbkdf2 | v1.0.0 | review required |
+| github.com/xdg-go/scram | v1.2.0 | review required |
+| github.com/xdg-go/stringprep | v1.0.4 | review required |
+| github.com/youmark/pkcs8 | v0.0.0-20240726163527-a2c0da244d78 | review required |
 | go.mongodb.org/mongo-driver/v2 | v2.5.0 | included |
 | go.uber.org/mock | v0.6.0 | included |
 | golang.org/x/arch | v0.22.0 | included |
 | golang.org/x/crypto | v0.48.0 | included |
-| golang.org/x/mod | v0.32.0 | included |
+| golang.org/x/mod | v0.32.0 | review required |
 | golang.org/x/net | v0.51.0 | included |
+| golang.org/x/oauth2 | v0.37.0 | included |
 | golang.org/x/sync | v0.19.0 | included |
 | golang.org/x/sys | v0.41.0 | included |
-| golang.org/x/term | v0.40.0 | included |
+| golang.org/x/term | v0.40.0 | review required |
 | golang.org/x/text | v0.34.0 | included |
-| golang.org/x/tools | v0.41.0 | included |
+| golang.org/x/tools | v0.41.0 | review required |
 | google.golang.org/protobuf | v1.36.10 | included |
-| gopkg.in/check.v1 | v1.0.0-20201130134442-10cb98267c6c | included |
+| gopkg.in/check.v1 | v1.0.0-20201130134442-10cb98267c6c | review required |
 | gopkg.in/yaml.v3 | v3.0.1 | included |
-| rsc.io/pdf | v0.1.1 | included |
+| rsc.io/pdf | v0.1.1 | review required |
 | @axe-core/playwright | 4.13.0 | MPL-2.0 |
 | @babel/code-frame | 7.29.7 | MIT |
 | @babel/helper-validator-identifier | 7.29.7 | MIT |

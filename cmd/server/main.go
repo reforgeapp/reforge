@@ -9,7 +9,9 @@ import (
 	"os/signal"
 	"reforge/internal/auth"
 	"reforge/internal/config"
+	"reforge/internal/connections"
 	"reforge/internal/httpapi"
+	"reforge/internal/secrets"
 	"reforge/internal/store"
 	"syscall"
 	"time"
@@ -47,6 +49,18 @@ func run() error {
 		return err
 	}
 	app.RegisterIdentity(identity)
+	var vault *secrets.Vault
+	if cfg.Edition == "hosted" {
+		kmsContext, cancel := context.WithTimeout(ctx, 20*time.Second)
+		vault, err = secrets.NewKMS(kmsContext, secrets.KMSConfig{Region: cfg.KMSRegion, KeyID: cfg.KMSKeyARN, PreviousKeyIDs: cfg.KMSPreviousKeyARNs})
+		cancel()
+	} else {
+		vault, err = secrets.New(cfg.EncryptionKeyID, cfg.EncryptionKeys)
+	}
+	if err != nil {
+		return err
+	}
+	app.RegisterConnections(connections.New(db, identity, vault, cfg.Development))
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

@@ -267,6 +267,60 @@ type Capability struct {
 }
 type CapabilityState string
 type ChangeState string
+type Connection struct {
+	Capabilities      map[string]ConnectionCapability `json:"capabilities"`
+	CredentialVersion int64                           `json:"credential_version"`
+	Endpoint          string                          `json:"endpoint"`
+	Id                string                          `json:"id"`
+	Kind              string                          `json:"kind"`
+	Name              string                          `json:"name"`
+	OrgId             string                          `json:"org_id"`
+	PrivateRoute      *PrivateRoute                   `json:"private_route,omitempty"`
+	Provider          string                          `json:"provider"`
+	Reason            string                          `json:"reason"`
+	ServerVersion     string                          `json:"server_version"`
+	Settings          ConnectionSettings              `json:"settings"`
+	State             string                          `json:"state"`
+	VerifiedAt        *time.Time                      `json:"verified_at"`
+	Version           int64                           `json:"version"`
+}
+type ConnectionCapability struct {
+	LastChecked time.Time `json:"last_checked"`
+	Reason      string    `json:"reason"`
+	Scope       string    `json:"scope"`
+	Source      string    `json:"source"`
+	State       string    `json:"state"`
+	Version     string    `json:"version"`
+}
+type ConnectionCreate struct {
+	Endpoint     string             `json:"endpoint"`
+	Kind         string             `json:"kind"`
+	Name         string             `json:"name"`
+	PrivateRoute *PrivateRoute      `json:"private_route,omitempty"`
+	Provider     string             `json:"provider"`
+	Secret       *string            `json:"secret,omitempty"`
+	Settings     ConnectionSettings `json:"settings"`
+}
+type ConnectionPage struct {
+	Complete   bool         `json:"complete"`
+	Items      []Connection `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+type ConnectionSettings struct {
+	AllowedModels  *[]string `json:"allowed_models,omitempty"`
+	AppId          *string   `json:"app_id,omitempty"`
+	AuthKind       string    `json:"auth_kind"`
+	BillingRoute   string    `json:"billing_route"`
+	CaPem          *string   `json:"ca_pem,omitempty"`
+	InstallationId *string   `json:"installation_id,omitempty"`
+	Model          *string   `json:"model,omitempty"`
+	Namespace      *string   `json:"namespace,omitempty"`
+	Profile        *string   `json:"profile,omitempty"`
+	RuntimeVersion *string   `json:"runtime_version,omitempty"`
+}
+type CredentialRotation struct {
+	Secret *string `json:"secret,omitempty"`
+}
 type Decision struct {
 	Blockers        []string        `json:"blockers"`
 	Outcome         DecisionOutcome `json:"outcome"`
@@ -327,6 +381,16 @@ type Organisation struct {
 	Paused  bool   `json:"paused"`
 	Version int64  `json:"version"`
 }
+type PrivateRoute struct {
+	ApprovedAt *time.Time `json:"approved_at,omitempty"`
+	Cidrs      []string   `json:"cidrs"`
+	Host       string     `json:"host"`
+	RevokedAt  *time.Time `json:"revoked_at,omitempty"`
+	RunnerId   string     `json:"runner_id"`
+}
+type PrivateRouteChange struct {
+	Route PrivateRoute `json:"route"`
+}
 type Repository struct {
 	Accessible    bool               `json:"accessible"`
 	Archived      bool               `json:"archived"`
@@ -376,6 +440,62 @@ type TeamPage struct {
 	Items      []Team  `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
+type ListConnectionsParams struct {
+	Kind   *string `form:"kind,omitempty" json:"kind,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type CreateConnectionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListAgentsConnectionsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type CreateAgentsConnectionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListDeliveryConnectionsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type CreateDeliveryConnectionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListForgesConnectionsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type CreateForgesConnectionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListModelsConnectionsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type CreateModelsConnectionParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type RevokeConnectionParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type SetPrivateRouteParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type RewrapCredentialParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type RotateCredentialParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type TestConnectionParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListMembershipsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -417,6 +537,13 @@ type OidcCallbackParams struct {
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type CreateConnectionJSONRequestBody = ConnectionCreate
+type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
+type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate
+type CreateForgesConnectionJSONRequestBody = ConnectionCreate
+type CreateModelsConnectionJSONRequestBody = ConnectionCreate
+type SetPrivateRouteJSONRequestBody = PrivateRouteChange
+type RotateCredentialJSONRequestBody = CredentialRotation
 type PutMembershipJSONRequestBody = MembershipInput
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest

@@ -1,6 +1,8 @@
 package config
 
 import (
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net"
 	"net/url"
@@ -19,6 +21,11 @@ type Config struct {
 	FixtureAuth        bool
 	Edition            string
 	EncryptionKey      string `json:"-"`
+	EncryptionKeyID    string
+	EncryptionKeys     map[string]string `json:"-"`
+	KMSRegion          string
+	KMSKeyARN          string
+	KMSPreviousKeyARNs []string
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
@@ -37,10 +44,24 @@ func Load() (Config, error) {
 		FixtureAuth:      os.Getenv("REFORGE_FIXTURE_AUTH") == "true",
 		Edition:          value("REFORGE_EDITION", "self-hosted"),
 		EncryptionKey:    os.Getenv("REFORGE_ENCRYPTION_KEY"),
+		EncryptionKeyID:  value("REFORGE_ENCRYPTION_KEY_ID", "primary"),
+		KMSRegion:        os.Getenv("REFORGE_KMS_REGION"),
+		KMSKeyARN:        os.Getenv("REFORGE_KMS_KEY_ARN"),
 		OIDCIssuer:       os.Getenv("REFORGE_OIDC_ISSUER"),
 		OIDCClientID:     os.Getenv("REFORGE_OIDC_CLIENT_ID"),
 		OIDCClientSecret: os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
 		BootstrapToken:   os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
+	}
+	if previous := os.Getenv("REFORGE_KMS_PREVIOUS_KEY_ARNS"); previous != "" {
+		c.KMSPreviousKeyARNs = strings.Split(previous, ",")
+	}
+	if raw := os.Getenv("REFORGE_ENCRYPTION_KEYS"); raw != "" {
+		if err := json.Unmarshal([]byte(raw), &c.EncryptionKeys); err != nil {
+			return c, errors.New("REFORGE_ENCRYPTION_KEYS must be a key ID to base64 key JSON object")
+		}
+	}
+	if c.EncryptionKeys == nil {
+		c.EncryptionKeys = map[string]string{c.EncryptionKeyID: c.EncryptionKey}
 	}
 	if c.BootstrapToken != "" {
 		var err error
@@ -75,8 +96,24 @@ func (c Config) Validate() error {
 	if c.FixtureAuth && !c.Development {
 		return errors.New("fixture authentication requires explicit development mode")
 	}
-	if strings.TrimSpace(c.EncryptionKey) == "" {
-		return errors.New("REFORGE_ENCRYPTION_KEY is required")
+	if c.Edition == "hosted" {
+		if c.KMSRegion == "" || c.KMSKeyARN == "" {
+			return errors.New("hosted edition requires REFORGE_KMS_REGION and REFORGE_KMS_KEY_ARN")
+		}
+	} else {
+		keys := c.EncryptionKeys
+		if keys == nil {
+			keys = map[string]string{"primary": c.EncryptionKey}
+		}
+		for id, encoded := range keys {
+			key, err := base64.StdEncoding.DecodeString(encoded)
+			if id == "" || err != nil || len(key) != 32 {
+				return errors.New("encryption keys must be 32-byte base64 values")
+			}
+		}
+		if len(keys) == 0 {
+			return errors.New("encryption keyring is required")
+		}
 	}
 	if !c.FixtureAuth && (c.OIDCIssuer == "" || c.OIDCClientID == "") {
 		return errors.New("OIDC issuer and client ID required outside explicit fixture authentication")

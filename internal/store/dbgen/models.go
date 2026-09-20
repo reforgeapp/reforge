@@ -23,6 +23,46 @@ type Bootstrap struct {
 	ConsumedAt pgtype.Timestamptz `json:"consumed_at"`
 }
 
+type Connection struct {
+	OrgID             pgtype.UUID        `json:"org_id"`
+	ID                pgtype.UUID        `json:"id"`
+	Kind              string             `json:"kind"`
+	Provider          string             `json:"provider"`
+	Name              string             `json:"name"`
+	Endpoint          string             `json:"endpoint"`
+	Settings          []byte             `json:"settings"`
+	State             string             `json:"state"`
+	Reason            string             `json:"reason"`
+	Capabilities      []byte             `json:"capabilities"`
+	ServerVersion     string             `json:"server_version"`
+	VerifiedAt        pgtype.Timestamptz `json:"verified_at"`
+	SecretID          pgtype.UUID        `json:"secret_id"`
+	CredentialVersion int64              `json:"credential_version"`
+	Version           int64              `json:"version"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type ConnectionRoute struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	RunnerID     pgtype.UUID        `json:"runner_id"`
+	Hostname     string             `json:"hostname"`
+	Cidrs        []string           `json:"cidrs"`
+	ApprovedBy   pgtype.UUID        `json:"approved_by"`
+	ApprovedAt   pgtype.Timestamptz `json:"approved_at"`
+	RevokedAt    pgtype.Timestamptz `json:"revoked_at"`
+}
+
+type ConnectionSecret struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	Version      int64              `json:"version"`
+	Envelope     []byte             `json:"envelope"`
+	RotatedAt    pgtype.Timestamptz `json:"rotated_at"`
+}
+
 type MemberRepository struct {
 	OrgID        pgtype.UUID `json:"org_id"`
 	UserID       pgtype.UUID `json:"user_id"`
