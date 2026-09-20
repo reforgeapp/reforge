@@ -151,6 +151,47 @@ func (e DecisionOutcome) Valid() bool {
 }
 
 const (
+	DeploymentConfigurationModeObserve  DeploymentConfigurationMode = "observe"
+	DeploymentConfigurationModePipeline DeploymentConfigurationMode = "pipeline"
+)
+
+func (e DeploymentConfigurationMode) Valid() bool {
+	switch e {
+	case DeploymentConfigurationModeObserve:
+		return true
+	case DeploymentConfigurationModePipeline:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	DeploymentOperationCancelStateConfirmed   DeploymentOperationCancelState = "confirmed"
+	DeploymentOperationCancelStateDispatching DeploymentOperationCancelState = "dispatching"
+	DeploymentOperationCancelStateEmpty       DeploymentOperationCancelState = ""
+	DeploymentOperationCancelStatePending     DeploymentOperationCancelState = "pending"
+	DeploymentOperationCancelStateUncertain   DeploymentOperationCancelState = "uncertain"
+)
+
+func (e DeploymentOperationCancelState) Valid() bool {
+	switch e {
+	case DeploymentOperationCancelStateConfirmed:
+		return true
+	case DeploymentOperationCancelStateDispatching:
+		return true
+	case DeploymentOperationCancelStateEmpty:
+		return true
+	case DeploymentOperationCancelStatePending:
+		return true
+	case DeploymentOperationCancelStateUncertain:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	DeploymentStateAwaitingGates       DeploymentState = "awaiting_gates"
 	DeploymentStateBlocked             DeploymentState = "blocked"
 	DeploymentStateCancelled           DeploymentState = "cancelled"
@@ -391,18 +432,18 @@ func (e MaintenanceBotStatusAutomerge) Valid() bool {
 }
 
 const (
-	Bot     MaintenanceConfigMergeAuthority = "bot"
-	Observe MaintenanceConfigMergeAuthority = "observe"
-	Reforge MaintenanceConfigMergeAuthority = "reforge"
+	MaintenanceConfigMergeAuthorityBot     MaintenanceConfigMergeAuthority = "bot"
+	MaintenanceConfigMergeAuthorityObserve MaintenanceConfigMergeAuthority = "observe"
+	MaintenanceConfigMergeAuthorityReforge MaintenanceConfigMergeAuthority = "reforge"
 )
 
 func (e MaintenanceConfigMergeAuthority) Valid() bool {
 	switch e {
-	case Bot:
+	case MaintenanceConfigMergeAuthorityBot:
 		return true
-	case Observe:
+	case MaintenanceConfigMergeAuthorityObserve:
 		return true
-	case Reforge:
+	case MaintenanceConfigMergeAuthorityReforge:
 		return true
 	default:
 		return false
@@ -432,6 +473,22 @@ const (
 func (e PolicyDocumentSchema) Valid() bool {
 	switch e {
 	case Maintenancev1:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	PolicyInputStageDeploymentAdmission PolicyInputStage = "deployment_admission"
+	PolicyInputStageEmpty               PolicyInputStage = ""
+)
+
+func (e PolicyInputStage) Valid() bool {
+	switch e {
+	case PolicyInputStageDeploymentAdmission:
+		return true
+	case PolicyInputStageEmpty:
 		return true
 	default:
 		return false
@@ -703,6 +760,15 @@ type ArtifactMetadata struct {
 	Size         int64     `json:"size"`
 	TaskId       string    `json:"task_id"`
 }
+type ArtifactProvenance struct {
+	ArtifactDigest string    `json:"artifact_digest"`
+	BuildId        string    `json:"build_id"`
+	ExpiresAt      time.Time `json:"expires_at"`
+	IssuedAt       time.Time `json:"issued_at"`
+	OrgId          string    `json:"org_id"`
+	RepositoryId   string    `json:"repository_id"`
+	SourceSha      string    `json:"source_sha"`
+}
 type BootstrapRequest struct {
 	Name  string `json:"name"`
 	Token string `json:"token"`
@@ -891,6 +957,135 @@ type Decision struct {
 	Rules           []string        `json:"rules"`
 }
 type DecisionOutcome string
+type DeliveryPipelineRequest struct {
+	ArtifactDigest string            `json:"artifact_digest"`
+	ConfigSha256   string            `json:"config_sha256"`
+	CorrelationId  string            `json:"correlation_id"`
+	Environment    string            `json:"environment"`
+	Inputs         map[string]string `json:"inputs"`
+	ObserveOnly    bool              `json:"observe_only"`
+	Ref            string            `json:"ref"`
+	Repository     ForgeRepoRef      `json:"repository"`
+	RequestedAt    time.Time         `json:"requested_at"`
+	RulesHash      string            `json:"rules_hash"`
+	RunId          string            `json:"run_id"`
+	SourceSha      string            `json:"source_sha"`
+	WorkflowId     string            `json:"workflow_id"`
+	WorkflowPath   string            `json:"workflow_path"`
+	WorkflowSha    string            `json:"workflow_sha"`
+}
+type DeliveryQualification struct {
+	ConnectionVersion        int64     `json:"connection_version"`
+	EnvironmentSerialization bool      `json:"environment_serialization"`
+	EvidenceReference        string    `json:"evidence_reference"`
+	EvidenceSha256           string    `json:"evidence_sha256"`
+	ExpiresAt                time.Time `json:"expires_at"`
+	NativeEnforcement        bool      `json:"native_enforcement"`
+	NoBypass                 bool      `json:"no_bypass"`
+	PinnedInputs             bool      `json:"pinned_inputs"`
+	Provider                 string    `json:"provider"`
+	ServerVersion            string    `json:"server_version"`
+	VerifiedAt               time.Time `json:"verified_at"`
+}
+type DeliveryWorkflow struct {
+	ConfigSha256 string            `json:"config_sha256"`
+	Id           string            `json:"id"`
+	Inputs       map[string]string `json:"inputs"`
+	Path         string            `json:"path"`
+	Ref          string            `json:"ref"`
+	Sha          string            `json:"sha"`
+}
+type DeploymentConfiguration struct {
+	DeadlineSeconds       int64                       `json:"deadline_seconds"`
+	Enabled               bool                        `json:"enabled"`
+	Environment           string                      `json:"environment"`
+	HealthChecks          []string                    `json:"health_checks"`
+	HealthPublicKey       string                      `json:"health_public_key"`
+	MaxEvidenceAgeSeconds int64                       `json:"max_evidence_age_seconds"`
+	Mode                  DeploymentConfigurationMode `json:"mode"`
+	NativeEnvironment     string                      `json:"native_environment"`
+	ObservationSeconds    int64                       `json:"observation_seconds"`
+	ProvenancePublicKey   string                      `json:"provenance_public_key"`
+	Qualification         DeliveryQualification       `json:"qualification"`
+	RecoveryWorkflow      *DeliveryWorkflow           `json:"recovery_workflow,omitempty"`
+	RepositoryId          string                      `json:"repository_id"`
+	Version               int64                       `json:"version"`
+	Workflow              DeliveryWorkflow            `json:"workflow"`
+}
+type DeploymentConfigurationMode string
+type DeploymentConfigurationPage struct {
+	Items []DeploymentConfiguration `json:"items"`
+}
+type DeploymentDetail struct {
+	Gate      DeploymentGate      `json:"gate"`
+	Health    *DeploymentHealth   `json:"health,omitempty"`
+	Operation DeploymentOperation `json:"operation"`
+}
+type DeploymentGate struct {
+	Binding              PolicyEvidenceBinding   `json:"binding"`
+	Blockers             []string                `json:"blockers"`
+	ConfigurationVersion int64                   `json:"configuration_version"`
+	ConnectionId         string                  `json:"connection_id"`
+	ConnectionVersion    int64                   `json:"connection_version"`
+	Decision             PolicyResult            `json:"decision"`
+	Environment          string                  `json:"environment"`
+	ExpiresAt            time.Time               `json:"expires_at"`
+	Id                   string                  `json:"id"`
+	Native               NativeDeploymentGates   `json:"native"`
+	Pipeline             DeliveryPipelineRequest `json:"pipeline"`
+	RepositoryId         string                  `json:"repository_id"`
+	Request              DeploymentPreviewInput  `json:"request"`
+}
+type DeploymentHealth struct {
+	ArtifactDigest       string          `json:"artifact_digest"`
+	Checks               map[string]bool `json:"checks"`
+	ConfigurationVersion int64           `json:"configuration_version"`
+	DeploymentId         string          `json:"deployment_id"`
+	Environment          string          `json:"environment"`
+	Healthy              bool            `json:"healthy"`
+	Nonce                string          `json:"nonce"`
+	ObservedAt           time.Time       `json:"observed_at"`
+	OrgId                string          `json:"org_id"`
+	Revision             string          `json:"revision"`
+	RunAttempt           int64           `json:"run_attempt"`
+	RunId                string          `json:"run_id"`
+	SourceSha            string          `json:"source_sha"`
+}
+type DeploymentOperation struct {
+	CancelRequested bool                           `json:"cancel_requested"`
+	CancelState     DeploymentOperationCancelState `json:"cancel_state"`
+	CreatedAt       time.Time                      `json:"created_at"`
+	Environment     string                         `json:"environment"`
+	FinishedAt      *time.Time                     `json:"finished_at,omitempty"`
+	GateId          string                         `json:"gate_id"`
+	Id              string                         `json:"id"`
+	Native          *NativeDeploymentStatus        `json:"native,omitempty"`
+	Reason          string                         `json:"reason"`
+	RecoveryOf      *string                        `json:"recovery_of,omitempty"`
+	RepositoryId    string                         `json:"repository_id"`
+	RequestedBy     string                         `json:"requested_by"`
+	State           string                         `json:"state"`
+	UpdatedAt       time.Time                      `json:"updated_at"`
+	Version         int64                          `json:"version"`
+}
+type DeploymentOperationCancelState string
+type DeploymentOperationPage struct {
+	Complete   bool                  `json:"complete"`
+	Items      []DeploymentOperation `json:"items"`
+	NextCursor *string               `json:"next_cursor,omitempty"`
+}
+type DeploymentPreviewInput struct {
+	ArtifactDigest      string                   `json:"artifact_digest"`
+	ChangeId            string                   `json:"change_id"`
+	Provenance          SignedArtifactProvenance `json:"provenance"`
+	RecoveryOf          *string                  `json:"recovery_of,omitempty"`
+	RestoreDeploymentId *string                  `json:"restore_deployment_id,omitempty"`
+	SourceSha           string                   `json:"source_sha"`
+}
+type DeploymentRequestInput struct {
+	GateId         string `json:"gate_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
 type DeploymentState string
 type DiscoveryScan struct {
 	ObservedAt   *time.Time         `json:"observed_at,omitempty"`
@@ -1335,6 +1530,40 @@ type ModelUsage struct {
 	OutputTokens        int64  `json:"output_tokens"`
 	Source              string `json:"source"`
 }
+type NativeDeliveryWorkflow struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Ref  string `json:"ref"`
+	Url  string `json:"url"`
+}
+type NativeDeploymentGates struct {
+	ApprovalUrl    string   `json:"approval_url"`
+	Blockers       []string `json:"blockers"`
+	Environment    string   `json:"environment"`
+	NativeEnforced string   `json:"native_enforced"`
+	RulesHash      string   `json:"rules_hash"`
+	State          string   `json:"state"`
+}
+type NativeDeploymentStatus struct {
+	ArtifactDigest string    `json:"artifact_digest"`
+	CorrelationId  string    `json:"correlation_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	Environment    string    `json:"environment"`
+	Event          string    `json:"event"`
+	Health         string    `json:"health"`
+	Id             string    `json:"id"`
+	ObservedAt     time.Time `json:"observed_at"`
+	Ref            string    `json:"ref"`
+	RunAttempt     int64     `json:"run_attempt"`
+	SourceSha      string    `json:"source_sha"`
+	State          string    `json:"state"`
+	UpdatedAt      time.Time `json:"updated_at"`
+	Url            string    `json:"url"`
+	WorkflowId     string    `json:"workflow_id"`
+	WorkflowPath   string    `json:"workflow_path"`
+	WorkflowSha    string    `json:"workflow_sha"`
+}
 type Organisation struct {
 	Id      string `json:"id"`
 	Name    string `json:"name"`
@@ -1413,10 +1642,12 @@ type PolicyInput struct {
 	PausedScopes       *[]string              `json:"paused_scopes,omitempty"`
 	Recipe             *string                `json:"recipe,omitempty"`
 	Route              *string                `json:"route,omitempty"`
+	Stage              *PolicyInputStage      `json:"stage,omitempty"`
 	StartingPolicyHash *string                `json:"starting_policy_hash,omitempty"`
 	Usage              *PolicyLimits          `json:"usage,omitempty"`
 	Workflow           *string                `json:"workflow,omitempty"`
 }
+type PolicyInputStage string
 type PolicyLayer struct {
 	BindingVersion int64          `json:"binding_version"`
 	Policy         PolicyDocument `json:"policy"`
@@ -1741,6 +1972,10 @@ type Session struct {
 		Name  string `json:"name"`
 	} `json:"user"`
 }
+type SignedArtifactProvenance struct {
+	Document  ArtifactProvenance `json:"document"`
+	Signature string             `json:"signature"`
+}
 type SourceFile struct {
 	Content    []byte `json:"content"`
 	Delete     *bool  `json:"delete,omitempty"`
@@ -1815,6 +2050,9 @@ type WorkflowLease struct {
 	RepositoryId string    `json:"repository_id"`
 	TaskId       string    `json:"task_id"`
 	WorkerId     string    `json:"worker_id"`
+}
+type SubmitDeploymentHealthParams struct {
+	XReforgeSignature string `json:"X-Reforge-Signature"`
 }
 type GetBudgetRouteParams struct {
 	Model *string `form:"model,omitempty" json:"model,omitempty"`
@@ -1891,6 +2129,29 @@ type RevokeInventoryWebhookParams struct {
 type RotateInventoryWebhookParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
+}
+type PutDeploymentConfigurationParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type PreviewDeploymentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListDeploymentsParams struct {
+	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	Environment  *string `form:"environment,omitempty" json:"environment,omitempty"`
+	Cursor       *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type RequestDeploymentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelDeploymentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ObserveDeploymentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type StreamEventsParams struct {
 	After       *int64  `form:"after,omitempty" json:"after,omitempty"`
@@ -2098,6 +2359,7 @@ type CompletePrivateGrantParams struct {
 type RunnerProgressJSONBody struct {
 	State TaskState `json:"state"`
 }
+type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
@@ -2107,6 +2369,9 @@ type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
+type PutDeploymentConfigurationJSONRequestBody = DeploymentConfiguration
+type PreviewDeploymentJSONRequestBody = DeploymentPreviewInput
+type RequestDeploymentJSONRequestBody = DeploymentRequestInput
 type ImportAdvisoryJSONRequestBody = AdvisoryInput
 type UpdateFindingJSONRequestBody = FindingUpdate
 type StartInventorySyncJSONRequestBody = InventorySyncInput

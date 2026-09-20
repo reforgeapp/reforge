@@ -6519,6 +6519,653 @@
           }
         ]
       }
+    },
+    "/api/v1/orgs/{orgID}/deployment-configurations": {
+      "get": {
+        "operationId": "listDeploymentConfigurations",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfigurationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployment-configurations/{environment}": {
+      "put": {
+        "operationId": "putDeploymentConfiguration",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentConfiguration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentConfiguration"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployment-configurations/{environment}/preview": {
+      "post": {
+        "operationId": "previewDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentGate"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentPreviewInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployments": {
+      "get": {
+        "operationId": "listDeployments",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "environment",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentOperationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "requestDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentRequestInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}": {
+      "get": {
+        "operationId": "getDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "deploymentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentDetail"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}/observe": {
+      "post": {
+        "operationId": "observeDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "deploymentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/deployment-health/{orgID}/{deploymentID}": {
+      "post": {
+        "operationId": "submitDeploymentHealth",
+        "security": [],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "deploymentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-Reforge-Signature",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Accepted"
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeploymentHealth"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}/cancel": {
+      "post": {
+        "operationId": "cancelDeployment",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "deploymentID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/delivery-workflows": {
+      "get": {
+        "operationId": "listDeliveryWorkflows",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "items"
+                  ],
+                  "properties": {
+                    "items": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/NativeDeliveryWorkflow"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -7792,6 +8439,13 @@
             "type": "string",
             "format": "date-time",
             "readOnly": true
+          },
+          "stage": {
+            "type": "string",
+            "enum": [
+              "",
+              "deployment_admission"
+            ]
           }
         },
         "required": [
@@ -11467,6 +12121,772 @@
           },
           "gate": {
             "$ref": "#/components/schemas/MergeGate"
+          }
+        }
+      },
+      "DeliveryWorkflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "path",
+          "ref",
+          "sha",
+          "config_sha256",
+          "inputs"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "sha": {
+            "type": "string"
+          },
+          "config_sha256": {
+            "type": "string"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "DeliveryQualification": {
+        "type": "object",
+        "required": [
+          "provider",
+          "server_version",
+          "connection_version",
+          "evidence_reference",
+          "evidence_sha256",
+          "verified_at",
+          "expires_at",
+          "pinned_inputs",
+          "native_enforcement",
+          "environment_serialization",
+          "no_bypass"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "server_version": {
+            "type": "string"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "evidence_reference": {
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "type": "string"
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "pinned_inputs": {
+            "type": "boolean"
+          },
+          "native_enforcement": {
+            "type": "boolean"
+          },
+          "environment_serialization": {
+            "type": "boolean"
+          },
+          "no_bypass": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeploymentConfiguration": {
+        "type": "object",
+        "required": [
+          "environment",
+          "repository_id",
+          "version",
+          "enabled",
+          "mode",
+          "workflow",
+          "provenance_public_key",
+          "health_public_key",
+          "health_checks",
+          "observation_seconds",
+          "max_evidence_age_seconds",
+          "deadline_seconds",
+          "qualification",
+          "native_environment"
+        ],
+        "properties": {
+          "environment": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "pipeline",
+              "observe"
+            ]
+          },
+          "workflow": {
+            "$ref": "#/components/schemas/DeliveryWorkflow"
+          },
+          "recovery_workflow": {
+            "$ref": "#/components/schemas/DeliveryWorkflow"
+          },
+          "provenance_public_key": {
+            "type": "string"
+          },
+          "health_public_key": {
+            "type": "string"
+          },
+          "health_checks": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "observation_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "max_evidence_age_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "deadline_seconds": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "qualification": {
+            "$ref": "#/components/schemas/DeliveryQualification"
+          },
+          "native_environment": {
+            "type": "string"
+          }
+        }
+      },
+      "ArtifactProvenance": {
+        "type": "object",
+        "required": [
+          "org_id",
+          "repository_id",
+          "source_sha",
+          "artifact_digest",
+          "build_id",
+          "issued_at",
+          "expires_at"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "build_id": {
+            "type": "string"
+          },
+          "issued_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "SignedArtifactProvenance": {
+        "type": "object",
+        "required": [
+          "document",
+          "signature"
+        ],
+        "properties": {
+          "document": {
+            "$ref": "#/components/schemas/ArtifactProvenance"
+          },
+          "signature": {
+            "type": "string"
+          }
+        }
+      },
+      "DeploymentPreviewInput": {
+        "type": "object",
+        "required": [
+          "change_id",
+          "source_sha",
+          "artifact_digest",
+          "provenance"
+        ],
+        "properties": {
+          "change_id": {
+            "type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/SignedArtifactProvenance"
+          },
+          "recovery_of": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "restore_deployment_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          }
+        }
+      },
+      "NativeDeploymentGates": {
+        "type": "object",
+        "required": [
+          "state",
+          "native_enforced",
+          "blockers",
+          "approval_url",
+          "environment",
+          "rules_hash"
+        ],
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "native_enforced": {
+            "type": "string"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "approval_url": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "rules_hash": {
+            "type": "string"
+          }
+        }
+      },
+      "NativeDeploymentStatus": {
+        "type": "object",
+        "required": [
+          "id",
+          "state",
+          "source_sha",
+          "workflow_sha",
+          "artifact_digest",
+          "environment",
+          "correlation_id",
+          "workflow_id",
+          "workflow_path",
+          "ref",
+          "event",
+          "run_attempt",
+          "url",
+          "health",
+          "observed_at",
+          "updated_at",
+          "created_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "workflow_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "correlation_id": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          },
+          "workflow_path": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "event": {
+            "type": "string"
+          },
+          "run_attempt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "url": {
+            "type": "string"
+          },
+          "health": {
+            "type": "string"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeliveryPipelineRequest": {
+        "type": "object",
+        "required": [
+          "repository",
+          "rules_hash",
+          "workflow_id",
+          "workflow_path",
+          "workflow_sha",
+          "config_sha256",
+          "ref",
+          "source_sha",
+          "artifact_digest",
+          "environment",
+          "correlation_id",
+          "inputs",
+          "observe_only",
+          "run_id",
+          "requested_at"
+        ],
+        "properties": {
+          "repository": {
+            "$ref": "#/components/schemas/ForgeRepoRef"
+          },
+          "rules_hash": {
+            "type": "string"
+          },
+          "workflow_id": {
+            "type": "string"
+          },
+          "workflow_path": {
+            "type": "string"
+          },
+          "workflow_sha": {
+            "type": "string"
+          },
+          "config_sha256": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "correlation_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "inputs": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "observe_only": {
+            "type": "boolean"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "requested_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeploymentGate": {
+        "type": "object",
+        "required": [
+          "id",
+          "environment",
+          "repository_id",
+          "connection_id",
+          "connection_version",
+          "configuration_version",
+          "request",
+          "pipeline",
+          "native",
+          "binding",
+          "decision",
+          "blockers",
+          "expires_at"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "configuration_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "request": {
+            "$ref": "#/components/schemas/DeploymentPreviewInput"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/DeliveryPipelineRequest"
+          },
+          "native": {
+            "$ref": "#/components/schemas/NativeDeploymentGates"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/PolicyEvidenceBinding"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/PolicyResult"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "DeploymentOperation": {
+        "type": "object",
+        "required": [
+          "id",
+          "environment",
+          "repository_id",
+          "gate_id",
+          "state",
+          "reason",
+          "version",
+          "requested_by",
+          "created_at",
+          "updated_at",
+          "cancel_requested",
+          "cancel_state"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "requested_by": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "native": {
+            "$ref": "#/components/schemas/NativeDeploymentStatus"
+          },
+          "recovery_of": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "finished_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "cancel_requested": {
+            "type": "boolean"
+          },
+          "cancel_state": {
+            "type": "string",
+            "enum": [
+              "",
+              "pending",
+              "dispatching",
+              "uncertain",
+              "confirmed"
+            ]
+          }
+        }
+      },
+      "DeploymentHealth": {
+        "type": "object",
+        "required": [
+          "org_id",
+          "deployment_id",
+          "environment",
+          "configuration_version",
+          "source_sha",
+          "artifact_digest",
+          "run_id",
+          "run_attempt",
+          "revision",
+          "healthy",
+          "checks",
+          "observed_at",
+          "nonce"
+        ],
+        "properties": {
+          "org_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "deployment_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "configuration_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "source_sha": {
+            "type": "string"
+          },
+          "artifact_digest": {
+            "type": "string"
+          },
+          "run_id": {
+            "type": "string"
+          },
+          "run_attempt": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "revision": {
+            "type": "string"
+          },
+          "healthy": {
+            "type": "boolean"
+          },
+          "checks": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "boolean"
+            }
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "nonce": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          }
+        }
+      },
+      "DeploymentDetail": {
+        "type": "object",
+        "required": [
+          "operation",
+          "gate"
+        ],
+        "properties": {
+          "operation": {
+            "$ref": "#/components/schemas/DeploymentOperation"
+          },
+          "gate": {
+            "$ref": "#/components/schemas/DeploymentGate"
+          },
+          "health": {
+            "$ref": "#/components/schemas/DeploymentHealth"
+          }
+        }
+      },
+      "DeploymentOperationPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "complete"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentOperation"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        }
+      },
+      "DeploymentConfigurationPage": {
+        "type": "object",
+        "required": [
+          "items"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/DeploymentConfiguration"
+            }
+          }
+        }
+      },
+      "DeploymentRequestInput": {
+        "type": "object",
+        "required": [
+          "gate_id",
+          "idempotency_key"
+        ],
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "idempotency_key": {
+            "type": "string"
+          }
+        }
+      },
+      "NativeDeliveryWorkflow": {
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "ref",
+          "path",
+          "url"
+        ],
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
           }
         }
       }

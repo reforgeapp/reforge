@@ -1457,6 +1457,150 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/deployment-configurations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDeploymentConfigurations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployment-configurations/{environment}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putDeploymentConfiguration"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployment-configurations/{environment}/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDeployments"];
+        put?: never;
+        post: operations["requestDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getDeployment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}/observe": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["observeDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deployment-health/{orgID}/{deploymentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submitDeploymentHealth"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/deployments/{deploymentID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelDeployment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/delivery-workflows": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listDeliveryWorkflows"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1792,6 +1936,8 @@ export interface components {
             paused_scopes?: string[];
 
             readonly now?: string;
+
+            stage?: "" | "deployment_admission";
         };
         PolicyResult: {
 
@@ -2843,6 +2989,230 @@ export interface components {
 
             observed_at: string | null;
             gate?: components["schemas"]["MergeGate"];
+        };
+        DeliveryWorkflow: {
+            id: string;
+            path: string;
+            ref: string;
+            sha: string;
+            config_sha256: string;
+            inputs: {
+                [key: string]: string;
+            };
+        };
+        DeliveryQualification: {
+            provider: string;
+            server_version: string;
+
+            connection_version: number;
+            evidence_reference: string;
+            evidence_sha256: string;
+
+            verified_at: string;
+
+            expires_at: string;
+            pinned_inputs: boolean;
+            native_enforcement: boolean;
+            environment_serialization: boolean;
+            no_bypass: boolean;
+        };
+        DeploymentConfiguration: {
+            environment: string;
+
+            repository_id: string;
+
+            version: number;
+            enabled: boolean;
+
+            mode: "pipeline" | "observe";
+            workflow: components["schemas"]["DeliveryWorkflow"];
+            recovery_workflow?: components["schemas"]["DeliveryWorkflow"];
+            provenance_public_key: string;
+            health_public_key: string;
+            health_checks: string[];
+
+            observation_seconds: number;
+
+            max_evidence_age_seconds: number;
+
+            deadline_seconds: number;
+            qualification: components["schemas"]["DeliveryQualification"];
+            native_environment: string;
+        };
+        ArtifactProvenance: {
+
+            org_id: string;
+
+            repository_id: string;
+            source_sha: string;
+            artifact_digest: string;
+            build_id: string;
+
+            issued_at: string;
+
+            expires_at: string;
+        };
+        SignedArtifactProvenance: {
+            document: components["schemas"]["ArtifactProvenance"];
+            signature: string;
+        };
+        DeploymentPreviewInput: {
+            change_id: string;
+            source_sha: string;
+            artifact_digest: string;
+            provenance: components["schemas"]["SignedArtifactProvenance"];
+
+            recovery_of?: string;
+
+            restore_deployment_id?: string;
+        };
+        NativeDeploymentGates: {
+            state: string;
+            native_enforced: string;
+            blockers: string[];
+            approval_url: string;
+            environment: string;
+            rules_hash: string;
+        };
+        NativeDeploymentStatus: {
+            id: string;
+            state: string;
+            source_sha: string;
+            workflow_sha: string;
+            artifact_digest: string;
+            environment: string;
+            correlation_id: string;
+            workflow_id: string;
+            workflow_path: string;
+            ref: string;
+            event: string;
+
+            run_attempt: number;
+            url: string;
+            health: string;
+
+            observed_at: string;
+
+            updated_at: string;
+
+            created_at: string;
+        };
+        DeliveryPipelineRequest: {
+            repository: components["schemas"]["ForgeRepoRef"];
+            rules_hash: string;
+            workflow_id: string;
+            workflow_path: string;
+            workflow_sha: string;
+            config_sha256: string;
+            ref: string;
+            source_sha: string;
+            artifact_digest: string;
+            environment: string;
+
+            correlation_id: string;
+            inputs: {
+                [key: string]: string;
+            };
+            observe_only: boolean;
+            run_id: string;
+
+            requested_at: string;
+        };
+        DeploymentGate: {
+
+            id: string;
+            environment: string;
+
+            repository_id: string;
+
+            connection_id: string;
+
+            connection_version: number;
+
+            configuration_version: number;
+            request: components["schemas"]["DeploymentPreviewInput"];
+            pipeline: components["schemas"]["DeliveryPipelineRequest"];
+            native: components["schemas"]["NativeDeploymentGates"];
+            binding: components["schemas"]["PolicyEvidenceBinding"];
+            decision: components["schemas"]["PolicyResult"];
+            blockers: string[];
+
+            expires_at: string;
+        };
+        DeploymentOperation: {
+
+            id: string;
+            environment: string;
+
+            repository_id: string;
+
+            gate_id: string;
+            state: string;
+            reason: string;
+
+            version: number;
+
+            requested_by: string;
+            native?: components["schemas"]["NativeDeploymentStatus"];
+
+            recovery_of?: string;
+
+            created_at: string;
+
+            updated_at: string;
+
+            finished_at?: string;
+            cancel_requested: boolean;
+
+            cancel_state: "" | "pending" | "dispatching" | "uncertain" | "confirmed";
+        };
+        DeploymentHealth: {
+
+            org_id: string;
+
+            deployment_id: string;
+            environment: string;
+
+            configuration_version: number;
+            source_sha: string;
+            artifact_digest: string;
+            run_id: string;
+
+            run_attempt: number;
+            revision: string;
+            healthy: boolean;
+            checks: {
+                [key: string]: boolean;
+            };
+
+            observed_at: string;
+
+            nonce: string;
+        };
+        DeploymentDetail: {
+            operation: components["schemas"]["DeploymentOperation"];
+            gate: components["schemas"]["DeploymentGate"];
+            health?: components["schemas"]["DeploymentHealth"];
+        };
+        DeploymentOperationPage: {
+            items: components["schemas"]["DeploymentOperation"][];
+            next_cursor?: string;
+            complete: boolean;
+        };
+        DeploymentConfigurationPage: {
+            items: components["schemas"]["DeploymentConfiguration"][];
+        };
+        DeploymentRequestInput: {
+
+            gate_id: string;
+            idempotency_key: string;
+        };
+        NativeDeliveryWorkflow: {
+            id: string;
+            name: string;
+            ref: string;
+            path: string;
+            url: string;
         };
     };
     responses: never;
@@ -6776,6 +7146,358 @@ export interface operations {
                     "application/json": {
                         items: components["schemas"]["BotRevalidation"][];
                     };
+                };
+            };
+        };
+    };
+    listDeploymentConfigurations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentConfigurationPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putDeploymentConfiguration: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentConfiguration"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentConfiguration"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    previewDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                environment: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentPreviewInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentGate"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listDeployments: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                environment?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentOperationPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    requestDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentRequestInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getDeployment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                deploymentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentDetail"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    observeDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                deploymentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    submitDeploymentHealth: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Reforge-Signature": string;
+            };
+            path: {
+                orgID: string;
+                deploymentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DeploymentHealth"];
+            };
+        };
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelDeployment: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                deploymentID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listDeliveryWorkflows: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        items: components["schemas"]["NativeDeliveryWorkflow"][];
+                    };
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
         };

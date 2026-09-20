@@ -121,6 +121,58 @@ type ConnectionSecret struct {
 	RotatedAt    pgtype.Timestamptz `json:"rotated_at"`
 }
 
+type Deployment struct {
+	OrgID             pgtype.UUID        `json:"org_id"`
+	ID                pgtype.UUID        `json:"id"`
+	RepositoryID      pgtype.UUID        `json:"repository_id"`
+	Environment       string             `json:"environment"`
+	GateID            pgtype.UUID        `json:"gate_id"`
+	RequestedBy       pgtype.UUID        `json:"requested_by"`
+	IdempotencyKey    string             `json:"idempotency_key"`
+	State             string             `json:"state"`
+	Reason            string             `json:"reason"`
+	DispatchID        pgtype.UUID        `json:"dispatch_id"`
+	NativeResult      []byte             `json:"native_result"`
+	RecoveryOf        pgtype.UUID        `json:"recovery_of"`
+	Version           int64              `json:"version"`
+	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
+	FirstHealthyAt    pgtype.Timestamptz `json:"first_healthy_at"`
+	LastHealthAt      pgtype.Timestamptz `json:"last_health_at"`
+	ObserveAfter      pgtype.Timestamptz `json:"observe_after"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt         pgtype.Timestamptz `json:"updated_at"`
+	CancelRequested   bool               `json:"cancel_requested"`
+	CancelDispatchID  pgtype.UUID        `json:"cancel_dispatch_id"`
+	CancelState       string             `json:"cancel_state"`
+	NativeEnvironment string             `json:"native_environment"`
+}
+
+type DeploymentConfiguration struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	Environment  string             `json:"environment"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	Version      int64              `json:"version"`
+	Document     []byte             `json:"document"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type DeploymentGate struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ID           pgtype.UUID        `json:"id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	Environment  string             `json:"environment"`
+	Document     []byte             `json:"document"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+}
+
+type DeploymentHealthReport struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	DeploymentID pgtype.UUID        `json:"deployment_id"`
+	Nonce        pgtype.UUID        `json:"nonce"`
+	Document     []byte             `json:"document"`
+	ReceivedAt   pgtype.Timestamptz `json:"received_at"`
+}
+
 type InventoryCandidate struct {
 	OrgID      pgtype.UUID `json:"org_id"`
 	JobID      pgtype.UUID `json:"job_id"`

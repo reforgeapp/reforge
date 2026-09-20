@@ -14,6 +14,7 @@ import (
 	"reforge/internal/config"
 	"reforge/internal/connections"
 	"reforge/internal/control"
+	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/httpapi"
 	"reforge/internal/inventory"
@@ -143,6 +144,13 @@ func run() error {
 	app.RegisterRepair(repairs)
 	merges := mergecontrol.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterMerge(merges)
+	deliveries := deployment.New(db, identity, connectionService, policies, providerReads)
+	app.RegisterDeployment(deliveries)
+	deliveryContext, stopDelivery := context.WithCancel(ctx)
+	deliveryDone := make(chan struct{})
+	go func() { defer close(deliveryDone); _ = deliveries.Run(deliveryContext) }()
+	defer func() { stopDelivery(); <-deliveryDone }()
+
 	mergeContext, stopMerge := context.WithCancel(ctx)
 	mergeDone := make(chan struct{})
 	go func() { defer close(mergeDone); _ = merges.Run(mergeContext) }()
