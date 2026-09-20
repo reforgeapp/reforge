@@ -125,6 +125,14 @@ func (s *Service) revokeStaleQueueTx(ctx context.Context, tx pgx.Tx, org string,
 	if err != nil {
 		return operation, err
 	}
+	if active && s.changeAuthority != nil {
+		actor, actorErr := s.inspectionActor(ctx, tx, nil, org, operation.RepositoryID, operation.ID)
+		active = actorErr == nil
+		if active {
+			_, authorityErr := s.changeAuthority(ctx, tx, org, operation.RepositoryID, gate.Snapshot, actor)
+			active = authorityErr == nil
+		}
+	}
 	if active && cfg.Enabled && cfg.Version == gate.ConfigurationVersion && cfg.Qualification.ExpiresAt.After(time.Now()) && !resolved.Paused && len(resolved.Problems) == 0 && resolved.Hash == gate.Binding.PolicyHash {
 		return operation, nil
 	}

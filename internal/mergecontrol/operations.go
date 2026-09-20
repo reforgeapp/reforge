@@ -146,7 +146,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 		if !manage(a, fresh.RepositoryID) {
 			return auth.ErrForbidden
 		}
-		if err := s.validateGateTx(ctx, tx, org, fresh); err != nil {
+		if err := s.validateGateTx(ctx, tx, org, fresh, a); err != nil {
 			return err
 		}
 		var existing, previousGate string
@@ -185,7 +185,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	return s.dispatch(ctx, session, org, out, fresh, request)
 }
 
-func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gate Gate) error {
+func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gate Gate, actor domain.Actor) error {
 	if !gate.ExpiresAt.After(time.Now()) || gate.Decision.Outcome != "allow" {
 		return auth.ErrConflict
 	}
@@ -217,7 +217,7 @@ func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gat
 	if resolved.Hash != gate.Binding.PolicyHash {
 		return auth.ErrConflict
 	}
-	authority, err := s.authorityTx(ctx, tx, org, gate.RepositoryID, cfg, c, gate.Snapshot)
+	authority, err := s.authorityTx(ctx, tx, org, gate.RepositoryID, cfg, c, gate.Snapshot, actor)
 	if err != nil {
 		return err
 	}
@@ -260,7 +260,7 @@ func (s *Service) dispatch(ctx context.Context, session auth.Session, org string
 		if op.CancelRequested || op.State != "dispatching" || c.ID != gate.ConnectionID || c.Version != gate.ConnectionVersion {
 			return auth.ErrConflict
 		}
-		return s.validateGateTx(ctx, tx, org, gate)
+		return s.validateGateTx(ctx, tx, org, gate, a)
 	}
 	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
 		a, err := s.auth.ActorTx(ctx, tx, session, org)
@@ -277,7 +277,7 @@ func (s *Service) dispatch(ctx context.Context, session auth.Session, org string
 		if op.State != "requested" || op.CancelRequested {
 			return "", auth.ErrConflict
 		}
-		if err = s.validateGateTx(ctx, tx, org, gate); err != nil {
+		if err = s.validateGateTx(ctx, tx, org, gate, a); err != nil {
 			return "", err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE merge_operations SET state='dispatching',version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, op.ID); err != nil {

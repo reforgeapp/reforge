@@ -100,5 +100,9 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)
 	add("merge_authority", authority.MergeControlled && authority.CooperationVerified && !authority.CompanionsBlocked, "repository-merge-authority", 0)
 	decision := policy.Evaluate(resolved, policy.Input{Action: policy.Merge, MergeMethod: method, Current: binding, Evidence: evidence, Paths: authority.Paths, Usage: authority.Usage, Now: now})
+	if len(authority.Blockers) > 0 {
+		decision.Outcome = "deny"
+		decision.Blockers = append(decision.Blockers, authority.Blockers...)
+	}
 	return Gate{Phase: phase, Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
 }

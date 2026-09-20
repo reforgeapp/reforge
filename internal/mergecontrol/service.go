@@ -20,15 +20,16 @@ import (
 )
 
 type Service struct {
-	db          *store.Store
-	auth        *auth.Service
-	connections *connections.Service
-	policies    *policy.Service
-	providers   providers.Client
+	changeAuthority func(context.Context, pgx.Tx, string, string, forge.MergeEvidence, domain.Actor) (string, error)
+	db              *store.Store
+	auth            *auth.Service
+	connections     *connections.Service
+	policies        *policy.Service
+	providers       providers.Client
 }
 
 func New(db *store.Store, identity *auth.Service, connections *connections.Service, policies *policy.Service, providers providers.Client) *Service {
-	return &Service{db, identity, connections, policies, providers}
+	return &Service{db: db, auth: identity, connections: connections, policies: policies, providers: providers}
 }
 
 func manage(a domain.Actor, repo string) bool {
@@ -160,4 +161,8 @@ func emit(ctx context.Context, tx pgx.Tx, org, repo, actor, action, id string, v
 		return err
 	}
 	return workflow.EmitTx(ctx, tx, domain.Event{OrgID: org, RepositoryID: repo, Type: action, AggregateType: "change", AggregateID: id, AggregateVersion: version, RequestID: request, DataVersion: 1, Data: raw})
+}
+
+func (s *Service) RegisterChangeAuthority(check func(context.Context, pgx.Tx, string, string, forge.MergeEvidence, domain.Actor) (string, error)) {
+	s.changeAuthority = check
 }

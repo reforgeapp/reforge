@@ -35,7 +35,7 @@ func (s *Service) validateQueueEffectTx(ctx context.Context, tx pgx.Tx, session 
 	if !sameQueueAuthority(original, gate) {
 		return auth.ErrConflict
 	}
-	return s.validateGateTx(ctx, tx, org, gate)
+	return s.validateGateTx(ctx, tx, org, gate, actor)
 }
 
 func sameQueueAuthority(original, fresh Gate) bool {

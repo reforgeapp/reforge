@@ -74,7 +74,12 @@ type Operation struct {
 	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
+type AuthorityBlocker struct{ Reason string }
+
+func (b *AuthorityBlocker) Error() string { return b.Reason }
+
 type Authority struct {
+	Blockers               []string
 	CIConfigSHA256         string
 	ExecutionPublisher     string
 	CompanionsBlocked      bool

@@ -108,7 +108,7 @@ func (s *Service) inspect(ctx context.Context, session *auth.Session, org, repo,
 		if err != nil {
 			return err
 		}
-		authority, err := s.authorityTx(ctx, tx, org, repo, cfg, current, *result.MergeEvidence)
+		authority, err := s.authorityTx(ctx, tx, org, repo, cfg, current, *result.MergeEvidence, a)
 		if err != nil {
 			return err
 		}
@@ -170,10 +170,22 @@ func (s *Service) changedPaths(ctx context.Context, org, id string, snapshot Sna
 	return paths, lines, nil
 }
 
-func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, cfg Configuration, c connections.Connection, snapshot Snapshot) (Authority, error) {
+func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, cfg Configuration, c connections.Connection, snapshot Snapshot, actor domain.Actor) (Authority, error) {
 	now := time.Now().UTC()
 	q := cfg.Qualification
 	out := Authority{CooperationVerified: cfg.CooperationReference != "", QualificationReference: q.EvidenceReference, ExactHeadEnforced: q.ExactHead}
+	if s.changeAuthority != nil {
+		ref, err := s.changeAuthority(ctx, tx, org, repo, snapshot, actor)
+		var blocker *AuthorityBlocker
+		if errors.As(err, &blocker) {
+			out.Blockers = append(out.Blockers, blocker.Reason)
+		} else if err != nil {
+			return out, err
+		}
+		if ref != "" && err == nil {
+			out.ValidationReference, out.ValidationHead, out.ValidationTarget = ref, snapshot.Change.HeadSHA, snapshot.Change.TargetSHA
+		}
+	}
 	zero, one := int64(0), int64(1)
 	var concurrency, open int64
 	if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM merge_operations WHERE org_id=$1 AND state IN ('requested','dispatching','queued','reconciling')),(SELECT count(*) FROM inventory_changes WHERE org_id=$1 AND snapshot->>'state' IN ('open','opened'))`, org).Scan(&concurrency, &open); err != nil {
