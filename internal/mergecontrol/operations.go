@@ -29,15 +29,53 @@ func gateTx(ctx context.Context, tx pgx.Tx, org, id string) (Gate, error) {
 }
 
 func operationTx(ctx context.Context, tx pgx.Tx, org, id string) (Operation, error) {
+	return scanOperation(tx.QueryRow(ctx, `SELECT id::text,repository_id::text,gate_id::text,requested_gate_id::text,change_id,state,reason,cancel_requested,native_result,version,created_at,updated_at,native_queue_id FROM merge_operations WHERE org_id=$1 AND id=$2`, org, id))
+}
+
+func scanOperation(row interface{ Scan(...any) error }) (Operation, error) {
 	var out Operation
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT id::text,repository_id::text,gate_id::text,change_id,state,reason,cancel_requested,native_result,version,created_at,updated_at FROM merge_operations WHERE org_id=$1 AND id=$2`, org, id).Scan(&out.ID, &out.RepositoryID, &out.GateID, &out.ChangeID, &out.State, &out.Reason, &out.CancelRequested, &raw, &out.Version, &out.CreatedAt, &out.UpdatedAt)
+	err := row.Scan(&out.ID, &out.RepositoryID, &out.GateID, &out.RequestedGateID, &out.ChangeID, &out.State, &out.Reason, &out.CancelRequested, &raw, &out.Version, &out.CreatedAt, &out.UpdatedAt, &out.NativeQueueID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, auth.ErrForbidden
 	}
 	if err == nil && len(raw) > 0 {
 		err = json.Unmarshal(raw, &out.NativeResult)
 	}
+	return out, err
+}
+
+func (s *Service) List(ctx context.Context, session auth.Session, org, repo, change, cursor string, limit int) (domain.Page[Operation], error) {
+	out := domain.Page[Operation]{Items: []Operation{}, Complete: true}
+	if !auth.ValidID(repo) || len(change) > 100 || cursor != "" && !auth.ValidID(cursor) || limit < 1 || limit > 100 {
+		return out, auth.ErrInvalid
+	}
+	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if !auth.CanReadRepository(a, repo) {
+			return auth.ErrForbidden
+		}
+		if _, _, err := repository(ctx, tx, org, repo); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT id::text,repository_id::text,gate_id::text,requested_gate_id::text,change_id,state,reason,cancel_requested,native_result,version,created_at,updated_at,native_queue_id FROM merge_operations WHERE org_id=$1 AND repository_id=$2 AND ($3='' OR change_id=$3) AND ($4='' OR (created_at,id)<(SELECT created_at,id FROM merge_operations WHERE org_id=$1 AND repository_id=$2 AND id::text=$4)) ORDER BY created_at DESC,id DESC LIMIT $5`, org, repo, change, cursor, limit+1)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			item, err := scanOperation(rows)
+			if err != nil {
+				return err
+			}
+			out.Items = append(out.Items, item)
+		}
+		if len(out.Items) > limit {
+			out.Items = out.Items[:limit]
+			out.NextCursor = out.Items[limit-1].ID
+			out.Complete = false
+		}
+		return rows.Err()
+	})
 	return out, err
 }
 
@@ -262,7 +300,11 @@ func (s *Service) dispatch(ctx context.Context, session auth.Session, org string
 		if result.Merge != nil {
 			raw, _ = json.Marshal(result.Merge)
 		}
-		if _, err = tx.Exec(persist, `UPDATE merge_operations SET state=$3,reason=$4,native_result=$5,version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, operation.ID, state, reason, raw); err != nil {
+		queueID := ""
+		if result.Merge != nil && result.Merge.State == "queued" && result.Merge.HeadSHA == gate.Binding.Head {
+			queueID = result.Merge.NativeID
+		}
+		if _, err = tx.Exec(persist, `UPDATE merge_operations SET state=$3,reason=$4,native_result=$5,native_queue_id=$6,version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, operation.ID, state, reason, raw, queueID); err != nil {
 			return err
 		}
 		operation, err = operationTx(persist, tx, org, operation.ID)

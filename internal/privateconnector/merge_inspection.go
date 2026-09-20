@@ -30,17 +30,17 @@ func inspectMerge(ctx context.Context, provider forge.Provider, args ChangeArgs)
 	if rules.RequireQueue {
 		queue, queueErr := provider.ReadQueueState(ctx, args.Repository, change.ID)
 		if queueErr != nil {
-			evidence.Queue.State = "unknown"
-			if errors.Is(queueErr, ErrUnsupported) || isUnsupported(queueErr) {
-				return evidence, ErrUnsupported
+			if !errors.Is(queueErr, ErrUnsupported) && !isUnsupported(queueErr) {
+				return evidence, queueErr
 			}
-			return evidence, queueErr
-		}
-		if queue.HeadSHA != change.HeadSHA || queue.TargetSHA != change.TargetSHA || queue.TestedSHA == "" {
-			return evidence, fmt.Errorf("queue evidence does not bind change head and target")
+			queue = forge.QueueState{State: "unsupported"}
 		}
 		evidence.Queue = queue
-		evidence.Checks, err = provider.ListChecks(ctx, change.TargetRepository, queue.TestedSHA)
+		if queue.HeadSHA == change.HeadSHA && queue.TargetSHA == change.TargetSHA && source.ValidSHA(queue.TestedSHA, "sha1") {
+			evidence.Checks, err = provider.ListChecks(ctx, change.TargetRepository, queue.TestedSHA)
+		} else {
+			evidence.Checks = []forge.Check{}
+		}
 	} else {
 		evidence.Checks, err = provider.ListChecks(ctx, change.HeadRepository, change.HeadSHA)
 	}

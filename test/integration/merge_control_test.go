@@ -95,6 +95,18 @@ func TestMergeConfigurationIsolationAndDurableCancellation(t *testing.T) {
 	if err != nil || op.State != "cancelled" || !op.CancelRequested || op.Version != 2 {
 		t.Fatalf("lost durable cancellation: %+v %v", op, err)
 	}
+	page, err := restarted.List(ctx, f.owner, f.org, f.repo, "7", "", 1)
+	if err != nil || len(page.Items) != 1 || page.Items[0].ID != id || page.Items[0].RequestedGateID != gateID || !page.Complete {
+		t.Fatalf("operation history lost request binding: %+v %v", page, err)
+	}
+	page, err = restarted.List(ctx, f.owner, f.org, f.repo, "other-change", "", 1)
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("change-scoped history leaked: %+v %v", page, err)
+	}
+	page, err = restarted.List(ctx, f.owner, f.org, f.repo, "7", id, 1)
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("history cursor replayed operation: %+v %v", page, err)
+	}
 	if _, err = restarted.Get(ctx, f.owner, domain.NewID(), id); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("cross-tenant service read: %v", err)
 	}

@@ -295,6 +295,45 @@ type Membership struct {
 	Version         int64       `json:"version"`
 }
 
+type MergeConfiguration struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	Version      int64              `json:"version"`
+	Document     []byte             `json:"document"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
+type MergeGate struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	ID                   pgtype.UUID        `json:"id"`
+	RepositoryID         pgtype.UUID        `json:"repository_id"`
+	ChangeID             string             `json:"change_id"`
+	ConfigurationVersion int64              `json:"configuration_version"`
+	Document             []byte             `json:"document"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type MergeOperation struct {
+	OrgID           pgtype.UUID        `json:"org_id"`
+	ID              pgtype.UUID        `json:"id"`
+	RepositoryID    pgtype.UUID        `json:"repository_id"`
+	GateID          pgtype.UUID        `json:"gate_id"`
+	RequestedGateID pgtype.UUID        `json:"requested_gate_id"`
+	ChangeID        string             `json:"change_id"`
+	TargetBranch    string             `json:"target_branch"`
+	IdempotencyKey  string             `json:"idempotency_key"`
+	RequestedBy     pgtype.UUID        `json:"requested_by"`
+	State           string             `json:"state"`
+	Reason          string             `json:"reason"`
+	NativeResult    []byte             `json:"native_result"`
+	CancelRequested bool               `json:"cancel_requested"`
+	Version         int64              `json:"version"`
+	CreatedAt       pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	ObserveAfter    pgtype.Timestamptz `json:"observe_after"`
+	NativeQueueID   string             `json:"native_queue_id"`
+}
+
 type ModelTurn struct {
 	OrgID          pgtype.UUID        `json:"org_id"`
 	ID             pgtype.UUID        `json:"id"`

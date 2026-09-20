@@ -163,7 +163,7 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	}
 	concurrency = max(1, concurrency)
 	out.Usage = policy.Limits{Budget: &zero, Concurrency: &concurrency, Attempts: &one, OpenChanges: &open}
-	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && (q.StrictTarget && !snapshot.Rules.RequireQueue || q.QueueExecutionGate && snapshot.Rules.RequireQueue)
+	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && q.StrictTarget && !snapshot.Rules.RequireQueue
 	if cfg.InspectorConnectionID != "" {
 		inspector, err := s.connections.MetadataTx(ctx, tx, org, cfg.InspectorConnectionID)
 		if err != nil {
@@ -192,16 +192,8 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	if json.Unmarshal(rawContext, &execution) != nil || json.Unmarshal(rawReport, &report) != nil || json.Unmarshal(rawChecks, &checks) != nil {
 		return out, privateconnector.ErrInvalid
 	}
-	if execution.Plan.Valid() && report.State == "validated" && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && len(checks) == len(execution.Plan.Recipe.Commands) {
-		valid := true
-		seen := map[string]bool{}
-		for _, check := range checks {
-			valid = valid && check.Complete && check.ExitCode == 0 && !seen[check.CommandID]
-			seen[check.CommandID] = true
-		}
-		if valid {
-			out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, "repair:"+task
-		}
+	if report.State == "validated" && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && repair.Verified(execution.Plan, report.Baseline, checks) {
+		out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, "repair:"+task
 	}
 	for _, patch := range report.Patches {
 		out.Paths = append(out.Paths, patch.Path)

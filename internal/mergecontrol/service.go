@@ -92,6 +92,9 @@ func (s *Service) PutConfig(ctx context.Context, session auth.Session, org, repo
 		}
 	}
 	q := in.Qualification
+	if in.Enabled && q.QueueExecutionGate {
+		return Configuration{}, &domain.ProviderError{Kind: "unsupported", Message: "Queue automation requires the native execution-gate controller and a qualified provider profile"}
+	}
 	if in.Enabled && (in.CooperationReference == "" || !q.ExactHead || !q.StrictTarget && !q.QueueExecutionGate || !source.ValidSHA(q.EvidenceSHA256, "sha256") || q.EvidenceReference == "" || len(q.EvidenceReference) > 2048 || q.VerifiedAt.IsZero() || q.VerifiedAt.After(time.Now()) || !q.ExpiresAt.After(time.Now()) || q.ExpiresAt.Sub(q.VerifiedAt) > 30*24*time.Hour) {
 		return Configuration{}, auth.ErrInvalid
 	}

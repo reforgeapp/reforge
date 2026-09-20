@@ -141,7 +141,12 @@ func run() error {
 	app.RegisterDiscovery(discoveries)
 	repairs := repair.New(db, identity, discoveries, workflows, runners, policies, budgets, connectionService, providerReads.ForExecution(), cfg.RepairImages)
 	app.RegisterRepair(repairs)
-	app.RegisterMerge(mergecontrol.New(db, identity, connectionService, policies, providerReads))
+	merges := mergecontrol.New(db, identity, connectionService, policies, providerReads)
+	app.RegisterMerge(merges)
+	mergeContext, stopMerge := context.WithCancel(ctx)
+	mergeDone := make(chan struct{})
+	go func() { defer close(mergeDone); _ = merges.Run(mergeContext) }()
+	defer func() { stopMerge(); <-mergeDone }()
 	runners.CompletionCheck = repairs.CheckCompletion
 	authority.Register("repair.stage", repairs.CheckStage)
 	authority.Register("stage", repairs.CheckStage)

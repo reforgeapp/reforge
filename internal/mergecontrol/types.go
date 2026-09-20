@@ -51,6 +51,8 @@ type Operation struct {
 	ID              string             `json:"id"`
 	RepositoryID    string             `json:"repository_id"`
 	GateID          string             `json:"gate_id"`
+	RequestedGateID string             `json:"requested_gate_id"`
+	NativeQueueID   string             `json:"native_queue_id,omitempty"`
 	ChangeID        string             `json:"change_id"`
 	State           string             `json:"state"`
 	Reason          string             `json:"reason"`

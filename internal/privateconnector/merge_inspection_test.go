@@ -103,9 +103,9 @@ func TestInspectMergeRejectsDraftChangeMovement(t *testing.T) {
 
 func TestInspectMergeUnsupportedQueueIsUnknown(t *testing.T) {
 	change := inspectionChange()
-	p := &inspectionProvider{reads: []forge.Change{change}, rules: forge.Rules{RequireQueue: true}, queueError: &domain.ProviderError{Kind: "unsupported", Message: "queue unavailable"}}
+	p := &inspectionProvider{reads: []forge.Change{change, change}, rules: forge.Rules{RequireQueue: true}, queueError: &domain.ProviderError{Kind: "unsupported", Message: "queue unavailable"}}
 	evidence, err := inspectMerge(context.Background(), p, ChangeArgs{Repository: change.Repository, ChangeID: change.ID})
-	if err != ErrUnsupported || evidence == nil || evidence.Queue.State != "unknown" {
+	if err != nil || evidence == nil || evidence.Queue.State != "unsupported" || len(evidence.Checks) != 0 {
 		t.Fatalf("evidence=%+v error=%v", evidence, err)
 	}
 }

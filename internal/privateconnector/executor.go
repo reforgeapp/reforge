@@ -256,6 +256,30 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 	}
 	var err error
 	switch op.Kind {
+	case ForgeReadExecutionCheck, ForgeWriteExecutionCheck:
+		checks, ok := provider.(forge.ForgeExecutionChecks)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var value forge.ExecutionCheck
+		if op.Kind == ForgeReadExecutionCheck {
+			value, err = checks.ReadExecutionCheck(ctx, op.ExecutionCheck.Repository, op.ExecutionCheck.CheckID)
+		} else {
+			value, err = checks.WriteExecutionCheck(ctx, *op.ExecutionCheck)
+		}
+		result.ExecutionCheck = &value
+	case ForgeQueueState:
+		var queue forge.QueueState
+		queue, err = provider.ReadQueueState(ctx, op.Change.Repository, op.Change.ChangeID)
+		result.Queue = &queue
+	case ForgeCancelQueue:
+		control, ok := provider.(forge.ForgeQueueControl)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var queue forge.QueueState
+		queue, err = control.CancelNativeQueue(ctx, *op.CancelQueue)
+		result.Queue = &queue
 	case ForgeMergeInspect:
 		result.MergeEvidence, err = inspectMerge(ctx, provider, *op.Change)
 	case ForgeMerge:

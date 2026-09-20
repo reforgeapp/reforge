@@ -31,34 +31,38 @@ var ErrUncertain = errors.New("private operation outcome uncertain; reconcile be
 type Kind string
 
 const (
-	ForgeMergeInspect     Kind = "forge.merge_inspect"
-	ForgeMerge            Kind = "forge.merge"
-	ForgeMergeResult      Kind = "forge.merge_result"
-	ForgeCommitProof      Kind = "forge.commit_proof"
-	ForgeUpdateBranch     Kind = "forge.update_branch"
-	ForgeCreateChange     Kind = "forge.create_change"
-	ForgeFindChange       Kind = "forge.find_change"
-	ForgeProbe            Kind = "forge.probe"
-	ForgeInventory        Kind = "forge.inventory"
-	ForgeRepository       Kind = "forge.repository"
-	ForgeResolveRef       Kind = "forge.resolve_ref"
-	ForgeReadFile         Kind = "forge.read_file"
-	ForgeSourceManifest   Kind = "forge.source_manifest"
-	ForgeReadChange       Kind = "forge.read_change"
-	ForgeChecks           Kind = "forge.checks"
-	ForgeApprovals        Kind = "forge.approvals"
-	ForgeReconcileChanges Kind = "forge.reconcile_changes"
-	ModelProbe            Kind = "model.probe"
-	ModelList             Kind = "model.list"
-	ModelTurn             Kind = "model.turn"
-	GiteaProbe                 = ForgeProbe
-	GiteaInventory             = ForgeInventory
-	GiteaRepository            = ForgeRepository
-	GiteaResolveRef            = ForgeResolveRef
-	GiteaReadFile              = ForgeReadFile
-	GiteaReadChange            = ForgeReadChange
-	GiteaChecks                = ForgeChecks
-	GiteaApprovals             = ForgeApprovals
+	ForgeMergeInspect        Kind = "forge.merge_inspect"
+	ForgeMerge               Kind = "forge.merge"
+	ForgeMergeResult         Kind = "forge.merge_result"
+	ForgeQueueState          Kind = "forge.queue_state"
+	ForgeCancelQueue         Kind = "forge.cancel_queue"
+	ForgeReadExecutionCheck  Kind = "forge.read_execution_check"
+	ForgeWriteExecutionCheck Kind = "forge.write_execution_check"
+	ForgeCommitProof         Kind = "forge.commit_proof"
+	ForgeUpdateBranch        Kind = "forge.update_branch"
+	ForgeCreateChange        Kind = "forge.create_change"
+	ForgeFindChange          Kind = "forge.find_change"
+	ForgeProbe               Kind = "forge.probe"
+	ForgeInventory           Kind = "forge.inventory"
+	ForgeRepository          Kind = "forge.repository"
+	ForgeResolveRef          Kind = "forge.resolve_ref"
+	ForgeReadFile            Kind = "forge.read_file"
+	ForgeSourceManifest      Kind = "forge.source_manifest"
+	ForgeReadChange          Kind = "forge.read_change"
+	ForgeChecks              Kind = "forge.checks"
+	ForgeApprovals           Kind = "forge.approvals"
+	ForgeReconcileChanges    Kind = "forge.reconcile_changes"
+	ModelProbe               Kind = "model.probe"
+	ModelList                Kind = "model.list"
+	ModelTurn                Kind = "model.turn"
+	GiteaProbe                    = ForgeProbe
+	GiteaInventory                = ForgeInventory
+	GiteaRepository               = ForgeRepository
+	GiteaResolveRef               = ForgeResolveRef
+	GiteaReadFile                 = ForgeReadFile
+	GiteaReadChange               = ForgeReadChange
+	GiteaChecks                   = ForgeChecks
+	GiteaApprovals                = ForgeApprovals
 )
 
 type FindChangeArgs struct {
@@ -99,22 +103,24 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
-	Merge      *forge.MergeRequest        `json:"merge,omitempty"`
-	Commit     *ChecksArgs                `json:"commit,omitempty"`
-	Branch     *forge.UpdateBranchRequest `json:"branch,omitempty"`
-	Create     *forge.CreateChangeRequest `json:"create,omitempty"`
-	Find       *FindChangeArgs            `json:"find,omitempty"`
-	Turn       *model.Turn                `json:"turn,omitempty"`
-	Source     *ChecksArgs                `json:"source,omitempty"`
-	Changes    *ChangesArgs               `json:"changes,omitempty"`
-	ID         string                     `json:"id"`
-	Kind       Kind                       `json:"kind"`
-	Inventory  *InventoryArgs             `json:"inventory,omitempty"`
-	Repository *RepositoryArgs            `json:"repository,omitempty"`
-	Ref        *RefArgs                   `json:"ref,omitempty"`
-	File       *FileArgs                  `json:"file,omitempty"`
-	Change     *ChangeArgs                `json:"change,omitempty"`
-	Checks     *ChecksArgs                `json:"checks,omitempty"`
+	ExecutionCheck *forge.ExecutionCheckRequest `json:"execution_check,omitempty"`
+	CancelQueue    *forge.QueueCancelRequest    `json:"cancel_queue,omitempty"`
+	Merge          *forge.MergeRequest          `json:"merge,omitempty"`
+	Commit         *ChecksArgs                  `json:"commit,omitempty"`
+	Branch         *forge.UpdateBranchRequest   `json:"branch,omitempty"`
+	Create         *forge.CreateChangeRequest   `json:"create,omitempty"`
+	Find           *FindChangeArgs              `json:"find,omitempty"`
+	Turn           *model.Turn                  `json:"turn,omitempty"`
+	Source         *ChecksArgs                  `json:"source,omitempty"`
+	Changes        *ChangesArgs                 `json:"changes,omitempty"`
+	ID             string                       `json:"id"`
+	Kind           Kind                         `json:"kind"`
+	Inventory      *InventoryArgs               `json:"inventory,omitempty"`
+	Repository     *RepositoryArgs              `json:"repository,omitempty"`
+	Ref            *RefArgs                     `json:"ref,omitempty"`
+	File           *FileArgs                    `json:"file,omitempty"`
+	Change         *ChangeArgs                  `json:"change,omitempty"`
+	Checks         *ChecksArgs                  `json:"checks,omitempty"`
 }
 
 func (o Operation) Validate() error { return o.validate() }
@@ -124,16 +130,23 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.ExecutionCheck != nil, o.CancelQueue != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeReadExecutionCheck:
+		valid = o.ExecutionCheck != nil && o.ExecutionCheck.Repository.NativeID != "" && len(o.ExecutionCheck.Repository.FullName) <= 1024 && o.ExecutionCheck.CheckID != "" && len(o.ExecutionCheck.CheckID) <= 128
+	case ForgeWriteExecutionCheck:
+		v := o.ExecutionCheck
+		valid = v != nil && auth.ValidID(v.OperationID) && v.Repository.NativeID != "" && len(v.Repository.FullName) <= 1024 && len(v.SHA) == 40 && v.Name != "" && len(v.Name) <= 100 && len(v.CheckID) <= 128 && (v.State == "pending" || v.State == "success" || v.State == "failure")
+	case ForgeCancelQueue:
+		valid = o.CancelQueue != nil && o.CancelQueue.OperationID == o.ID && o.CancelQueue.Repository.NativeID != "" && len(o.CancelQueue.Repository.FullName) <= 1024 && len(o.CancelQueue.ExpectedHeadSHA) == 40 && o.CancelQueue.ChangeID != "" && len(o.CancelQueue.ChangeID) <= 32 && o.CancelQueue.QueueID != "" && len(o.CancelQueue.QueueID) <= 256
 	case ForgeMerge:
 		valid = o.Merge != nil && o.Merge.OperationID == o.ID && auth.ValidID(o.Merge.GateID) && len(o.Merge.ExpectedHeadSHA) == 40 && len(o.Merge.ExpectedTargetSHA) == 40 && len(o.Merge.RulesHash) == 64 && o.Merge.ChangeID != ""
-	case ForgeMergeInspect, ForgeMergeResult:
+	case ForgeMergeInspect, ForgeMergeResult, ForgeQueueState:
 		valid = o.Change != nil && o.Change.ChangeID != "" && len(o.Change.ChangeID) <= 32 && o.Change.Repository.NativeID != ""
 	case ForgeCommitProof:
 		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""
@@ -260,6 +273,8 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	ExecutionCheck    *forge.ExecutionCheck          `json:"execution_check,omitempty"`
+	Queue             *forge.QueueState              `json:"queue,omitempty"`
 	MergeEvidence     *forge.MergeEvidence           `json:"merge_evidence,omitempty"`
 	Merge             *forge.MergeResult             `json:"merge,omitempty"`
 	Commit            *forge.CommitProof             `json:"commit,omitempty"`
@@ -329,5 +344,5 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 }
 
 func (o Operation) Mutation() bool {
-	return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge
+	return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeWriteExecutionCheck
 }
