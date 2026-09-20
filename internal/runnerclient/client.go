@@ -18,6 +18,7 @@ import (
 
 	"reforge/internal/artifact"
 	"reforge/internal/domain"
+	"reforge/internal/model"
 	"reforge/internal/runner"
 	"reforge/internal/workflow"
 )
@@ -251,6 +252,9 @@ func (c *Client) call(ctx context.Context, method, path, token string, input, ou
 }
 
 func (c *Client) response(req *http.Request, output any) (int, error) {
+	return c.responseLimit(req, output, 2<<20)
+}
+func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int, error) {
 	response, err := c.http.Do(req)
 	if err != nil {
 		if req.Context().Err() != nil {
@@ -265,8 +269,8 @@ func (c *Client) response(req *http.Request, output any) (int, error) {
 	if response.StatusCode == 204 {
 		return 204, nil
 	}
-	body, err := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
-	if err != nil || len(body) > 2<<20 || output == nil || json.Unmarshal(body, output) != nil {
+	body, err := io.ReadAll(io.LimitReader(response.Body, limit+1))
+	if err != nil || int64(len(body)) > limit || output == nil || json.Unmarshal(body, output) != nil {
 		return response.StatusCode, ErrControlPlane
 	}
 	return response.StatusCode, nil
@@ -308,6 +312,7 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	jobctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	stopped := make(chan struct{})
+	cancelRequested := false
 	go func() {
 		defer close(stopped)
 		ticker := time.NewTicker(15 * time.Second)
@@ -321,6 +326,7 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 				value, err := c.Heartbeat(heartbeatCtx, job)
 				stop()
 				if err != nil || value.Stop {
+					cancelRequested = value.Stop
 					cancel()
 					return
 				}
@@ -333,10 +339,25 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	}
 	cancel()
 	<-stopped
+	if cancelRequested && result.Outcome != "uncertain" {
+		result.Outcome = "cancelled"
+	}
 	if ctx.Err() != nil {
 		return ctx.Err()
 	}
 	finish, stop := context.WithTimeout(ctx, 10*time.Second)
 	defer stop()
 	return c.Complete(finish, job, result)
+}
+
+func (c *Client) ModelTurn(ctx context.Context, j Job, in model.Turn) (model.TurnResult, error) {
+	var out model.TurnResult
+	if !in.Valid() {
+		return out, errors.New("invalid model turn")
+	}
+	copyClient := *c.http
+	copyClient.Timeout = time.Duration(in.TimeoutMS)*time.Millisecond + 15*time.Second
+	scoped := Client{config: c.config, base: c.base, http: &copyClient}
+	_, err := scoped.call(ctx, "POST", "/runner/v1/model-turns", j.Token, in, &out)
+	return out, err
 }
