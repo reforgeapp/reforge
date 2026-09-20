@@ -1,6 +1,6 @@
 # Implementation progress
 
-Updated: 2026-09-20. Coordinator: Astra X-High. Persistent goal UI paused; user resumed work, no tool resume operation; full T01–T28 scope authorised. No live provider mutation, paid API qualification, publication or external deployment authorised.
+Updated: 2026-09-21. Coordinator: Astra X-High. Persistent goal UI paused; user resumed work, no tool resume operation; full T01–T28 scope authorised. Only disposable local provider mutations authorised; no customer mutation, paid API qualification, publication or external deployment authorised.
 
 ## Execution state
 
@@ -33,9 +33,9 @@ Updated: 2026-09-20. Coordinator: Astra X-High. Persistent goal UI paused; user 
 | T17 | in progress | Luna | portfolio GUI; T02 T03 T04 T11 T12–T16 | Backend-connected onboarding |
 | T18 | local complete | Astra/Luna | discovery; T05 T06 T11 | Bot ownership and deduplication |
 | T19 | in progress | Astra/Luna | repair/recipes; T07 T12 T13 T14 T15 T18 | Real repair loop and trusted validation |
-| T20 | not started | Luna | evidence GUI; T04 T17 T18 T19 | Connected finding/run/change flows |
-| T21 | not started | Astra | merge; T06 T08 T09 T10 T19 | Exact revisions/native protection |
-| T22 | not started | Astra | pipelines; T05 T06 T08 T09 T10 T21 | Native approval and correlation |
+| T20 | in progress | Luna | evidence GUI; T04 T17 T18 T19 | Connected finding/run/change flows |
+| T21 | local complete | Astra | merge; T06 T08 T09 T10 T19 | Exact revisions/native protection |
+| T22 | in progress | Astra | pipelines; T05 T06 T08 T09 T10 T21 | Native approval and correlation |
 | T23 | not started | Astra | GitOps; T06 T08 T09 T10 T21 | Protected delivery and provenance |
 | T24 | not started | Luna | control GUI; T04 T06 T20 T21 T22 T23 | Policy/deployment/usage/audit |
 | T25 | not started | Astra/Luna | campaigns; T05 T06 T18 T19 T21 T23 T24 | Pinned canaries/fairness |
@@ -55,7 +55,7 @@ G0 foundation and identity locally verified; subsequent artifact/SSE isolation r
 
 ## Resume
 
-Read this file, `agents.md`, `backlog.md`, current Git diff and latest ownership checkpoint. T01–T06 and T10 locally complete. T07 runtime/controller integration, T08 security/App auth, T09 security completion and T12–T15 model adapters remain active. Latest server runs8080 session24805; rebuild after runner wiring. Current ignored environment `.local/development.env` holds rotated disposable credentials. Never interpret a checkpoint as completion of the full request.
+Read latest checkpoint, backlog and current diff. Root sole Astra X-High; at most three Luna workers. Real dependency upgrade, Go repair GUI and protected Gitea restart passed. T21 native direct/queue/train controller and automatic bot revalidation locally implemented; external GH/GL qualification pending. T22 adapters/controller underway. T16 production custody/wiring and T23–T28 remain required. Controller8080 session41728; disposable credentials in ignored `.local/development.env`, never print. Goal UI paused; user resumed work, no tool resume operation.
 
 ## T01 evidence — 2026-09-20
 
@@ -207,3 +207,130 @@ Read this file, `agents.md`, `backlog.md`, current Git diff and latest ownership
 
 - T18 final root PG race3.483s passed; canonical scanner recovery/bot/conflict fixtures reviewed. Complete private discovery previously6.262s; focused detector/discovery/HTTP race and vet pass. Startup registers/routes/runs discovery, server9460 at8080. T18 local complete; T19 core repair and Luna recipe child now active.
 - T17 latest production build and browser connection suite5passed, including actual private Gitea webhook issue/rotation/revoke and inventory; repository suite3passed3.0s after precise search selectors. Retried only affected tests. No live credentials printed; browser traces disabled for credential flows. Baseline display still awaits T19.
+
+## Current checkpoint — T19 accounting and trusted execution
+
+- Commits3bcd876 webhook-empty state, f6e77d8 T18 discovery,6a597fc T17 onboarding/inventory. T18 local complete. T19 active; T20 findings child in review, full parent still pending repair/run/change evidence. T21–T28 remain required.
+- Root reviewed private model-turn broker and real-PG/Ollama acceptance; independent race6.078s passed. Added atomic unresolved-turn check, durable pre-dispatch reservation, encrypted replay, post-dispatch unknown holds, active job/connection cancellation. Unit race/vet passed before final accounting followups; migration014 applied dev/test. No paid APIs used. Pricing amounts use operator-pinned conservative rates; provider invoice reconciliation remains distinct.
+- Uncommitted T19 recipe/validation/model broker and supervised engine under root review. Root owns all shared APIs/migrations/security; Luna owns findings UI, maintenance browser checks, and toolchain image packaging/runtime checks exclusively. No Astra workers.
+- Remaining immediate checks: model broker concurrency/uncertainty regression, Go/Node/Python gVisor recipe execution, actual maintenance-save/discovery browser journey, engine protection regressions, full repair persistence/publication integration. G5 remains open; hosted production cgroup delegation and external credentials/certification absent.
+
+
+## Current checkpoint — native repair publication
+
+- T19 uncommitted: persistence/migrations015–016, frozen execution, scoped model/runner endpoints, app-owned staging and exact native commit validation before companion publication. Compilation passes; full service acceptance still pending. Native publication recovery, runner CLI and connected run evidence UI in progress.
+- Reviewed commit-proof adapter source from Luna; tests reported pass, independent native proof acceptance pending. Real gVisor Go/Node/Python baseline-fail/source-patch-pass checks passed; Node/Python loader packaging fixed to resolve libraries with the image executable's actual ELF interpreter. Runtime now retains approved read-only image /home assets, HOME=/tmp; writable tmp quota follows configured disk allowance. Hosted cgroups still unavailable on this host.
+- Disposable dev/test inventory/discovery tables were owned by bootstrap admin from earlier fixture setup. Restored ownership to existing migration role, then applied015–016; runtime role remains non-owner. Clean installation verification remains T26/T28.
+- Maintenance browser reached inventory queue timeout before discovery assertions. Controller now has four bounded inventory workers; restart and real journey recheck pending. No fabricated browser success.
+- Workers remain Luna only: CLI packaging, repair preview corrections, run evidence GUI. Root retains security review. T21–T28 required; G5 not passed.
+
+
+## Current checkpoint — reviewed repair recovery
+
+- Commit a957081 adds reviewed native commit proof adapters and Gitea operation markers. Real local Gitea native proof/idempotent publication passed2.35s; affected forge race tests passed independently1.161s/1.197s/1.145s.
+- Root repair PG contract passed2.348s, then combined fresh-policy/repair regression3.186s after migration017: pricing changes invalidate previews, identical enqueue/report replay succeeds, changed idempotency body conflicts, artifact hashes bind to the active attempt, premature completion blocks, lost publication remains uncertain, authoritative recovery concludes with exactly one native publication. This contract uses explicit forge fixtures; it does not certify an external provider.
+- Every native HTTP mutation now rechecks fresh current runner/policy/outbox authority. Private grants call controller status before each write; public writes use the same current check. Root affected race suite passed: repair1.070s, privateconnector9.734s, runnerclient1.095s, HTTP1.097s, runner2.514s, budget2.329s. Real gVisor isolation/cancellation passed8.669s after mount changes.
+- Server93394 refreshed; log `.local/server-current.log`. Migration017 preserves native candidate artifact links, applied dev/test. Model0.6b engine acceptance reached actual gVisor/Ollama but did not produce a verified repair. Fixture HTTP timeout corrected; stronger free local model qualification underway. No successful mock substituted.
+- Repair preview browser3pass; runs fixture1pass before expanded failure/SSE/narrow tests. Root fixed cached-list clearing, unused base64 decoding and private credential rotation race. Maintenance/discovery real browser recheck running. OpenAPI generation and full connected repair acceptance remain. T21–T28 required; G5 remains open.
+
+
+## Current checkpoint — native evidence and discovery prerequisites
+
+- Discovery StartScan now atomically queues missing inventory refresh; scanner defers until native evidence is fresh. Meaningful PG regression passed; real private-Gitea browser verification continues after correcting an overly broad text wait. No scan success claimed yet.
+- Native-check failures persist their same-attempt artifact hashes and block publication. Repository baseline reads recheck repository scope; server derives unified source diffs from pinned source. Real PG repair regression passed2.019s: failed checks never publish, report replay remains idempotent, lost response reconciles one publication. Updated API generation passes; runner protocol race1.079s and frontend build/typecheck pass.
+- Root fixed cancellation outcome, rejects malformed operator image registrations, and neutralizes control/bidi characters in rendered logs/diffs. T20 runs browser3pass before these display additions; baseline component is under root review and browser qualification.
+- Actual local model/gVisor attempts remain unsuccessful: Qwen0.6b/1.7b incomplete repairs or malformed tool calls; Qwen4b timed out120s. Larger bounded timeout qualification underway, no mock substituted. Root corrected native-C fixture binding before next attempt. Full controller/runner/Gitea GUI repair acceptance still required.
+- Workers Luna only: detectors owns engine integration test/documentation; connections owns private-Gitea browser and discovery-refresh regression; discovery_http owns RepositoryBaseline component/tests/doc. Root owns all security/backend/shared integration. T21–T28 remain required; G5 open.
+
+- Subsequent combined private-transport/discovery/repair PG race suite passed5.159s. API generation required both string UUID and byte-slice upload mappings; generated package compilation and backend vet now pass. Root reviewed UI changes and fixed nil evidence arrays/full finding detail lists.
+- Live discovery diagnosis: old failed browser fixtures left healthy connections pointing to stopped private runners; refresh jobs waited behind repeated unavailable reads. Logs now report bounded failure codes without raw provider errors. Historical fixture cleanup and failure-safe test cleanup underway; current server54694. No scanner success claimed.
+
+
+## Current checkpoint — real repair and browser discovery verified
+
+- Root actual complete controller/runner/Gitea test passed28.08s: real PostgreSQL, enrolled private runner, discovery, Qwen3:1.7b, gVisor H/H+patch/T+patch/C checks, same-attempt artifacts, one native PR and completed task. Log `.local/repair-live.log`; fixture removed. Current fixture repairs a CI regression; true dependency-upgrade acceptance remains to add.
+- Root pure engine real model/gVisor test passed15.02s (`.local/engine-current.log`). Ollama tool turns now explicitly disable reasoning via documented protocol fields; other compatible profiles unchanged. Model broker budget/replay passed3.576s. No paid APIs used.
+- Private Gitea browser lifecycle passed20.1s: enrollment, connection, webhook rotation, import, saved maintenance configuration, exact completed scan persisted on reopen, credential rotation/retest/revoke. Cleanup now scoped to created IDs. Full repair GUI journey next.
+- Real runtime preparation and verify-runtime passed with approved local runsc. Config `/tmp/reforge-gui-1789911741776198591/runtime-config.json`; Go image registered for next server restart. Development isolation only; hosted cgroup qualification remains external.
+- Root owns backend security, shared API and integration; Luna connections owns new live repair browser test, detectors owns Gitea namespace test hardening, discovery_http finished runtime packaging docs. All worker changes reviewed before integration. T21–T28 remain required; G5 open.
+
+
+## Current checkpoint — isolated browser and protected merge
+
+- Root remains sole Astra; three bounded Luna workers. Caveman-full. T21 started with fresh native merge inspection, guarded private operations and policy evaluator; persistence, qualification/configuration, queue control and GUI remain. T22–T28 remain required. G5 open.
+- Committed repair accounting/recovery/API/runner and connected findings/runs/baselines. Latest `cf57ea3` adds immutable target-file reads and model retry when compatibility fails on target; focused race1.051s passed. Network/model deadline correction committed `01695e8`. Root UI fixture suite9passed1explicitlyskipped; cancellation recovery real-PG race2.796s passed.
+- Actual dependency-upgrade acceptance remains failing: Qwen1.7b stopped without verified patch; Qwen4b timed out or returned uncertain tool protocol. Logs `.local/repair-upgrade-current.log`, `.local/repair-upgrade-target.log`, `.local/repair-upgrade-bounded.log`. No mock substituted. Next bounded run uses1.7b with new target-aware retry after browser releases local model. CI-regression repair previously passed28.08s.
+- Automatic approval rejected browser setup that could leave authority in shared dev organisation. Safer approved harness `scripts/test-repair-browser.py` creates isolated DB/controller8081, seeds authority only there, then drops DB in finally. Actual browser acceptance running session3335; `.local/repair-browser.log`. Shared dev baseline untouched.
+- Root owns shared APIs/migrations/security and browser authority/harness. Luna_connections owns repair-live.spec.ts/repair-fixture.ts investigation; Luna_detectors owns merge_inspection.go/test.go corrections; Luna_discovery_http performs read-only T16 wiring audit.
+
+
+## Current checkpoint — merge persistence implemented, acceptance open
+
+- T21 migration019 implemented/applied test DB. Repository configuration, immutable preview snapshots, guarded durable operations, per-target serialization, cancellation/reconciliation and HTTP wiring implemented; real native controller acceptance, queue/train final gates/cancellation, automatic reconciliation and bot ordering remain. Operator attestations do not equal Reforge certification; see t21-merge.md.
+- Root reviewed Luna inspector/transport/policy tests; fixed queue check repository and shared test pointer alias. Root affected race contracts passed: providers1.042s, privateconnector9.397s, mergecontrol1.050s, Gitea1.108s. Real PG isolation/cancellation/restart test passed1.353s. Latest stricter snapshot identity/hash validation also passes focused race.
+- Changes GUI connected in SectionPage. Root review required correct endpoint, CSRF, `allow` outcome, stale selection reset, stable idempotency, expiry and role controls. Luna fixture browser2pass; full root review/real endpoint journey pending.
+- Actual dependency-upgrade run with target-aware1.7b failed26.53s: model stopped after2turns without a verified patch (`.local/repair-upgrade-compatible.log`). Next diagnose model/tool response before further retries. Browser's previous5second assertion raced the native preview; now waits actual response. Root isolated rerun session48966 uses correct registered image and `.local/repair-browser-current.log`. No local acceptance success invented.
+- Root owns all backend/shared files and integrated browser helper; Luna workers currently completed. Main development server remains54621 with older binary; currentmerge code not yet built/restarted there. G5 open; T16/T19–T28 outstanding work retained.
+
+## Current checkpoint — merge recovery and model diagnosis
+
+- T21 commits `b8beb55` separates protection inspection; `fe3f775` persists guarded merge operations. New operation history carries requested and refreshed gate IDs separately. Root found/fixed GUI recovery binding errors, inspector-version binding and publisher editing bugs; configuration browser qualification still underway. Changes browser8pass reported by Luna; root review pending.
+- Migration020 adds bounded, fair observation scheduling. Background merge observer reads canonical outcomes after restart without repeating writes; native queue cancellation adapters under Luna development. Queue/train final execution gate, bot ordering, complete native controller acceptance and shared API generation remain. Root sole Astra; three Luna slots maximum.
+- Focused protection/provider/merge race tests pass12.752s/1.084s/1.075s; real PostgreSQL merge isolation/recovery contract pass1.530s. New observer migration applied disposable test DB. Dev DB/binary still needs current migration/build/restart.
+- Dependency-upgrade acceptance remains failed: Qwen2.5:3b completes tool turns but generates invalid repair,157.25s (`.local/repair-upgrade-protocol.log`). Qwen3:4b returns precise private failure `protocol`, uncertain=true, zero completed turns,106.99s (`.local/repair-upgrade-qwen4-final.log`). This is protocol failure, not proven transport timeout. Bounded adapter diagnosis underway; no successful mock substituted.
+- Isolated real browser repair failed54.4s at model handoff (`.local/repair-browser-current.log`); baseline executed, no verified candidate. Python harness now preflights image digest and kills disposable process groups; TypeScript cleanup bounded and unconditional. Root review pending. No shared development authority modified.
+- Ownership: root backend/security/shared contracts/integration; Luna_connections MergeSettings and focused browser tests; Luna_detectors new GitHub/GitLab queue cancellation adapters/tests; Luna_discovery_http read-only model diagnosis document. T16/T19–T28 remaining implementation retained; G5 open.
+
+
+## Current checkpoint — real protected merge verified
+
+- Root real controller/runner/Gitea protected merge passed49.55s (`.local/repair-protected-merge.log`): actual local model repair and native publication, missing-review denial, real native approval, stale-configuration rejection, strict protected fast-forward merge, identical-request replay and cross-tenant denial. Separate inspector and non-admin merge actor used. This certifies only disposable Gitea1.27.3 fixture configuration.
+- Latest affected race checks pass: mergecontrol1.060s, privateconnector9.363s, GitHub/GitLab/providers cached; real PostgreSQL merge history/cancellation/restart/isolation1.737s. Observer contract exercises persisted revocation intent; canonical background completion contract remains to add. Migrations020/021 applied dev/test.
+- Commits83e061f and ea14438 settle known truncated-response usage and bound text-only continuation. Real dependency upgrade Qwen3:8b failed159.51s at eight-turn limit (`.local/repair-upgrade-qwen8.log`); upgrade candidate passed but target compatibility remained invalid. No dependency acceptance or full browser repair success claimed.
+- Queue cancellation and background observation implemented. Queue admission/final execution gate remains disabled pending controller implementation and qualified native enforcement. Bot companion ordering/revalidation also remains. T16 wiring and T22–T28 retained. G5 open.
+- Root sole Astra; Luna_detectors checks current Changes/settings browser; Luna_connections observer test review complete with canonical completion gap; Luna_discovery_http researches exact native queue gate APIs. Server85413 contains refreshed embedded GUI.
+
+
+## Current checkpoint — merge GUI integrated; repair wire diagnosis
+
+- Commits c593b05 native queue cancellation,1f361eb GitHub execution checks,a777c2b durable merge recovery,c02daf3 companion ordering,526d06d connected merge GUI/API. Root reviewed worker changes; corrected GitHub nested repository parsing and GitLab absent-train state checks before integration. Latest affected races pass GitHub1.219s,GitLab1.125s,privateconnector9.421s,providers1.046s. Generated API consistency and backend vet pass.
+- Current merge browser18passed8.3s (`.local/merge-browser-root.log`), including publisher deletion, disabled/no-inspector configuration, non-Gitea configuration, version conflict, recovery, org switching, pagination and companion states. These browser provider responses are fixtures; real protected Gitea controller test previously passed49.55s. Server22483 contains current GUI/backend; recipe v2 and latest engine need rebuild for the browser.
+- Real full browser with Qwen2.5:3b failed at model handoff (`.local/repair-browser-qwen25.log`). Input-dependent live tests now use multiple inputs; no constant-output workaround. Native restart-fault variant has not yet reached its new assertion because model repair fails.
+- Raw local model capture proves correct history and complete seven-turn stream in Qwen1.7b61.02s failure: incorrect model patch, not parser failure. Capture `.local/model-capture/test-1795855146`; opt-in helper `model_capture_test.go` reviewed/fixed to forward probes and synchronize capture. Qwen8b eight-turn upgrade failed106.67s; logs/capture preserved. No repair success substituted.
+- Commit2911c04 removes duplicate validation/log injection on read-only turns; engine race1.056s passes. Recipe v2 now sets12-turn ceiling; per-turn budget/time checks remain hard stops. New live qualification pending. Fixture request allowance explicitly12, no paid APIs.
+- Root remains sole Astra. Fresh Luna_queue_candidate owns only GitHub merge.go/new queue_candidate_test.go, proving documented headCommit with exact H/T parents before exposing C. All other workers idle/completed. T21 final gate/admission, bot automatic revalidation, T16 production custody/wiring and T22–T28 remain. G5 open.
+
+
+## Current checkpoint — real dependency upgrade passed
+
+- Commits b818160 prove GitHub native queue candidate H/T parents;8308a68 introduced recipev2. Its12 turns exhausted after correct diagnosis. Recipev3 with16 bounded turns passed the actual controller/runner/Ollama/Gitea upgrade in153.769s (`.local/repair-upgrade-v3.log`); no paid APIs or model mocks. Baseline, both dependency revisions, native candidate and publication checked.
+- Real Go browser still failed16 turns without a candidate (`.local/repair-browser-v3.log`). Luna added opt-in bounded local wire capture; root review/rerun pending. Protected restart fault injection still needs its full new run.
+- T21 GitHub queue prerequisites and distinct admission/execution policy contracts pass race1.195s/1.049s. Root implemented durable fenced check intents and background final-candidate checking; migration022 applied dev/test. Controller PG contracts, cancellation races, GUI/API integration and review remain before marking queue work locally complete. GitLab final gate and bot revalidation remain required.
+- Root sole Astra; Luna owns browser capture and new queue PG contract tests. T16 production wiring, T22–T28 remain. G5 open.
+
+
+## Current checkpoint — real GUI and restart recovery passed
+
+- Commit3f39ac2 stops repeated forbidden test rewrites with precise feedback; focused engine regression passed1.055s. Frozen validation remains unchanged.
+- Actual Go GUI repair passed1.8m (`.local/repair-browser-input-diagnostics.log`) with local model/private runner/gVisor/Gitea, immutable input-dependent tests,390px/focus/keyboard/artifacts and exactly one native publication. Dependency-upgrade acceptance already passed153.769s. Browser harness/docs pending commit.
+- Real protected Gitea merge plus injected lost persistence/restarted canonical observation passed55.003s (`.local/repair-protected-restart.log`). This qualifies the disposable server profile only.
+- Queue PG admission/C gate/pause/cancellation/uncertainty/restart/RLS contracts passed2.625s (`.local/queue-pg-pause.log`). Worker cancellation fixture was corrected to native not_queued contract; reported cross-tenant failure used the same globally identified owner in its own organisation, corrected to an actual other-tenant scope. No production bypass demonstrated.
+- Queue policy now blocks unknown/locked/unmergeable states. Affected races pass (`.local/queue-final-contracts.log`). GitHub final gate/migration022 implemented, final UI review pending; initial browser19pass2fail (old label and390px overflow). Luna_browser_capture owns only scoped Changes CSS/tests fix; Luna_discovery_http finished read-only GitLab manual-job API research. Root owns backend/security/shared files.
+- GitLab train gate remains disabled pending exact native pipeline/job identity and qualified protected blocking manual job. T16 production wiring and T22–T28 retained; G5 open.
+
+## Current checkpoint — train gate implemented, acceptance underway
+
+- Commits44d2eee GitHub queue controller,308dc48 GitLab cancellation contracts,f520cc4 queue GUI; GitHub/settings browser21passed9.3s. T19 actual GUI and protected restart committed8c43527/cd3617b.
+- GitLab final train gate now implemented locally: protected blocking native job, exact pipeline/C/CI configuration, durable fenced play, no repeat after uncertainty, canonical merge observation and queue cancellation. Root reviewed Luna adapter/UI/PG tests and corrected fixture queue IDs, cancellation convergence and GUI numeric validation. Pending integrated browser/review before commit.
+- Root affected race contracts pass (`.local/train-race-fixed.log`); explicit native HTTP drift/approval scenarios pass1.141s (`.local/train-drift.log`); real PostgreSQL combined merge/queue/train contracts pass3.347s (`.local/train-pg-root.log`). These do not certify external GitLab.
+- Auto-review rejected removing read-time mergeGuard blockers. Safer alternative retained those blockers and binds inspection to operation-specific guards that reject every merge mutation; approved and contract checks pass. No guard requirement removed, no unresolved approval request.
+- Current local controller session46771 on8080; train browser session52180 (`.local/train-browser-root.log`). Root sole Astra; Luna workers idle after bounded completions. Root owns all current files. Automatic original bot revalidation remains next T21 work; T16 production custody/wiring and T22–T28 remain required; G5 open.
+
+
+## Current checkpoint — T21 local acceptance; T22 started
+
+- Commits a5bfffc/b2297db implement qualified GitLab train gate and connected configuration. Native-rule refresh guards retained; affected races and 23 browser checks pass. External GitLab certification still required.
+- Commit2b11b69 adds automatic original bot revalidation after canonical companion merge, fresh H/T/native checks and current author authority. Root fixed stale ready state after author revocation. Real PostgreSQL contract passes1.749s, `.local/bot-pg-root.log`; provider writes remain zero.
+- Root reviewed bot GUI and Luna fixtures. Combined bot/Changes/settings22passed10.3s; added meaningful retry, missing gate, clock expiry, nonempty390px/keyboard cases; bot7/7pass. `.local/bot-browser-luna.log`. UI commit follows.
+- T22 contracts and GH/GL read adapters implemented under review. Root owns deployment native gates/dispatch/controller/shared transport and migrations. Luna_discovery_http owns GH delivery_read.go/test.go; Luna_queue_pg_contract owns GL equivalents; Luna_browser_capture bot browser finished. No Astra workers.
+- Source/digest/config/environment pins, native gates, durable single dispatch and authenticated provenance/health required. Gitea uses protected GitOps delivery. T16 wiring, T23–T28 remain authorised; G5 open.
