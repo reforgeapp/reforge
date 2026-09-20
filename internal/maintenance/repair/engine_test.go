@@ -119,6 +119,26 @@ func TestEngineKeepsValidationAcrossReadOnlyTurns(t *testing.T) {
 	}
 }
 
+func TestEngineStopsRepeatedRejectedTestRewrites(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.BaselineSHA, plan.TargetSHA = strings.Repeat("b", 40), strings.Repeat("c", 40)
+	plan.Recipe.MaxTurns = 16
+	plan.Digest = planDigest(plan)
+	runtime := &retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}
+	turn := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", Turn: func(_ context.Context, input model.Turn) (model.TurnResult, error) {
+		turn++
+		if turn == 2 && !strings.Contains(input.Messages[len(input.Messages)-1].Text, "immutable") {
+			t.Fatal("protected-file refusal was not explained")
+		}
+		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "rewrite", Name: "apply_patch", Arguments: []byte(`{"path":"value.test.js","content":"tests disabled"}`)}}}, nil
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err == nil || turn != 2 || len(report.Patches) != 0 || len(report.Candidate) != 0 || !strings.Contains(report.Reason, "rejected patch") || len(runtime.requests) != 1 {
+		t.Fatalf("repeated protected edits consumed budget or validated: report=%+v turns=%d workspaces=%d err=%v", report, turn, len(runtime.requests), err)
+	}
+}
+
 func TestEngineHandsOffChangedTargetProtection(t *testing.T) {
 	plan, files := testPlan(t)
 	baseSHA, targetSHA := strings.Repeat("b", 40), strings.Repeat("c", 40)

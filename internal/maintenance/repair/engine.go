@@ -174,6 +174,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	var continuation json.RawMessage
 	textRetry := false
 	patches := map[string]sandbox.Patch{}
+	rejected := map[string]bool{}
 	patchRevision, checkedRevision, targetRevision := 0, -1, -1
 	ordered := func() []sandbox.Patch {
 		names := make([]string, 0, len(patches))
@@ -199,7 +200,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
 		}
-		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "You repair source using only the supplied bounded tools. Follow the frozen validation plan. Call tools directly to read, edit and validate; describing a patch does not apply it. Preserve behavior for both original and upgraded dependency versions and for all supported inputs. Do not hard-code test outputs. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
+		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
 			return fail("Model route stopped; review budget, authorization or unresolved usage", err)
 		}
@@ -247,7 +248,15 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					} else {
 						delete(patches, input.Path)
 					}
-					reply = "Patch rejected: protected path, content or size limit"
+					key := hashBytes([]byte(input.Path + "\x00" + input.Content))
+					if rejected[key] {
+						return fail("Model repeated a rejected patch; select a qualified model or review the repair constraints", ErrHandoff)
+					}
+					rejected[key] = true
+					reply = "Patch rejected: protected path, content or size limit. Change application source within the frozen plan."
+					if _, protected := p.ProtectedHashes[input.Path]; protected {
+						reply = "Patch rejected: this file is immutable under the frozen validation plan. Tests define expected behavior. Fix application source; do not alter tests, assertions, manifests or validation commands."
+					}
 				} else {
 					if !existed || !bytes.Equal(previous.Content, patches[input.Path].Content) {
 						patchRevision++
