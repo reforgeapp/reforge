@@ -53,11 +53,12 @@ type TurnRequest struct {
 	Continuation    json.RawMessage
 }
 type Usage struct {
-	InputTokens  int64  `json:"input_tokens"`
-	OutputTokens int64  `json:"output_tokens"`
-	CacheTokens  int64  `json:"cache_tokens"`
-	Known        bool   `json:"known"`
-	Source       string `json:"source"`
+	InputTokens         int64  `json:"input_tokens"`
+	OutputTokens        int64  `json:"output_tokens"`
+	CacheTokens         int64  `json:"cache_tokens"`
+	CacheCreationTokens int64  `json:"cache_creation_tokens"`
+	Known               bool   `json:"known"`
+	Source              string `json:"source"`
 }
 type Event struct {
 	Type         string          `json:"type"`
