@@ -1,16 +1,21 @@
 package gitea
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"reforge/internal/domain"
 	"reforge/internal/forge"
@@ -86,6 +91,135 @@ func TestRepositoryReplacementAndPaginationFailClosed(t *testing.T) {
 	if _, e := p.ListRepositories(context.Background(), forge.InventoryRequest{Cursor: "20", Limit: 100}); e == nil {
 		t.Fatal("partial exhausted inventory marked complete")
 	}
+}
+
+func TestListRepositoriesFallsBackFromMissingOrganizationToUser(t *testing.T) {
+	var orgCalls, userCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/v1/orgs/alice/repos":
+			orgCalls++
+			w.WriteHeader(http.StatusNotFound)
+		case "/api/v1/users/alice/repos":
+			userCalls++
+			fmt.Fprint(w, `[{"id":7,"full_name":"alice/project","default_branch":"main"}]`)
+		default:
+			t.Fatalf("unexpected route %s", r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	p, err := New(forge.Config{BaseURL: server.URL, Client: server.Client(), Token: "token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	page, err := p.ListRepositories(context.Background(), forge.InventoryRequest{Namespace: "alice", Limit: 100})
+	if err != nil || len(page.Items) != 1 || page.Items[0].FullName != "alice/project" || orgCalls != 1 || userCalls != 1 {
+		t.Fatalf("page=%+v error=%v org=%d user=%d", page, err, orgCalls, userCalls)
+	}
+}
+
+func TestListRepositoriesDoesNotFallbackForbiddenOrganization(t *testing.T) {
+	var userCalls int
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/api/v1/users/alice/repos" {
+			userCalls++
+		}
+		w.WriteHeader(http.StatusForbidden)
+	}))
+	defer server.Close()
+	p, err := New(forge.Config{BaseURL: server.URL, Client: server.Client(), Token: "token"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = p.ListRepositories(context.Background(), forge.InventoryRequest{Namespace: "alice", Limit: 100}); err == nil || userCalls != 0 {
+		t.Fatalf("forbidden organization fallback error=%v user calls=%d", err, userCalls)
+	}
+}
+
+func TestRealGiteaUserNamespacePrivateInventory(t *testing.T) {
+	if os.Getenv("REFORGE_GITEA_TEST") != "1" {
+		t.Skip("set REFORGE_GITEA_TEST=1 for disposable local Gitea inventory")
+	}
+	root := os.Getenv("REFORGE_TEST_ROOT")
+	if root == "" {
+		t.Fatal("REFORGE_TEST_ROOT required when REFORGE_GITEA_TEST=1")
+	}
+	tokens := map[string]string{}
+	for _, actor := range []string{"admin", "bot"} {
+		raw, err := os.ReadFile(filepath.Join(root, ".local/gitea/reforge-"+actor+".token"))
+		if err != nil || strings.TrimSpace(string(raw)) == "" {
+			t.Fatalf("local Gitea %s credential unavailable", actor)
+		}
+		tokens[actor] = strings.TrimSpace(string(raw))
+	}
+	base := "http://127.0.0.1:53000"
+	client := &http.Client{Timeout: 15 * time.Second}
+	request := func(actor, method, route string, input, output any) int {
+		t.Helper()
+		body, _ := json.Marshal(input)
+		req, err := http.NewRequest(method, base+"/api/v1"+route, bytes.NewReader(body))
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Header.Set("Authorization", "token "+tokens[actor])
+		req.Header.Set("Content-Type", "application/json")
+		response, err := client.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer response.Body.Close()
+		if output != nil && response.StatusCode < 300 {
+			if err := json.NewDecoder(io.LimitReader(response.Body, maxBody)).Decode(output); err != nil {
+				t.Fatal(err)
+			}
+		}
+		return response.StatusCode
+	}
+	name := "t10-user-inventory-" + domain.NewID()
+	var created struct {
+		FullName string `json:"full_name"`
+	}
+	if status := request("admin", "POST", "/user/repos", map[string]any{"name": name, "private": true, "auto_init": false, "default_branch": "main"}, &created); status != http.StatusCreated {
+		t.Fatalf("disposable repository creation HTTP %d", status)
+	}
+	t.Cleanup(func() {
+		if status := request("admin", "DELETE", "/repos/"+created.FullName, nil, nil); status != http.StatusNoContent {
+			t.Errorf("disposable repository cleanup HTTP %d", status)
+		}
+	})
+	if status := request("admin", "PUT", "/repos/"+created.FullName+"/collaborators/reforge-bot", map[string]string{"permission": "read"}, nil); status < 200 || status >= 300 {
+		t.Fatalf("bot collaborator HTTP %d", status)
+	}
+	parts := strings.SplitN(created.FullName, "/", 2)
+	if len(parts) != 2 {
+		t.Fatal("Gitea omitted repository namespace")
+	}
+	provider, err := New(forge.Config{BaseURL: base, Client: client, Token: tokens["bot"]})
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cursor := ""
+	for pageNumber := 0; pageNumber < 100; pageNumber++ {
+		page, err := provider.ListRepositories(ctx, forge.InventoryRequest{Namespace: parts[0], Cursor: cursor, Limit: 100})
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, repo := range page.Items {
+			if repo.FullName == created.FullName && repo.Private {
+				return
+			}
+		}
+		if page.Complete {
+			break
+		}
+		if page.NextCursor == "" {
+			t.Fatal("incomplete user inventory omitted next cursor")
+		}
+		cursor = page.NextCursor
+	}
+	t.Fatalf("private user repository %q missing from bounded inventory", created.FullName)
 }
 func TestCodeOwnersGiteaRegexAndEscapes(t *testing.T) {
 	rules, e := ParseCodeOwners([]byte(".*\\.go @alice @org/team # comment\n!frontend/.* @other\npath\\ with\\ space @space\ndir/with\\#hash @hash\npath/\\\\.dot @dot\n"))

@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -221,6 +222,11 @@ func (p *Provider) ListRepositories(ctx context.Context, in forge.InventoryReque
 	}
 	var rows []repository
 	e = p.request(ctx, "GET", route+"?page="+strconv.Itoa(n)+"&limit="+strconv.Itoa(limit), nil, &rows)
+	if e != nil && in.Namespace != "" && isNotFound(e) {
+		rows = nil
+		route = "/users/" + url.PathEscape(in.Namespace) + "/repos"
+		e = p.request(ctx, "GET", route+"?page="+strconv.Itoa(n)+"&limit="+strconv.Itoa(limit), nil, &rows)
+	}
 	if e != nil {
 		return out, e
 	}
@@ -238,6 +244,11 @@ func (p *Provider) ListRepositories(ctx context.Context, in forge.InventoryReque
 		out.NextCursor = strconv.Itoa(n + 1)
 	}
 	return out, nil
+}
+
+func isNotFound(err error) bool {
+	var providerErr *domain.ProviderError
+	return errors.As(err, &providerErr) && providerErr.Kind == "not_found"
 }
 func (p *Provider) ResolveRef(ctx context.Context, r forge.RepoRef, ref string) (string, error) {
 	if _, e := p.repo(ctx, r); e != nil {
