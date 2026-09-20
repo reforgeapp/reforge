@@ -1793,6 +1793,71 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/usage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/usage/summary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["summarizeUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/audit-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listAuditEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/audit-events/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+
+        get: operations["exportAuditPage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3550,6 +3615,56 @@ export interface components {
             items: components["schemas"]["GitOpsPromotion"][];
             complete: boolean;
 
+            next_cursor?: string;
+        };
+        UsageEntry: {
+            reservation: components["schemas"]["BudgetReservation"];
+            provider: string;
+            recipe: string;
+            repository_name: string;
+        };
+        UsagePage: {
+            items: components["schemas"]["UsageEntry"][];
+            complete: boolean;
+            next_cursor?: string;
+        };
+
+        UsageSummary: {
+
+            records: number;
+
+            settled: number;
+
+            unknown: number;
+
+            reserved: number;
+
+            dispatched: number;
+
+            cancelled: number;
+
+            estimated_cost_micro_usd: number;
+
+            known_tokens: number;
+            unknown_maximum: components["schemas"]["BudgetAmount"];
+            held: components["schemas"]["BudgetAmount"];
+        };
+        AuditEvent: {
+            id: string;
+            actor_id: string;
+            action: string;
+            object_id: string;
+            request_id: string;
+            repository_id?: string;
+
+            created_at: string;
+            data: {
+                [key: string]: unknown;
+            };
+        };
+        AuditEventPage: {
+            items: components["schemas"]["AuditEvent"][];
+            complete: boolean;
             next_cursor?: string;
         };
     };
@@ -8293,6 +8408,168 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listUsage: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                team_id?: string;
+                recipe?: string;
+                provider?: string;
+                connection_id?: string;
+                state?: string;
+                since?: string;
+                until?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsagePage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    summarizeUsage: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                team_id?: string;
+                recipe?: string;
+                provider?: string;
+                connection_id?: string;
+                state?: string;
+                since?: string;
+                until?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSummary"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listAuditEvents: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                actor_id?: string;
+                action?: string;
+                since?: string;
+                until?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditEventPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    exportAuditPage: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                actor_id?: string;
+                action?: string;
+                since?: string;
+                until?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    "X-Next-Cursor"?: string;
+                    "X-Export-Complete"?: boolean;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/x-ndjson": string;
+                };
             };
 
             default: {

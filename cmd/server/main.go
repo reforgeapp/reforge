@@ -18,6 +18,7 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/gitops"
 	"reforge/internal/httpapi"
+	"reforge/internal/insights"
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
 	"reforge/internal/maintenance/repair"
@@ -105,6 +106,7 @@ func run() error {
 		return err
 	}, nil)
 	app.RegisterBudget(budgets)
+	app.RegisterInsights(insights.New(identity))
 	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
 	if err != nil {
 		return err

@@ -769,6 +769,21 @@ type ArtifactProvenance struct {
 	RepositoryId   string    `json:"repository_id"`
 	SourceSha      string    `json:"source_sha"`
 }
+type AuditEvent struct {
+	Action       string                 `json:"action"`
+	ActorId      string                 `json:"actor_id"`
+	CreatedAt    time.Time              `json:"created_at"`
+	Data         map[string]interface{} `json:"data"`
+	Id           string                 `json:"id"`
+	ObjectId     string                 `json:"object_id"`
+	RepositoryId *string                `json:"repository_id,omitempty"`
+	RequestId    string                 `json:"request_id"`
+}
+type AuditEventPage struct {
+	Complete   bool         `json:"complete"`
+	Items      []AuditEvent `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
 type BootstrapRequest struct {
 	Name  string `json:"name"`
 	Token string `json:"token"`
@@ -2149,6 +2164,29 @@ type TeamPage struct {
 	Items      []Team  `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
+type UsageEntry struct {
+	Provider       string            `json:"provider"`
+	Recipe         string            `json:"recipe"`
+	RepositoryName string            `json:"repository_name"`
+	Reservation    BudgetReservation `json:"reservation"`
+}
+type UsagePage struct {
+	Complete   bool         `json:"complete"`
+	Items      []UsageEntry `json:"items"`
+	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+type UsageSummary struct {
+	Cancelled             int64        `json:"cancelled"`
+	Dispatched            int64        `json:"dispatched"`
+	EstimatedCostMicroUsd int64        `json:"estimated_cost_micro_usd"`
+	Held                  BudgetAmount `json:"held"`
+	KnownTokens           int64        `json:"known_tokens"`
+	Records               int64        `json:"records"`
+	Reserved              int64        `json:"reserved"`
+	Settled               int64        `json:"settled"`
+	Unknown               int64        `json:"unknown"`
+	UnknownMaximum        BudgetAmount `json:"unknown_maximum"`
+}
 type WorkflowLease struct {
 	AttemptId    string    `json:"attempt_id"`
 	ExpiresAt    time.Time `json:"expires_at"`
@@ -2166,6 +2204,24 @@ type SubmitDeploymentHealthParams struct {
 }
 type SubmitGitOpsHealthParams struct {
 	XReforgeSignature string `json:"X-Reforge-Signature"`
+}
+type ListAuditEventsParams struct {
+	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	ActorId      *string    `form:"actor_id,omitempty" json:"actor_id,omitempty"`
+	Action       *string    `form:"action,omitempty" json:"action,omitempty"`
+	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
+	Cursor       *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int       `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type ExportAuditPageParams struct {
+	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	ActorId      *string    `form:"actor_id,omitempty" json:"actor_id,omitempty"`
+	Action       *string    `form:"action,omitempty" json:"action,omitempty"`
+	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
+	Cursor       *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int       `form:"limit,omitempty" json:"limit,omitempty"`
 }
 type GetBudgetRouteParams struct {
 	Model *string `form:"model,omitempty" json:"model,omitempty"`
@@ -2472,6 +2528,28 @@ type DeleteTeamParams struct {
 type PutTeamParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
+}
+type ListUsageParams struct {
+	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	TeamId       *string    `form:"team_id,omitempty" json:"team_id,omitempty"`
+	Recipe       *string    `form:"recipe,omitempty" json:"recipe,omitempty"`
+	Provider     *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	ConnectionId *string    `form:"connection_id,omitempty" json:"connection_id,omitempty"`
+	State        *string    `form:"state,omitempty" json:"state,omitempty"`
+	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
+	Cursor       *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int       `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type SummarizeUsageParams struct {
+	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	TeamId       *string    `form:"team_id,omitempty" json:"team_id,omitempty"`
+	Recipe       *string    `form:"recipe,omitempty" json:"recipe,omitempty"`
+	Provider     *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	ConnectionId *string    `form:"connection_id,omitempty" json:"connection_id,omitempty"`
+	State        *string    `form:"state,omitempty" json:"state,omitempty"`
+	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
 }
 type RevokeSessionsParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
