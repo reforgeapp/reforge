@@ -176,7 +176,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	if err != nil || !created {
 		return out, err
 	}
-	if fresh.Phase == "queue_admission" {
+	if fresh.Phase == "queue_admission" && fresh.Snapshot.Capabilities.Provider == "github" {
 		ready, err := s.publishQueueCheck(ctx, &session, org, out, fresh)
 		if err != nil || !ready {
 			return out, err

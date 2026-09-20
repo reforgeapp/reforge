@@ -38,6 +38,9 @@ func (s *Service) executeQueueGate(ctx context.Context, org string, operation Op
 	if fresh.Phase != "queue_execution" || fresh.Decision.Outcome != "allow" {
 		return operation, nil
 	}
+	if fresh.Snapshot.TrainGate != nil {
+		return operation, s.releaseTrainGate(ctx, org, operation, fresh)
+	}
 	_, err = s.publishQueueCheck(ctx, nil, org, operation, fresh)
 	return operation, err
 }

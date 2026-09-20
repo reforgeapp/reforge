@@ -24,6 +24,16 @@ func (p *Provider) CancelNativeQueue(ctx context.Context, request forge.QueueCan
 		}
 		return forge.QueueState{}, err
 	}
+	if current.ID == "" && current.State == "not_queued" {
+		change, autoMerge, err := p.readCancellationMR(ctx, request)
+		if err != nil {
+			return forge.QueueState{}, err
+		}
+		if !autoMerge && change.HeadSHA == request.ExpectedHeadSHA && change.State == "opened" && !change.Draft {
+			return current, nil
+		}
+		return forge.QueueState{}, failure("conflict", "Absent train has unresolved auto-merge or changed source")
+	}
 	if current.ID != request.QueueID || current.HeadSHA != request.ExpectedHeadSHA {
 		return forge.QueueState{}, failure("conflict", "Merge train admission or merge request head changed")
 	}
@@ -49,6 +59,9 @@ func (p *Provider) CancelNativeQueue(ctx context.Context, request forge.QueueCan
 			return forge.QueueState{State: "not_queued", HeadSHA: change.HeadSHA, TargetSHA: change.TargetSHA}, nil
 		}
 		return forge.QueueState{}, &domain.ProviderError{Kind: "uncertain", Message: "GitLab queue cancellation outcome requires reconciliation", Uncertain: true}
+	}
+	if state.ID == "" && state.State == "not_queued" && state.HeadSHA == request.ExpectedHeadSHA && !autoMerge {
+		return state, nil
 	}
 	if state.ID == request.QueueID || state.ID != "" {
 		return state, &domain.ProviderError{Kind: "uncertain", Message: "GitLab queue admission changed during cancellation", Uncertain: true}

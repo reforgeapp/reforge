@@ -28,3 +28,30 @@ GitHub App queue controller implements separate admission and execution decision
 Operator qualification must test the required App check on both pull_request and merge_group events, actor bypass restrictions, one-entry candidate proof, pause/dequeue races and native stale-candidate cancellation. Reforge is not claiming GitHub external certification. A successful policy check is the release boundary: cancellation can lose the race after publication; it does not revoke an already executing native merge.
 
 GitLab final train gate remains disabled pending exact native candidate/pipeline/job binding and protected blocking manual-job qualification. A source-head commit status cannot establish that final gate. Remaining: GitLab train controller, original bot automatic revalidation, reviewed cooperation evidence verification and GitHub/GitLab external certification with dedicated accounts.
+
+## GitLab train profile
+
+Implemented locally; external GitLab certification remains required. Enable only after recording dated native qualification, the exact `.gitlab-ci.yml` SHA-256 and operational user ID as publisher for `reforge/merge-policy`. The source, target and native candidate must contain identical CI configuration. Source-head admission needs passing native CI; no synthetic H policy status is posted. Only an exact first candidate with two H/T parents can release; other train layouts stay blocked.
+
+Use a standalone CI configuration without includes, retaining existing test/build jobs and this final job:
+
+```yaml
+reforge/merge-policy:
+  stage: .post
+  allow_failure: false
+  inherit: false
+  before_script: []
+  after_script: []
+  script: ["true"]
+  environment:
+    name: reforge-merge-policy
+  rules:
+    - if: '$CI_MERGE_REQUEST_EVENT_TYPE == "merge_train"'
+      when: manual
+```
+
+The exact protected environment must grant deployment access only to the configured operational user. Overlapping wildcard access, additional environment approvals, unproven fields and mutable CI configuration block automation. This job releases the merge gate; it does not deploy the application. Native project approvals, protected target, pipeline-success requirement and enforced train without skip remain mandatory. The actor must lack protection bypass authority.
+
+Controller reads the native train pipeline and every paginated job. It requires at least one successful nonoptional validation job, exact project/pipeline/C identity and a unique blocking final gate. A durable fenced intent precedes one native `play` call with no input/variable overrides. Lost responses retain uncertainty and never trigger another play; canonical job/merge observations continue. Pause attempts dequeue and reports the observed outcome. Native execution may win a cancellation race after release.
+
+Protocol references: [merge trains](https://docs.gitlab.com/api/merge_trains/), [jobs API](https://docs.gitlab.com/api/jobs/), [blocking protected manual jobs](https://docs.gitlab.com/ci/jobs/job_control/), [protected environments](https://docs.gitlab.com/api/protected_environments/). Required external scenarios: exact deployed GitLab version/tier, H/T drift, pipeline replacement, actor bypass, protected-job access, missing approvals, lost play response and pause during merge. Local HTTP fixtures are not certification.

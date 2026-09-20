@@ -47,13 +47,22 @@ func BindForgeOperation(provider forge.Provider, operation Operation) forge.Prov
 		}
 		return nil
 	}
+	train := func(ctx context.Context, in forge.TrainGateRequest) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if operation.Kind != ForgeReleaseTrainGate || operation.TrainGate == nil || !same(in, *operation.TrainGate) {
+			return auth.ErrForbidden
+		}
+		return nil
+	}
 	switch p := provider.(type) {
 	case *gitea.Provider:
 		return p.WithBranchAuthorizer(branch)
 	case *github.Provider:
 		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge)
 	case *gitlab.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge)
+		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithTrainGateAuthorizer(train)
 	}
 	return provider
 }

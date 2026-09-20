@@ -161,6 +161,7 @@ type QueueState struct {
 	TargetSHA string `json:"target_sha"`
 }
 type MergeEvidence struct {
+	TrainGate      *TrainGate        `json:"train_gate,omitempty"`
 	ExecutionCheck CheckRule         `json:"execution_check"`
 	Change         Change            `json:"change"`
 	Rules          Rules             `json:"rules"`

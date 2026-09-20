@@ -368,7 +368,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil} {
+	for _, present := range []bool{r.TrainGate != nil, r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.File != nil, r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil} {
 		if present {
 			count++
 		}
@@ -384,6 +384,8 @@ func (r Result) valid(kind Kind) bool {
 		return false
 	}
 	switch kind {
+	case ForgeReadTrainGate, ForgeReleaseTrainGate:
+		return count == 1 && r.TrainGate != nil
 	case ForgeReadExecutionCheck, ForgeWriteExecutionCheck:
 		return count == 1 && r.ExecutionCheck != nil
 	case ForgeQueueState, ForgeCancelQueue:

@@ -34,6 +34,7 @@ type Companion struct {
 }
 
 type Qualification struct {
+	CIConfigSHA256     string    `json:"ci_config_sha256,omitempty"`
 	Provider           string    `json:"provider"`
 	ServerVersion      string    `json:"server_version"`
 	ConnectionVersion  int64     `json:"connection_version"`
@@ -74,6 +75,7 @@ type Operation struct {
 }
 
 type Authority struct {
+	CIConfigSHA256         string
 	ExecutionPublisher     string
 	CompanionsBlocked      bool
 	PathsVerified          bool

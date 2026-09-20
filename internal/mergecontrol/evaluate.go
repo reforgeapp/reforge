@@ -14,6 +14,10 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	change, rules := snapshot.Change, snapshot.Rules
 	phase := "merge"
 	queueGate := rules.RequireQueue && authority.ExecutionPublisher != "" && snapshot.ExecutionCheck == (forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: authority.ExecutionPublisher}) && slices.Contains(rules.RequiredChecks, snapshot.ExecutionCheck)
+	train := snapshot.TrainGate
+	if snapshot.Capabilities.Provider == "gitlab" {
+		queueGate = queueGate && train != nil && train.CIConfigSHA256 == authority.CIConfigSHA256 && source.ValidSHA(authority.CIConfigSHA256, "sha256") && train.PublisherID == authority.ExecutionPublisher && train.Name == forge.QueueExecutionCheckName && train.HeadSHA == change.HeadSHA && train.TargetSHA == change.TargetSHA
+	}
 	if queueGate {
 		phase = "queue_admission"
 		if snapshot.Queue.ID != "" {
@@ -61,7 +65,7 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 		trustedChecks = trustedChecks && matched && !failed
 	}
 	add("native_checks", nativeCurrent && trustedChecks, "native-checks:"+binding.Tested, 0)
-	trustedChecks = trustedChecks && checked > 0
+	trustedChecks = trustedChecks && (checked > 0 || queueGate && phase == "queue_execution" && train != nil && train.ChecksReady && train.SHA == binding.Tested && train.QueueID == snapshot.Queue.ID && train.JobID != "" && train.PipelineID != "")
 	reviewers := map[string]bool{}
 	for _, approval := range snapshot.Approvals {
 		if approval.ActorID != "" && approval.ActorID != change.AuthorID && approval.HeadSHA == change.HeadSHA && !approval.Dismissed && strings.EqualFold(approval.State, "approved") {
@@ -86,8 +90,11 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 			strict = qualified && snapshot.Queue.State == "not_queued" && snapshot.Queue.HeadSHA == change.HeadSHA && snapshot.Queue.TargetSHA == change.TargetSHA
 		}
 		if queueGate && phase == "queue_execution" {
-			strict = strict && source.ValidSHA(snapshot.Queue.TestedSHA, "sha1") && snapshot.Queue.TestedSHA != change.HeadSHA && slices.Contains([]string{"awaiting_checks", "queued", "mergeable"}, snapshot.Queue.State)
+			strict = strict && source.ValidSHA(snapshot.Queue.TestedSHA, "sha1") && snapshot.Queue.TestedSHA != change.HeadSHA && slices.Contains([]string{"awaiting_checks", "queued", "mergeable", "idle", "fresh"}, snapshot.Queue.State)
 		}
+	}
+	if queueGate && train != nil && phase == "queue_execution" {
+		strict = strict && train.State == "manual" && train.ChecksReady && train.SHA == snapshot.Queue.TestedSHA
 	}
 	add("target_enforcement", strict, "target-enforcement:"+rules.Hash, 0)
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)

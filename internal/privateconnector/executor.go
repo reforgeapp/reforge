@@ -256,6 +256,19 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 	}
 	var err error
 	switch op.Kind {
+	case ForgeReadTrainGate, ForgeReleaseTrainGate:
+		provider = BindForgeOperation(provider, op)
+		train, ok := provider.(forge.ForgeTrainGate)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var value forge.TrainGate
+		if op.Kind == ForgeReadTrainGate {
+			value, err = train.ReadTrainGate(ctx, op.Change.Repository, op.Change.ChangeID)
+		} else {
+			value, err = train.ReleaseTrainGate(ctx, *op.TrainGate)
+		}
+		result.TrainGate = &value
 	case ForgeReadExecutionCheck, ForgeWriteExecutionCheck:
 		checks, ok := provider.(forge.ForgeExecutionChecks)
 		if !ok {
@@ -281,8 +294,10 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		queue, err = control.CancelNativeQueue(ctx, *op.CancelQueue)
 		result.Queue = &queue
 	case ForgeMergeInspect:
+		provider = BindForgeOperation(provider, op)
 		result.MergeEvidence, err = inspectMerge(ctx, provider, *op.Change)
 	case ForgeQueueInspect:
+		provider = BindForgeOperation(provider, op)
 		result.MergeEvidence, err = inspectQueue(ctx, provider, *op.Change)
 	case ForgeMerge:
 		provider = BindForgeOperation(provider, op)

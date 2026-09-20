@@ -117,8 +117,12 @@ func (s *Service) PutConfig(ctx context.Context, session auth.Session, org, repo
 		if in.Enabled && (c.State != "healthy" || q.Provider != c.Provider || q.ServerVersion != c.ServerVersion || q.ConnectionVersion != c.Version) {
 			return auth.ErrConflict
 		}
-		if in.Enabled && q.QueueExecutionGate && (c.Provider != "github" || c.Settings.AuthKind != "github_app" || c.Settings.AppID == "" || in.CheckPublishers[forge.QueueExecutionCheckName] != c.Settings.AppID) {
-			return &domain.ProviderError{Kind: "unsupported", Message: "Queue execution requires a qualified GitHub App and its required reforge/merge-policy check; other profiles remain disabled"}
+		if in.Enabled && q.QueueExecutionGate {
+			supported := c.Provider == "github" && c.Settings.AuthKind == "github_app" && c.Settings.AppID != "" && in.CheckPublishers[forge.QueueExecutionCheckName] == c.Settings.AppID
+			supported = supported || c.Provider == "gitlab" && source.ValidSHA(q.CIConfigSHA256, "sha256") && in.CheckPublishers[forge.QueueExecutionCheckName] != ""
+			if !supported {
+				return &domain.ProviderError{Kind: "unsupported", Message: "Queue execution requires a qualified GitHub App or protected GitLab train job with a pinned CI configuration and operational publisher"}
+			}
 		}
 		if in.InspectorConnectionID != "" {
 			inspector, err := s.connections.MetadataTx(ctx, tx, org, in.InspectorConnectionID)

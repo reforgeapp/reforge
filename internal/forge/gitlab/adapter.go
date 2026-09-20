@@ -28,6 +28,7 @@ const (
 )
 
 type Provider struct {
+	authorizeTrain  func(context.Context, forge.TrainGateRequest) error
 	inspector       *Provider
 	config          forge.Config
 	base            *url.URL
@@ -944,6 +945,8 @@ type gitlabProject struct {
 }
 
 type gitlabMergeRequest struct {
+	HasConflicts        *bool           `json:"has_conflicts"`
+	DiscussionsResolved *bool           `json:"blocking_discussions_resolved"`
 	HeadPipeline        *pipelineRecord `json:"head_pipeline"`
 	ID                  int64           `json:"id"`
 	IID                 int64           `json:"iid"`

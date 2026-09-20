@@ -283,7 +283,7 @@ func TestNativeMergeTrainAndRevocationBoundaries(t *testing.T) {
 				method = "merge"
 			}
 			result, err := p.RequestNativeMergeOrQueue(context.Background(), forge.MergeRequest{Repository: testRepo, ChangeID: "9", ExpectedHeadSHA: testHead, ExpectedTargetSHA: testBase, RulesHash: rules.Hash, GateID: "persisted-gate", Method: method, OperationID: "op-1", Queue: mode == "train"})
-			if mode == "merge" || mode == "train" {
+			if mode == "merge" {
 				if err != nil || f.mutations != 1 {
 					t.Fatalf("result %+v err=%v writes=%d", result, err, f.mutations)
 				}
@@ -296,11 +296,11 @@ func TestNativeMergeTrainAndRevocationBoundaries(t *testing.T) {
 		})
 	}
 }
-func TestTrainReportsActualTestedCommitWithoutInventingTarget(t *testing.T) {
+func TestTrainProvesExactHeadAndTargetParents(t *testing.T) {
 	f := &nativeFixture{mode: "train"}
 	p := guardedNative(t, f)
 	state, err := p.ReadQueueState(context.Background(), testRepo, "9")
-	if err != nil || state.TestedSHA != testCommit || state.HeadSHA != testHead || state.TargetSHA != "" {
+	if err != nil || state.TestedSHA != testCommit || state.HeadSHA != testHead || state.TargetSHA != testBase {
 		t.Fatalf("queue %+v %v", state, err)
 	}
 }

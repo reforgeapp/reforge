@@ -3,6 +3,7 @@ package gitlab
 import (
 	"context"
 	"encoding/json"
+	"errors"
 
 	"reforge/internal/domain"
 	"reforge/internal/forge"
@@ -43,12 +44,17 @@ func (p *Provider) ReadQueueState(ctx context.Context, r forge.RepoRef, id strin
 	}
 	var entry trainEntry
 	if err = p.read(ctx, []string{"projects", r.NativeID, "merge_trains", "merge_requests", id}, &entry); err != nil {
+		var native *domain.ProviderError
+		if errors.As(err, &native) && native.Kind == "not_found" {
+			return forge.QueueState{State: "not_queued", HeadSHA: change.HeadSHA, TargetSHA: change.TargetSHA}, nil
+		}
 		return out, err
 	}
 	if !validTrain(entry, r, id, change.TargetBranch) {
 		return out, failure("identity", "Merge train identity or state is incomplete")
 	}
 	out.ID = stringID(entry.ID)
+	out.HeadSHA = change.HeadSHA
 	out.State = entry.Status
 	if entry.Pipeline != nil {
 		if entry.Pipeline.ID <= 0 || stringID(entry.Pipeline.ProjectID) != r.NativeID || !validSHA(entry.Pipeline.SHA) {
@@ -61,14 +67,18 @@ func (p *Provider) ReadQueueState(ctx context.Context, r forge.RepoRef, id strin
 		if err = p.read(ctx, []string{"projects", r.NativeID, "repository", "commits", entry.Pipeline.SHA}, &commit); err != nil {
 			return out, err
 		}
+		hasHead, hasTarget := false, false
 		for _, parent := range commit.Parents {
-			if parent == change.HeadSHA {
-				out.HeadSHA = change.HeadSHA
-			}
+			hasHead = hasHead || parent == change.HeadSHA
+			hasTarget = hasTarget || parent == change.TargetSHA
 		}
-		if out.HeadSHA == "" {
+		if len(commit.Parents) == 2 && hasHead && hasTarget && out.TestedSHA != change.HeadSHA {
+			out.HeadSHA, out.TargetSHA = change.HeadSHA, change.TargetSHA
+		} else {
+			out.TestedSHA = ""
 			out.State = "stale"
 		}
+
 	}
 	return out, nil
 }
@@ -94,7 +104,12 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if change.HeadSHA != in.ExpectedHeadSHA || change.TargetSHA != in.ExpectedTargetSHA {
 		return out, failure("conflict", "Source or target changed")
 	}
-	eligibility, err := p.EvaluateNativeEligibility(ctx, in.Repository, in.ChangeID)
+	var eligibility forge.NativeEligibility
+	if in.Queue {
+		eligibility, _, err = p.EvaluateQueuePrerequisites(ctx, in.Repository, in.ChangeID)
+	} else {
+		eligibility, err = p.EvaluateNativeEligibility(ctx, in.Repository, in.ChangeID)
+	}
 	if err != nil {
 		return out, err
 	}
@@ -194,6 +209,15 @@ func (p *Provider) ReadMergeResult(ctx context.Context, r forge.RepoRef, id stri
 	}
 	if change.State == "merged" && !validSHA(change.MergeSHA) {
 		return forge.MergeResult{}, failure("provider", "Merged MR commit identity unavailable")
+	}
+	if change.State == "opened" {
+		queue, err := p.ReadQueueState(ctx, r, id)
+		if err != nil {
+			return forge.MergeResult{}, err
+		}
+		if queue.ID != "" {
+			return forge.MergeResult{State: "queued", NativeID: queue.ID, HeadSHA: change.HeadSHA, URL: change.URL}, nil
+		}
 	}
 	return forge.MergeResult{State: change.State, NativeID: change.ID, HeadSHA: change.HeadSHA, MergeSHA: change.MergeSHA, URL: change.URL}, nil
 }

@@ -32,6 +32,8 @@ type Kind string
 
 const (
 	ForgeMergeInspect        Kind = "forge.merge_inspect"
+	ForgeReadTrainGate       Kind = "forge.read_train_gate"
+	ForgeReleaseTrainGate    Kind = "forge.release_train_gate"
 	ForgeQueueInspect        Kind = "forge.queue_inspect"
 	ForgeMerge               Kind = "forge.merge"
 	ForgeMergeResult         Kind = "forge.merge_result"
@@ -104,6 +106,7 @@ type ChecksArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 }
 type Operation struct {
+	TrainGate      *forge.TrainGateRequest      `json:"train_gate,omitempty"`
 	ExecutionCheck *forge.ExecutionCheckRequest `json:"execution_check,omitempty"`
 	CancelQueue    *forge.QueueCancelRequest    `json:"cancel_queue,omitempty"`
 	Merge          *forge.MergeRequest          `json:"merge,omitempty"`
@@ -131,13 +134,16 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.ExecutionCheck != nil, o.CancelQueue != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case ForgeReleaseTrainGate:
+		v := o.TrainGate
+		valid = v != nil && len(v.RulesHash) == 64 && v.OperationID == o.ID && v.Repository.NativeID != "" && len(v.Repository.FullName) <= 1024 && v.ChangeID != "" && len(v.ChangeID) <= 32 && len(v.Gate.JobID) > 0 && len(v.Gate.JobID) <= 32 && len(v.Gate.SHA) == 40 && len(v.Gate.HeadSHA) == 40 && len(v.Gate.TargetSHA) == 40 && len(v.Gate.CIConfigSHA256) == 64
 	case ForgeReadExecutionCheck:
 		valid = o.ExecutionCheck != nil && o.ExecutionCheck.Repository.NativeID != "" && len(o.ExecutionCheck.Repository.FullName) <= 1024 && o.ExecutionCheck.CheckID != "" && len(o.ExecutionCheck.CheckID) <= 128
 	case ForgeWriteExecutionCheck:
@@ -147,7 +153,7 @@ func (o Operation) validate() error {
 		valid = o.CancelQueue != nil && o.CancelQueue.OperationID == o.ID && o.CancelQueue.Repository.NativeID != "" && len(o.CancelQueue.Repository.FullName) <= 1024 && len(o.CancelQueue.ExpectedHeadSHA) == 40 && o.CancelQueue.ChangeID != "" && len(o.CancelQueue.ChangeID) <= 32 && o.CancelQueue.QueueID != "" && len(o.CancelQueue.QueueID) <= 256
 	case ForgeMerge:
 		valid = o.Merge != nil && o.Merge.OperationID == o.ID && auth.ValidID(o.Merge.GateID) && len(o.Merge.ExpectedHeadSHA) == 40 && len(o.Merge.ExpectedTargetSHA) == 40 && len(o.Merge.RulesHash) == 64 && o.Merge.ChangeID != ""
-	case ForgeMergeInspect, ForgeQueueInspect, ForgeMergeResult, ForgeQueueState:
+	case ForgeReadTrainGate, ForgeMergeInspect, ForgeQueueInspect, ForgeMergeResult, ForgeQueueState:
 		valid = o.Change != nil && o.Change.ChangeID != "" && len(o.Change.ChangeID) <= 32 && o.Change.Repository.NativeID != ""
 	case ForgeCommitProof:
 		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""
@@ -274,6 +280,7 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	TrainGate         *forge.TrainGate               `json:"train_gate,omitempty"`
 	ExecutionCheck    *forge.ExecutionCheck          `json:"execution_check,omitempty"`
 	Queue             *forge.QueueState              `json:"queue,omitempty"`
 	MergeEvidence     *forge.MergeEvidence           `json:"merge_evidence,omitempty"`
@@ -345,5 +352,5 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 }
 
 func (o Operation) Mutation() bool {
-	return o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeWriteExecutionCheck
+	return o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeWriteExecutionCheck
 }

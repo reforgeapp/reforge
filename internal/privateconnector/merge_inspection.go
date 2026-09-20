@@ -101,6 +101,16 @@ func inspectQueue(ctx context.Context, provider forge.Provider, args ChangeArgs)
 		return evidence, queueErr
 	}
 	evidence.Queue = queue
+	if train, ok := provider.(forge.ForgeTrainGate); ok {
+		gate, gateErr := train.ReadTrainGate(ctx, args.Repository, change.ID)
+		if gateErr != nil {
+			return evidence, gateErr
+		}
+		if gate.HeadSHA != change.HeadSHA || gate.TargetSHA != change.TargetSHA || gate.QueueID != queue.ID || queue.ID != "" && gate.SHA != queue.TestedSHA {
+			return evidence, fmt.Errorf("train candidate changed")
+		}
+		evidence.TrainGate = &gate
+	}
 	if queue.ID == "" {
 		evidence.Checks, err = provider.ListChecks(ctx, change.HeadRepository, change.HeadSHA)
 	} else if queue.HeadSHA == change.HeadSHA && queue.TargetSHA == change.TargetSHA && source.ValidSHA(queue.TestedSHA, "sha1") {

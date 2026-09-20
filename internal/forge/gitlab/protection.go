@@ -185,7 +185,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 	if out.RequireStrictTarget && config.AutomaticRebase != nil && !*config.AutomaticRebase && config.Pipelines != nil && *config.Pipelines && config.Skipped != nil && !*config.Skipped {
 		out.StrictTargetEnforced = domain.Supported
 	}
-	if out.RequireQueue && (config.MergePipelines == nil || !*config.MergePipelines || config.SkipTrain == nil || *config.SkipTrain || (config.TrainEnforcement != "enforce_for_all_users" && config.TrainEnforcement != "enforce_with_owner_override")) {
+	if out.RequireQueue && (config.Pipelines == nil || !*config.Pipelines || config.Skipped == nil || *config.Skipped || config.MergePipelines == nil || !*config.MergePipelines || config.SkipTrain == nil || *config.SkipTrain || (config.TrainEnforcement != "enforce_for_all_users" && config.TrainEnforcement != "enforce_with_owner_override")) {
 		out.State = domain.Unknown
 		out.Reason = "Merge train enforcement, bypass or merged-results pipeline configuration is unqualified"
 	}
@@ -231,6 +231,14 @@ func (p *Provider) ReadApprovals(ctx context.Context, r forge.RepoRef, id string
 	if !safeID(r.NativeID) || !safeID(id) {
 		return nil, failure("invalid", "Immutable project and MR required")
 	}
+	change, err := p.ReadChange(ctx, r, id)
+	if err != nil {
+		return nil, err
+	}
+	rules, err := p.ReadEffectiveRules(ctx, r, change.TargetBranch)
+	if err != nil {
+		return nil, err
+	}
 	var response struct {
 		IID        int64 `json:"iid"`
 		ProjectID  int64 `json:"project_id"`
@@ -251,11 +259,36 @@ func (p *Provider) ReadApprovals(ctx context.Context, r forge.RepoRef, id string
 		if v.User.ID <= 0 {
 			return nil, failure("identity", "Approver identity missing")
 		}
-		out = append(out, forge.Approval{ActorID: stringID(v.User.ID), State: "approved"})
+		out = append(out, forge.Approval{ActorID: stringID(v.User.ID), State: "approved", HeadSHA: func() string {
+			if rules.State == domain.Supported && rules.DismissStaleReviews {
+				return change.HeadSHA
+			}
+			return ""
+		}()})
+	}
+	fresh, err := p.ReadChange(ctx, r, id)
+	if err != nil {
+		return nil, err
+	}
+	if fresh.HeadSHA != change.HeadSHA || fresh.TargetSHA != change.TargetSHA || fresh.MergeStatus == "approvals_syncing" || fresh.MergeStatus == "checking" {
+		return nil, failure("conflict", "Approval revision changed or is recalculating")
 	}
 	return out, nil
 }
 func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRef, id string) (forge.NativeEligibility, error) {
+	return p.evaluateNative(ctx, r, id, nil, false)
+}
+
+func (p *Provider) EvaluateQueuePrerequisites(ctx context.Context, r forge.RepoRef, id string) (forge.NativeEligibility, forge.CheckRule, error) {
+	gate, err := p.ReadTrainGate(ctx, r, id)
+	if err != nil {
+		return forge.NativeEligibility{}, forge.CheckRule{}, err
+	}
+	native, err := p.evaluateNative(ctx, r, id, &gate, true)
+	return native, forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: gate.PublisherID}, err
+}
+
+func (p *Provider) evaluateNative(ctx context.Context, r forge.RepoRef, id string, train *forge.TrainGate, queue bool) (forge.NativeEligibility, error) {
 	out := forge.NativeEligibility{State: "blocked", Blockers: []string{}}
 	change, err := p.ReadChange(ctx, r, id)
 	if err != nil {
@@ -272,7 +305,8 @@ func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRe
 	if rules.ActorCanBypass {
 		out.Blockers = append(out.Blockers, "Operational identity can bypass target protection")
 	}
-	if change.State != "opened" || change.Draft || change.MergeStatus != "mergeable" {
+	statusAllowed := change.MergeStatus == "mergeable" || queue && train != nil && train.QueueID != "" && (change.MergeStatus == "ci_must_pass" || change.MergeStatus == "ci_still_running")
+	if change.State != "opened" || change.Draft || !statusAllowed {
 		out.Blockers = append(out.Blockers, "Native merge state is not mergeable; calculating, syncing and unknown states require refresh")
 	}
 	route := []string{"projects", r.NativeID, "merge_requests", id}
@@ -301,22 +335,41 @@ func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRe
 	if err = p.read(ctx, route, &details); err != nil {
 		return out, err
 	}
-	if stringID(details.IID) != id || stringID(details.TargetProjectID) != r.NativeID || details.SHA != change.HeadSHA || details.DetailedMergeStatus != "mergeable" {
+	if stringID(details.IID) != id || stringID(details.TargetProjectID) != r.NativeID || details.SHA != change.HeadSHA || details.DetailedMergeStatus != change.MergeStatus {
 		out.Blockers = append(out.Blockers, "Merge request changed while checking approvals")
 	}
 	pipeline := details.HeadPipeline
 	testedSHA, pipelineErr := p.verifiedPipeline(ctx, r, pipeline, change)
+	if queue {
+		if !rules.RequireQueue || train == nil || train.HeadSHA != change.HeadSHA || train.TargetSHA != change.TargetSHA || details.HasConflicts == nil || *details.HasConflicts || details.DiscussionsResolved == nil || !*details.DiscussionsResolved {
+			out.Blockers = append(out.Blockers, "Current train source, conflicts or discussions are unproven")
+		}
+		if train != nil && train.QueueID != "" {
+			testedSHA = ""
+			if train.ChecksReady && (train.State == "manual" || train.State == "pending" || train.State == "running" || train.State == "success") {
+				testedSHA = train.SHA
+			}
+		}
+	}
 	if pipelineErr != nil {
 		return out, pipelineErr
 	}
 	if testedSHA == "" {
-		out.Blockers = append(out.Blockers, "Successful source or exact merged-result pipeline evidence missing")
+		out.Blockers = append(out.Blockers, "Successful source or exact train validation is missing")
 	}
-	checks, err := p.ListChecks(ctx, r, pipelineSHA(pipeline, change.HeadSHA))
+	checks, err := p.ListChecks(ctx, r, func() string {
+		if testedSHA != "" {
+			return testedSHA
+		}
+		return pipelineSHA(pipeline, change.HeadSHA)
+	}())
 	if err != nil {
 		return out, err
 	}
 	for _, required := range rules.RequiredChecks {
+		if queue && train != nil && required.Name == forge.QueueExecutionCheckName && required.PublisherID == train.PublisherID {
+			continue
+		}
 		var latest forge.Check
 		for _, check := range checks {
 			if check.Name == required.Name && check.PublisherID == required.PublisherID && check.HeadSHA == testedSHA {
