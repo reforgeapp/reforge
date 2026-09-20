@@ -228,6 +228,9 @@ func (p *Provider) StreamTurn(ctx context.Context, request model.TurnRequest, em
 	if err := ctx.Err(); err != nil {
 		return canceledError(err, true)
 	}
+	if state.completed && state.finishReason == "length" && state.usageValue().Known {
+		return emit(model.Event{Type: "completed", ID: state.id, FinishReason: "length", Usage: state.usageValue()})
+	}
 	if !state.completed || (state.finishReason != "stop" && state.finishReason != "tool_calls") || (state.finishReason == "tool_calls" && len(state.calls) == 0) {
 		return &domain.ProviderError{Kind: "protocol", Message: "compatible response ended before completion", Uncertain: true}
 	}

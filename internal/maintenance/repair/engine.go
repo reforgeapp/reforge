@@ -202,6 +202,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			return fail("Model route stopped; review budget, authorization or unresolved usage", err)
 		}
 		out.Turns++
+		if result.FinishReason == "length" {
+			return fail("Model output limit reached; increase the authorized output limit or select a qualified model", ErrHandoff)
+		}
 		continuation = result.Continuation
 		if len(continuation) > 0 {
 			messages = nil
