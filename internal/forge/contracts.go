@@ -26,7 +26,8 @@ func (c Config) LogValue() slog.Value {
 	return slog.GroupValue(slog.String("org_id", c.OrgID), slog.String("connection_id", c.ConnectionID))
 }
 
-func (c Config) String() string { return "forge connection " + c.ConnectionID }
+func (c Config) String() string   { return "forge connection " + c.ConnectionID }
+func (c Config) GoString() string { return c.String() }
 
 type RepoRef struct {
 	NativeID string `json:"native_id"`
@@ -86,23 +87,25 @@ type Approval struct {
 }
 
 type Change struct {
-	ID           string  `json:"id"`
-	Repository   RepoRef `json:"repository"`
-	Title        string  `json:"title"`
-	Body         string  `json:"body"`
-	URL          string  `json:"url"`
-	HeadSHA      string  `json:"head_sha"`
-	TargetSHA    string  `json:"target_sha"`
-	HeadBranch   string  `json:"head_branch"`
-	TargetBranch string  `json:"target_branch"`
-	AuthorID     string  `json:"author_id"`
-	AuthorLogin  string  `json:"author_login"`
-	AuthorType   string  `json:"author_type"`
-	State        string  `json:"state"`
-	Draft        bool    `json:"draft"`
-	MergeSHA     string  `json:"merge_sha"`
-	MergeStatus  string  `json:"merge_status"`
-	OperationID  string  `json:"operation_id"`
+	ID               string  `json:"id"`
+	Repository       RepoRef `json:"repository"`
+	HeadRepository   RepoRef `json:"head_repository"`
+	TargetRepository RepoRef `json:"target_repository"`
+	Title            string  `json:"title"`
+	Body             string  `json:"body"`
+	URL              string  `json:"url"`
+	HeadSHA          string  `json:"head_sha"`
+	TargetSHA        string  `json:"target_sha"`
+	HeadBranch       string  `json:"head_branch"`
+	TargetBranch     string  `json:"target_branch"`
+	AuthorID         string  `json:"author_id"`
+	AuthorLogin      string  `json:"author_login"`
+	AuthorType       string  `json:"author_type"`
+	State            string  `json:"state"`
+	Draft            bool    `json:"draft"`
+	MergeSHA         string  `json:"merge_sha"`
+	MergeStatus      string  `json:"merge_status"`
+	OperationID      string  `json:"operation_id"`
 }
 
 type CheckRule struct {
@@ -234,7 +237,7 @@ type ForgeEvents interface {
 }
 type ForgeChanges interface {
 	CreateChange(context.Context, CreateChangeRequest) (Change, error)
-	FindChangeByOperation(context.Context, RepoRef, string, string, string) (*Change, error)
+	FindChangeByOperation(ctx context.Context, repository RepoRef, operationID, headBranch, targetBranch string) (*Change, error)
 	UpdateAppBranch(context.Context, UpdateBranchRequest) (string, error)
 	ReadChange(context.Context, RepoRef, string) (Change, error)
 	RequestReview(context.Context, RepoRef, string, []string) error
