@@ -173,6 +173,65 @@ type DeploymentHealthReport struct {
 	ReceivedAt   pgtype.Timestamptz `json:"received_at"`
 }
 
+type GitopsConfiguration struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	Environment          string             `json:"environment"`
+	SourceRepositoryID   pgtype.UUID        `json:"source_repository_id"`
+	DeliveryRepositoryID pgtype.UUID        `json:"delivery_repository_id"`
+	Version              int64              `json:"version"`
+	Document             []byte             `json:"document"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
+type GitopsGate struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	ID                   pgtype.UUID        `json:"id"`
+	Environment          string             `json:"environment"`
+	SourceRepositoryID   pgtype.UUID        `json:"source_repository_id"`
+	DeliveryRepositoryID pgtype.UUID        `json:"delivery_repository_id"`
+	Document             []byte             `json:"document"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+}
+
+type GitopsHealthReport struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	PromotionID pgtype.UUID        `json:"promotion_id"`
+	Nonce       pgtype.UUID        `json:"nonce"`
+	Document    []byte             `json:"document"`
+	ReceivedAt  pgtype.Timestamptz `json:"received_at"`
+}
+
+type GitopsPromotion struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	ID                   pgtype.UUID        `json:"id"`
+	Environment          string             `json:"environment"`
+	SourceRepositoryID   pgtype.UUID        `json:"source_repository_id"`
+	DeliveryRepositoryID pgtype.UUID        `json:"delivery_repository_id"`
+	GateID               pgtype.UUID        `json:"gate_id"`
+	RequestedBy          pgtype.UUID        `json:"requested_by"`
+	IdempotencyKey       string             `json:"idempotency_key"`
+	State                string             `json:"state"`
+	Reason               string             `json:"reason"`
+	Branch               string             `json:"branch"`
+	TargetBranch         string             `json:"target_branch"`
+	ManifestPath         string             `json:"manifest_path"`
+	Pointer              string             `json:"pointer"`
+	CancelRequested      bool               `json:"cancel_requested"`
+	CandidateSha         string             `json:"candidate_sha"`
+	NativeChange         []byte             `json:"native_change"`
+	MergeSha             string             `json:"merge_sha"`
+	StageDispatchID      pgtype.UUID        `json:"stage_dispatch_id"`
+	PublishDispatchID    pgtype.UUID        `json:"publish_dispatch_id"`
+	RecoveryOf           pgtype.UUID        `json:"recovery_of"`
+	Version              int64              `json:"version"`
+	FirstHealthyAt       pgtype.Timestamptz `json:"first_healthy_at"`
+	LastHealthAt         pgtype.Timestamptz `json:"last_health_at"`
+	FinishedAt           pgtype.Timestamptz `json:"finished_at"`
+	ObserveAfter         pgtype.Timestamptz `json:"observe_after"`
+	CreatedAt            pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt            pgtype.Timestamptz `json:"updated_at"`
+}
+
 type InventoryCandidate struct {
 	OrgID      pgtype.UUID `json:"org_id"`
 	JobID      pgtype.UUID `json:"job_id"`
