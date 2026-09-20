@@ -3,6 +3,7 @@ import { sectionFor } from './types'
 import { GateList } from '../components/Status'
 import { ConnectionsPage } from './ConnectionsPage'
 import { RunnersPage } from './RunnersPage'
+import { ChangesPage } from './ChangesPage'
 import { RunsPage } from './RunsPage'
 import { FindingsPage } from './FindingsPage'
 import { RepositoriesPage } from './RepositoriesPage'
@@ -28,7 +29,7 @@ export function SectionPage() {
   const section = sectionFor(sectionParam)
   const text = copy[section.id] ?? copy.overview
   const isRepositories = section.id === 'repositories'
-  const body = section.id === 'runs' ? <RunsPage key={orgID} orgID={orgID} /> : section.id === 'findings' ? <FindingsPage orgID={orgID} /> : section.id === 'connections' ? <ConnectionsPage orgID={orgID} /> : section.id === 'runners' ? <RunnersPage orgID={orgID} /> : isRepositories ? <RepositoriesPage orgID={orgID} /> : <PlaceholderSection id={section.id} />
+  const body = section.id === 'changes' ? <ChangesPage key={orgID} orgID={orgID} /> : section.id === 'runs' ? <RunsPage key={orgID} orgID={orgID} /> : section.id === 'findings' ? <FindingsPage orgID={orgID} /> : section.id === 'connections' ? <ConnectionsPage orgID={orgID} /> : section.id === 'runners' ? <RunnersPage orgID={orgID} /> : isRepositories ? <RepositoriesPage orgID={orgID} /> : <PlaceholderSection id={section.id} />
   return <div className="section-page"><div className="page-header"><div><p className="eyebrow">{section.group === 'admin' ? 'Administration' : 'Workspace'}</p><h1>{text.title}</h1><p>{text.detail}</p></div>{text.action && !['connections', 'runners', 'repositories', 'findings'].includes(section.id) && <button className="button button-primary" disabled title="Available when this route is connected to its backend">{text.action}</button>}</div>{body}</div>
 }
 

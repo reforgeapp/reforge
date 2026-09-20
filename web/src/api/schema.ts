@@ -1345,6 +1345,102 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/merge-configuration": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMergeConfiguration"];
+        put: operations["putMergeConfiguration"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/changes/{changeID}/merge-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewProtectedMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/merge-operations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listMergeOperations"];
+        put?: never;
+        post: operations["requestProtectedMerge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMergeOperation"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["cancelMergeOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcileMergeOperation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2538,6 +2634,178 @@ export interface components {
             usage: components["schemas"]["ModelUsage"];
             continuation?: unknown;
             finish_reason: string;
+        };
+        MergeQualification: {
+            provider: string;
+            server_version: string;
+            evidence_reference: string;
+            evidence_sha256: string;
+
+            connection_version: number;
+
+            inspector_version: number;
+
+            verified_at: string;
+
+            expires_at: string;
+            exact_head: boolean;
+            strict_target: boolean;
+            queue_execution_gate: boolean;
+        };
+        MergeConfiguration: {
+
+            repository_id: string;
+
+            version: number;
+            enabled: boolean;
+
+            inspector_connection_id?: string;
+            check_publishers: {
+                [key: string]: string;
+            };
+            cooperation_reference: string;
+            qualification: components["schemas"]["MergeQualification"];
+        };
+        ForgeCheckRule: {
+            name: string;
+            publisher_id: string;
+        };
+        ForgeCheck: {
+            id: string;
+            name: string;
+            publisher_id: string;
+            head_sha: string;
+            status: string;
+            conclusion: string;
+            url: string;
+        };
+        ForgeApproval: {
+            id: string;
+            actor_id: string;
+            state: string;
+            head_sha: string;
+            dismissed: boolean;
+        };
+        ForgeRules: {
+            state: string;
+            reason: string;
+            hash: string;
+            code_owners_enforced: string;
+            strict_target_enforced: string;
+
+            observed_at: string;
+            required_checks: components["schemas"]["ForgeCheckRule"][];
+
+            required_approvals: number;
+            dismiss_stale_reviews: boolean;
+            require_code_owners: boolean;
+            require_strict_target: boolean;
+            require_queue: boolean;
+            actor_can_bypass: boolean;
+            allowed_merge_methods: string[];
+        };
+        ForgeQueueState: {
+            id: string;
+            state: string;
+            head_sha: string;
+            tested_sha: string;
+            target_sha: string;
+        };
+        ForgeNativeEligibility: {
+            state: string;
+            head_sha: string;
+            target_sha: string;
+            blockers: string[];
+        };
+        ForgeMergeCapabilities: {
+            provider: string;
+            server_version: string;
+            features: {
+                [key: string]: components["schemas"]["Capability"];
+            };
+        };
+        MergeSnapshot: {
+            change: components["schemas"]["ForgeChange"];
+            rules: components["schemas"]["ForgeRules"];
+            checks: components["schemas"]["ForgeCheck"][];
+            approvals: components["schemas"]["ForgeApproval"][];
+            native: components["schemas"]["ForgeNativeEligibility"];
+            queue: components["schemas"]["ForgeQueueState"];
+            capabilities: components["schemas"]["ForgeMergeCapabilities"];
+
+            observed_at: string;
+        };
+        MergeGate: {
+
+            id: string;
+
+            repository_id: string;
+
+            connection_id: string;
+
+            connection_version: number;
+
+            configuration_version: number;
+
+            changed_lines: number;
+            paths: string[];
+            method: string;
+
+            expires_at: string;
+            snapshot: components["schemas"]["MergeSnapshot"];
+            decision: components["schemas"]["PolicyResult"];
+            binding: components["schemas"]["PolicyEvidenceBinding"];
+            companions: components["schemas"]["MergeCompanion"][];
+        };
+        ForgeMergeResult: {
+            state: string;
+            native_id: string;
+            merge_sha: string;
+            head_sha: string;
+            url: string;
+        };
+        MergeOperation: {
+
+            id: string;
+
+            repository_id: string;
+
+            gate_id: string;
+
+            requested_gate_id: string;
+            change_id: string;
+            native_queue_id?: string;
+            state: string;
+            reason: string;
+            cancel_requested: boolean;
+
+            version: number;
+
+            created_at: string;
+
+            updated_at: string;
+            native_result?: components["schemas"]["ForgeMergeResult"];
+        };
+        MergeOperationPage: {
+            items: components["schemas"]["MergeOperation"][];
+            complete: boolean;
+            next_cursor?: string;
+        };
+        MergePreviewRequest: {
+            method: string;
+        };
+        MergeRequestInput: {
+
+            gate_id: string;
+
+            idempotency_key: string;
+        };
+        MergeCompanion: {
+            task_id: string;
+            change_id: string;
+            head_sha: string;
+            merge_sha: string;
+            state: string;
         };
     };
     responses: never;
@@ -6149,6 +6417,291 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RepairRun"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getMergeConfiguration: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeConfiguration"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putMergeConfiguration: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeConfiguration"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeConfiguration"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    previewProtectedMerge: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+                changeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergePreviewRequest"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeGate"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listMergeOperations: {
+        parameters: {
+            query: {
+                repository_id: string;
+                change_id?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeOperationPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    requestProtectedMerge: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MergeRequestInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getMergeOperation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    cancelMergeOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeOperation"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    reconcileMergeOperation: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MergeOperation"];
                 };
             };
 

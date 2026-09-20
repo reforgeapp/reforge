@@ -13,9 +13,16 @@ Endpoints under `/api/v1/orgs/{org}`:
 - GET/PUT `/repositories/{repo}/merge-configuration`; PUT requires version and administrator authority.
 - POST `/repositories/{repo}/changes/{native}/merge-preview` with `method`.
 - POST `/merge-operations` with immutable `gate_id` and UUID `idempotency_key`.
+- GET `/merge-operations?repository_id={repo}&change_id={native}` with cursor/limit pagination.
 - GET `/merge-operations/{id}`.
 - POST `/merge-operations/{id}/cancel` or `/reconcile`, with `If-Match`.
 
-Current local checks: private connector/providers/Gitea race contracts pass; pure protection corpus passes; real PostgreSQL qualification rejection, RLS, cancellation contention and restart persistence pass1.353s. Changes GUI fixture browser2pass. These checks do not certify external provider instances.
+Current local checks: root local Gitea1.27.3 controller/runner/model repair and protected merge passed49.55s (`.local/repair-protected-merge.log`), including real approval and stale configuration denial. Later input-dependent repair and restart-fault variants remain under diagnosis; do not extend the earlier result to them. Provider/private transport race contracts pass. Current Changes/settings browser suite18passed8.3s, including keyboard/narrow layout, lost response, tenant switch, publisher deletion and companion order. Browser provider responses in that suite are explicit fixtures.
 
-Remaining: complete native merge controller acceptance, queue/train admission and execution-gate observation/cancellation, automatic reconciliation/pause propagation, companion ordering and original bot revalidation, configuration GUI, shared OpenAPI generation, stale-policy/credentials and lost native response service contracts. Required GitHub/GitLab external certification remains unavailable without dedicated accounts.
+Observer reads canonical native outcomes after restart and never repeats a merge. Policy, membership, connection or qualification revocation persists queue cancellation intent; native removal must be observed. GitHub and GitLab cancellation adapters converge without another mutation when the original admission is absent and the unchanged change remains open with automatic merge disabled. A provider can still execute concurrently; cancellation is not an absolute stop.
+
+Companion dependencies derive from the original bot change in durable repair context. A pending, changed or unmerged companion blocks the original update. Fresh canonical reads must prove every published companion merged at the recorded head. Original-update checks, reviews, target enforcement and policy are evaluated separately on current native revisions. No success transfers from the companion to the bot update. Full local dependency-upgrade and automatic original-update revalidation acceptance remain open.
+
+Queue automation remains disabled until the final execution-gate controller and native candidate binding are implemented and qualified. Native cancellation and the GitHub App execution-check adapter are implemented building blocks, not a queue certification claim. GitLab merged-result pipeline gates require exact native candidate/job identity; an external source-head status alone is insufficient.
+
+Remaining: queue/train admission and final execution gates; original bot automatic revalidation; strengthened real dependency and restart scenarios; reviewed bot-cooperation evidence verification; GitHub/GitLab external certification with dedicated accounts.

@@ -5899,6 +5899,555 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/merge-configuration": {
+      "get": {
+        "operationId": "getMergeConfiguration",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeConfiguration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putMergeConfiguration",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeConfiguration"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeConfiguration"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/changes/{changeID}/merge-preview": {
+      "post": {
+        "operationId": "previewProtectedMerge",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "changeID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeGate"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergePreviewRequest"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/merge-operations": {
+      "post": {
+        "operationId": "requestProtectedMerge",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MergeRequestInput"
+              }
+            }
+          }
+        }
+      },
+      "get": {
+        "operationId": "listMergeOperations",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "change_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOperationPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}": {
+      "get": {
+        "operationId": "getMergeOperation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}/cancel": {
+      "post": {
+        "operationId": "cancelMergeOperation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/merge-operations/{operationID}/reconcile": {
+      "post": {
+        "operationId": "reconcileMergeOperation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MergeOperation"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10164,6 +10713,620 @@
           "usage",
           "finish_reason"
         ]
+      },
+      "MergeQualification": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "server_version": {
+            "type": "string"
+          },
+          "evidence_reference": {
+            "type": "string"
+          },
+          "evidence_sha256": {
+            "type": "string"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "inspector_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "exact_head": {
+            "type": "boolean"
+          },
+          "strict_target": {
+            "type": "boolean"
+          },
+          "queue_execution_gate": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "provider",
+          "server_version",
+          "evidence_reference",
+          "evidence_sha256",
+          "connection_version",
+          "inspector_version",
+          "verified_at",
+          "expires_at",
+          "exact_head",
+          "strict_target",
+          "queue_execution_gate"
+        ]
+      },
+      "MergeConfiguration": {
+        "type": "object",
+        "properties": {
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "enabled": {
+            "type": "boolean"
+          },
+          "inspector_connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "check_publishers": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "cooperation_reference": {
+            "type": "string"
+          },
+          "qualification": {
+            "$ref": "#/components/schemas/MergeQualification"
+          }
+        },
+        "required": [
+          "repository_id",
+          "version",
+          "enabled",
+          "check_publishers",
+          "cooperation_reference",
+          "qualification"
+        ]
+      },
+      "ForgeCheckRule": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "publisher_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "name",
+          "publisher_id"
+        ]
+      },
+      "ForgeCheck": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "publisher_id": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "conclusion": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "publisher_id",
+          "head_sha",
+          "status",
+          "conclusion",
+          "url"
+        ]
+      },
+      "ForgeApproval": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "actor_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "dismissed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "actor_id",
+          "state",
+          "head_sha",
+          "dismissed"
+        ]
+      },
+      "ForgeRules": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "hash": {
+            "type": "string"
+          },
+          "code_owners_enforced": {
+            "type": "string"
+          },
+          "strict_target_enforced": {
+            "type": "string"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "required_checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForgeCheckRule"
+            }
+          },
+          "required_approvals": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "dismiss_stale_reviews": {
+            "type": "boolean"
+          },
+          "require_code_owners": {
+            "type": "boolean"
+          },
+          "require_strict_target": {
+            "type": "boolean"
+          },
+          "require_queue": {
+            "type": "boolean"
+          },
+          "actor_can_bypass": {
+            "type": "boolean"
+          },
+          "allowed_merge_methods": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "state",
+          "reason",
+          "hash",
+          "code_owners_enforced",
+          "strict_target_enforced",
+          "observed_at",
+          "required_checks",
+          "required_approvals",
+          "dismiss_stale_reviews",
+          "require_code_owners",
+          "require_strict_target",
+          "require_queue",
+          "actor_can_bypass",
+          "allowed_merge_methods"
+        ]
+      },
+      "ForgeQueueState": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "tested_sha": {
+            "type": "string"
+          },
+          "target_sha": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "state",
+          "head_sha",
+          "tested_sha",
+          "target_sha"
+        ]
+      },
+      "ForgeNativeEligibility": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "target_sha": {
+            "type": "string"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "state",
+          "head_sha",
+          "target_sha",
+          "blockers"
+        ]
+      },
+      "ForgeMergeCapabilities": {
+        "type": "object",
+        "properties": {
+          "provider": {
+            "type": "string"
+          },
+          "server_version": {
+            "type": "string"
+          },
+          "features": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          }
+        },
+        "required": [
+          "provider",
+          "server_version",
+          "features"
+        ]
+      },
+      "MergeSnapshot": {
+        "type": "object",
+        "properties": {
+          "change": {
+            "$ref": "#/components/schemas/ForgeChange"
+          },
+          "rules": {
+            "$ref": "#/components/schemas/ForgeRules"
+          },
+          "checks": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForgeCheck"
+            }
+          },
+          "approvals": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ForgeApproval"
+            }
+          },
+          "native": {
+            "$ref": "#/components/schemas/ForgeNativeEligibility"
+          },
+          "queue": {
+            "$ref": "#/components/schemas/ForgeQueueState"
+          },
+          "capabilities": {
+            "$ref": "#/components/schemas/ForgeMergeCapabilities"
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "change",
+          "rules",
+          "checks",
+          "approvals",
+          "native",
+          "queue",
+          "capabilities",
+          "observed_at"
+        ]
+      },
+      "MergeGate": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "connection_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "connection_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "configuration_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "changed_lines": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "method": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "snapshot": {
+            "$ref": "#/components/schemas/MergeSnapshot"
+          },
+          "decision": {
+            "$ref": "#/components/schemas/PolicyResult"
+          },
+          "binding": {
+            "$ref": "#/components/schemas/PolicyEvidenceBinding"
+          },
+          "companions": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeCompanion"
+            }
+          }
+        },
+        "required": [
+          "id",
+          "repository_id",
+          "connection_id",
+          "connection_version",
+          "configuration_version",
+          "changed_lines",
+          "paths",
+          "method",
+          "expires_at",
+          "snapshot",
+          "decision",
+          "binding",
+          "companions"
+        ]
+      },
+      "ForgeMergeResult": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "native_id": {
+            "type": "string"
+          },
+          "merge_sha": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "native_id",
+          "merge_sha",
+          "head_sha",
+          "url"
+        ]
+      },
+      "MergeOperation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "requested_gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "change_id": {
+            "type": "string"
+          },
+          "native_queue_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "cancel_requested": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "native_result": {
+            "$ref": "#/components/schemas/ForgeMergeResult"
+          }
+        },
+        "required": [
+          "id",
+          "repository_id",
+          "gate_id",
+          "requested_gate_id",
+          "change_id",
+          "state",
+          "reason",
+          "cancel_requested",
+          "version",
+          "created_at",
+          "updated_at"
+        ]
+      },
+      "MergeOperationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MergeOperation"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "complete"
+        ]
+      },
+      "MergePreviewRequest": {
+        "type": "object",
+        "properties": {
+          "method": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "method"
+        ]
+      },
+      "MergeRequestInput": {
+        "type": "object",
+        "properties": {
+          "gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "idempotency_key": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          }
+        },
+        "required": [
+          "gate_id",
+          "idempotency_key"
+        ]
+      },
+      "MergeCompanion": {
+        "type": "object",
+        "required": [
+          "task_id",
+          "change_id",
+          "head_sha",
+          "merge_sha",
+          "state"
+        ],
+        "properties": {
+          "task_id": {
+            "type": "string"
+          },
+          "change_id": {
+            "type": "string"
+          },
+          "head_sha": {
+            "type": "string"
+          },
+          "merge_sha": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        }
       }
     },
     "securitySchemes": {

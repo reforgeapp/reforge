@@ -917,6 +917,13 @@ type FindingUpdate struct {
 	SnoozeUntil *time.Time          `json:"snooze_until,omitempty"`
 }
 type FindingUpdateAction string
+type ForgeApproval struct {
+	ActorId   string `json:"actor_id"`
+	Dismissed bool   `json:"dismissed"`
+	HeadSha   string `json:"head_sha"`
+	Id        string `json:"id"`
+	State     string `json:"state"`
+}
 type ForgeChange struct {
 	AuthorId         string       `json:"author_id"`
 	AuthorLogin      string       `json:"author_login"`
@@ -938,6 +945,44 @@ type ForgeChange struct {
 	Title            string       `json:"title"`
 	Url              string       `json:"url"`
 }
+type ForgeCheck struct {
+	Conclusion  string `json:"conclusion"`
+	HeadSha     string `json:"head_sha"`
+	Id          string `json:"id"`
+	Name        string `json:"name"`
+	PublisherId string `json:"publisher_id"`
+	Status      string `json:"status"`
+	Url         string `json:"url"`
+}
+type ForgeCheckRule struct {
+	Name        string `json:"name"`
+	PublisherId string `json:"publisher_id"`
+}
+type ForgeMergeCapabilities struct {
+	Features      map[string]Capability `json:"features"`
+	Provider      string                `json:"provider"`
+	ServerVersion string                `json:"server_version"`
+}
+type ForgeMergeResult struct {
+	HeadSha  string `json:"head_sha"`
+	MergeSha string `json:"merge_sha"`
+	NativeId string `json:"native_id"`
+	State    string `json:"state"`
+	Url      string `json:"url"`
+}
+type ForgeNativeEligibility struct {
+	Blockers  []string `json:"blockers"`
+	HeadSha   string   `json:"head_sha"`
+	State     string   `json:"state"`
+	TargetSha string   `json:"target_sha"`
+}
+type ForgeQueueState struct {
+	HeadSha   string `json:"head_sha"`
+	Id        string `json:"id"`
+	State     string `json:"state"`
+	TargetSha string `json:"target_sha"`
+	TestedSha string `json:"tested_sha"`
+}
 type ForgeRepoRef struct {
 	FullName string `json:"full_name"`
 	NativeId string `json:"native_id"`
@@ -951,6 +996,22 @@ type ForgeRepository struct {
 	Permissions   *[]string `json:"permissions"`
 	Private       bool      `json:"private"`
 	Url           string    `json:"url"`
+}
+type ForgeRules struct {
+	ActorCanBypass       bool             `json:"actor_can_bypass"`
+	AllowedMergeMethods  []string         `json:"allowed_merge_methods"`
+	CodeOwnersEnforced   string           `json:"code_owners_enforced"`
+	DismissStaleReviews  bool             `json:"dismiss_stale_reviews"`
+	Hash                 string           `json:"hash"`
+	ObservedAt           time.Time        `json:"observed_at"`
+	Reason               string           `json:"reason"`
+	RequireCodeOwners    bool             `json:"require_code_owners"`
+	RequireQueue         bool             `json:"require_queue"`
+	RequireStrictTarget  bool             `json:"require_strict_target"`
+	RequiredApprovals    int64            `json:"required_approvals"`
+	RequiredChecks       []ForgeCheckRule `json:"required_checks"`
+	State                string           `json:"state"`
+	StrictTargetEnforced string           `json:"strict_target_enforced"`
 }
 type Health struct {
 	Status string `json:"status"`
@@ -1094,6 +1155,87 @@ type MembershipPage struct {
 	Complete   bool         `json:"complete"`
 	Items      []Membership `json:"items"`
 	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+type MergeCompanion struct {
+	ChangeId string `json:"change_id"`
+	HeadSha  string `json:"head_sha"`
+	MergeSha string `json:"merge_sha"`
+	State    string `json:"state"`
+	TaskId   string `json:"task_id"`
+}
+type MergeConfiguration struct {
+	CheckPublishers       map[string]string  `json:"check_publishers"`
+	CooperationReference  string             `json:"cooperation_reference"`
+	Enabled               bool               `json:"enabled"`
+	InspectorConnectionId *string            `json:"inspector_connection_id,omitempty"`
+	Qualification         MergeQualification `json:"qualification"`
+	RepositoryId          string             `json:"repository_id"`
+	Version               int64              `json:"version"`
+}
+type MergeGate struct {
+	Binding              PolicyEvidenceBinding `json:"binding"`
+	ChangedLines         int64                 `json:"changed_lines"`
+	Companions           []MergeCompanion      `json:"companions"`
+	ConfigurationVersion int64                 `json:"configuration_version"`
+	ConnectionId         string                `json:"connection_id"`
+	ConnectionVersion    int64                 `json:"connection_version"`
+	Decision             PolicyResult          `json:"decision"`
+	ExpiresAt            time.Time             `json:"expires_at"`
+	Id                   string                `json:"id"`
+	Method               string                `json:"method"`
+	Paths                []string              `json:"paths"`
+	RepositoryId         string                `json:"repository_id"`
+	Snapshot             MergeSnapshot         `json:"snapshot"`
+}
+type MergeOperation struct {
+	CancelRequested bool              `json:"cancel_requested"`
+	ChangeId        string            `json:"change_id"`
+	CreatedAt       time.Time         `json:"created_at"`
+	GateId          string            `json:"gate_id"`
+	Id              string            `json:"id"`
+	NativeQueueId   *string           `json:"native_queue_id,omitempty"`
+	NativeResult    *ForgeMergeResult `json:"native_result,omitempty"`
+	Reason          string            `json:"reason"`
+	RepositoryId    string            `json:"repository_id"`
+	RequestedGateId string            `json:"requested_gate_id"`
+	State           string            `json:"state"`
+	UpdatedAt       time.Time         `json:"updated_at"`
+	Version         int64             `json:"version"`
+}
+type MergeOperationPage struct {
+	Complete   bool             `json:"complete"`
+	Items      []MergeOperation `json:"items"`
+	NextCursor *string          `json:"next_cursor,omitempty"`
+}
+type MergePreviewRequest struct {
+	Method string `json:"method"`
+}
+type MergeQualification struct {
+	ConnectionVersion  int64     `json:"connection_version"`
+	EvidenceReference  string    `json:"evidence_reference"`
+	EvidenceSha256     string    `json:"evidence_sha256"`
+	ExactHead          bool      `json:"exact_head"`
+	ExpiresAt          time.Time `json:"expires_at"`
+	InspectorVersion   int64     `json:"inspector_version"`
+	Provider           string    `json:"provider"`
+	QueueExecutionGate bool      `json:"queue_execution_gate"`
+	ServerVersion      string    `json:"server_version"`
+	StrictTarget       bool      `json:"strict_target"`
+	VerifiedAt         time.Time `json:"verified_at"`
+}
+type MergeRequestInput struct {
+	GateId         string `json:"gate_id"`
+	IdempotencyKey string `json:"idempotency_key"`
+}
+type MergeSnapshot struct {
+	Approvals    []ForgeApproval        `json:"approvals"`
+	Capabilities ForgeMergeCapabilities `json:"capabilities"`
+	Change       ForgeChange            `json:"change"`
+	Checks       []ForgeCheck           `json:"checks"`
+	Native       ForgeNativeEligibility `json:"native"`
+	ObservedAt   time.Time              `json:"observed_at"`
+	Queue        ForgeQueueState        `json:"queue"`
+	Rules        ForgeRules             `json:"rules"`
 }
 type Meta struct {
 	BootstrapRequired *bool       `json:"bootstrap_required,omitempty"`
@@ -1753,6 +1895,23 @@ type PutMembershipParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
+type ListMergeOperationsParams struct {
+	RepositoryId string  `form:"repository_id" json:"repository_id"`
+	ChangeId     *string `form:"change_id,omitempty" json:"change_id,omitempty"`
+	Cursor       *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type RequestProtectedMergeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelMergeOperationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ReconcileMergeOperationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
 type SetPauseParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
@@ -1797,8 +1956,15 @@ type ListInventoryChangesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
+type PreviewProtectedMergeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type PutMaintenanceConfigParams struct {
 	IfMatch string `json:"If-Match"`
+}
+type PutMergeConfigurationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
 }
 type ListRunnerPoolsParams struct {
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -1896,13 +2062,16 @@ type UpdateFindingJSONRequestBody = FindingUpdate
 type StartInventorySyncJSONRequestBody = InventorySyncInput
 type ImportInventoryCandidatesJSONRequestBody = InventoryImportInput
 type PutMembershipJSONRequestBody = MembershipInput
+type RequestProtectedMergeJSONRequestBody = MergeRequestInput
 type SetPauseJSONRequestBody = PauseInput
 type CreatePolicyVersionJSONRequestBody = PolicyVersionCreate
 type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
 type PreviewRepairJSONRequestBody = RepairInput
 type EnqueueRepairJSONRequestBody = RepairInput
+type PreviewProtectedMergeJSONRequestBody = MergePreviewRequest
 type PutMaintenanceConfigJSONRequestBody = MaintenanceConfig
+type PutMergeConfigurationJSONRequestBody = MergeConfiguration
 type CreateRunnerPoolJSONRequestBody = RunnerPoolInput
 type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate
