@@ -25,7 +25,7 @@ func TestBuildPresetsCorpus(t *testing.T) {
 				t.Fatalf("%s args: %#v", tc.name, r.Commands[0].Args)
 			}
 		}
-		if r.MaxFiles != 20 || r.MaxPatchBytes != 64<<10 || r.MaxTurns != 8 || r.TimeoutSeconds != 900 || r.MinimumTests != 1 {
+		if r.MaxFiles != 20 || r.MaxPatchBytes != 64<<10 || r.MaxTurns != 12 || r.Version != "v2" || r.TimeoutSeconds != 900 || r.MinimumTests != 1 {
 			t.Fatalf("%s bounds: %#v", tc.name, r)
 		}
 	}
