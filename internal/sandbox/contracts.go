@@ -35,9 +35,9 @@ type CommandResult struct {
 	TimedOut  bool
 }
 type Patch struct {
-	Path    string
-	Content []byte
-	Delete  bool
+	Path    string `json:"path"`
+	Content []byte `json:"content"`
+	Delete  bool   `json:"delete,omitempty"`
 }
 type Artifact struct {
 	Name      string
