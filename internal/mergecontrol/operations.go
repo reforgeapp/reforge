@@ -1,0 +1,295 @@
+package mergecontrol
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"time"
+
+	"github.com/jackc/pgx/v5"
+	"reforge/internal/auth"
+	"reforge/internal/connections"
+	"reforge/internal/domain"
+	"reforge/internal/forge"
+	"reforge/internal/privateconnector"
+	"reforge/internal/source"
+)
+
+func gateTx(ctx context.Context, tx pgx.Tx, org, id string) (Gate, error) {
+	var out Gate
+	var raw []byte
+	err := tx.QueryRow(ctx, `SELECT document FROM merge_gates WHERE org_id=$1 AND id=$2`, org, id).Scan(&raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return out, auth.ErrForbidden
+	}
+	if err == nil {
+		err = json.Unmarshal(raw, &out)
+	}
+	return out, err
+}
+
+func operationTx(ctx context.Context, tx pgx.Tx, org, id string) (Operation, error) {
+	var out Operation
+	var raw []byte
+	err := tx.QueryRow(ctx, `SELECT id::text,repository_id::text,gate_id::text,change_id,state,reason,cancel_requested,native_result,version,created_at,updated_at FROM merge_operations WHERE org_id=$1 AND id=$2`, org, id).Scan(&out.ID, &out.RepositoryID, &out.GateID, &out.ChangeID, &out.State, &out.Reason, &out.CancelRequested, &raw, &out.Version, &out.CreatedAt, &out.UpdatedAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return out, auth.ErrForbidden
+	}
+	if err == nil && len(raw) > 0 {
+		err = json.Unmarshal(raw, &out.NativeResult)
+	}
+	return out, err
+}
+
+func (s *Service) Get(ctx context.Context, session auth.Session, org, id string) (Operation, error) {
+	var out Operation
+	if !auth.ValidID(id) {
+		return out, auth.ErrInvalid
+	}
+	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		var err error
+		out, err = operationTx(ctx, tx, org, id)
+		if err != nil {
+			return err
+		}
+		if !auth.CanReadRepository(a, out.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		return nil
+	})
+	return out, err
+}
+
+func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID, key, request string) (Operation, error) {
+	var out Operation
+	if !auth.ValidID(gateID) || !auth.ValidID(key) {
+		return out, auth.ErrInvalid
+	}
+	var original Gate
+	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		var err error
+		original, err = gateTx(ctx, tx, org, gateID)
+		if err != nil {
+			return err
+		}
+		if !manage(a, original.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		var id, previousGate string
+		err = tx.QueryRow(ctx, `SELECT id::text,requested_gate_id::text FROM merge_operations WHERE org_id=$1 AND repository_id=$2 AND idempotency_key=$3`, org, original.RepositoryID, key).Scan(&id, &previousGate)
+		if err == nil {
+			if previousGate != gateID {
+				return auth.ErrConflict
+			}
+			out, err = operationTx(ctx, tx, org, id)
+			return err
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if original.Decision.Outcome != "allow" || !original.ExpiresAt.After(time.Now()) {
+			return auth.ErrConflict
+		}
+		return nil
+	})
+	if err != nil || out.ID != "" {
+		return out, err
+	}
+	fresh, err := s.Inspect(ctx, session, org, original.RepositoryID, original.Snapshot.Change.ID, original.Method, request)
+	if err != nil {
+		return out, err
+	}
+	if fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion {
+		return out, auth.ErrConflict
+	}
+	created := false
+	err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if !manage(a, fresh.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		if err := s.validateGateTx(ctx, tx, org, fresh); err != nil {
+			return err
+		}
+		var existing, previousGate string
+		err := tx.QueryRow(ctx, `SELECT id::text,requested_gate_id::text FROM merge_operations WHERE org_id=$1 AND repository_id=$2 AND idempotency_key=$3`, org, fresh.RepositoryID, key).Scan(&existing, &previousGate)
+		if err == nil {
+			if previousGate != gateID {
+				return auth.ErrConflict
+			}
+			out, err = operationTx(ctx, tx, org, existing)
+			return err
+		}
+		if !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		id := domain.NewID()
+		_, err = tx.Exec(ctx, `INSERT INTO merge_operations(org_id,id,repository_id,gate_id,requested_gate_id,change_id,target_branch,idempotency_key,requested_by,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'requested')`, org, id, fresh.RepositoryID, fresh.ID, gateID, fresh.Snapshot.Change.ID, fresh.Snapshot.Change.TargetBranch, key, a.UserID)
+		if err != nil {
+			return err
+		}
+		out, err = operationTx(ctx, tx, org, id)
+		if err != nil {
+			return err
+		}
+		created = true
+		return emit(ctx, tx, org, out.RepositoryID, a.UserID, "merge.requested", id, out.Version, request, map[string]any{"gate_id": fresh.ID})
+	})
+	if err != nil || !created {
+		return out, err
+	}
+	return s.dispatch(ctx, session, org, out, fresh, request)
+}
+
+func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gate Gate) error {
+	if !gate.ExpiresAt.After(time.Now()) || gate.Decision.Outcome != "allow" {
+		return auth.ErrConflict
+	}
+	_, connectionID, err := repository(ctx, tx, org, gate.RepositoryID)
+	if err != nil {
+		return err
+	}
+	if connectionID != gate.ConnectionID {
+		return auth.ErrConflict
+	}
+	c, err := s.connections.MetadataTx(ctx, tx, org, gate.ConnectionID)
+	if err != nil {
+		return err
+	}
+	if c.State != "healthy" || c.Version != gate.ConnectionVersion {
+		return auth.ErrConflict
+	}
+	cfg, err := configTx(ctx, tx, org, gate.RepositoryID)
+	if err != nil {
+		return err
+	}
+	if cfg.Version != gate.ConfigurationVersion {
+		return auth.ErrConflict
+	}
+	resolved, err := s.policies.ResolveTx(ctx, tx, org, gate.RepositoryID)
+	if err != nil {
+		return err
+	}
+	if resolved.Hash != gate.Binding.PolicyHash {
+		return auth.ErrConflict
+	}
+	authority, err := s.authorityTx(ctx, tx, org, gate.RepositoryID, cfg, c, gate.Snapshot)
+	if err != nil {
+		return err
+	}
+	authority.Paths, authority.PathsVerified = gate.Paths, true
+	files := int64(len(gate.Paths))
+	authority.Usage.ChangedFiles, authority.Usage.ChangedLines = &files, &gate.ChangedLines
+	if Evaluate(gate.Snapshot, resolved, gate.Method, authority, time.Now().UTC()).Decision.Outcome != "allow" {
+		return auth.ErrForbidden
+	}
+	return nil
+}
+
+func (s *Service) dispatch(ctx context.Context, session auth.Session, org string, operation Operation, gate Gate, request string) (Operation, error) {
+	var cfg Configuration
+	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		var err error
+		cfg, err = configTx(ctx, tx, org, operation.RepositoryID)
+		return err
+	})
+	if err != nil {
+		return operation, err
+	}
+	current := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
+		a, err := s.auth.ActorTx(ctx, tx, session, org)
+		if err != nil {
+			return err
+		}
+		if !manage(a, operation.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		op, err := operationTx(ctx, tx, org, operation.ID)
+		if err != nil {
+			return err
+		}
+		if op.CancelRequested || op.State != "dispatching" || c.ID != gate.ConnectionID || c.Version != gate.ConnectionVersion {
+			return auth.ErrConflict
+		}
+		return s.validateGateTx(ctx, tx, org, gate)
+	}
+	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+		a, err := s.auth.ActorTx(ctx, tx, session, org)
+		if err != nil {
+			return "", err
+		}
+		if !manage(a, operation.RepositoryID) {
+			return "", auth.ErrForbidden
+		}
+		op, err := operationTx(ctx, tx, org, operation.ID)
+		if err != nil {
+			return "", err
+		}
+		if op.State != "requested" || op.CancelRequested {
+			return "", auth.ErrConflict
+		}
+		if err = s.validateGateTx(ctx, tx, org, gate); err != nil {
+			return "", err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE merge_operations SET state='dispatching',version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, op.ID); err != nil {
+			return "", err
+		}
+		return op.ID, nil
+	}
+	op := privateconnector.Operation{ID: operation.ID, Kind: privateconnector.ForgeMerge, Merge: &forge.MergeRequest{Repository: gate.Snapshot.Change.Repository, ChangeID: gate.Snapshot.Change.ID, ExpectedHeadSHA: gate.Binding.Head, ExpectedTargetSHA: gate.Binding.Target, RulesHash: gate.Binding.ProviderRules, GateID: gate.ID, Method: gate.Method, OperationID: operation.ID, Queue: gate.Snapshot.Rules.RequireQueue}}
+	result, writeErr := s.providers.ForProtection(cfg.InspectorConnectionID, cfg.CheckPublishers).Write(ctx, org, gate.ConnectionID, op, authorize, current)
+	persist, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+	defer cancel()
+	err = s.db.Tenant(persist, org, "", func(tx pgx.Tx) error {
+		if err := lock(persist, tx, org); err != nil {
+			return err
+		}
+		stored, err := operationTx(persist, tx, org, operation.ID)
+		if err != nil {
+			return err
+		}
+		if stored.State == "cancelled" {
+			operation = stored
+			return nil
+		}
+		state, reason := "reconciling", "Native outcome requires reconciliation before any further mutation"
+		if stored.State == "requested" {
+			state, reason = "blocked", "Fresh authority rejected before native dispatch"
+		}
+		if writeErr == nil && result.Merge != nil {
+			state, reason = observedState(*result.Merge, gate)
+		}
+		var raw []byte
+		if result.Merge != nil {
+			raw, _ = json.Marshal(result.Merge)
+		}
+		if _, err = tx.Exec(persist, `UPDATE merge_operations SET state=$3,reason=$4,native_result=$5,version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, operation.ID, state, reason, raw); err != nil {
+			return err
+		}
+		operation, err = operationTx(persist, tx, org, operation.ID)
+		if err != nil {
+			return err
+		}
+		var actor string
+		if err = tx.QueryRow(persist, `SELECT requested_by::text FROM merge_operations WHERE org_id=$1 AND id=$2`, org, operation.ID).Scan(&actor); err != nil {
+			return err
+		}
+		return emit(persist, tx, org, operation.RepositoryID, actor, "merge."+state, operation.ID, operation.Version, request, map[string]any{"state": state, "cancel_requested": operation.CancelRequested})
+	})
+	return operation, err
+}
+
+func observedState(result forge.MergeResult, gate Gate) (string, string) {
+	if result.HeadSHA != gate.Binding.Head {
+		return "reconciling", "Native change head differs from the requested candidate"
+	}
+	if result.State == "merged" && source.ValidSHA(result.MergeSHA, "sha1") && result.NativeID == gate.Snapshot.Change.ID {
+		return "merged", "Canonical provider merge observed"
+	}
+	if result.State == "queued" {
+		return "queued", "Native admission observed; cancellation may race with execution"
+	}
+	if result.State == "closed" {
+		return "closed", "Native change is closed without merge"
+	}
+	return "reconciling", "Native completion is not yet authoritative"
+}

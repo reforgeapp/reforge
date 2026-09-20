@@ -19,6 +19,7 @@ import (
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
 	"reforge/internal/maintenance/repair"
+	"reforge/internal/mergecontrol"
 	"reforge/internal/modelbroker"
 	"reforge/internal/policy"
 	"reforge/internal/privateconnector"
@@ -140,6 +141,7 @@ func run() error {
 	app.RegisterDiscovery(discoveries)
 	repairs := repair.New(db, identity, discoveries, workflows, runners, policies, budgets, connectionService, providerReads.ForExecution(), cfg.RepairImages)
 	app.RegisterRepair(repairs)
+	app.RegisterMerge(mergecontrol.New(db, identity, connectionService, policies, providerReads))
 	runners.CompletionCheck = repairs.CheckCompletion
 	authority.Register("repair.stage", repairs.CheckStage)
 	authority.Register("stage", repairs.CheckStage)

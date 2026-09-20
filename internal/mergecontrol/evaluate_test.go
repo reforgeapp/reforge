@@ -1,0 +1,89 @@
+package mergecontrol
+
+import (
+	"strings"
+	"testing"
+	"time"
+
+	"reforge/internal/domain"
+	"reforge/internal/forge"
+	"reforge/internal/policy"
+)
+
+func evaluationFixture(now time.Time) (Snapshot, policy.Resolved, Authority) {
+	head := strings.Repeat("a", 40)
+	target := strings.Repeat("b", 40)
+	repo := forge.RepoRef{NativeID: "repo", FullName: "org/repo"}
+	rules := forge.Rules{
+		State: domain.Supported, Hash: strings.Repeat("d", 64), AllowedMergeMethods: []string{"squash"},
+		RequiredChecks:      []forge.CheckRule{{Name: "test", PublisherID: "ci"}},
+		RequireStrictTarget: true, StrictTargetEnforced: domain.Supported,
+		RequiredApprovals: 1,
+	}
+	change := forge.Change{ID: "change", Repository: repo, HeadRepository: repo, TargetRepository: repo, HeadSHA: head, TargetSHA: target, HeadBranch: "feature", TargetBranch: "main", AuthorID: "author", State: "open"}
+	snapshot := Snapshot{
+		Change: change, Rules: rules,
+		Checks:       []forge.Check{{Name: "test", PublisherID: "ci", HeadSHA: head, Status: "completed", Conclusion: "success"}},
+		Approvals:    []forge.Approval{{ID: "approval", ActorID: "reviewer", HeadSHA: head, State: "approved"}},
+		Native:       forge.NativeEligibility{State: "eligible", HeadSHA: head, TargetSHA: target},
+		Capabilities: forge.Capabilities{Provider: "gitea", ServerVersion: "1"},
+		ObservedAt:   now,
+	}
+	layers := []policy.Layer{{
+		Scope: policy.Scope{Kind: "organisation", ID: "org"}, VersionID: "policy-v1", BindingVersion: 1,
+		Policy: policy.Policy{Schema: "maintenance/v1", Allow: policy.Lists{MergeMethods: []string{"squash"}}, ForbiddenPaths: []string{"infra/**"}},
+	}}
+	resolved := policy.Resolve(layers, "repo", "", false)
+	authority := Authority{PathsVerified: true, ValidationHead: head, ValidationTarget: target, ValidationReference: "local-validation", MergeControlled: true, CooperationVerified: true, Qualified: true, ExactHeadEnforced: true, QualificationReference: "qualification", Paths: []string{"src/value.js"}}
+	return snapshot, resolved, authority
+}
+
+func TestEvaluateProtectionCorpus(t *testing.T) {
+	now := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name   string
+		mutate func(*Snapshot, *policy.Resolved, *Authority, *time.Time)
+	}{
+		{"wrong publisher", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) {
+			s.Checks[0].PublisherID = "attacker"
+		}},
+		{"stale approval head", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) {
+			s.Approvals[0].HeadSHA = strings.Repeat("c", 40)
+		}},
+		{"native head changed", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) {
+			s.Native.HeadSHA = strings.Repeat("c", 40)
+		}},
+		{"native target changed", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) {
+			s.Native.TargetSHA = strings.Repeat("c", 40)
+		}},
+		{"strict target missing", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) {
+			s.Rules.StrictTargetEnforced = domain.Unsupported
+		}},
+		{"actor bypass", func(s *Snapshot, _ *policy.Resolved, _ *Authority, _ *time.Time) { s.Rules.ActorCanBypass = true }},
+		{"qualification missing", func(_ *Snapshot, _ *policy.Resolved, a *Authority, _ *time.Time) { a.Qualified = false }},
+		{"paths unverified", func(_ *Snapshot, _ *policy.Resolved, a *Authority, _ *time.Time) { a.PathsVerified = false }},
+		{"policy forbidden path", func(_ *Snapshot, _ *policy.Resolved, a *Authority, _ *time.Time) {
+			a.Paths = []string{"infra/secrets.yml"}
+		}},
+		{"evidence expired", func(s *Snapshot, _ *policy.Resolved, _ *Authority, n *time.Time) { s.ObservedAt = n.Add(-time.Hour) }},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			snapshot, resolved, authority := evaluationFixture(now)
+			tc.mutate(&snapshot, &resolved, &authority, &now)
+			got := Evaluate(snapshot, resolved, "squash", authority, now)
+			if got.Decision.Outcome != "deny" && got.Decision.Outcome != "unknown" {
+				t.Fatalf("accepted invalid evidence: %+v", got.Decision)
+			}
+		})
+	}
+}
+
+func TestEvaluateAllowsCompleteQualifiedNativeMerge(t *testing.T) {
+	now := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	snapshot, resolved, authority := evaluationFixture(now)
+	got := Evaluate(snapshot, resolved, "squash", authority, now)
+	if got.Decision.Outcome != "allow" {
+		t.Fatalf("valid merge rejected: %+v", got.Decision)
+	}
+}
