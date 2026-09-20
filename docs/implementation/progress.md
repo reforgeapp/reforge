@@ -32,13 +32,13 @@ Updated: 2026-09-21. Coordinator: Astra X-High. Persistent goal UI paused; user 
 | T16 | in progress | Astra | agent; T03 T05 T06 T07 | Documented permitted runtime routes |
 | T17 | in progress | Luna | portfolio GUI; T02 T03 T04 T11 T12–T16 | Backend-connected onboarding |
 | T18 | local complete | Astra/Luna | discovery; T05 T06 T11 | Bot ownership and deduplication |
-| T19 | in progress | Astra/Luna | repair/recipes; T07 T12 T13 T14 T15 T18 | Real repair loop and trusted validation |
-| T20 | in progress | Luna | evidence GUI; T04 T17 T18 T19 | Connected finding/run/change flows |
+| T19 | local complete | Astra/Luna | repair/recipes; T07 T12 T13 T14 T15 T18 | Real repair loop and trusted validation |
+| T20 | local complete | Luna | evidence GUI; T04 T17 T18 T19 | Connected finding/run/change flows |
 | T21 | local complete | Astra | merge; T06 T08 T09 T10 T19 | Exact revisions/native protection |
-| T22 | in progress | Astra | pipelines; T05 T06 T08 T09 T10 T21 | Native approval and correlation |
-| T23 | not started | Astra | GitOps; T06 T08 T09 T10 T21 | Protected delivery and provenance |
-| T24 | not started | Luna | control GUI; T04 T06 T20 T21 T22 T23 | Policy/deployment/usage/audit |
-| T25 | not started | Astra/Luna | campaigns; T05 T06 T18 T19 T21 T23 T24 | Pinned canaries/fairness |
+| T22 | local complete | Astra | pipelines; T05 T06 T08 T09 T10 T21 | Native approval and correlation |
+| T23 | local complete | Astra | GitOps; T06 T08 T09 T10 T21 | Protected delivery and provenance |
+| T24 | local complete | Luna | control GUI; T04 T06 T20 T21 T22 T23 | Policy/deployment/usage/audit |
+| T25 | in progress | Astra/Luna | campaigns; T05 T06 T18 T19 T21 T23 T24 | Pinned canaries/fairness |
 | T26 | not started | Luna/Astra | deploy/operator; T02 T03 T07 T16 T22 T23 | Install, restore, operations |
 | T27 | not started | Astra | qualification; T19 T21 T22 T23 T25 T26 | Isolation/concurrency/recovery |
 | T28 | not started | Astra/Luna | handoff; all prior | Browser/load/corpus/licences; G5 open |
@@ -55,7 +55,7 @@ G0 foundation and identity locally verified; subsequent artifact/SSE isolation r
 
 ## Resume
 
-Read latest checkpoint, backlog and current diff. Root sole Astra X-High; at most three Luna workers. Real dependency upgrade, Go repair GUI and protected Gitea restart passed. T21 native direct/queue/train controller and automatic bot revalidation locally implemented; external GH/GL qualification pending. T22 adapters/controller underway. T16 production custody/wiring and T23–T28 remain required. Controller8080 session41728; disposable credentials in ignored `.local/development.env`, never print. Goal UI paused; user resumed work, no tool resume operation.
+Root sole Astra X-High; max three Luna workers. T22/T23 locally complete; T24 locally complete; T25 architecture/core next. Current server2619 on8080; secrets in ignored `.local/development.env`. Root owns controller/API/migrations; All Luna workers idle after T24 review; root owns shared integration. Latest checkpoints below contain evidence. T16 production custody/wiring, T17 qualification GUI and T24–T28 remain. G5 open. User resumed work despite persistent-goal UI pause; no tool resume operation.
 
 ## T01 evidence — 2026-09-20
 
@@ -324,7 +324,7 @@ Read latest checkpoint, backlog and current diff. Root sole Astra X-High; at mos
 - GitLab final train gate now implemented locally: protected blocking native job, exact pipeline/C/CI configuration, durable fenced play, no repeat after uncertainty, canonical merge observation and queue cancellation. Root reviewed Luna adapter/UI/PG tests and corrected fixture queue IDs, cancellation convergence and GUI numeric validation. Pending integrated browser/review before commit.
 - Root affected race contracts pass (`.local/train-race-fixed.log`); explicit native HTTP drift/approval scenarios pass1.141s (`.local/train-drift.log`); real PostgreSQL combined merge/queue/train contracts pass3.347s (`.local/train-pg-root.log`). These do not certify external GitLab.
 - Auto-review rejected removing read-time mergeGuard blockers. Safer alternative retained those blockers and binds inspection to operation-specific guards that reject every merge mutation; approved and contract checks pass. No guard requirement removed, no unresolved approval request.
-- Current local controller session46771 on8080; train browser session52180 (`.local/train-browser-root.log`). Root sole Astra; Luna workers idle after bounded completions. Root owns all current files. Automatic original bot revalidation remains next T21 work; T16 production custody/wiring and T22–T28 remain required; G5 open.
+- Current local controller session46771 on8080; train browser session52180 (`.local/train-browser-root.log`). Root sole Astra; Luna All Luna workers idle after T24 review; root owns shared integration. Root owns all current files. Automatic original bot revalidation remains next T21 work; T16 production custody/wiring and T22–T28 remain required; G5 open.
 
 
 ## Current checkpoint — T21 local acceptance; T22 started
@@ -334,3 +334,83 @@ Read latest checkpoint, backlog and current diff. Root sole Astra X-High; at mos
 - Root reviewed bot GUI and Luna fixtures. Combined bot/Changes/settings22passed10.3s; added meaningful retry, missing gate, clock expiry, nonempty390px/keyboard cases; bot7/7pass. `.local/bot-browser-luna.log`. UI commit follows.
 - T22 contracts and GH/GL read adapters implemented under review. Root owns deployment native gates/dispatch/controller/shared transport and migrations. Luna_discovery_http owns GH delivery_read.go/test.go; Luna_queue_pg_contract owns GL equivalents; Luna_browser_capture bot browser finished. No Astra workers.
 - Source/digest/config/environment pins, native gates, durable single dispatch and authenticated provenance/health required. Gitea uses protected GitOps delivery. T16 wiring, T23–T28 remain authorised; G5 open.
+
+
+## Current checkpoint — deployment review and acceptance
+
+- T22 uncommitted: GitHub/GitLab guarded dispatch, exact workflow/correlation observation, native gate inspection, recovery workflow, signed provenance/health, durable per-environment intent, explicit/pause cancellation, API and connected settings/deployment GUI. Migrations024–026 applied dev/test; do not edit applied migrations. Root fixed late-response overwrite races and invalid JSON settings saves.
+- Current full affected races pass: policy cached, GitHub1.181s, GitLab1.198s, privateconnector9.371s. Log `.local/deployment-final-race.log`. Generation and GUI/server builds pass; latest server57966. Native cancellation HTTP contracts pass separately. Real PG cancellation/recovery and browser tests running; no new pass claimed.
+- Workflow SHA differs from artifact source SHA; both pinned, reserved workflow SHA input permits a qualified workflow to enforce its own revision before side effects. Health requires signed source/digest/run/revision, fresh criteria and elapsed observation window. Native approval APIs never invoked.
+- T23 pure deterministic YAML/JSON field patcher delegated to Luna; source/delivery authorization, protected merge integration and health remain root work. Root sole Astra; three Luna maximum. T16, T17 qualification flow and T23–T28 required; no G5 claim.
+
+
+## Current checkpoint — T22 locally complete; T23 implementation
+
+- T22 commits `2e44024` native adapters, `9e7db69` durable promotion/recovery, `387dd88` API. Observe-only import and GUI pending final bounded commits. Native/provider transport races pass; real PostgreSQL deployment/recovery/cancellation4.289s and observe import4.499s pass. Browser13/13 pass2.9s (`.local/deployment-observe-browser.log`), including real development empty state,390px and keyboard. Last finite-date guard typechecks; next full build refreshes embedded GUI.
+- Observe-only import verifies canonical source, signed provenance, exact configured workflow/run; zero provider writes; no cancellation authority. Migration028 enforces unique native run identity. Migrations027/028 applied dev/test; do not edit them. Offline Ed25519 evidence signer implemented and controller interoperability passes; docs being updated. No live GitHub/GitLab deployment certification claimed.
+- T23 parser reviewed/fixed exact UTF-8 positions, deterministic semantic diff, immutable image digest, duplicate/tag/alias/multiline rejection. Parser/merge-package/signer race checks pass1.055s/1.054s/1.052s. Root implements configuration, pinned dual-repository policy/provenance preview, durable branch/PR phases, candidate tree/commit verification and merge authority hook. These are uncommitted and not yet integration-verified. Observer, health, protected merge wrappers, API/wiring and real Gitea acceptance remain.
+- Root sole Astra; Luna_queue_pg_contract owns GitOps API client/page; Luna_discovery_http owns T22 operator doc; Luna_browser_capture completed T22 tests. Current server65286, before latest qualification-date UI guard. Other full backlog, T16 production custody and T23–T28 retained. G5 open.
+
+
+## Current checkpoint — protected GitOps flow and recovery verified
+
+- T22 final bounded commits `b725e69` observe-only import, `d4f7596` connected GUI, `2a4c7a1` offline evidence signer/operator contract. T22 remains locally complete, live GitHub/GitLab native approval certification open.
+- T23 root service/API implemented: immutable dual-repository preview, signed provenance, deterministic field patch, independent candidate commit/tree proof, durable single stage/publication dispatch, canonical restart reconciliation, protected merge hook, source/delivery revocation checks, signed reconciler health, separate known-good recovery proposal. Migration027 already applied; generated API updated. No direct Kubernetes operations.
+- Real disposable Gitea/private-connector/PG protected workflow passed13.031s (`.local/gitops-live-root3.log`). Signed health is a fixture observer contract; no external Argo/Flux runtime certified.
+- Focused GitOps/merge races pass1.053s/1.049s; PG scope/health2tests passed (worker). Pure patcher5s fuzz117,988executions passed (worker, root reviewed tests). Root added physical-target consistency to recovery after live pass; final affected rerun pending.
+- Root rejected incomplete Luna GUI twice; fixed first/second environment creation, stale state, role actions, source vs delivery identities, merge types/method/expiry, idempotency and history. Fresh controller49849 on8080 includes GUI; parser/manifest-proof backend changed since that build. Luna owns bounded browser contracts and formatting only; root owns service/shared/API.
+- T23 browser/review/commits pending. T16 production subscription custody/wiring, T17 qualification GUI and T24–T28 remain authorised. G5 open; no release claim.
+
+
+## Current checkpoint — T23 local acceptance complete
+
+- Real PostgreSQL/Gitea GitOps suite passes29.167s (`.local/gitops-final-pg-native2.log`): deterministic concurrent stage claim, lost branch/publication responses, exact original publication recovery, source revocation through direct merge API, protected native approval/merge, restart, forged/wrong/replayed signed health, separate failed rollout and known-good revert. Original native history retained. Rejected private dispatch can transiently consume one readiness poll; bounded read-only observation retries in fixture, no repeated writes.
+- Root fixed concurrent losing-request persistence with stored dispatch identity, bounded lexer tokens/nesting, immutable post-merge manifest proof, and recovery physical-target consistency. Parser/API/merge focused races pass (`.local/gitops-parser-depth.log`). Current controller12389 has these production changes. Later changes affect tests/docs only.
+- GitOps browser6/6pass4.5s (`.local/gitops-browser-root2.log`): configured/empty views, role/preview/retry/native blockers, keyboard, strict390px document width and actual unmocked authenticated empty page. Fixture login initially raced redirect; corrected. Scoped `.gitops-page` layout fixes genuine horizontal overflow. Browser fixture coverage is separate from real native backend acceptance.
+- Commit50578bc bounds parser complexity. Remaining T23 bounded commits are being recorded. Operator procedure `t23-gitops.md`; decisions recorded. T23 local dependency complete; external GitHub/GitLab protected promotion and live GitOps reconciler health certification remain open.
+- T16 production custody/wiring, T17 remaining qualification flow, T24–T28 retained. T19/T20 acceptance/status reconciliation next. G5 open.
+
+## T24 checkpoint — 2026-09-21
+
+- Three Luna drafts reviewed. Root corrected policy null/inherit versus empty/deny-all lists, restrictive-policy activation, first binding CAS0, stale drafts, owner-only budget writes, immutable budget periods and audit page export.
+- New tenant/repository-scoped usage ledger/summary and audit/export APIs. Stable tuple pagination; settled pricing estimates separate from unknown maximum holds. Org audit restricted owner/admin; repository audit uses current bindings.
+- PostgreSQL/HTTP race acceptance passed1.127s (`.local/insights-pg-root3.log`): scoped reads, actor/action/provider/recipe/state/time filters, unknown holds, cursor ties, tenant/team denial, revoked session/export. API/SQL generation and frontend production build passed. Browser acceptance underway; no completion claim yet.
+- T23 commits: 50578bc parser bounds,9763708 source authority,afc6fb0 protected promotions,6e532b0 API,b45b591 GUI. T23 final actual PG/Gitea suite29.167s and browser6/6 recorded above.
+- T25 requirements located; no implementation yet. T16 custody/runtime wiring and T17 qualification GUI remain, followed by T25–T28. G5 open.
+
+- T24 final7/7 browser checks passed4.3s (`.local/insights-browser-final.log`), including unmocked real policy activation, persisted budget reload and actual downloaded audit NDJSON at390px; keyboard and primary-team regression included. Backend commit b470fff; GUI report `t24-controls.md`.
+- T19/T20 reconciled to local complete using previously recorded real repair/Ollama/Gitea/gVisor publication and browser evidence. T16 official subscription runtime production wiring remains independently incomplete; no external certification inferred.
+
+## T25 checkpoint — 2026-09-21
+
+- Root froze campaign domain/HTTP contract in `t25-contract.md`, types in `internal/campaign/types.go`. No campaign service/GUI implemented yet. Repair/pipeline/GitOps reuse existing execution controllers; fixed membership and representative canaries; fresh authority and pinned policy checks before dispatch; native approvals unchanged.
+- T24 GUI commit53b315a, backendb470fff. All7browser scenarios, PG race, vet/build/generation passed; report `t24-controls.md`.
+
+- T25 draft implementation: migration029 (NOT APPLIED), root types/rules/metadata snapshot, campaign API client; two Luna GUI drafts returned and await full root review. Only compile checks run so far; no T25 acceptance claim. Root owns all backend/shared files. Campaign dispatch/controller/authority hooks/API integration, migrations and tests remain.
+
+- T25 root added scoped preview/create/list/detail/member reads and draft control transactions plus workflow campaign pause propagation. Native executor/controller, operation admission hooks, resume/reconciliation, API/startup, migration application and meaningful acceptance remain unimplemented. Metadata snapshot compile passed; not a production completion claim. Two Luna GUI drafts exist; form requires further native member/window review. No T25 commits yet.
+
+- T25 pause/admission groundwork now changes workflow/repair and pipeline/GitOps services via startup-registered hooks (not yet registered). Root added internal non-serializable, repository-scoped maintainer automation grants for scheduled work surviving browser logout; interactive campaign management rejects grants. Auth proof is delegated only through trusted in-process callbacks, never request JSON. Exact PG acceptance result in `.local/campaign-automation-pg.log`; review before claiming it passed.
+- Running server2619 remains T24 build. Migration029 still NOT APPLIED. Native executor/controller/hook implementations and integration tests are still required. Workers returned GUI changes; root review remains.
+
+- Scoped automation grant PG acceptance passed1.103s; complete affected identity/CSRF/OIDC/concurrent-revocation suite passed3.170s (`.local/campaign-identity-regressions.log`). Auth subfeature committed; campaign callbacks/controller still under implementation. Added draft campaign gate/task authority callbacks; not wired into running server.
+
+- T25 root controller/executor/API/startup now drafted and compile: persistent campaign lease, one admission per turn, rotating tenants, representative stages, protected native delegation, operation binding before effects, explicit resume/grant expiry, pause/cancel propagation and canonical outcome checks. Migration029 applied to disposable dev/test databases; do not edit it. Repair member and native gate authority hooks registered at startup. New build not yet running.
+- T25 PG controller simulations passed3.764s (`.local/campaign-pg5.log`): failed/unknown canaries stop expansion, bounded progression, fixed membership, changed connection pins, pause during pending dispatch, stale grant fencing, initiating-role revocation and grant expiry. These use an explicit simulated executor and do not certify production integration.
+- Native pipeline known-undispatched continuation implemented with persisted dispatch CAS. Root rejected initial worker test that cleared a successful dispatch marker; revised test seeds requested intent before effects, passes PG race1.592s (`.local/deployment-resume-race.log`) with at-most-once concurrency, uncertain outcome no-repeat, viewer no-write checks. Root final review/integration suite pending.
+- Root corrected Luna GUI drafts: independent native member provenance, advanced JSON without manual selection, environment append behavior, weekly UTC windows, qualified route lookup, role gating and budget navigation query retention. HTTP adapter and pure rules tests reviewed; API generation passed (`.local/campaign-generate.log`). Browser/real campaign executor acceptance, isolation/fairness/budgets/recovery tests, final review and commits remain. T16/T17 gaps and T26–T28 remain; G5 open.
+
+## Functional-demo checkpoint — 2026-09-21
+
+- Luna owns the implementation changes; root reviews the integrated result. The current self-hosted demo uses the disposable local PostgreSQL/Go service and authenticated browser workflow; it does not claim external provider or production certification.
+- T24 controls are locally complete: seven browser scenarios passed in `.local/insights-browser-final.log`, with backend evidence in `.local/insights-pg-root3.log`.
+- T23 protected GitOps is locally complete against disposable Gitea: PG/native evidence is in `.local/gitops-final-pg-native2.log`, with browser evidence in `.local/gitops-browser-root2.log`.
+- T25 remains in progress. Migration029 is applied to disposable dev/test databases. Pre-dispatch cancellation passed in the targeted race; final native observe/change, final observation window, campaign browser lifecycle, and fuller review remain. T16 custody/runtime wiring, T17 qualification, and T26–T28 remain deferred. G5 remains open.
+- Reported campaign evidence awaiting final review: `.local/campaign-fairness1.log` (8.100s), `.local/campaign-repair2.log` (2.290s), and `.local/campaign-browser2.log` (6/6, 2.5s). `.local/campaign-browser-live1.log` is a failed attempt superseded by `campaign-browser2.log`. Latest native observe/change, final-window, and pre-dispatch cancellation review remains pending.
+
+## Frozen demo handoff — 2026-09-21
+
+- Current main service is ready at `http://127.0.0.1:8080`; retained repair service is ready at `http://127.0.0.1:8081`; both `/readyz` endpoints returned HTTP 200 and the controller/runner remained alive.
+- Final retained repair run is blocked after the model stopped without a candidate or PR: [b1cca48f-eab5-4ee3-adac-0a7873743926](http://127.0.0.1:8081/org/00000000-0000-4000-8000-000000000001/runs?run=b1cca48f-eab5-4ee3-adac-0a7873743926). No verified repair result is claimed. Earlier successful repair evidence remains historical only.
+- Backend targeted race passed17.740s in `.local/frozen-targeted-race-final.log`, including pre-dispatch cancellation and startup callback ordering review. Harness commit `c110fe4` retained the cleanup/recreate path.
+- T25 remains partial and uncommitted pending fuller review. T16/T17/T26–T28 remain deferred; G5 remains open.
