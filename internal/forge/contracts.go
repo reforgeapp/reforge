@@ -154,11 +154,11 @@ type NativeEligibility struct {
 	TargetSHA string   `json:"target_sha"`
 }
 type QueueState struct {
-	ID        string
-	State     string
-	HeadSHA   string
-	TestedSHA string
-	TargetSHA string
+	ID        string `json:"id"`
+	State     string `json:"state"`
+	HeadSHA   string `json:"head_sha"`
+	TestedSHA string `json:"tested_sha"`
+	TargetSHA string `json:"target_sha"`
 }
 type MergeEvidence struct {
 	Change       Change            `json:"change"`
@@ -280,6 +280,41 @@ type ForgeProtection interface {
 type ForgeMerge interface {
 	RequestNativeMergeOrQueue(context.Context, MergeRequest) (MergeResult, error)
 	ReadMergeResult(context.Context, RepoRef, string) (MergeResult, error)
+}
+
+type QueueCancelRequest struct {
+	Repository      RepoRef
+	ChangeID        string
+	QueueID         string
+	ExpectedHeadSHA string
+	OperationID     string
+}
+
+type ForgeQueueControl interface {
+	CancelNativeQueue(context.Context, QueueCancelRequest) (QueueState, error)
+}
+
+type ExecutionCheckRequest struct {
+	Repository  RepoRef
+	SHA         string
+	Name        string
+	State       string
+	OperationID string
+	CheckID     string
+}
+
+type ExecutionCheck struct {
+	ID          string `json:"id"`
+	SHA         string `json:"sha"`
+	Name        string `json:"name"`
+	State       string `json:"state"`
+	PublisherID string `json:"publisher_id"`
+	OperationID string `json:"operation_id"`
+}
+
+type ForgeExecutionChecks interface {
+	WriteExecutionCheck(context.Context, ExecutionCheckRequest) (ExecutionCheck, error)
+	ReadExecutionCheck(context.Context, RepoRef, string) (ExecutionCheck, error)
 }
 type ForgeDelivery interface {
 	ListAllowedWorkflows(context.Context, RepoRef) ([]Workflow, error)
