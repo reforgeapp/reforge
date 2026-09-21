@@ -80,6 +80,16 @@ The encrypted restore drill restores a disposable database and decrypts a sealed
 envelope; it does not prove provider credentials still work. The hosted GitOps reference
 under `deploy/gitops` renders manifests but does not certify a hosted cluster.
 
+## Licences
+
+Reforge is Apache-2.0. The runtime dependency set has no GPL/AGPL/LGPL module; the only
+weak-copyleft licences are MPL-2.0 build/test dependencies (`axe-core`, `lightningcss`),
+which are compatible with an Apache-2.0 distribution when their notices are retained. The
+generated inventory at `docs/implementation/dependencies.md` and collected notices at
+`docs/implementation/third-party-notices.txt` mark transitive modules without a detected
+licence file as `review required`; confirm those before a public release. No dependency
+adds telemetry or phones home.
+
 ## Known limitations
 
 - Hosted untrusted execution requires a sandbox host with resource enforcement. On hosts
