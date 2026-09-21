@@ -140,6 +140,12 @@ func run() error {
 		}
 		return nil
 	})
+	authority.Register("repair.custom", func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
+		if t.State != domain.TaskPlanning && t.State != domain.TaskRepairing {
+			return workflow.ErrPolicy
+		}
+		return nil
+	})
 	modelBroker := modelbroker.New(db, runners, connectionService, budgets, private, vault, cfg.Development)
 	app.RegisterModelBroker(modelBroker)
 	providerReads := providers.New(db, connectionService, private, runners, cfg.Development)
@@ -154,7 +160,8 @@ func run() error {
 	defer func() { stopInventory(); inventoryDone.Wait() }()
 	discoveries := discovery.New(db, identity, providerReads)
 	app.RegisterDiscovery(discoveries)
-	repairs := repair.New(db, identity, discoveries, workflows, runners, policies, budgets, connectionService, providerReads.ForExecution(), cfg.RepairImages)
+	profiles := customcmd.New(db, identity)
+	repairs := repair.New(db, identity, discoveries, workflows, runners, policies, budgets, connectionService, profiles, providerReads.ForExecution(), cfg.RepairImages)
 	app.RegisterRepair(repairs)
 	merges := mergecontrol.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterMerge(merges)
@@ -184,7 +191,8 @@ func run() error {
 		return ref, campaigns.CheckMergeTx(ctx, tx, org, repo, snapshot)
 	})
 	app.RegisterCampaigns(campaigns)
-	app.RegisterCustomProfiles(customcmd.New(db, identity))
+	app.RegisterCustomProfiles(profiles)
+	app.RegisterCustomDispatch(customcmd.NewDispatcher(db, runners, profiles, budgets))
 	campaignContext, stopCampaign := context.WithCancel(ctx)
 	campaignDone := make(chan struct{})
 	defer func() { stopCampaign(); <-campaignDone }()

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { repairAPI, type RepairInput } from '../api/repair'
+import { customProfileAPI } from '../custom-profile-api'
 import { Button } from '../components/Accessible'
 
 type Props = { orgID: string; findingID: string; findingVersion: number; repositoryID?: string; csrf: string }
@@ -8,8 +9,11 @@ type Props = { orgID: string; findingID: string; findingVersion: number; reposit
 export function RepairPreview({ orgID, findingID, findingVersion, repositoryID = '', csrf }: Props) {
   const recipes = useQuery({ queryKey: ['org', orgID, 'repair-recipes'], queryFn: ({ signal }) => repairAPI.recipes(orgID, signal) })
   const models = useQuery({ queryKey: ['org', orgID, 'repair-models'], queryFn: ({ signal }) => repairAPI.models(orgID, signal) })
+  const agents = useQuery({ queryKey: ['org', orgID, 'repair-agent-connections'], queryFn: ({ signal }) => repairAPI.agentConnections(orgID, signal) })
+  const profiles = useQuery({ queryKey: ['org', orgID, 'repair-custom-profiles'], queryFn: ({ signal }) => customProfileAPI.list(orgID, undefined, signal) })
   const pools = useQuery({ queryKey: ['org', orgID, 'repair-pools'], queryFn: ({ signal }) => repairAPI.pools(orgID, signal) })
   const [recipe, setRecipe] = useState('')
+  const [profile, setProfile] = useState('')
   const [model, setModel] = useState('')
   const [route, setRoute] = useState('default')
   const [pool, setPool] = useState('')
@@ -29,22 +33,26 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
     return () => window.clearInterval(timer)
   }, [preview])
 
-  const healthyModels = useMemo(() => (models.data?.items ?? []).filter(item => item.kind === 'model' && item.state === 'healthy' && item.settings.billing_route === 'direct_api'), [models.data])
+  const approvedProfiles = useMemo(() => (profiles.data?.items ?? []).filter(item => item.approved_at && !item.revoked_at), [profiles.data])
+  const healthyModels = useMemo(() => profile
+    ? (agents.data?.items ?? []).filter(item => item.provider === 'custom_command' && item.state === 'healthy')
+    : (models.data?.items ?? []).filter(item => item.kind === 'model' && item.state === 'healthy' && item.settings.billing_route === 'direct_api'), [agents.data, models.data, profile])
   const activePools = useMemo(() => (pools.data?.items ?? []).filter(item => item.state === 'active' && (!repositoryID || item.repository_ids.includes(repositoryID))), [pools.data, repositoryID])
   const selectedModel = healthyModels.find(item => item.id === model)
+  const selectedProfile = approvedProfiles.find(item => item.id === profile)
   const selectedPool = activePools.find(item => item.id === pool)
   const selectedRecipe = recipe && recipes.data?.[recipe]
   const imageNames = Object.keys(recipes.data ?? {})
-  const optionsError = recipes.isError || models.isError || pools.isError
-  const optionsReady = !optionsError && imageNames.length > 0 && !!selectedRecipe && !!selectedModel && !!selectedPool && !!route.trim() && !!csrf
-  const input: RepairInput = { finding_id: findingID, finding_version: findingVersion, recipe, model_connection_id: model, model_route: route.trim(), runner_pool_id: pool }
+  const optionsError = recipes.isError || models.isError || agents.isError || profiles.isError || pools.isError
+  const optionsReady = !optionsError && imageNames.length > 0 && !!selectedRecipe && !!selectedPool && !!route.trim() && !!csrf && (profile ? !!selectedProfile : !!selectedModel)
+  const input: RepairInput = { finding_id: findingID, finding_version: findingVersion, recipe, model_connection_id: model, model_route: route.trim(), runner_pool_id: pool, ...(profile && selectedProfile ? { custom_profile_id: profile, custom_profile_version: selectedProfile.version } : {}) }
   const expires = preview ? new Date(preview.expires_at).getTime() : 0
  const expired = !!preview && (!Number.isFinite(expires) || expires <= Date.now())
 
   const reset = () => { setPreview(undefined); setRunID(''); setError(''); setIdempotencyKey(crypto.randomUUID()) }
   useEffect(() => {
-    if ((model && !selectedModel) || (pool && !selectedPool) || (recipe && !selectedRecipe)) reset()
-  }, [model, pool, recipe, selectedModel?.id, selectedPool?.id, selectedRecipe])
+    if ((model && !selectedModel) || (profile && !selectedProfile) || (pool && !selectedPool) || (recipe && !selectedRecipe)) reset()
+  }, [model, profile, pool, recipe, selectedModel?.id, selectedProfile?.id, selectedPool?.id, selectedRecipe])
   const retryOptions = () => { void recipes.refetch(); void models.refetch(); void pools.refetch() }
   const inspect = async () => {
     if (!optionsReady) return
@@ -59,14 +67,17 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
 
   return <fieldset disabled={busy}>
     <legend>Repair preview</legend>
-    {recipes.isLoading || models.isLoading || pools.isLoading ? <p className="table-meta">Loading repair policy and execution options…</p> : <>
-      <label>Recipe<select value={recipe} onChange={event => { setRecipe(event.target.value); reset() }}><option value="">Choose registered recipe</option>{Object.entries(recipes.data ?? {}).map(([name, image]) => <option key={name} value={name}>{name} · {image}</option>)}</select></label>
+    {recipes.isLoading || models.isLoading || agents.isLoading || profiles.isLoading || pools.isLoading ? <p className="table-meta">Loading repair policy and execution options…</p> : <>
+      <label>Recipe<select aria-label="Repair recipe" value={recipe} onChange={event => { setRecipe(event.target.value); reset() }}><option value="">Choose registered recipe</option>{Object.entries(recipes.data ?? {}).map(([name, image]) => <option key={name} value={name}>{name} · {image}</option>)}</select></label>
       {!imageNames.length && <p className="error-text">No operator images are configured. Configure a registered operator image before preview.</p>}
-      <label>Model<select value={model} onChange={event => { setModel(event.target.value); reset() }}><option value="">Choose healthy direct API model</option>{healthyModels.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label>Model route<input value={route} onChange={event => { setRoute(event.target.value); reset() }} placeholder="default" /></label>
-      <label>Runner pool<select value={pool} onChange={event => { setPool(event.target.value); reset() }}><option value="">Choose active runner pool</option>{activePools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label>Custom command profile<select aria-label="Custom command profile" value={profile} onChange={event => { setProfile(event.target.value); setModel(''); reset() }}><option value="">None — use a model route</option>{approvedProfiles.map(item => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
+      <label>{profile ? 'Custom runtime connection' : 'Model'}<select aria-label="Model connection" value={model} onChange={event => { setModel(event.target.value); reset() }}><option value="">{profile ? 'Choose healthy custom_command agent connection' : 'Choose healthy direct API model'}</option>{healthyModels.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label>Model route<input aria-label="Model route" value={route} onChange={event => { setRoute(event.target.value); reset() }} placeholder="default" /></label>
+      <label>Runner pool<select aria-label="Runner pool" value={pool} onChange={event => { setPool(event.target.value); reset() }}><option value="">Choose active runner pool</option>{activePools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       {optionsError && <p className="error-text" role="alert">Repair options unavailable. <Button onClick={retryOptions}>Retry options</Button></p>}
-      {!selectedModel && model && <p className="error-text">Selected model is no longer healthy or direct API enabled. Choose another model.</p>}
+      {!selectedModel && model && !profile && <p className="error-text">Selected model is no longer healthy or direct API enabled. Choose another model.</p>}
+      {!selectedProfile && profile && <p className="error-text">Selected custom command profile is no longer approved. Choose another profile.</p>}
+      {profile && !healthyModels.length && <p className="error-text">No healthy custom_command agent connection is configured. Add one in Connections and attach a quota budget route.</p>}
       {!selectedPool && pool && <p className="error-text">Selected runner pool is no longer active or assigned to this repository. Choose another pool.</p>}
       <Button disabled={busy || !optionsReady} onClick={inspect}>Generate preview</Button>
       {preview && <div className="stack">

@@ -2,7 +2,9 @@ package runnerclient
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"reforge/internal/customcmd"
 	"reforge/internal/domain"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/model"
@@ -60,6 +62,16 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		if cfg.Development {
 			trust = "development-fixture"
 		}
+		if execution.CustomProfile != nil {
+			report, err := c.runCustomProfile(ctx, j, execution, runtime, baseline, trust)
+			if _, saveErr := c.RepairReport(ctx, j, report); saveErr != nil {
+				return failed, saveErr
+			}
+			if err != nil {
+				return failed, err
+			}
+			return workflow.Completion{Outcome: "completed"}, nil
+		}
 		engine := repair.Engine{Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", data)
 			return m.ID, err
@@ -110,4 +122,55 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		}
 		return workflow.Completion{Outcome: "completed"}, nil
 	}
+}
+
+func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.ExecutionContext, runtime sandbox.SandboxRuntime, baseline sandbox.Snapshot, trust string) (repair.Report, error) {
+	out := repair.Report{PlanDigest: execution.Plan.Digest, State: "handoff", Reason: "Custom command profile did not produce a validated repair", Baseline: []repair.CheckResult{}, Candidate: []repair.CheckResult{}, Target: []repair.CheckResult{}, Patches: []sandbox.Patch{}, Artifacts: []string{}}
+	spec := execution.CustomProfile
+	authorized, err := c.CustomAuthorize(ctx, j)
+	if err != nil {
+		out.Reason = "Custom profile dispatch was not authorized"
+		return out, err
+	}
+	timeout := time.Duration(spec.MaxWallSeconds) * time.Second
+	if timeout <= 0 || timeout > time.Hour {
+		timeout = 10 * time.Minute
+	}
+	runCtx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
+	defer cancel()
+	workspace, err := runtime.PreparePinnedWorkspace(runCtx, sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.BaselineSHA, Image: spec.ImageDigest, Trust: trust, Timeout: timeout})
+	if err != nil {
+		out.Reason = "Custom profile workspace was unavailable"
+		return out, err
+	}
+	defer func() {
+		cleanup, stopCleanup := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+		defer stopCleanup()
+		_ = runtime.Destroy(cleanup, workspace)
+	}()
+	request, err := json.Marshal(map[string]any{
+		"job_id":       j.Lease.JobID,
+		"attempt_id":   j.Lease.AttemptID,
+		"plan_digest":  execution.Plan.Digest,
+		"baseline_sha": execution.Plan.BaselineSHA,
+		"target_sha":   execution.Plan.TargetSHA,
+		"repository":   execution.Repository.FullName,
+		"recipe":       execution.Plan.Recipe.Name,
+	})
+	if err != nil {
+		out.Reason = "Custom profile request could not be encoded"
+		return out, err
+	}
+	executor := customcmd.NewExecutor(customcmd.SandboxLauncher{Runtime: runtime})
+	result, execErr := executor.RunSpec(runCtx, *spec, customcmd.Input{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Workspace: workspace, Request: request, PolicyHash: execution.PolicyHash})
+	reportIn := customcmd.ReportInput{RunID: authorized.RunID, State: result.State, Reason: result.Reason, Usage: result.Usage, Events: result.Events}
+	if reportIn.State == "" {
+		reportIn.State = "unknown"
+	}
+	if _, reportErr := c.CustomReport(ctx, j, reportIn); reportErr != nil {
+		out.Reason = "Custom profile result could not be recorded"
+		return out, errors.Join(execErr, reportErr)
+	}
+	out.Reason = "Custom profile " + reportIn.State + ": " + result.Reason
+	return out, execErr
 }

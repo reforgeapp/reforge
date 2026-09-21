@@ -13380,6 +13380,15 @@
             "format": "uuid",
             "x-go-type": "string"
           },
+          "custom_profile_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "custom_profile_version": {
+            "type": "integer",
+            "format": "int64"
+          },
           "plan_digest": {
             "type": "string"
           },

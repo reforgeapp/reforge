@@ -94,6 +94,9 @@ func validSetup(r CreateRequest) bool {
 		}
 		return r.Secret != "" || r.Provider == "compatible"
 	case "agent":
+		if r.Provider == "custom_command" {
+			return r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == "" && r.Settings.Model != ""
+		}
 		return (r.Provider == "codex" || r.Provider == "claude_code" || r.Provider == "agy" || r.Provider == "gemini_cli") && r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == ""
 	default:
 		return false
@@ -124,8 +127,13 @@ func (s *Service) Create(ctx context.Context, session auth.Session, orgID string
 		return Connection{}, auth.ErrInvalid
 	}
 	if c.Kind == "agent" {
-		c.State = "disabled"
-		c.Reason = "Connect a documented official runtime and verify account entitlement, topology and budget controls"
+		if c.Provider == "custom_command" {
+			c.State = "healthy"
+			c.Reason = "Approved custom command profiles are gated per run; exit 0 is not a validated repair"
+		} else {
+			c.State = "disabled"
+			c.Reason = "Connect a documented official runtime and verify account entitlement, topology and budget controls"
+		}
 	}
 	err := s.auth.WithMutation(ctx, session, orgID, func(tx pgx.Tx, a domain.Actor) error {
 		if a.Role != domain.Owner {

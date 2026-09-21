@@ -11,6 +11,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/budget"
 	"reforge/internal/connections"
+	"reforge/internal/customcmd"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
 	"reforge/internal/maintenance/discovery"
@@ -33,18 +34,19 @@ type Service struct {
 	policies    *policy.Service
 	budgets     *budget.Service
 	connections *connections.Service
+	profiles    *customcmd.Service
 	reader      discovery.Reader
 	images      map[string]string
 }
 
-func New(db *store.Store, identity *auth.Service, findings *discovery.Service, jobs *workflow.Service, runners *runner.Service, policies *policy.Service, budgets *budget.Service, connections *connections.Service, reader discovery.Reader, images map[string]string) *Service {
+func New(db *store.Store, identity *auth.Service, findings *discovery.Service, jobs *workflow.Service, runners *runner.Service, policies *policy.Service, budgets *budget.Service, connections *connections.Service, profiles *customcmd.Service, reader discovery.Reader, images map[string]string) *Service {
 	approved := map[string]string{}
 	for name, digest := range images {
 		if (name == "go" || name == "javascript" || name == "python") && strings.HasPrefix(digest, "sha256:") && source.ValidSHA(strings.TrimPrefix(digest, "sha256:"), "sha256") {
 			approved[name] = digest
 		}
 	}
-	return &Service{db, identity, findings, jobs, runners, policies, budgets, connections, reader, approved}
+	return &Service{db, identity, findings, jobs, runners, policies, budgets, connections, profiles, reader, approved}
 }
 func (s *Service) Recipes() map[string]string {
 	out := map[string]string{}
@@ -61,6 +63,12 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if !auth.ValidID(in.FindingID) || in.FindingVersion < 1 || !auth.ValidID(in.ModelConnectionID) || !auth.ValidID(in.RunnerPoolID) || len(in.ModelRoute) == 0 || len(in.ModelRoute) > 100 {
 		return out, auth.ErrInvalid
 	}
+	if in.CustomProfileID != "" && (!auth.ValidID(in.CustomProfileID) || in.CustomProfileVersion < 1) {
+		return out, auth.ErrInvalid
+	}
+	if in.CustomProfileID == "" && in.CustomProfileVersion != 0 {
+		return out, auth.ErrInvalid
+	}
 	f, err := s.findings.Get(ctx, session, org, in.FindingID)
 	if err != nil {
 		return out, err
@@ -74,6 +82,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	var modelConnection connections.Connection
 	var route budget.Route
 	var ref forge.RepoRef
+	var spec *customcmd.ProfileSpec
 	var poolVersion int64
 	attempts := 3
 	check := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
@@ -115,14 +124,31 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		if err != nil {
 			return err
 		}
-		if modelConnection.Kind != "model" || modelConnection.State != "healthy" || modelConnection.Settings.BillingRoute != "direct_api" {
+		if modelConnection.State != "healthy" {
+			return auth.ErrConflict
+		}
+		if in.CustomProfileID != "" {
+			if modelConnection.Kind != "agent" || modelConnection.Provider != "custom_command" {
+				return auth.ErrConflict
+			}
+			profile, err := s.profiles.Bind(ctx, tx, org, in.CustomProfileID, in.CustomProfileVersion)
+			if err != nil {
+				return err
+			}
+			bound := customcmd.SpecFromProfile(profile)
+			spec = &bound
+		} else if modelConnection.Kind != "model" || modelConnection.Settings.BillingRoute != "direct_api" {
 			return auth.ErrConflict
 		}
 		route, err = s.budgets.RouteTx(ctx, tx, org, in.ModelConnectionID, modelConnection.Settings.Model, in.ModelRoute)
 		if err != nil {
 			return err
 		}
-		if route.Mode != "priced" || route.Paused {
+		if spec != nil {
+			if route.Mode != "quota" || route.Paused {
+				return budget.ErrUnknown
+			}
+		} else if route.Mode != "priced" || route.Paused {
 			return budget.ErrUnknown
 		}
 		if err = tx.QueryRow(ctx, `SELECT p.version FROM runner_pool_repositories rp JOIN runner_pools p ON p.org_id=rp.org_id AND p.id=rp.pool_id WHERE rp.org_id=$1 AND rp.pool_id=$2 AND rp.repository_id=$3 AND p.state='active'`, org, in.RunnerPoolID, f.RepositoryID).Scan(&poolVersion); err != nil {
@@ -170,10 +196,15 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if resolved.Policy.Limits.ChangedLines != nil {
 		plan.MaxChangedLines = int(min(int64(plan.MaxChangedLines), *resolved.Policy.Limits.ChangedLines))
 	}
-	authority, _ := json.Marshal([]any{resolved.Hash, modelConnection.ID, modelConnection.Version, route, poolVersion, in.RunnerPoolID, f.ID, f.Version, f.EvidenceDigest, attempts})
+	authority, _ := json.Marshal([]any{resolved.Hash, modelConnection.ID, modelConnection.Version, route, spec, poolVersion, in.RunnerPoolID, f.ID, f.Version, f.EvidenceDigest, attempts})
 	plan.AuthorityHash = hashBytes(authority)
 	plan.Digest = planDigest(plan)
-	out.Context = ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 4096)), TurnTimeoutMS: min(route.MaxMilliseconds, (5 * time.Minute).Milliseconds()), Finding: f, PolicyHash: resolved.Hash}
+	context := ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 4096)), TurnTimeoutMS: min(route.MaxMilliseconds, (5 * time.Minute).Milliseconds()), CustomProfile: spec, Finding: f, PolicyHash: resolved.Hash}
+	if spec != nil {
+		context.MaxOutputTokens = 0
+		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000
+	}
+	out.Context = context
 	if !plan.Valid() {
 		out.Blockers = append(out.Blockers, "Effective policy permits no source changes")
 	}

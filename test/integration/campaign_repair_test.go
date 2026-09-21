@@ -63,7 +63,7 @@ func TestCampaignRepairAdmissionBudgetAndResume(t *testing.T) {
 		t.Fatal(e)
 	}
 	reader := &repairContractReader{fixture: f.discoveryFixture, files: map[string][]byte{"value.js": []byte("exports.value = () => 1"), "value.test.js": []byte("require('node:test')('value',()=>require('node:assert').equal(require('./value').value(),2))")}}
-	repairs := repair.New(f.db, f.identity, f.discoveryFixture.service, jobs, runners, p, budgets, f.connections, reader, images)
+	repairs := repair.New(f.db, f.identity, f.discoveryFixture.service, jobs, runners, p, budgets, f.connections, nil, reader, images)
 	service.ConfigureExecution(repairs, nil, nil, nil)
 	finding := f.observe(t, f.observation("campaign-repair", "main", strings.Repeat("a", 40), nil))
 	f.input = campaign.Input{Name: "Repair campaign", Kind: "repair", Members: []campaign.MemberInput{{RepositoryID: f.repo, Repair: &repair.Input{FindingID: finding.ID, FindingVersion: finding.Version, Recipe: "javascript", ModelConnectionID: model, ModelRoute: "default", RunnerPoolID: pool.ID}}}, CanarySize: 1, BatchSize: 1, Concurrency: 1, Success: "published"}

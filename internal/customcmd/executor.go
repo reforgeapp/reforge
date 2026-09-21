@@ -12,6 +12,35 @@ import (
 
 const maxInputBytes = 1 << 20
 
+func (e *Executor) RunSpec(ctx context.Context, spec ProfileSpec, in Input) (Result, error) {
+	if e == nil || e.launcher == nil {
+		return Result{}, ErrInvalid
+	}
+	if err := validateSpec(spec); err != nil {
+		return Result{}, err
+	}
+	if len(in.Request) > maxInputBytes || in.Workspace.ID == "" {
+		return Result{}, ErrInvalid
+	}
+	spec2 := Spec{
+		Workspace:  in.Workspace,
+		Executable: spec.Executable,
+		Args:       append([]string{}, spec.Argv...),
+		Directory:  in.Workspace.Root,
+		Stdin:      in.Request,
+		Timeout:    time.Duration(spec.MaxWallSeconds) * time.Second,
+		MaxOutput:  spec.MaxOutputBytes,
+	}
+	raw, err := e.launcher.Launch(ctx, spec2)
+	if err != nil {
+		if errors.Is(ctx.Err(), context.Canceled) {
+			return Result{State: "cancelled", Reason: "Run was cancelled before the profile confirmed completion"}, nil
+		}
+		return Result{State: "unknown", Reason: "Profile process outcome could not be confirmed; reconcile before retry"}, err
+	}
+	return e.classify(raw, Profile{MaxTurns: spec.MaxTurns})
+}
+
 func (e *Executor) Run(ctx context.Context, profile Profile, in Input) (Result, error) {
 	if e == nil || e.launcher == nil {
 		return Result{}, ErrInvalid

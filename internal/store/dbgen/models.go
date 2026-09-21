@@ -225,6 +225,11 @@ type CustomProfileRun struct {
 	Reason         string             `json:"reason"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	AttemptID      pgtype.UUID        `json:"attempt_id"`
+	RepositoryID   pgtype.UUID        `json:"repository_id"`
+	Events         []byte             `json:"events"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	ReservationID  pgtype.UUID        `json:"reservation_id"`
 }
 
 type Deployment struct {

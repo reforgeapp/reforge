@@ -3,6 +3,7 @@ package runnerclient
 import (
 	"context"
 	"net/http"
+	"reforge/internal/customcmd"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/sandbox"
 	"reforge/internal/source"
@@ -58,5 +59,15 @@ func (c *Client) RepairNativeChecks(ctx context.Context, j Job, in repair.Public
 func (c *Client) RepairRun(ctx context.Context, j Job) (repair.Run, error) {
 	var out repair.Run
 	_, err := c.call(ctx, "GET", "/runner/v1/repair/run", j.Token, nil, &out)
+	return out, err
+}
+func (c *Client) CustomAuthorize(ctx context.Context, j Job) (customcmd.Authorized, error) {
+	var out customcmd.Authorized
+	_, err := c.call(ctx, "POST", "/runner/v1/repair/custom/authorize", j.Token, map[string]any{}, &out)
+	return out, err
+}
+func (c *Client) CustomReport(ctx context.Context, j Job, in customcmd.ReportInput) (customcmd.Authorized, error) {
+	var out customcmd.Authorized
+	_, err := c.call(ctx, "POST", "/runner/v1/repair/custom/report", j.Token, in, &out)
 	return out, err
 }

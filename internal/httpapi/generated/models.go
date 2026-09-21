@@ -2189,14 +2189,16 @@ type RepairExecution struct {
 	TurnTimeoutMs      int64        `json:"turn_timeout_ms"`
 }
 type RepairInput struct {
-	FindingId         string  `json:"finding_id"`
-	FindingVersion    int64   `json:"finding_version"`
-	IdempotencyKey    *string `json:"idempotency_key,omitempty"`
-	ModelConnectionId string  `json:"model_connection_id"`
-	ModelRoute        string  `json:"model_route"`
-	PlanDigest        *string `json:"plan_digest,omitempty"`
-	Recipe            string  `json:"recipe"`
-	RunnerPoolId      string  `json:"runner_pool_id"`
+	CustomProfileId      *string `json:"custom_profile_id,omitempty"`
+	CustomProfileVersion *int64  `json:"custom_profile_version,omitempty"`
+	FindingId            string  `json:"finding_id"`
+	FindingVersion       int64   `json:"finding_version"`
+	IdempotencyKey       *string `json:"idempotency_key,omitempty"`
+	ModelConnectionId    string  `json:"model_connection_id"`
+	ModelRoute           string  `json:"model_route"`
+	PlanDigest           *string `json:"plan_digest,omitempty"`
+	Recipe               string  `json:"recipe"`
+	RunnerPoolId         string  `json:"runner_pool_id"`
 }
 type RepairPatch struct {
 	Content []byte `json:"content"`

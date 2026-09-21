@@ -197,7 +197,7 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 		t.Fatal(err)
 	}
 	reader := &repairContractReader{fixture: f, files: map[string][]byte{"value.js": []byte("exports.value = () => 1"), "value.test.js": []byte("require('node:test')('value',()=>require('node:assert').equal(require('./value').value(),2))")}}
-	service := repair.New(f.db, f.identity, f.service, jobs, runners, policies, budgets, f.connections, reader, map[string]string{"javascript": "sha256:" + strings.Repeat("a", 64)})
+	service := repair.New(f.db, f.identity, f.service, jobs, runners, policies, budgets, f.connections, nil, reader, map[string]string{"javascript": "sha256:" + strings.Repeat("a", 64)})
 	authority.Register("repair.stage", service.CheckStage)
 	authority.Register("stage", service.CheckStage)
 	authority.Register("publish", service.CheckPublish)

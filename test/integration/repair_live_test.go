@@ -106,7 +106,7 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	reader := providers.New(f.db, f.connections, connector, runners, true)
 	portfolio := inventory.New(f.db, f.identity, f.vault, reader, providers.DecodeWebhook)
 	discoveries := discovery.New(f.db, f.identity, reader)
-	repairs := repair.New(f.db, f.identity, discoveries, jobs, runners, policies, budgets, f.connections, reader.ForExecution(), map[string]string{"javascript": digest})
+	repairs := repair.New(f.db, f.identity, discoveries, jobs, runners, policies, budgets, f.connections, nil, reader.ForExecution(), map[string]string{"javascript": digest})
 	broker := modelbroker.New(f.db, runners, f.connections, budgets, connector, f.vault, true)
 	broker.AuthorizeReservation = repairs.CheckModelTx
 	runners.CompletionCheck = repairs.CheckCompletion

@@ -25,6 +25,23 @@ func TestOfficialAgentProvidersAreDistinct(t *testing.T) {
 	}
 }
 
+func TestCustomCommandAgentConnection(t *testing.T) {
+	base := CreateRequest{Kind: "agent", Provider: "custom_command", Name: "custom runtime", Endpoint: "https://runtime.example", Settings: Settings{AuthKind: "official_runtime", BillingRoute: "subscription", Model: "custom"}}
+	if !validSetup(base) {
+		t.Fatal("custom_command agent connection should be accepted when a model is set")
+	}
+	missingModel := base
+	missingModel.Settings.Model = ""
+	if validSetup(missingModel) {
+		t.Fatal("custom_command agent connection must require a model binding")
+	}
+	withSecret := base
+	withSecret.Secret = "token"
+	if validSetup(withSecret) {
+		t.Fatal("custom_command agent connection must not accept a credential")
+	}
+}
+
 func TestWriteOnlyCredential(t *testing.T) {
 	const secret = "credential-must-never-be-emitted"
 	var input CreateRequest

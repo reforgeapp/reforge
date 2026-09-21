@@ -3218,6 +3218,10 @@ export interface components {
             model_route: string;
 
             runner_pool_id: string;
+
+            custom_profile_id?: string;
+
+            custom_profile_version?: number;
             plan_digest?: string;
             idempotency_key?: string;
         };
