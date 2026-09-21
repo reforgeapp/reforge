@@ -36,7 +36,11 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `fb9f081` | T29 narrow shell overflow, scrollable table labels, route-surface gate |
 | `9e52ea2` | T29 drop campaign and custom-profile card headings |
 | `6643005` | T29 per-route on-demand help-link test |
-| final HEAD | `6643005` (see `git log`) |
+| `f2e713f` | T31 controller-to-runner custom profile dispatch |
+| `ba5efb5` | T16 runtime factory and managed login/logout plumbing |
+| `79834b6` | T26 encrypted restore drill |
+| `1716f93` | T26 hosted GitOps reference manifests |
+| final HEAD | `1716f93` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -53,11 +57,11 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | T25 | local complete | Committed. Campaign controller/authority/execution reviewed; PG race and browser suites pass. External native-provider campaign acceptance not run. |
 | T29 | partial | Header gate, Overview (portfolio + capacity), Runs (server-side state filter), Changes and Deployments work surfaces rebuilt; Organisation connected; visual capture harness stores route/runtime metadata. Findings/Policies/Usage/Audit/Runners/Repositories consistency pass and approved baselines remain. |
 | T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search. |
-| T26 | partial | Control/migrator/runner/docs images build and run verified with the Docker daemon; Compose clean install verified to migrate and serve. Agent runtime and validation images, hosted GitOps reference, restore drill not done. |
-| T16 | partial | Agent qualification against the exact binding plus capability endpoint and GUI panel. `agy` is now a distinct accepted provider (separate from Gemini CLI) in connection validation, support matrix and connection form. Runtime custody/factory and managed login/logout still not wired; no live entitlement evidence. |
+| T26 | partial | Control/migrator/runner/docs images, Compose install, hosted GitOps reference manifests (`deploy/gitops`) and a scripted encrypted restore drill. Full non-development install acceptance and the agent runtime image remain; both need an OIDC/HTTPS origin and an operator-supplied isolated runtime. |
+| T16 | partial | Agent qualification, distinct `agy` provider, a runtime launcher factory and managed official login/logout behind owner/admin authority, current qualification, a durable audit claim and fail-closed disabled states. The default launcher stays unconfigured until an operator supplies an isolated runtime path; no live account/entitlement evidence. |
 | T17 | partial | Agent qualification flow in Connections. Forge/model/runner qualification flows largely pre-existed; SaaS/OSS qualification matrix still incomplete. |
 | T29 | partial | Overview, Runs, Changes, Deployments, Usage, Policies, Runners and Organisation work surfaces plus a route-surface regression gate (one title, one primary toolbar, 390px no-overflow, axe on admin routes) and visual captures with route/runtime metadata. Connections/Campaigns/Findings consistency and reviewed baselines for populated empty/error/blocked/stale states remain. |
-| T31 | implemented | Approved custom command profiles, protocol executor and real container test. Controller-to-runner dispatch and repair/model-route selection are still not wired; profiles are managed and gated but not yet invoked by the repair engine. |
+| T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, and controller-to-runner dispatch: a repair binds a profile through a `custom_command` agent connection and quota route; the controller revalidates task fence, policy, profile approval/version/digest and concurrency, commits a durable budget reservation and run row, the runner executes the profile in its sandbox and reports state/usage, and revocation fences later dispatches. The v1 protocol is a single bounded invocation, so `max_turns` is declared and validated but not looped; a profile run records `handoff`, never a validated repair. |
 | T27/T28 | not started | Qualification and release handoff outstanding. |
 
 ## Architecture decisions
@@ -118,6 +122,22 @@ Solo resume session (`2026-09-21`, commits `5dd6b5b`…`fb9f081`):
 - T16 agent qualification integration
   `go test -count=1 -run TestAgentQualificationGatesCapabilities ./test/integration/` —
   pass `0.599s`.
+- T31 dispatch integration
+  `go test -count=1 -run TestCustomProfileDispatchAuthorizesExecutesAndFencesRevocation ./test/integration/`
+  — pass `0.862s`; exercises preview binding, durable budget reservation, authorize, report
+  settlement and revoked-profile fencing against disposable PostgreSQL.
+- T31 real container protocol re-run (see above) — pass.
+- T16 auth gating
+  `go test -count=1 -run TestAgentAuthStaysDisabledUntilRuntimeAndQualificationExist ./test/integration/`
+  — pass.
+- T26 restore drill `scripts/restore-drill.sh` against disposable PostgreSQL — pass:
+  `tables=73 migrations=33` and `TestRestoreDrillKeyRecovery` pass.
+- `kubectl kustomize deploy/gitops/overlays/example` — renders 6 resources.
+- `mkdocs build --strict` after the GitOps/install doc update — pass.
+- Full Go suite `go test -count=1 ./...` — exit 0; `make check` — exit 0.
+- Full browser suite `npx playwright test --grep-invert live` — `94 passed, 2 skipped`.
+  New `repair-preview.spec.ts` custom-profile selection test included. The
+  `connections.spec.ts` pool test is now pagination-tolerant after a repeated-run flake.
 
 Not run: hosted sandbox isolation, live provider certification, full non-development
 Compose install (no OIDC/HTTPS origin supplied).
@@ -181,7 +201,8 @@ cd deploy/docs && PYTHONPATH=/tmp/mkdocs-deps python3 -m mkdocs build --strict -
 ## Review boundary
 
 Review `7815b0c`, `9215b9f`, `32c365b`, `3306efd`, `e0713ee`, `f02e762`, `0a8d040`,
-`310d550`, `5dd6b5b`, `d6b0117`, `fb9f081`, `9e52ea2`, `6643005`. The T25 commit is large and includes inherited
+`310d550`, `5dd6b5b`, `d6b0117`, `fb9f081`, `9e52ea2`, `6643005`, `f2e713f`,
+`ba5efb5`, `79834b6`, `1716f93`. The T25 commit is large and includes inherited
 uncommitted work; review the campaign authority callbacks in
 `internal/campaign/authority.go` and `execution.go` first.
 For T31 review `internal/customcmd/{executor,rules,service}.go` and the container test;
@@ -192,6 +213,14 @@ new `agy` provider validation in `internal/connections/service.go`.
 For T29 review `web/tests/route-surface.spec.ts`, `web/tests/visual.spec.ts`,
 `web/src/components/DataTable.tsx`, the topbar rules in `web/src/styles/app.css`, and the
 removed headings in `web/src/app/{UsagePage,PoliciesPage,RunnersPage,CampaignsPage,CustomProfilesPanel}.tsx`.
+For T31 review `internal/customcmd/dispatch.go`, `internal/runnerclient/processor.go`
+(`runCustomProfile`), `internal/maintenance/repair/{service,types}.go` and migrations
+032/033; confirm the budget reservation is committed before the profile starts and that
+`Report` cannot settle a different attempt.
+For T16 review `internal/agent/{factory,auth}.go`, `internal/agent/process_linux.go`
+(`NewCommandLauncher`) and `internal/httpapi/agentauth.go`; confirm the launcher is only
+reachable through an operator-supplied absolute path and that login/logout fail closed
+without qualification.
 
 ## Completion ledger — solo resume 2026-09-21
 
@@ -216,7 +245,7 @@ certification is always separate from local completion.
 | T13 | local complete (inherited) | Anthropic messages/tools | Paid API budget |
 | T14 | local complete (inherited) | Google continuation | Paid API budget |
 | T15 | local complete (inherited) | compatible protocol, real Ollama | vLLM host |
-| T16 | partial | `agy` distinct provider added (re-run unit/integration pass) | Runtime custody/factory and managed login/logout not wired; official accounts/entitlement evidence |
+| T16 | partial | `agy` provider, runtime factory and managed login/logout plumbing (re-run integration pass) | Operator-supplied isolated runtime and live account/entitlement evidence |
 | T17 | partial | connection/agent qualification GUI | SaaS/OSS qualification matrix; live probes |
 | T18 | local complete (inherited) | bot ownership/dedup | — |
 | T19 | local complete (inherited) | repair loop, trusted validation | Larger model for upgrade fixture |
@@ -226,12 +255,12 @@ certification is always separate from local completion.
 | T23 | local complete (inherited) | GitOps promotion | Hosted GitOps reference (T26) |
 | T24 | local complete (inherited) | policy/deployment/usage/audit GUI | — |
 | T25 | local complete (inherited) | campaigns, fairness | External native-provider campaign run |
-| T26 | partial | control/migrator/runner/docs images, Compose install (inherited) | Agent runtime and validation images, hosted GitOps reference, restore drill, full installation acceptance |
+| T26 | partial | control/migrator/runner/docs images, Compose install, GitOps reference, restore drill (re-run pass) | Full non-development install acceptance (OIDC/HTTPS origin) and operator agent runtime image |
 | T27 | not started | isolation/concurrency/recovery qualification | Depends on T26/T29/T30/T31 completion |
 | T28 | not started | release qualification and operator handoff | Depends on all prior |
 | T29 | partial | route-surface gate, help-link test, visual metadata (re-run pass) | Reviewed populated/empty/error/blocked/stale baselines per family; Connections copy pass |
 | T30 | local complete (inherited) | MkDocs `--strict`, docs container, help links (re-run route help-link test) | — |
-| T31 | implemented | profiles/executor/container test (container test re-run pass) | Controller-to-runner dispatch and repair/model-route selection |
+| T31 | local complete | profiles/executor/container test plus dispatch/authorize/report/revocation integration (re-run pass) | `max_turns` loop and repair publication remain out of the v1 protocol by design |
 
 Validation matrix: V01–V05, V07–V18, V20–V22 inherited local evidence; V06 (official
 agent runtime) and V19 (clean install/restore) partial; V23/V24/V26 partially re-run here;
@@ -240,25 +269,19 @@ V25/V27 not satisfied. G5 remains open.
 ### Stopping condition
 
 **Interrupted, not complete.** Neither the normal-finish nor externally-blocked condition
-is met: T16, T26, T27, T28, T29 and T31 retain locally implementable work that this
-session did not finish, and no single missing external credential is the sole blocker.
-The next executable actions, in dependency order:
+is met: T27, T28 and T29 retain locally implementable work, T16/T26 retain work that is
+locally complete but externally gated for certification, and no single missing external
+credential is the sole blocker. The next executable actions, in dependency order:
 
-1. T31: add a versioned profile binding to the workflow task/repair input, extend
-   `repair.ExecutionContext` with the approved profile spec, and add a runner-side
-   custom-profile branch that calls a controller authorize endpoint (durable budget
-   reservation, fresh policy/profile/digest fencing) then executes via
-   `customcmd.Executor` and reports usage. Reuse `customcmd.Service.Bind` for the
-   authorization transaction. Add OpenAPI + generated types and a controller/runner
-   integration test.
-2. T16: implement a runtime custody factory (`agent.RuntimeFactory`) that builds the
-   Codex bridge from a qualified connection and an isolated runtime namespace, plus
-   managed login/logout/status HTTP routes and GUI controls, disabled with a reason until
-   custody is configured. Test with the existing JSONL fixtures.
-3. T29: capture and review populated/empty/error/blocked/stale baselines per route family
+1. T29: capture and review populated/empty/error/blocked/stale baselines per route family
    and finish the Connections explanatory-copy pass.
-4. T26: agent-runtime and validation image references, hosted GitOps reference manifests,
-   and a scripted encrypted-backup restore drill; then T27/T28 integrated qualification.
+2. T27: build the hostile-repository and cross-tenant scenario corpus, then qualify the
+   containerised components and clean-install/upgrade paths that can run locally.
+3. T28: release support matrix, licence/dependency inventory, 10,000-repo load run and
+   operator handoff once T27 passes.
+4. External certification when supplied: OIDC/HTTPS origin for the non-development
+   Compose install, an isolated official runtime path for T16 login evidence, and live
+   forge/model accounts.
 
 No `.cc-writes`/`.claude` cleanup was needed at this checkpoint; `/home/mnorris/repos/.claude`
 and all non-empty directories were preserved.
