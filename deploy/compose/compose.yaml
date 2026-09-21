@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB:-reforge}
     volumes:
-      - pgdata:/var/lib/postgresql/data
+      - pgdata:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reforge}"]
       interval: 5s
@@ -37,6 +37,8 @@ services:
       - "${REFORGE_BIND:-127.0.0.1:8080}:8080"
     environment:
       REFORGE_ADDRESS: 0.0.0.0:8080
+      REFORGE_MODE: ${REFORGE_MODE:-}
+      REFORGE_FIXTURE_AUTH: ${REFORGE_FIXTURE_AUTH:-}
       REFORGE_PUBLIC_URL: ${REFORGE_PUBLIC_URL:?set REFORGE_PUBLIC_URL}
       REFORGE_DATABASE_URL: ${REFORGE_DATABASE_URL:?set REFORGE_DATABASE_URL}
       REFORGE_ENCRYPTION_KEY: ${REFORGE_ENCRYPTION_KEY:?set REFORGE_ENCRYPTION_KEY}

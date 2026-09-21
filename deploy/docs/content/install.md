@@ -53,8 +53,13 @@ browser cannot create or change infrastructure authentication.
 ## Editions and configuration
 
 `REFORGE_EDITION` is `self-hosted` or `hosted`. Both use the same schema and interface.
+
 Development fixture authentication requires explicit development mode and a loopback
-address; it cannot be enabled in a normal deployment.
+listen and public address, so it only works when the process runs directly on the host
+loopback; it is not usable through container port mapping. A container deployment
+therefore needs an HTTPS `REFORGE_PUBLIC_URL`, OIDC, or the one-time self-hosted
+bootstrap token described above. The Compose file passes `REFORGE_MODE` and
+`REFORGE_FIXTURE_AUTH` through only for host-loopback development.
 
 See [Security model](security.md) for credential custody, egress rules and the runner
 trust boundary, and [Support matrix and limitations](support-matrix.md) for what is

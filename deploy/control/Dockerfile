@@ -18,7 +18,8 @@ FROM alpine:3.21
 RUN apk add --no-cache ca-certificates \
  && adduser -D -u 10001 reforge \
  && mkdir -p /app/var/artifacts \
- && chown -R reforge:reforge /app/var
+ && chown -R reforge:reforge /app/var \
+ && chmod 0700 /app/var /app/var/artifacts
 WORKDIR /app
 COPY --from=gobuild /out/reforge /out/reforge-migrate /out/reforge-evidence /app/
 COPY --from=web /src/web/dist /app/web/dist
