@@ -27,7 +27,11 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `f02e762` | T31 approved custom command profiles, executor and container test |
 | `0a8d040` | T16/T17 agent qualification records, capability endpoint and GUI panel |
 | `310d550` | T26 fixes: PostgreSQL 18 volume path, private artifact directory; container verification |
-| final HEAD | `310d550` (see `git log`) |
+| `24dde46` | T29 overview portfolio/capacity + visual capture harness |
+| `c7a440a` | T29 runs work surface + server-side state filter |
+| `21b7f31` | T29 changes work surface |
+| `a24a8ae` | T29 deployments timeline |
+| final HEAD | `a24a8ae` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -42,7 +46,7 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | Ticket | Status | Notes |
 | --- | --- | --- |
 | T25 | local complete | Committed. Campaign controller/authority/execution reviewed; PG race and browser suites pass. External native-provider campaign acceptance not run. |
-| T29 | partial | Header gate, Overview and Organisation connected. Remaining routes still render their pre-existing work surfaces; route-coverage and visual-regression baselines for every family are not complete. |
+| T29 | partial | Header gate, Overview (portfolio + capacity), Runs (server-side state filter), Changes and Deployments work surfaces rebuilt; Organisation connected; visual capture harness stores route/runtime metadata. Findings/Policies/Usage/Audit/Runners/Repositories consistency pass and approved baselines remain. |
 | T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search. |
 | T26 | partial | Control/migrator/runner/docs images build and run verified with the Docker daemon; Compose clean install verified to migrate and serve. Agent runtime and validation images, hosted GitOps reference, restore drill not done. |
 | T16 | partial | Persisted qualification against the exact binding plus capability endpoint and GUI panel. Runtime custody/factory and managed login/logout not wired; no live entitlement evidence. |

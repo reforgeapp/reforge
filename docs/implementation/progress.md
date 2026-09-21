@@ -476,3 +476,24 @@ Root sole Astra X-High; max three Luna workers. T22/T23 locally complete; T24 lo
   `agent-qualification.spec.ts`.
 - Still open: full T29 route rebuild/visual baselines, official runtime custody/entitlement
   certification (no accounts), T27/T28. G5 open.
+
+## Solo resume checkpoint 3 — T29 route work surfaces
+
+- `24dde46` completed the Overview work surface: scoped portfolio table and capacity/spend
+  strip backed by persisted records, plus an opt-in visual capture harness
+  (`REFORGE_VISUAL=1`) that stores every route at desktop and 390px with route/title/table
+  count/viewport/app-version/browser metadata.
+- `c7a440a` rebuilt the Runs work surface: single filter toolbar with server-side task
+  state filter, and columns for repository, recipe, route, attempts, state, created and
+  next action.
+- `21b7f31` widened Changes: merge settings folded into one toolbar; ownership, branch and
+  head/target columns.
+- `a24a8ae` widened Deployments: settings control in the toolbar; artifact and health
+  columns distinguishing completed from verified.
+- `workflow.List` gained a validated `state` filter (`/tasks?state=`); invalid states
+  return 400.
+- Verification: `make check` pass; `go test -race ./test/integration/...` pass 85.170s;
+  non-live browser suite 90 passed, 2 skipped, stable across repeated runs; merge-settings
+  non-Gitea fixture made deterministic.
+- Remaining T29: Findings/Policies/Usage/Audit/Runners/Repositories consistency pass and
+  approved visual baselines. T31 controller dispatch and T16 custody still open.
