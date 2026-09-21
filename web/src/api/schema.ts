@@ -2177,6 +2177,26 @@ export interface components {
         Overview: {
             counts: components["schemas"]["OverviewCounts"];
             attention: components["schemas"]["OverviewAttention"][];
+            portfolio: components["schemas"]["OverviewPortfolioRow"][];
+            capacity: components["schemas"]["OverviewCapacity"];
+        };
+        OverviewPortfolioRow: {
+            repository_id: string;
+            repository_name: string;
+            provider: string;
+            accessible: boolean;
+            open_findings: number;
+            open_changes: number;
+            blocked: number;
+            last_synced_at: string;
+            blocker?: string;
+        };
+        OverviewCapacity: {
+            queued_jobs: number;
+            running_jobs: number;
+            active_pools: number;
+            active_runners: number;
+            reserved_micro_usd: number;
         };
         OverviewCounts: {
             needs_decision: number;

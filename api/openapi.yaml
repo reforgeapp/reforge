@@ -9700,12 +9700,51 @@
             "items": {
               "$ref": "#/components/schemas/OverviewAttention"
             }
+          },
+          "portfolio": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewPortfolioRow"
+            }
+          },
+          "capacity": {
+            "$ref": "#/components/schemas/OverviewCapacity"
           }
         },
         "required": [
           "counts",
-          "attention"
+          "attention",
+          "portfolio",
+          "capacity"
         ],
+        "additionalProperties": false
+      },
+      "OverviewPortfolioRow": {
+        "type": "object",
+        "properties": {
+          "repository_id": { "type": "string" },
+          "repository_name": { "type": "string" },
+          "provider": { "type": "string" },
+          "accessible": { "type": "boolean" },
+          "open_findings": { "type": "integer" },
+          "open_changes": { "type": "integer" },
+          "blocked": { "type": "integer" },
+          "last_synced_at": { "type": "string" },
+          "blocker": { "type": "string" }
+        },
+        "required": ["repository_id","repository_name","provider","accessible","open_findings","open_changes","blocked","last_synced_at"],
+        "additionalProperties": false
+      },
+      "OverviewCapacity": {
+        "type": "object",
+        "properties": {
+          "queued_jobs": { "type": "integer" },
+          "running_jobs": { "type": "integer" },
+          "active_pools": { "type": "integer" },
+          "active_runners": { "type": "integer" },
+          "reserved_micro_usd": { "type": "integer" }
+        },
+        "required": ["queued_jobs","running_jobs","active_pools","active_runners","reserved_micro_usd"],
         "additionalProperties": false
       },
       "OverviewCounts": {

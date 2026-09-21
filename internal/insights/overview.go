@@ -2,6 +2,7 @@ package insights
 
 import (
 	"context"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
@@ -30,9 +31,31 @@ type Attention struct {
 	AssignedTo     string `json:"assigned_to,omitempty"`
 }
 
+type PortfolioRow struct {
+	RepositoryID   string     `json:"repository_id"`
+	RepositoryName string     `json:"repository_name"`
+	Provider       string     `json:"provider"`
+	Accessible     bool       `json:"accessible"`
+	OpenFindings   int64      `json:"open_findings"`
+	OpenChanges    int64      `json:"open_changes"`
+	Blocked        int64      `json:"blocked"`
+	LastSyncedAt   *time.Time `json:"last_synced_at"`
+	Blocker        string     `json:"blocker,omitempty"`
+}
+
+type Capacity struct {
+	QueuedJobs    int64 `json:"queued_jobs"`
+	RunningJobs   int64 `json:"running_jobs"`
+	ActivePools   int64 `json:"active_pools"`
+	ActiveRunners int64 `json:"active_runners"`
+	ReservedMicro int64 `json:"reserved_micro_usd"`
+}
+
 type Overview struct {
 	Counts    OverviewCounts `json:"counts"`
 	Attention []Attention    `json:"attention"`
+	Portfolio []PortfolioRow `json:"portfolio"`
+	Capacity  Capacity       `json:"capacity"`
 }
 
 const activeTaskStates = `('queued','reproducing','planning','repairing','validating','publishing')`
@@ -73,7 +96,43 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 			}
 			out.Attention = append(out.Attention, item)
 		}
-		return rows.Err()
+		if e = rows.Err(); e != nil {
+			return e
+		}
+		portfolio, e := tx.Query(ctx, `SELECT r.id::text,r.name,r.provider,r.accessible,r.last_synced_at,
+				(SELECT count(*) FROM maintenance_findings f WHERE f.org_id=r.org_id AND f.repository_id=r.id AND f.state='open'),
+				(SELECT count(*) FROM merge_operations m WHERE m.org_id=r.org_id AND m.repository_id=r.id AND m.state IN ('requested','dispatching','queued','reconciling')),
+				(SELECT count(*) FROM workflow_tasks t WHERE t.org_id=r.org_id AND t.repository_id=r.id AND t.state='blocked')
+			FROM repositories r WHERE r.org_id=$1 AND ($2 OR r.id=ANY($3::uuid[]))
+			ORDER BY 6 DESC,7 DESC,r.name LIMIT 50`, org, a.AllRepositories, a.RepositoryIDs)
+		if e != nil {
+			return e
+		}
+		defer portfolio.Close()
+		for portfolio.Next() {
+			var item PortfolioRow
+			if e = portfolio.Scan(&item.RepositoryID, &item.RepositoryName, &item.Provider, &item.Accessible, &item.LastSyncedAt, &item.OpenFindings, &item.OpenChanges, &item.Blocked); e != nil {
+				return e
+			}
+			switch {
+			case !item.Accessible:
+				item.Blocker = "Repository access removed"
+			case item.Blocked > 0:
+				item.Blocker = "Blocked maintenance work"
+			case item.LastSyncedAt == nil || time.Since(*item.LastSyncedAt) > 24*time.Hour:
+				item.Blocker = "Inventory is stale"
+			}
+			out.Portfolio = append(out.Portfolio, item)
+		}
+		if e = portfolio.Err(); e != nil {
+			return e
+		}
+		return tx.QueryRow(ctx, `SELECT
+			(SELECT count(*) FROM workflow_jobs WHERE org_id=$1 AND state='queued'),
+			(SELECT count(*) FROM workflow_jobs WHERE org_id=$1 AND state='running'),
+			(SELECT count(*) FROM runner_pools WHERE org_id=$1 AND state='active'),
+			(SELECT count(*) FROM runners WHERE org_id=$1 AND state='active'),
+			(SELECT COALESCE(sum((record->'maximum'->>'micro_usd')::bigint) FILTER (WHERE state IN ('reserved','dispatched','unknown')),0) FROM budget_reservations WHERE org_id=$1)`, org).Scan(&out.Capacity.QueuedJobs, &out.Capacity.RunningJobs, &out.Capacity.ActivePools, &out.Capacity.ActiveRunners, &out.Capacity.ReservedMicro)
 	})
 	return out, err
 }

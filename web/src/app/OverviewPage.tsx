@@ -27,8 +27,16 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/deployments`}><span className="metric-label">Verified deployments</span><strong>{c.verified_deployments}</strong><span className="metric-muted">Health confirmed</span></a>
       </div>
       {stale && <p className="table-meta" role="status">Stale/unsynced repositories: {c.stale_repositories}. A clear attention queue does not mean the inventory is healthy.</p>}
+      <dl className="capacity-strip" aria-label="Capacity and spend">
+        <div><dt>Queued jobs</dt><dd>{value.capacity.queued_jobs}</dd></div>
+        <div><dt>Running jobs</dt><dd>{value.capacity.running_jobs}</dd></div>
+        <div><dt>Active pools</dt><dd>{value.capacity.active_pools}</dd></div>
+        <div><dt>Active runners</dt><dd>{value.capacity.active_runners}</dd></div>
+        <div><dt>Reserved spend</dt><dd>{value.capacity.reserved_micro_usd ? `$${(value.capacity.reserved_micro_usd / 1_000_000).toFixed(2)}` : 'None held'}</dd></div>
+      </dl>
     </div></section>
     <section className="state-card"><DataTable caption="Attention queue"><table><thead><tr><th>Finding</th><th>Repository</th><th>Severity</th><th>Age</th><th>Owner</th></tr></thead><tbody>{value.attention.map(item => <tr key={item.id}><td><a href={`/org/${encodeURIComponent(orgID)}/findings?repository=${encodeURIComponent(item.repository_id)}&finding=${encodeURIComponent(item.id)}`}>{item.title}</a></td><td>{item.repository_name || item.repository_id}</td><td><StatusBadge label={item.severity} tone={severityTone(item.severity)} /></td><td>{age(item.age_seconds)}</td><td>{item.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!value.attention.length && <EmptyTable label="No open findings." />}</DataTable></section>
+    <section className="state-card"><DataTable caption="Portfolio"><table><thead><tr><th>Repository</th><th>Forge</th><th>Open work</th><th>Freshness</th><th>Blocker</th></tr></thead><tbody>{value.portfolio.map(row => <tr key={row.repository_id}><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(row.repository_id)}`}>{row.repository_name}</a></td><td>{row.provider}</td><td>{row.open_findings} findings · {row.open_changes} changes</td><td>{row.last_synced_at ? new Date(row.last_synced_at).toLocaleString() : 'Never synced'}</td><td>{row.blocker ? <StatusBadge label={row.blocker} tone="amber" /> : 'None recorded'}</td></tr>)}</tbody></table>{!value.portfolio.length && <EmptyTable label="No repositories imported." />}</DataTable></section>
     <section className="state-card"><div className="subsection-actions"><div><h2>Inventory readiness</h2><p className="table-meta">Accessible repositories: {c.accessible_repositories}. Stale records stay visible until a sync confirms provider truth.</p></div><a className="button" href={`/org/${encodeURIComponent(orgID)}/repositories`}>Open inventory</a></div></section>
   </div>
 }

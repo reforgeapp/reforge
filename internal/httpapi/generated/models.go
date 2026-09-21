@@ -1921,8 +1921,10 @@ type Organisation struct {
 	Version int64  `json:"version"`
 }
 type Overview struct {
-	Attention []OverviewAttention `json:"attention"`
-	Counts    OverviewCounts      `json:"counts"`
+	Attention []OverviewAttention    `json:"attention"`
+	Capacity  OverviewCapacity       `json:"capacity"`
+	Counts    OverviewCounts         `json:"counts"`
+	Portfolio []OverviewPortfolioRow `json:"portfolio"`
 }
 type OverviewAttention struct {
 	AgeSeconds     int     `json:"age_seconds"`
@@ -1934,6 +1936,13 @@ type OverviewAttention struct {
 	State          string  `json:"state"`
 	Title          string  `json:"title"`
 }
+type OverviewCapacity struct {
+	ActivePools      int `json:"active_pools"`
+	ActiveRunners    int `json:"active_runners"`
+	QueuedJobs       int `json:"queued_jobs"`
+	ReservedMicroUsd int `json:"reserved_micro_usd"`
+	RunningJobs      int `json:"running_jobs"`
+}
 type OverviewCounts struct {
 	AccessibleRepositories int `json:"accessible_repositories"`
 	Blocked                int `json:"blocked"`
@@ -1943,6 +1952,17 @@ type OverviewCounts struct {
 	Running                int `json:"running"`
 	StaleRepositories      int `json:"stale_repositories"`
 	VerifiedDeployments    int `json:"verified_deployments"`
+}
+type OverviewPortfolioRow struct {
+	Accessible     bool    `json:"accessible"`
+	Blocked        int     `json:"blocked"`
+	Blocker        *string `json:"blocker,omitempty"`
+	LastSyncedAt   string  `json:"last_synced_at"`
+	OpenChanges    int     `json:"open_changes"`
+	OpenFindings   int     `json:"open_findings"`
+	Provider       string  `json:"provider"`
+	RepositoryId   string  `json:"repository_id"`
+	RepositoryName string  `json:"repository_name"`
 }
 type Pause struct {
 	Id      string `json:"id"`
