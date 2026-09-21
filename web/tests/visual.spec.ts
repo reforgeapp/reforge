@@ -10,6 +10,7 @@ test.describe('T29 visual captures', () => {
   test.skip(process.env.REFORGE_VISUAL !== '1', 'set REFORGE_VISUAL=1 to capture route baselines')
 
   test('captures every route with route and runtime metadata', async ({ page, browser }) => {
+    test.setTimeout(180_000)
     mkdirSync(outDir, { recursive: true })
     const runtime = await page.evaluate(() => navigator.userAgent).catch(() => 'unknown')
     let meta: Record<string, unknown> = {}
@@ -34,6 +35,19 @@ test.describe('T29 visual captures', () => {
       if (toolbars > 1) throw new Error(`${route} must have at most one primary toolbar, found ${toolbars}`)
       captures.push({ route, viewport: `${width}x${height}`, title, titles, toolbars, card_headings: cardHeadings, tables, file, captured_at: new Date().toISOString() })
     }
+    const errorPage = await page.context().newPage()
+    await errorPage.setViewportSize({ width: 1440, height: 900 })
+    await errorPage.goto('/auth/login')
+    await errorPage.waitForURL(/\/overview/)
+    await errorPage.route('**/api/v1/orgs/**', route => route.abort('failed'))
+    for (const route of routes) {
+      await errorPage.goto(`/org/${org}/${route}`)
+      await errorPage.getByRole('alert').or(errorPage.getByText(/unavailable|could not be loaded|failed to load/i)).first().waitFor({ state: 'visible', timeout: 10_000 }).catch(() => { throw new Error(`${route} error state is not actionable`) })
+      const file = `${route}-error-1440.png`
+      await errorPage.screenshot({ path: join(outDir, file), fullPage: true })
+      captures.push({ route, viewport: '1440x900', state: 'error', file, actionable: true, captured_at: new Date().toISOString() })
+    }
+    await errorPage.close()
     const metadata = { product: meta.name ?? 'Reforge', version: meta.version ?? 'unknown', edition: meta.edition ?? 'unknown', development: meta.development ?? false, browser: browser.browserType().name(), browser_version: browser.version(), runtime, route_count: routes.length, captures }
     writeFileSync(join(outDir, 'metadata.json'), JSON.stringify(metadata, null, 2))
   })

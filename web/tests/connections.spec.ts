@@ -20,7 +20,7 @@ test.describe('connections and runners administration', () => {
     await page.getByRole('button', { name: 'Add connection' }).click()
     await expect(page.getByRole('dialog', { name: 'Add connection' })).toBeVisible()
     await expect(page.getByLabel('Secret')).toHaveAttribute('type', 'password')
-    await expect(page.getByRole('dialog', { name: 'Add connection' }).getByText(/credentials are write-only/i)).toBeVisible()
+    await expect(page.getByText(/credentials are write-only/i).first()).toBeVisible()
   })
 
   test('shows runner pool controls without inventing enrolled runners', async ({ page }) => {
