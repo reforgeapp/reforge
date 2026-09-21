@@ -4,6 +4,18 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type AgentQualification struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	ConnectionID pgtype.UUID        `json:"connection_id"`
+	EvidenceID   pgtype.UUID        `json:"evidence_id"`
+	Document     []byte             `json:"document"`
+	CheckedAt    pgtype.Timestamptz `json:"checked_at"`
+	ExpiresAt    pgtype.Timestamptz `json:"expires_at"`
+	CreatedBy    pgtype.UUID        `json:"created_by"`
+	CreatedAt    pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Artifact struct {
 	OrgID        pgtype.UUID        `json:"org_id"`
 	ID           pgtype.UUID        `json:"id"`

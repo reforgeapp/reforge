@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"reforge/internal/agent"
 	"reforge/internal/artifact"
 	"reforge/internal/auth"
 	"reforge/internal/budget"
@@ -85,6 +86,7 @@ func run() error {
 	connectionService := connections.New(db, identity, vault, cfg.Development)
 	providers.Factory{Development: cfg.Development}.Register(connectionService)
 	app.RegisterConnections(connectionService)
+	app.RegisterAgentQualification(agent.NewQualificationService(db, identity), connectionService)
 	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
 	if cfg.PolicyFile != "" {
 		body, readErr := os.ReadFile(cfg.PolicyFile)

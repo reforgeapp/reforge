@@ -25,6 +25,18 @@ A successful login is not entitlement. A plan name establishes nothing. The runt
 never handed repository code without an isolation boundary, and it never receives OAuth
 tokens from Reforge.
 
+## Recording qualification
+
+Open an agent connection in **Connections** to see its runtime capability state. An owner
+or administrator records a dated qualification against the exact connection binding
+(runtime version, account/workspace, model, deployment) with an evidence reference and
+the seven checks above. The capability list updates immediately; an expired or missing
+record leaves the route disabled with the missing check named. Clearing the record or
+changing the connection binding disables it again.
+
+A feature check does not certify the runtime itself: the runtime entry stays
+`unsupported` until a qualified deployment binding exists for it.
+
 ## Approval and cancellation
 
 An approval request must be intercepted before the effect, not inferred from a

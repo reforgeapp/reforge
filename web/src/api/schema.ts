@@ -1874,6 +1874,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/connections/{connectionID}/agent-qualification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAgentQualification"];
+        put: operations["putAgentQualification"];
+        post?: never;
+        delete: operations["deleteAgentQualification"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/custom-profiles": {
         parameters: {
             query?: never;
@@ -2115,6 +2131,48 @@ export interface components {
         };
         CustomProfileApproval: {
             evidence: string;
+        };
+        AgentQualification: {
+            binding: components["schemas"]["AgentBinding"];
+            evidence_id: string;
+            checked_at: string;
+            expires_at: string;
+            auth_custody: boolean;
+            native_tool_containment: boolean;
+            terms: boolean;
+            topology: boolean;
+            entitlement: boolean;
+            quota: boolean;
+            no_paid_overage: boolean;
+        };
+        AgentBinding: {
+            org_id: string;
+            connection_id: string;
+            runner_id?: string;
+            connection_version: number;
+            credential_version: number;
+            account_id: string;
+            model: string;
+            runtime_digest: string;
+            deployment: string;
+        };
+        AgentQualificationInput: {
+            evidence_id: string;
+            checked_at: string;
+            expires_at: string;
+            auth_custody: boolean;
+            native_tool_containment: boolean;
+            terms: boolean;
+            topology: boolean;
+            entitlement: boolean;
+            quota: boolean;
+            no_paid_overage: boolean;
+        };
+        AgentQualificationResponse: {
+            qualification?: components["schemas"]["AgentQualification"];
+            capabilities: {
+                [key: string]: components["schemas"]["Capability"];
+            };
         };
         Overview: {
             counts: components["schemas"]["OverviewCounts"];
@@ -8990,6 +9048,104 @@ export interface operations {
                 content: {
                     "application/x-ndjson": string;
                 };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getAgentQualification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentQualificationResponse"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    putAgentQualification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AgentQualificationInput"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AgentQualificationResponse"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    deleteAgentQualification: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
 
             default: {

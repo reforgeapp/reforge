@@ -22,28 +22,28 @@ var ErrProtocol = errors.New("official agent protocol violation")
 var ErrUncertain = errors.New("official agent outcome uncertain; reconcile before retry")
 
 type Binding struct {
-	OrgID             string
-	ConnectionID      string
-	RunnerID          string
-	ConnectionVersion int64
-	CredentialVersion int64
-	AccountID         string
-	Model             string
-	RuntimeDigest     string
-	Deployment        string
+	OrgID             string `json:"org_id"`
+	ConnectionID      string `json:"connection_id"`
+	RunnerID          string `json:"runner_id,omitempty"`
+	ConnectionVersion int64  `json:"connection_version"`
+	CredentialVersion int64  `json:"credential_version"`
+	AccountID         string `json:"account_id"`
+	Model             string `json:"model"`
+	RuntimeDigest     string `json:"runtime_digest"`
+	Deployment        string `json:"deployment"`
 }
 type Qualification struct {
-	Binding               Binding
-	EvidenceID            string
-	CheckedAt             time.Time
-	ExpiresAt             time.Time
-	AuthCustody           bool
-	NativeToolContainment bool
-	Terms                 bool
-	Topology              bool
-	Entitlement           bool
-	Quota                 bool
-	NoPaidOverage         bool
+	Binding               Binding   `json:"binding"`
+	EvidenceID            string    `json:"evidence_id"`
+	CheckedAt             time.Time `json:"checked_at"`
+	ExpiresAt             time.Time `json:"expires_at"`
+	AuthCustody           bool      `json:"auth_custody"`
+	NativeToolContainment bool      `json:"native_tool_containment"`
+	Terms                 bool      `json:"terms"`
+	Topology              bool      `json:"topology"`
+	Entitlement           bool      `json:"entitlement"`
+	Quota                 bool      `json:"quota"`
+	NoPaidOverage         bool      `json:"no_paid_overage"`
 }
 type Transport interface {
 	io.Reader

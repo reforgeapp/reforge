@@ -797,6 +797,46 @@ type AdvisoryInput struct {
 	Severity      string `json:"severity"`
 	Title         string `json:"title"`
 }
+type AgentBinding struct {
+	AccountId         string  `json:"account_id"`
+	ConnectionId      string  `json:"connection_id"`
+	ConnectionVersion int     `json:"connection_version"`
+	CredentialVersion int     `json:"credential_version"`
+	Deployment        string  `json:"deployment"`
+	Model             string  `json:"model"`
+	OrgId             string  `json:"org_id"`
+	RunnerId          *string `json:"runner_id,omitempty"`
+	RuntimeDigest     string  `json:"runtime_digest"`
+}
+type AgentQualification struct {
+	AuthCustody           bool         `json:"auth_custody"`
+	Binding               AgentBinding `json:"binding"`
+	CheckedAt             string       `json:"checked_at"`
+	Entitlement           bool         `json:"entitlement"`
+	EvidenceId            string       `json:"evidence_id"`
+	ExpiresAt             string       `json:"expires_at"`
+	NativeToolContainment bool         `json:"native_tool_containment"`
+	NoPaidOverage         bool         `json:"no_paid_overage"`
+	Quota                 bool         `json:"quota"`
+	Terms                 bool         `json:"terms"`
+	Topology              bool         `json:"topology"`
+}
+type AgentQualificationInput struct {
+	AuthCustody           bool   `json:"auth_custody"`
+	CheckedAt             string `json:"checked_at"`
+	Entitlement           bool   `json:"entitlement"`
+	EvidenceId            string `json:"evidence_id"`
+	ExpiresAt             string `json:"expires_at"`
+	NativeToolContainment bool   `json:"native_tool_containment"`
+	NoPaidOverage         bool   `json:"no_paid_overage"`
+	Quota                 bool   `json:"quota"`
+	Terms                 bool   `json:"terms"`
+	Topology              bool   `json:"topology"`
+}
+type AgentQualificationResponse struct {
+	Capabilities  map[string]Capability `json:"capabilities"`
+	Qualification *AgentQualification   `json:"qualification,omitempty"`
+}
 type ArtifactMetadata struct {
 	CreatedAt    time.Time `json:"created_at"`
 	ExpiresAt    time.Time `json:"expires_at"`
@@ -2849,6 +2889,7 @@ type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
 type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate
 type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
+type PutAgentQualificationJSONRequestBody = AgentQualificationInput
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
 type CreateCustomProfileJSONRequestBody = CustomProfileInput

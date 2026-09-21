@@ -8479,6 +8479,123 @@
         "description": "Exports one authorized page. Continue with X-Next-Cursor until X-Export-Complete is true."
       }
     },
+    "/api/v1/orgs/{orgID}/connections/{connectionID}/agent-qualification": {
+      "get": {
+        "operationId": "getAgentQualification",
+        "security": [
+          { "sessionCookie": [] }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AgentQualificationResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putAgentQualification",
+        "security": [
+          { "sessionCookie": [] }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/AgentQualificationInput" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/AgentQualificationResponse" }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "deleteAgentQualification",
+        "security": [
+          { "sessionCookie": [] }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "204": { "description": "Cleared" },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/APIError" }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/custom-profiles": {
       "get": {
         "operationId": "listCustomProfiles",
@@ -9510,6 +9627,66 @@
           "evidence": { "type": "string" }
         },
         "required": ["evidence"],
+        "additionalProperties": false
+      },
+      "AgentQualification": {
+        "type": "object",
+        "properties": {
+          "binding": { "$ref": "#/components/schemas/AgentBinding" },
+          "evidence_id": { "type": "string" },
+          "checked_at": { "type": "string" },
+          "expires_at": { "type": "string" },
+          "auth_custody": { "type": "boolean" },
+          "native_tool_containment": { "type": "boolean" },
+          "terms": { "type": "boolean" },
+          "topology": { "type": "boolean" },
+          "entitlement": { "type": "boolean" },
+          "quota": { "type": "boolean" },
+          "no_paid_overage": { "type": "boolean" }
+        },
+        "required": ["binding","evidence_id","checked_at","expires_at","auth_custody","native_tool_containment","terms","topology","entitlement","quota","no_paid_overage"],
+        "additionalProperties": false
+      },
+      "AgentBinding": {
+        "type": "object",
+        "properties": {
+          "org_id": { "type": "string" },
+          "connection_id": { "type": "string" },
+          "runner_id": { "type": "string" },
+          "connection_version": { "type": "integer" },
+          "credential_version": { "type": "integer" },
+          "account_id": { "type": "string" },
+          "model": { "type": "string" },
+          "runtime_digest": { "type": "string" },
+          "deployment": { "type": "string" }
+        },
+        "required": ["org_id","connection_id","connection_version","credential_version","account_id","model","runtime_digest","deployment"],
+        "additionalProperties": false
+      },
+      "AgentQualificationInput": {
+        "type": "object",
+        "properties": {
+          "evidence_id": { "type": "string" },
+          "checked_at": { "type": "string" },
+          "expires_at": { "type": "string" },
+          "auth_custody": { "type": "boolean" },
+          "native_tool_containment": { "type": "boolean" },
+          "terms": { "type": "boolean" },
+          "topology": { "type": "boolean" },
+          "entitlement": { "type": "boolean" },
+          "quota": { "type": "boolean" },
+          "no_paid_overage": { "type": "boolean" }
+        },
+        "required": ["evidence_id","checked_at","expires_at","auth_custody","native_tool_containment","terms","topology","entitlement","quota","no_paid_overage"],
+        "additionalProperties": false
+      },
+      "AgentQualificationResponse": {
+        "type": "object",
+        "properties": {
+          "qualification": { "$ref": "#/components/schemas/AgentQualification" },
+          "capabilities": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Capability" } }
+        },
+        "required": ["capabilities"],
         "additionalProperties": false
       },
       "Overview": {
