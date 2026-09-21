@@ -47,6 +47,33 @@ Asynchronous inventory import, bounded campaign fairness and 100 concurrent runn
 claims are exercised in tests. A 10,000-repository, 100-concurrent-run load gate is not
 yet recorded.
 
+## Custom command profiles
+
+An administrator-approved profile binds a pinned image digest, fixed executable and argv,
+protocol version and declared limits. A repair selects it through a `custom_command`
+agent connection and quota budget route; the controller revalidates the task fence,
+policy, approval/version/digest and concurrency, commits a durable reservation and run
+record, and the runner executes the profile in its sandbox. The version 1 protocol is a
+single bounded invocation: `max_turns` is declared and validated but not looped, and a
+profile run records `handoff`, never a validated repair. Revocation fences later
+dispatches.
+
+## Verification identity
+
+| Component | Version exercised locally |
+| --- | --- |
+| Go | 1.27 toolchain |
+| Node / npm | 26 / 11 |
+| PostgreSQL | 18.6 |
+| React / Vite / TypeScript | 19.3 / 8.3 / 5.9 |
+| Gitea (disposable) | 1.27.3 |
+| Compatible model endpoint | Ollama with a small Qwen model |
+| Browser | Chromium via Playwright |
+
+The encrypted restore drill restores a disposable database and decrypts a sealed
+envelope; it does not prove provider credentials still work. The hosted GitOps reference
+under `deploy/gitops` renders manifests but does not certify a hosted cluster.
+
 ## Known limitations
 
 - Hosted untrusted execution requires a sandbox host with resource enforcement. On hosts
@@ -56,3 +83,7 @@ yet recorded.
   [Backup and restore](backup-restore.md).
 - The interface does not perform infrastructure installation, Kubernetes changes, or
   provider-native login and approval. Those use documented handoffs.
+- A 10,000-repository, 100-concurrent-run load gate and the non-development Compose
+  install (which needs an OIDC issuer and HTTPS origin) are not yet recorded.
+- Live forge, paid model and official-agent account certification remain outstanding; the
+  affected routes stay disabled or uncertified rather than silently falling back.
