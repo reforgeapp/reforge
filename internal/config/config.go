@@ -23,6 +23,7 @@ type Config struct {
 	Development        bool
 	FixtureAuth        bool
 	Edition            string
+	DocsURL            string
 	EncryptionKey      string `json:"-"`
 	EncryptionKeyID    string
 	EncryptionKeys     map[string]string `json:"-"`
@@ -48,6 +49,7 @@ func Load() (Config, error) {
 		Development:       os.Getenv("REFORGE_MODE") == "development",
 		FixtureAuth:       os.Getenv("REFORGE_FIXTURE_AUTH") == "true",
 		Edition:           value("REFORGE_EDITION", "self-hosted"),
+		DocsURL:           value("REFORGE_DOCS_URL", "/docs/"),
 		EncryptionKey:     os.Getenv("REFORGE_ENCRYPTION_KEY"),
 		EncryptionKeyID:   value("REFORGE_ENCRYPTION_KEY_ID", "primary"),
 		KMSRegion:         os.Getenv("REFORGE_KMS_REGION"),

@@ -2047,6 +2047,7 @@ export interface components {
             development: boolean;
             fixture_auth: boolean;
             bootstrap_required?: boolean;
+            docs_url?: string;
         };
         Health: {
             status: string;

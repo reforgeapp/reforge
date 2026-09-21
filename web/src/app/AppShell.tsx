@@ -25,6 +25,8 @@ export function AppShell() {
 
   useEffect(() => setSearch(routeSearch.q ?? ''), [routeSearch.q])
 
+  useEffect(() => { if (meta?.docs_url) document.documentElement.dataset.docsRoot = meta.docs_url }, [meta?.docs_url])
+
   useEffect(() => {
     if (session.error instanceof ReforgeAPIError && session.error.status === 401) {
       clearOrganisationQueries(queryClient)

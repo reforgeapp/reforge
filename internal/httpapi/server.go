@@ -42,7 +42,7 @@ func New(cfg config.Config, db *store.Store) *Server {
 		c.JSON(200, gin.H{"status": "ready"})
 	})
 	r.GET("/api/v1/meta", func(c *gin.Context) {
-		c.JSON(200, gin.H{"name": "Reforge", "version": "0.1.0-dev", "edition": cfg.Edition, "development": cfg.Development, "fixture_auth": cfg.FixtureAuth})
+		c.JSON(200, gin.H{"name": "Reforge", "version": "0.1.0-dev", "edition": cfg.Edition, "development": cfg.Development, "fixture_auth": cfg.FixtureAuth, "docs_url": cfg.DocsURL})
 	})
 	r.NoMethod(func(c *gin.Context) { Fail(c, 405, "method_not_allowed", "Method not allowed", false) })
 	r.NoRoute(s.frontend)

@@ -1,0 +1,71 @@
+site_name: Reforge
+site_description: Repository maintenance automation with policy-controlled merge and delivery.
+docs_dir: content
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.top
+    - navigation.tracking
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+
+markdown_extensions:
+  - admonition
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight
+
+plugins:
+  - search
+
+validation:
+  links:
+    absolute_links: ignore
+    unrecognized_links: warn
+
+extra:
+  reforge_version: dev
+
+nav:
+  - Home: index.md
+  - Install: install.md
+  - Upgrade and recovery:
+      - Upgrade: upgrade.md
+      - Backup and restore: backup-restore.md
+      - Troubleshooting: troubleshooting.md
+  - User guide:
+      - Repositories: repositories.md
+      - Findings: findings.md
+      - Runs and repair: repair.md
+      - Changes and merge: merge.md
+      - Deployments: delivery.md
+      - Campaigns: campaigns.md
+  - Administration:
+      - Teams and membership: admin.md
+      - Connections: connections.md
+      - Runners: runners.md
+      - Model routes: models.md
+      - Agent runtimes: agents.md
+      - Policies: policies.md
+      - Usage and budgets: usage.md
+      - Audit: audit.md
+  - Reference:
+      - Security model: security.md
+      - Support matrix and limitations: support-matrix.md

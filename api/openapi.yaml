@@ -9271,6 +9271,9 @@
           },
           "bootstrap_required": {
             "type": "boolean"
+          },
+          "docs_url": {
+            "type": "string"
           }
         },
         "required": [

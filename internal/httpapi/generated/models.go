@@ -1754,6 +1754,7 @@ type MergeSnapshot struct {
 type Meta struct {
 	BootstrapRequired *bool       `json:"bootstrap_required,omitempty"`
 	Development       bool        `json:"development"`
+	DocsUrl           *string     `json:"docs_url,omitempty"`
 	Edition           MetaEdition `json:"edition"`
 	FixtureAuth       bool        `json:"fixture_auth"`
 	Name              string      `json:"name"`
