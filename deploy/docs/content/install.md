@@ -64,3 +64,18 @@ bootstrap token described above. The Compose file passes `REFORGE_MODE` and
 See [Security model](security.md) for credential custody, egress rules and the runner
 trust boundary, and [Support matrix and limitations](support-matrix.md) for what is
 certified in this build.
+
+## Hosted GitOps reference
+
+`deploy/gitops` is a versioned reference for deploying the control plane from a GitOps
+repository rather than mutating a cluster directly. The base renders a namespace, a
+migration Job, the control-plane Deployment and Service, and a placeholder Secret. The
+`overlays/example` overlay pins the published image. Replace the Secret placeholders from
+your secret manager, keep the migration Job before the Deployment, and let your existing
+reconciler apply the rendered output.
+
+The reference does not run Reforge itself as a reconciler and does not certify a hosted
+cluster: you still need a PostgreSQL instance, an OIDC issuer, an HTTPS origin, a
+customer-owned runner host and the sandbox prerequisites described in
+[Security model](security.md). No API or task container receives a Docker socket and no
+credentials are baked into images.

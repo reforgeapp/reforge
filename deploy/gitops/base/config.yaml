@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: reforge-config
+data:
+  REFORGE_ADDRESS: 0.0.0.0:8080
+  REFORGE_EDITION: hosted
+  REFORGE_DOCS_URL: /docs/
+  REFORGE_MIGRATION_DIR: /app/internal/store/migrations
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reforge-secrets
+type: Opaque
+stringData:
+  REFORGE_DATABASE_URL: replace-with-runtime-database-url
+  REFORGE_MIGRATION_DATABASE_URL: replace-with-migration-database-url
+  REFORGE_ENCRYPTION_KEY: replace-with-base64-32-byte-key
+  REFORGE_OIDC_ISSUER: replace-with-oidc-issuer
+  REFORGE_OIDC_CLIENT_ID: replace-with-oidc-client-id
+  REFORGE_OIDC_CLIENT_SECRET: replace-with-oidc-client-secret

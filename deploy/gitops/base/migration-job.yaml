@@ -1,0 +1,21 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: reforge-migrate
+spec:
+  backoffLimit: 0
+  template:
+    spec:
+      restartPolicy: Never
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+      containers:
+        - name: migrate
+          image: reforge-control:0.1.0
+          command: ["/app/reforge-migrate"]
+          envFrom:
+            - configMapRef:
+                name: reforge-config
+            - secretRef:
+                name: reforge-secrets
