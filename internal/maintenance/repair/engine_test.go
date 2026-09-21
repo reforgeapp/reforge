@@ -2,6 +2,7 @@ package repair
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -89,6 +90,31 @@ func TestEngineRetriesAfterTargetCompatibilityFailure(t *testing.T) {
 	}
 	if string(files["value.test.js"]) != "const test = require('node:test'); const assert = require('node:assert'); test('adds',()=>assert.equal(require('./value').add(2,3),5))" || len(files["package.json"]) == 0 {
 		t.Fatal("protected test or manifest changed")
+	}
+}
+
+func TestValidateCustomRequiresBaselineAndTarget(t *testing.T) {
+	plan, files := testPlan(t)
+	baseSHA, targetSHA := strings.Repeat("b", 40), strings.Repeat("c", 40)
+	plan.BaselineSHA, plan.TargetSHA = baseSHA, targetSHA
+	plan.Digest = planDigest(plan)
+	runtime := &retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}
+	engine := Engine{Runtime: runtime, JobID: "job", AttemptID: "attempt", Trust: "fixture", Progress: func(context.Context, string) error { return nil }}
+	base := snapshotForEngine(t, baseSHA, files)
+	targetFiles := map[string][]byte{}
+	for name, body := range files {
+		targetFiles[name] = body
+	}
+	target := snapshotForEngine(t, targetSHA, targetFiles)
+	report, err := engine.ValidateCustom(context.Background(), plan, base, target, []sandbox.Patch{{Path: "value.js", Content: []byte("exports.add = (a,b) => a+b")}})
+	if err != nil || report.State != "validated" || !Verified(plan, report.Baseline, report.Candidate) || !Verified(plan, report.Baseline, report.Target) {
+		t.Fatalf("validated custom report=%+v err=%v", report, err)
+	}
+	if _, err := engine.ValidateCustom(context.Background(), plan, base, target, []sandbox.Patch{{Path: "value.test.js", Content: []byte("x")}}); !errors.Is(err, ErrValidation) {
+		t.Fatalf("protected patch must be rejected, got %v", err)
+	}
+	if _, err := engine.ValidateCustom(context.Background(), plan, base, target, nil); !errors.Is(err, ErrValidation) {
+		t.Fatalf("empty patch set must be rejected, got %v", err)
 	}
 }
 

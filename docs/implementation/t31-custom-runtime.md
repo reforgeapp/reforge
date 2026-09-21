@@ -1,10 +1,11 @@
 # T31 custom command runtime contract
 
-Status: core implemented. Profiles, approval/revocation, protocol executor, HTTP, GUI and
-a real Docker container test are in place (`internal/customcmd`, migration 030). The
-remaining slice is controller-to-runner dispatch so a repair or model route can select an
-approved profile; until then profiles are managed and gated but not invoked by the repair
-engine. The interface shows profile state and keeps unapproved profiles inert.
+Status: implemented. Profiles, approval/revocation, protocol executor, HTTP, GUI, a real
+Docker container test, controller-to-runner dispatch and end-to-end maintenance validation
+are in place (`internal/customcmd`, `internal/runnerclient/processor.go`, migrations
+030/032/033). A successful profile run now advances the repair workflow through the frozen
+baseline/candidate/target checks and the existing publication boundary; exit 0 alone never
+publishes. The interface shows profile state and keeps unapproved profiles inert.
 
 ## Profile identity
 
@@ -37,6 +38,9 @@ only the approved image and profile.
 
 - Input: one JSON document on stdin.
 - Events: newline-delimited JSON on stdout; each event has `type` and bounded payload.
+  Allowed types are `progress`, `log`, `turn`, `usage`, `result` and `error`. A `turn`
+  event counts against `max_turns`; exceeding the declared turn budget marks the result
+  `unknown` rather than accepting it.
 - Output: a final `result` event with a typed outcome.
 - Cancel: a native cancellation signal; only the runtime's confirmed termination counts
   as cancelled.
@@ -81,5 +85,15 @@ reason.
 4. Connections GUI panel showing capability state, approval, digest and disabled reason.
    Done.
 5. Runner wiring so an admitted job can select a profile, with durable budget reservation.
-   Remaining. The controller must dispatch an approved profile through the existing runner
-   claim/result protocol and reserve budget before any effect.
+   Done. A repair binds a versioned profile through a `custom_command` agent connection
+   and a quota budget route. The controller revalidates the task fence, current policy,
+   profile approval/version/digest and concurrency, commits a durable reservation and run
+   record, and the runner executes the profile through the existing claim/result protocol
+   (`/runner/v1/repair/custom/{authorize,report}`). Migration `032`/`033` add the run
+   binding, events and reservation columns.
+6. Custom output advances the maintenance workflow. Done. After a `completed_unverified`
+   profile run, the runner reads the changed source from the pinned workspace, builds
+   patches, and runs the same frozen baseline/candidate/target validation as the model
+   path (`repair.Engine.ValidateCustom`). A validated candidate is staged and published by
+   the existing processor; a profile that changes protected paths, fails validation or
+   exceeds its turn budget stays `handoff`/`unknown`. Exit 0 alone never publishes.

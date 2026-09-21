@@ -65,6 +65,20 @@ func TestExitZeroIsNotVerified(t *testing.T) {
 	}
 }
 
+func TestTurnBudgetIsEnforced(t *testing.T) {
+	p := approvedProfile()
+	p.MaxTurns = 2
+	output := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\",\"message\":\"ok\"}\n")
+	if out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: output}}).Run(context.Background(), p, Input{Workspace: workspace(), Request: []byte("{}")}); err != nil || out.State != "completed_unverified" {
+		t.Fatalf("within-budget turns rejected: state=%q err=%v", out.State, err)
+	}
+	over := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\"}\n")
+	out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: over}}).Run(context.Background(), p, Input{Workspace: workspace(), Request: []byte("{}")})
+	if !errors.Is(err, ErrProtocol) || out.State != "unknown" {
+		t.Fatalf("over-budget turns accepted: state=%q err=%v", out.State, err)
+	}
+}
+
 func TestKnownUsageIsRecorded(t *testing.T) {
 	fake := &fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"usage\",\"data\":{\"tokens\":120,\"milliseconds\":40}}\n")}}
 	out, err := NewExecutor(fake).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})

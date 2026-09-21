@@ -1,16 +1,19 @@
 package runnerclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"sort"
+	"time"
+
 	"reforge/internal/customcmd"
 	"reforge/internal/domain"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/model"
 	"reforge/internal/sandbox"
 	"reforge/internal/workflow"
-	"time"
 )
 
 func RepairProcessor(config sandbox.RuntimeConfig) Processor {
@@ -62,20 +65,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		if cfg.Development {
 			trust = "development-fixture"
 		}
-		if execution.CustomProfile != nil {
-			report, err := c.runCustomProfile(ctx, j, execution, runtime, baseline, trust)
-			if _, saveErr := c.RepairReport(ctx, j, report); saveErr != nil {
-				return failed, saveErr
-			}
-			if err != nil {
-				return failed, err
-			}
-			return workflow.Completion{Outcome: "completed"}, nil
-		}
-		engine := repair.Engine{Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
-			m, err := c.Upload(ctx, j, name, "text/plain", data)
-			return m.ID, err
-		}, Progress: func(ctx context.Context, next string) error {
+		progress := func(next string) error {
 			if state == domain.TaskState(next) {
 				return nil
 			}
@@ -84,7 +74,11 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 			state = domain.TaskState(next)
 			return nil
-		}}
+		}
+		engine := repair.Engine{Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
+			m, err := c.Upload(ctx, j, name, "text/plain", data)
+			return m.ID, err
+		}, Progress: func(_ context.Context, next string) error { return progress(next) }}
 		var report repair.Report
 		if run.Report != nil && run.Report.State == "validated" {
 			report = *run.Report
@@ -96,6 +90,17 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 					return failed, err
 				}
 				state = next
+			}
+		} else if execution.CustomProfile != nil {
+			report, err = c.runCustomProfile(ctx, j, execution, runtime, baseline, target, engine)
+			if _, saveErr := c.RepairReport(ctx, j, report); saveErr != nil {
+				return failed, saveErr
+			}
+			if err != nil {
+				return failed, err
+			}
+			if report.State != "validated" {
+				return workflow.Completion{Outcome: "completed"}, nil
 			}
 		} else {
 			report, err = engine.Run(ctx, execution.Plan, baseline, target)
@@ -124,7 +129,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 	}
 }
 
-func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.ExecutionContext, runtime sandbox.SandboxRuntime, baseline sandbox.Snapshot, trust string) (repair.Report, error) {
+func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.ExecutionContext, runtime sandbox.SandboxRuntime, baseline, target sandbox.Snapshot, engine repair.Engine) (repair.Report, error) {
 	out := repair.Report{PlanDigest: execution.Plan.Digest, State: "handoff", Reason: "Custom command profile did not produce a validated repair", Baseline: []repair.CheckResult{}, Candidate: []repair.CheckResult{}, Target: []repair.CheckResult{}, Patches: []sandbox.Patch{}, Artifacts: []string{}}
 	spec := execution.CustomProfile
 	authorized, err := c.CustomAuthorize(ctx, j)
@@ -138,6 +143,10 @@ func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.E
 	}
 	runCtx, cancel := context.WithTimeout(ctx, timeout+30*time.Second)
 	defer cancel()
+	trust := "untrusted"
+	if engine.Trust != "" {
+		trust = engine.Trust
+	}
 	workspace, err := runtime.PreparePinnedWorkspace(runCtx, sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.BaselineSHA, Image: spec.ImageDigest, Trust: trust, Timeout: timeout})
 	if err != nil {
 		out.Reason = "Custom profile workspace was unavailable"
@@ -172,5 +181,44 @@ func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.E
 		return out, errors.Join(execErr, reportErr)
 	}
 	out.Reason = "Custom profile " + reportIn.State + ": " + result.Reason
-	return out, execErr
+	if execErr != nil || result.State != "completed_unverified" {
+		return out, execErr
+	}
+	patches, err := c.customProfilePatches(runCtx, runtime, workspace, baseline)
+	if err != nil {
+		out.Reason = "Custom profile workspace could not be read for validation"
+		return out, err
+	}
+	if len(patches) == 0 {
+		out.Reason = "Custom profile exited without changing source; nothing to validate"
+		return out, nil
+	}
+	validated, err := engine.ValidateCustom(ctx, execution.Plan, baseline, target, patches)
+	if err != nil {
+		return validated, err
+	}
+	return validated, nil
+}
+
+func (c *Client) customProfilePatches(ctx context.Context, runtime sandbox.SandboxRuntime, workspace sandbox.Workspace, baseline sandbox.Snapshot) ([]sandbox.Patch, error) {
+	files, err := repair.Files(baseline)
+	if err != nil {
+		return nil, err
+	}
+	paths := make([]string, 0, len(files))
+	for path := range files {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
+	patches := []sandbox.Patch{}
+	for _, path := range paths {
+		file, err := runtime.CollectArtifact(ctx, workspace, path)
+		if err != nil {
+			return nil, err
+		}
+		if !bytes.Equal(file.Data, files[path]) {
+			patches = append(patches, sandbox.Patch{Path: path, Content: file.Data})
+		}
+	}
+	return patches, nil
 }

@@ -14,8 +14,40 @@ import (
 
 	"reforge/internal/domain"
 	"reforge/internal/runner"
+	"reforge/internal/sandbox"
+	"reforge/internal/sandbox/guest"
 	"reforge/internal/workflow"
 )
+
+type patchRuntime struct{ files map[string][]byte }
+
+func (p patchRuntime) PreparePinnedWorkspace(context.Context, sandbox.WorkspaceRequest) (sandbox.Workspace, error) {
+	return sandbox.Workspace{}, nil
+}
+func (p patchRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {
+	return sandbox.CommandResult{}, nil
+}
+func (p patchRuntime) ApplyPatch(context.Context, sandbox.Workspace, []sandbox.Patch) error {
+	return nil
+}
+func (p patchRuntime) CollectArtifact(_ context.Context, _ sandbox.Workspace, name string) (sandbox.Artifact, error) {
+	return sandbox.Artifact{Name: name, Data: p.files[name]}, nil
+}
+func (p patchRuntime) Destroy(context.Context, sandbox.Workspace) error { return nil }
+
+func TestCustomProfilePatchExtraction(t *testing.T) {
+	files := []guest.File{{Path: "value.js", Content: []byte("old")}, {Path: "keep.js", Content: []byte("same")}}
+	digest, err := sandbox.SnapshotDigest(files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	baseline := sandbox.Snapshot{CommitSHA: strings.Repeat("a", 40), Complete: true, ManifestSHA256: digest, Files: files}
+	client := &Client{}
+	patches, err := client.customProfilePatches(context.Background(), patchRuntime{files: map[string][]byte{"value.js": []byte("new"), "keep.js": []byte("same")}}, sandbox.Workspace{}, baseline)
+	if err != nil || len(patches) != 1 || patches[0].Path != "value.js" || string(patches[0].Content) != "new" {
+		t.Fatalf("patch extraction=%+v err=%v", patches, err)
+	}
+}
 
 func TestCredentialRestartAndJobProtocol(t *testing.T) {
 	var completed atomic.Bool

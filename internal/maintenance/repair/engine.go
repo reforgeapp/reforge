@@ -348,6 +348,67 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	}
 	return fail("Repair turn limit reached without a verified candidate", ErrHandoff)
 }
+func (e Engine) ValidateCustom(ctx context.Context, p Plan, baseline, target sandbox.Snapshot, patches []sandbox.Patch) (Report, error) {
+	out := Report{PlanDigest: p.Digest, State: "handoff", Artifacts: []string{}, Patches: patches}
+	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
+	if !p.Valid() || e.Runtime == nil || baseline.CommitSHA != p.BaselineSHA || target.CommitSHA != p.TargetSHA || len(patches) == 0 {
+		return fail("Pinned execution context is invalid", ErrValidation)
+	}
+	files, err := Files(baseline)
+	if err != nil || !Protected(p, files) {
+		return fail("Baseline source does not match the frozen plan", ErrValidation)
+	}
+	if CheckPatch(p, files, patches) != nil {
+		return fail("Custom profile changed a protected path or exceeded the frozen limits", ErrValidation)
+	}
+	targetFiles, err := Files(target)
+	if err != nil {
+		return fail("Target source is incomplete", err)
+	}
+	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.Recipe.TimeoutSeconds)*time.Second)
+	defer cancel()
+	if err = e.stage(ctx, "reproducing"); err != nil {
+		return fail("Run authorization changed", err)
+	}
+	out.Baseline, err = e.validate(ctx, p, p.BaselineSHA, nil, "baseline", &out)
+	if err != nil {
+		return fail("Baseline environment unavailable or protected files changed", err)
+	}
+	if !Reproduced(out.Baseline) {
+		return fail("Original failure was not reproduced by complete frozen checks", ErrHandoff)
+	}
+	if err = e.stage(ctx, "validating"); err != nil {
+		return fail("Run authorization changed", err)
+	}
+	out.Candidate, err = e.validate(ctx, p, p.BaselineSHA, patches, "candidate", &out)
+	if err != nil {
+		return fail("Candidate environment failed or modified protected validation", err)
+	}
+	if !Verified(p, out.Baseline, out.Candidate) {
+		return fail("Custom profile candidate did not pass the frozen checks", ErrHandoff)
+	}
+	independent, planErr := targetPlan(p, targetFiles)
+	if planErr != nil {
+		return fail("Target validation differs; independent review required", planErr)
+	}
+	for _, patch := range patches {
+		body, ok := targetFiles[patch.Path]
+		if !ok || !bytes.Equal(files[patch.Path], body) {
+			return fail("Patched source differs between upgrade and target; reconcile before companion publication", ErrHandoff)
+		}
+	}
+	out.Target, err = e.validate(ctx, independent, p.TargetSHA, patches, "target", &out)
+	if err != nil {
+		return fail("Target environment failed or modified protected validation", err)
+	}
+	if !Verified(p, out.Baseline, out.Target) {
+		return fail("Custom profile candidate is not compatible with the target branch", ErrHandoff)
+	}
+	out.State = "validated"
+	out.Reason = "Custom profile produced a repair that passed baseline, candidate and target checks"
+	return out, nil
+}
+
 func sensitiveSource(name string, body []byte) bool {
 	lower := strings.ToLower(name)
 	for _, part := range strings.Split(lower, "/") {

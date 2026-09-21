@@ -93,14 +93,23 @@ func (e *Executor) classify(raw sandbox.CommandResult, profile Profile) (Result,
 		out.Reason = "Profile exited nonzero"
 		return out, nil
 	}
+	turns := 0
 	for _, event := range events {
-		if event.Type == "usage" {
+		switch event.Type {
+		case "usage":
 			if err := json.Unmarshal(event.Data, &out.Usage); err != nil {
 				out.State = "unknown"
 				out.Reason = "Profile usage event is malformed"
 				return out, ErrProtocol
 			}
+		case "turn":
+			turns++
 		}
+	}
+	if profile.MaxTurns > 0 && turns > profile.MaxTurns {
+		out.State = "unknown"
+		out.Reason = "Profile exceeded its declared turn budget; reconcile before retry"
+		return out, ErrProtocol
 	}
 	out.Usage.Known = hasKnownUsage(out.Usage)
 	if out.Truncated {
@@ -134,7 +143,7 @@ func parseEventsChecked(output []byte) ([]Event, bool) {
 			return events, true
 		}
 		switch event.Type {
-		case "progress", "log", "usage", "result", "error":
+		case "progress", "log", "turn", "usage", "result", "error":
 		default:
 			return events, true
 		}
