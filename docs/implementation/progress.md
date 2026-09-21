@@ -4,6 +4,7 @@ Updated: 2026-09-21. Planning-only revision. Existing implementation evidence be
 
 ## Planning revision status
 
+- 2026-09-21 owner instruction: T31 contract **unfrozen**; schema, interfaces, protocol and execution design open for revision. Implementation status and existing evidence are unchanged by this contract-only update. See `contracts.md` and backlog T31 for scope and retained safeguards.
 - Prior GUI completion acceptance superseded by T29 full GUI rebuild/refactor. Prototype historical; no visual authority.
 - T29 full GUI rebuild, T30 MkDocs documentation and T31 custom command runtime are new planned tickets. T28 dependency graph explicitly names every prerequisite and remains acyclic.
 - Current allocation override: root/Astra architecture and final review; Luna bounded implementations including sensitive slices under Astra review; no implementation workers during current pause; maximum three Luna workers when resumed.

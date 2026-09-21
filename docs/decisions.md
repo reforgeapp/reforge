@@ -11,6 +11,7 @@ Updated: 2026-09-21.
 
 ## Accepted from the owner
 
+- 2026-09-21: T31 contract unfrozen. Current profile definitions are revisable design proposals. Preserve security requirements, existing versioned records and applied migrations; record replacement decisions and affected dependencies. This instruction alone does not launch implementation.
 - Reforge; Apache-2.0 OSS; Go backend with Gin.
 - GitHub, GitLab and Gitea required.
 - BYO OpenAI, Claude, Google and self-hosted LLMs; supported subscription routes preferred when permitted.
