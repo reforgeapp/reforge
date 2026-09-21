@@ -180,6 +180,15 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	return out, nil
 }
 func (s *Service) Enqueue(ctx context.Context, session auth.Session, org string, in Input, request string) (Run, error) {
+	return s.enqueue(ctx, session, org, in, request, "", nil)
+}
+func (s *Service) EnqueueCampaign(ctx context.Context, session auth.Session, org string, in Input, request, campaign string, admit func(context.Context, pgx.Tx, workflow.Task) error) (Run, error) {
+	if !auth.ValidID(campaign) || admit == nil {
+		return Run{}, auth.ErrInvalid
+	}
+	return s.enqueue(ctx, session, org, in, request, campaign, admit)
+}
+func (s *Service) enqueue(ctx context.Context, session auth.Session, org string, in Input, request, campaign string, admit func(context.Context, pgx.Tx, workflow.Task) error) (Run, error) {
 	var out Run
 	if len(in.IdempotencyKey) < 1 || len(in.IdempotencyKey) > 150 || len(in.PlanDigest) != 64 {
 		return out, auth.ErrInvalid
@@ -221,7 +230,12 @@ func (s *Service) Enqueue(ctx context.Context, session auth.Session, org string,
 	}
 	c := preview.Context
 	c.Request = in
-	task, err := s.workflow.EnqueuePrepared(ctx, session, org, workflow.EnqueueInput{RepositoryID: c.Finding.RepositoryID, Recipe: c.Plan.Recipe.Name, RecipeVersion: c.Plan.Recipe.Version, TargetBranch: c.Finding.Evidence.TargetBranch, ModelConnectionID: in.ModelConnectionID, ModelRoute: in.ModelRoute, RunnerPoolID: in.RunnerPoolID, PolicyHash: c.PolicyHash, IdempotencyKey: "repair/" + in.IdempotencyKey, MaxAttempts: c.MaxAttempts}, request, func(ctx context.Context, tx pgx.Tx, t workflow.Task) error {
+	task, err := s.workflow.EnqueuePrepared(ctx, session, org, workflow.EnqueueInput{CampaignID: campaign, RepositoryID: c.Finding.RepositoryID, Recipe: c.Plan.Recipe.Name, RecipeVersion: c.Plan.Recipe.Version, TargetBranch: c.Finding.Evidence.TargetBranch, ModelConnectionID: in.ModelConnectionID, ModelRoute: in.ModelRoute, RunnerPoolID: in.RunnerPoolID, PolicyHash: c.PolicyHash, IdempotencyKey: "repair/" + in.IdempotencyKey, MaxAttempts: c.MaxAttempts}, request, func(ctx context.Context, tx pgx.Tx, t workflow.Task) error {
+		if admit != nil {
+			if err := admit(ctx, tx, t); err != nil {
+				return err
+			}
+		}
 		f, err := discovery.PrepareRepairTx(ctx, tx, org, in.FindingID, in.FindingVersion)
 		if err != nil {
 			return err

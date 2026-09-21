@@ -1,5 +1,6 @@
 import { type FormEvent, useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useSearch } from '@tanstack/react-router'
 import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -15,13 +16,15 @@ const dateTime = (value: string, end: boolean) => value ? new Date(Date.parse(`$
 const emptyLimit = (kind: string, id: string): Limit => ({ scope: { kind, id }, period: 'daily', caps: {}, paused: false, version: 0, held: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 }, spent: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 } })
 
 export function UsagePage({ orgID }: { orgID: string }) {
+  const search = useSearch({ strict: false }) as Record<string, string | undefined>
+  const requestedScope = typeof search.scope_kind === 'string' && typeof search.scope_id === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.scope_id) && ['organisation', 'team', 'repository', 'connection', 'campaign'].includes(search.scope_kind) ? { kind: search.scope_kind, id: search.scope_id } : undefined
   const session = useSession()
   const csrf = session.data?.csrf_token ?? ''
   const role = session.data?.memberships.find(item => item.org_id === orgID)?.role
   const canWrite = role === 'owner'
   const [draft, setDraft] = useState<UsageFilters>({ limit: 50 })
   const [filters, setFilters] = useState<UsageFilters>({ limit: 50 })
-  const [scope, setScope] = useState({ kind: 'organisation', id: orgID })
+  const [scope, setScope] = useState(() => requestedScope ?? { kind: 'organisation', id: orgID })
   const [budget, setBudget] = useState<Limit>()
   const [saveError, setSaveError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -33,6 +36,7 @@ export function UsagePage({ orgID }: { orgID: string }) {
   const budgetQuery = useQuery({ queryKey: ['org', orgID, 'budget', scope.kind, scope.id], queryFn: ({ signal }) => usageAPI.budget(orgID, scope.kind, scope.id, signal), enabled: !!scope.id })
   const route = useQuery({ queryKey: ['org', orgID, 'budget-route', filters.connection_id, routeInputs], queryFn: ({ signal }) => usageAPI.route(orgID, filters.connection_id!, routeInputs.model, routeInputs.name, signal), enabled: !!filters.connection_id && !!routeInputs.model && !!routeInputs.name })
   useEffect(() => { setBudget(undefined); setSaveError('') }, [scope.kind, scope.id])
+  useEffect(() => { setScope(requestedScope ?? { kind: 'organisation', id: orgID }) }, [requestedScope?.kind, requestedScope?.id, orgID])
   const rows = usage.data?.pages.flatMap(page => page.items) ?? []
   const currentBudget = budget?.scope.kind === scope.kind && budget.scope.id === scope.id ? budget : budgetQuery.data
   const applyFilters = (event: FormEvent) => { event.preventDefault(); setFilters({ ...draft, since: dateTime(draft.since ?? '', false), until: dateTime(draft.until ?? '', true), cursor: undefined }); setRouteInputs({ model: routeModel.trim(), name: routeName.trim() || 'default' }) }

@@ -20,20 +20,23 @@ import (
 	"reforge/internal/workflow"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 )
 
 type Service struct {
-	db          *store.Store
-	auth        *auth.Service
-	connections *connections.Service
-	policies    *policy.Service
-	providers   providers.Client
-	merges      *mergecontrol.Service
+	gateMu        sync.RWMutex
+	gateAuthority func(context.Context, pgx.Tx, string, string) error
+	db            *store.Store
+	auth          *auth.Service
+	connections   *connections.Service
+	policies      *policy.Service
+	providers     providers.Client
+	merges        *mergecontrol.Service
 }
 
 func New(db *store.Store, identity *auth.Service, connections *connections.Service, policies *policy.Service, providers providers.Client, merges *mergecontrol.Service) *Service {
-	s := &Service{db, identity, connections, policies, providers, merges}
+	s := &Service{db: db, auth: identity, connections: connections, policies: policies, providers: providers, merges: merges}
 	if merges != nil {
 		merges.RegisterChangeAuthority(s.CheckMergeTx)
 	}
@@ -179,4 +182,19 @@ func emit(ctx context.Context, tx pgx.Tx, org, repo, actor, action, id string, v
 		aggregate = repo
 	}
 	return workflow.EmitTx(ctx, tx, domain.Event{OrgID: org, RepositoryID: repo, Type: action, AggregateType: "gitops", AggregateID: aggregate, AggregateVersion: version, RequestID: request, DataVersion: 1, Data: raw})
+}
+
+func (s *Service) RegisterGateAuthority(check func(context.Context, pgx.Tx, string, string) error) {
+	s.gateMu.Lock()
+	defer s.gateMu.Unlock()
+	s.gateAuthority = check
+}
+func (s *Service) checkGateAuthority(ctx context.Context, tx pgx.Tx, org, gate string) error {
+	s.gateMu.RLock()
+	check := s.gateAuthority
+	s.gateMu.RUnlock()
+	if check != nil {
+		return check(ctx, tx, org, gate)
+	}
+	return nil
 }

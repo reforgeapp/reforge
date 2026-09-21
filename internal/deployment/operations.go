@@ -104,6 +104,9 @@ func (s *Service) List(ctx context.Context, session auth.Session, org, repo, env
 }
 
 func (s *Service) currentAuthority(ctx context.Context, tx pgx.Tx, session auth.Session, org string, gate Gate) (Configuration, error) {
+	if e := s.checkGateAuthority(ctx, tx, org, gate.ID); e != nil {
+		return Configuration{}, e
+	}
 	if gate.Pipeline.ObserveOnly {
 		return Configuration{}, auth.ErrForbidden
 	}
@@ -196,6 +199,48 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	if err != nil || !fresh {
 		return out, err
 	}
+	return s.dispatchOperation(ctx, session, org, out, gate, request)
+}
+
+func (s *Service) Continue(ctx context.Context, session auth.Session, org, id, request string) (Operation, error) {
+	var out Operation
+	var gate Gate
+	ready := false
+	if !auth.ValidID(id) {
+		return out, auth.ErrInvalid
+	}
+	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		var err error
+		out, err = operationTx(ctx, tx, org, id)
+		if err != nil {
+			return err
+		}
+		if !manage(a, out.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		if out.State != "requested" {
+			return nil
+		}
+		if err = tx.QueryRow(ctx, `SELECT dispatch_id IS NULL FROM deployments WHERE org_id=$1 AND id=$2`, org, id).Scan(&ready); err != nil {
+			return err
+		}
+		if !ready {
+			return nil
+		}
+		gate, err = gateTx(ctx, tx, org, out.GateID)
+		if err != nil {
+			return err
+		}
+		_, err = s.currentAuthority(ctx, tx, session, org, gate)
+		return err
+	})
+	if err != nil || !ready {
+		return out, err
+	}
+	return s.dispatchOperation(ctx, session, org, out, gate, request)
+}
+
+func (s *Service) dispatchOperation(ctx context.Context, session auth.Session, org string, out Operation, gate Gate, request string) (Operation, error) {
 	dispatch := domain.NewID()
 	dispatched := false
 	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
@@ -241,7 +286,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	result, callErr := s.providers.Write(ctx, org, gate.ConnectionID, privateconnector.Operation{ID: out.ID, Kind: kind, Pipeline: &pipeline}, authorize, validate)
 	persist, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
-	err = s.db.Tenant(persist, org, "", func(tx pgx.Tx) error {
+	err := s.db.Tenant(persist, org, "", func(tx pgx.Tx) error {
 		if err := lock(persist, tx, org); err != nil {
 			return err
 		}

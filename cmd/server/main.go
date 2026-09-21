@@ -11,11 +11,13 @@ import (
 	"reforge/internal/artifact"
 	"reforge/internal/auth"
 	"reforge/internal/budget"
+	"reforge/internal/campaign"
 	"reforge/internal/config"
 	"reforge/internal/connections"
 	"reforge/internal/control"
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
+	"reforge/internal/forge"
 	"reforge/internal/gitops"
 	"reforge/internal/httpapi"
 	"reforge/internal/insights"
@@ -101,10 +103,16 @@ func run() error {
 	authority := control.NewAuthority(policies)
 	workflows := workflow.New(db, identity, authority.Check)
 	app.RegisterWorkflow(workflows)
+	var campaigns *campaign.Service
 	budgets := budget.New(db, identity, func(ctx context.Context, tx pgx.Tx, lease budget.Lease) error {
 		_, err := workflows.ValidateFenceTx(ctx, tx, workflow.Lease(lease), "budget")
 		return err
-	}, nil)
+	}, func(ctx context.Context, tx pgx.Tx, org, id string) error {
+		if campaigns == nil {
+			return budget.ErrUnknown
+		}
+		return campaigns.CheckScopeTx(ctx, tx, org, "campaign", id)
+	})
 	app.RegisterBudget(budgets)
 	app.RegisterInsights(insights.New(identity))
 	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
@@ -151,18 +159,38 @@ func run() error {
 	app.RegisterGitOps(promotions)
 	gitopsContext, stopGitops := context.WithCancel(ctx)
 	gitopsDone := make(chan struct{})
-	go func() { defer close(gitopsDone); _ = promotions.Run(gitopsContext) }()
 	defer func() { stopGitops(); <-gitopsDone }()
 	deliveries := deployment.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterDeployment(deliveries)
+	campaigns = campaign.New(db, identity, policies, workflows, cfg.RepairImages, nil)
+	campaigns.ConfigureExecution(repairs, deliveries, promotions, merges)
+	workflows.RegisterScopeCheck(func(ctx context.Context, tx pgx.Tx, org, kind, id string) error {
+		if kind == "campaign" {
+			return campaigns.CheckScopeTx(ctx, tx, org, kind, id)
+		}
+		return runners.CheckScopeTx(ctx, tx, org, kind, id)
+	})
+	workflows.RegisterCampaignAuthority(campaigns.TaskAuthorityTx)
+	deliveries.RegisterGateAuthority(campaigns.GateAuthorityTx)
+	promotions.RegisterGateAuthority(campaigns.GateAuthorityTx)
+	merges.RegisterChangeAuthority(func(ctx context.Context, tx pgx.Tx, org, repo string, snapshot forge.MergeEvidence, a domain.Actor) (string, error) {
+		ref, e := promotions.CheckMergeTx(ctx, tx, org, repo, snapshot, a)
+		if e != nil {
+			return ref, e
+		}
+		return ref, campaigns.CheckMergeTx(ctx, tx, org, repo, snapshot)
+	})
+	app.RegisterCampaigns(campaigns)
+	campaignContext, stopCampaign := context.WithCancel(ctx)
+	campaignDone := make(chan struct{})
+	defer func() { stopCampaign(); <-campaignDone }()
+
 	deliveryContext, stopDelivery := context.WithCancel(ctx)
 	deliveryDone := make(chan struct{})
-	go func() { defer close(deliveryDone); _ = deliveries.Run(deliveryContext) }()
 	defer func() { stopDelivery(); <-deliveryDone }()
 
 	mergeContext, stopMerge := context.WithCancel(ctx)
 	mergeDone := make(chan struct{})
-	go func() { defer close(mergeDone); _ = merges.Run(mergeContext) }()
 	defer func() { stopMerge(); <-mergeDone }()
 	runners.CompletionCheck = repairs.CheckCompletion
 	authority.Register("repair.stage", repairs.CheckStage)
@@ -185,6 +213,10 @@ func run() error {
 	}
 	discoveryContext, stopDiscovery := context.WithCancel(ctx)
 	discoveryDone := make(chan struct{})
+	go func() { defer close(gitopsDone); _ = promotions.Run(gitopsContext) }()
+	go func() { defer close(campaignDone); _ = campaigns.Run(campaignContext) }()
+	go func() { defer close(deliveryDone); _ = deliveries.Run(deliveryContext) }()
+	go func() { defer close(mergeDone); _ = merges.Run(mergeContext) }()
 	go func() { defer close(discoveryDone); _ = discoveries.Run(discoveryContext) }()
 	defer func() { stopDiscovery(); <-discoveryDone }()
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}

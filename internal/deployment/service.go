@@ -8,6 +8,7 @@ import (
 	"errors"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -24,15 +25,17 @@ import (
 )
 
 type Service struct {
-	db          *store.Store
-	auth        *auth.Service
-	connections *connections.Service
-	policies    *policy.Service
-	providers   providers.Client
+	gateMu        sync.RWMutex
+	gateAuthority func(context.Context, pgx.Tx, string, string) error
+	db            *store.Store
+	auth          *auth.Service
+	connections   *connections.Service
+	policies      *policy.Service
+	providers     providers.Client
 }
 
 func New(db *store.Store, identity *auth.Service, connections *connections.Service, policies *policy.Service, providers providers.Client) *Service {
-	return &Service{db, identity, connections, policies, providers}
+	return &Service{db: db, auth: identity, connections: connections, policies: policies, providers: providers}
 }
 func manage(a domain.Actor, repo string) bool {
 	return auth.CanReadRepository(a, repo) && (a.Role == domain.Owner || a.Role == domain.Admin || a.Role == domain.Maintainer)
@@ -276,4 +279,19 @@ func (s *Service) Workflows(ctx context.Context, session auth.Session, org, repo
 		return nil
 	})
 	return result.Workflows, err
+}
+
+func (s *Service) RegisterGateAuthority(check func(context.Context, pgx.Tx, string, string) error) {
+	s.gateMu.Lock()
+	defer s.gateMu.Unlock()
+	s.gateAuthority = check
+}
+func (s *Service) checkGateAuthority(ctx context.Context, tx pgx.Tx, org, gate string) error {
+	s.gateMu.RLock()
+	check := s.gateAuthority
+	s.gateMu.RUnlock()
+	if check != nil {
+		return check(ctx, tx, org, gate)
+	}
+	return nil
 }

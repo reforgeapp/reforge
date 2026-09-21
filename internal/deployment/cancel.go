@@ -49,6 +49,19 @@ func (s *Service) cancel(ctx context.Context, session *auth.Session, org, id str
 		if out.CancelRequested && out.CancelState != "pending" {
 			return nil
 		}
+		if out.Version == expected && out.State == "requested" && out.Native == nil && out.FinishedAt == nil {
+			tag, err := tx.Exec(ctx, `UPDATE deployments SET state='cancelled',cancel_requested=true,cancel_state='confirmed',finished_at=now(),reason='Cancelled before native dispatch',version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2 AND state='requested' AND dispatch_id IS NULL`, org, id)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() == 1 {
+				out, err = operationTx(ctx, tx, org, id)
+				if err != nil {
+					return err
+				}
+				return emit(ctx, tx, org, out.RepositoryID, a.UserID, "deployment.cancelled", id, out.Version, request, map[string]any{"before_dispatch": true})
+			}
+		}
 		if out.Version != expected || out.FinishedAt != nil || out.Native == nil || out.Native.ID == "" || out.State == "healthy" || out.State == "recovered" || out.State == "failed" || out.State == "recovery_failed" || out.State == "cancelled" || out.State == "blocked" {
 			return auth.ErrConflict
 		}

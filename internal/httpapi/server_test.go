@@ -18,6 +18,7 @@ func TestIntegratedRouteRegistration(t *testing.T) {
 	s.RegisterWorkflow(nil)
 	s.RegisterBudget(nil)
 	s.RegisterInsights(nil)
+	s.RegisterCampaigns(nil)
 	s.RegisterRunner(nil)
 	s.RegisterPrivateConnector(nil)
 	s.RegisterInventory(nil)

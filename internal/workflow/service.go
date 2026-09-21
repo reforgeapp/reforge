@@ -16,11 +16,12 @@ import (
 )
 
 type Service struct {
-	db         *store.Store
-	auth       *auth.Service
-	policy     PolicyCheck
-	scopeMu    sync.RWMutex
-	scopeCheck ScopeCheck
+	db            *store.Store
+	auth          *auth.Service
+	policy        PolicyCheck
+	scopeMu       sync.RWMutex
+	scopeCheck    ScopeCheck
+	campaignCheck func(context.Context, pgx.Tx, Task) error
 }
 
 func New(db *store.Store, identity *auth.Service, policy PolicyCheck) *Service {
@@ -46,6 +47,17 @@ func (s *Service) checkPolicy(ctx context.Context, tx pgx.Tx, t Task, action str
 	if s.policy == nil {
 		return "", ErrPolicy
 	}
+	if t.CampaignID != "" && action != "enqueue" {
+		s.scopeMu.RLock()
+		check := s.campaignCheck
+		s.scopeMu.RUnlock()
+		if check == nil {
+			return "", ErrPolicy
+		}
+		if err := check(ctx, tx, t); err != nil {
+			return "", err
+		}
+	}
 	hash, err := s.policy(ctx, tx, t, action)
 	if err != nil || hash == "" {
 		return "", ErrPolicy
@@ -69,6 +81,9 @@ func lockOrg(ctx context.Context, tx pgx.Tx, orgID string) error {
 }
 
 func (s *Service) Enqueue(ctx context.Context, session auth.Session, orgID string, in EnqueueInput, requestID string) (Task, error) {
+	if in.CampaignID != "" {
+		return Task{}, auth.ErrInvalid
+	}
 	return s.EnqueuePrepared(ctx, session, orgID, in, requestID, nil)
 }
 

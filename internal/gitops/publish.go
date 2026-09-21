@@ -47,6 +47,9 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 		if !g.ExpiresAt.After(time.Now()) || g.Decision.Outcome != "allow" || len(g.Blockers) > 0 || !source.ValidSHA(g.TargetSHA, "sha1") || len(g.PatchedManifest) == 0 {
 			return auth.ErrConflict
 		}
+		if e = s.checkGateAuthority(ctx, tx, org, g.ID); e != nil {
+			return e
+		}
 		if e = s.currentTx(ctx, tx, org, g, ""); e != nil {
 			return e
 		}
@@ -145,6 +148,9 @@ func (s *Service) dispatch(ctx context.Context, session auth.Session, org string
 		}
 		if c.ID != g.DeliveryConnectionID {
 			return auth.ErrForbidden
+		}
+		if e = s.checkGateAuthority(ctx, tx, org, g.ID); e != nil {
+			return e
 		}
 		if e = s.currentTx(ctx, tx, org, g, c.ID); e != nil {
 			return e

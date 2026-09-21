@@ -58,3 +58,9 @@ button, input { font: inherit; } button { cursor: pointer; } button:disabled { c
   max-width: 100%;
   overflow: auto;
 }
+
+.campaigns-page .state-card { display: block; min-width: 0; }
+.campaigns-page fieldset { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 1rem; }
+.campaigns-page pre { overflow: auto; max-width: 100%; }
+.campaigns-page code, .campaigns-page dd, .campaigns-page li { overflow-wrap: anywhere; }
+.campaigns-page input, .campaigns-page select, .campaigns-page textarea { max-width: 100%; min-width: 0; }

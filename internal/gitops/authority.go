@@ -132,6 +132,9 @@ func (s *Service) CheckMergeTx(ctx context.Context, tx pgx.Tx, org, repo string,
 	if op.CancelRequested || op.State != "awaiting_merge" || op.Change == nil || op.Change.ID != snapshot.Change.ID || op.CandidateSHA != snapshot.Change.HeadSHA || g.TargetSHA != snapshot.Change.TargetSHA || snapshot.Change.Repository != g.Delivery || snapshot.Change.HeadRepository != g.Delivery || snapshot.Change.TargetRepository != g.Delivery || snapshot.Change.TargetBranch != g.Configuration.TargetBranch {
 		return "", auth.ErrConflict
 	}
+	if err = s.checkGateAuthority(ctx, tx, org, g.ID); err != nil {
+		return "", &mergecontrol.AuthorityBlocker{Reason: "Campaign is paused or its authority changed; review the campaign before merging"}
+	}
 	if err = originalAuthority(ctx, tx, org, op.RequestedBy, op.SourceRepositoryID, op.DeliveryRepositoryID); err != nil {
 		return "", err
 	}

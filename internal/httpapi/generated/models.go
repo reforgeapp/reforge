@@ -2,8 +2,6 @@ package generated
 
 import (
 	"time"
-
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -66,6 +64,57 @@ func (e BudgetLimitInputPeriod) Valid() bool {
 	case BudgetLimitInputPeriodDaily:
 		return true
 	case BudgetLimitInputPeriodMonthly:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	ContinueCurrentStage CampaignControlInputStageDecision = "continue_current_stage"
+)
+
+func (e CampaignControlInputStageDecision) Valid() bool {
+	switch e {
+	case ContinueCurrentStage:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	CampaignInputKindGitops   CampaignInputKind = "gitops"
+	CampaignInputKindPipeline CampaignInputKind = "pipeline"
+	CampaignInputKindRepair   CampaignInputKind = "repair"
+)
+
+func (e CampaignInputKind) Valid() bool {
+	switch e {
+	case CampaignInputKindGitops:
+		return true
+	case CampaignInputKindPipeline:
+		return true
+	case CampaignInputKindRepair:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	CampaignInputSuccessHealthy   CampaignInputSuccess = "healthy"
+	CampaignInputSuccessMerged    CampaignInputSuccess = "merged"
+	CampaignInputSuccessPublished CampaignInputSuccess = "published"
+)
+
+func (e CampaignInputSuccess) Valid() bool {
+	switch e {
+	case CampaignInputSuccessHealthy:
+		return true
+	case CampaignInputSuccessMerged:
+		return true
+	case CampaignInputSuccessPublished:
 		return true
 	default:
 		return false
@@ -795,7 +844,7 @@ type BotRevalidation struct {
 	ObservedAt  *time.Time           `json:"observed_at"`
 	Reason      string               `json:"reason"`
 	State       BotRevalidationState `json:"state"`
-	TaskId      openapi_types.UUID   `json:"task_id"`
+	TaskId      string               `json:"task_id"`
 }
 type BotRevalidationState string
 type BudgetAmount struct {
@@ -899,6 +948,104 @@ type BudgetScopeSnapshot struct {
 	PeriodStart time.Time   `json:"period_start"`
 	Scope       BudgetScope `json:"scope"`
 	Version     int64       `json:"version"`
+}
+type Campaign struct {
+	Counts         CampaignCounts `json:"counts"`
+	CreatedAt      time.Time      `json:"created_at"`
+	GrantExpiresAt time.Time      `json:"grant_expires_at"`
+	Id             string         `json:"id"`
+	Kind           string         `json:"kind"`
+	Name           string         `json:"name"`
+	ObservingSince *time.Time     `json:"observing_since,omitempty"`
+	Reason         string         `json:"reason"`
+	RequestedBy    string         `json:"requested_by"`
+	Spec           CampaignInput  `json:"spec"`
+	Stage          int            `json:"stage"`
+	State          string         `json:"state"`
+	UpdatedAt      time.Time      `json:"updated_at"`
+	Version        int64          `json:"version"`
+}
+type CampaignControlInput struct {
+	Reason        string                             `json:"reason"`
+	StageDecision *CampaignControlInputStageDecision `json:"stage_decision,omitempty"`
+}
+type CampaignControlInputStageDecision string
+type CampaignCounts struct {
+	Excluded  int `json:"excluded"`
+	Failed    int `json:"failed"`
+	Pending   int `json:"pending"`
+	Running   int `json:"running"`
+	Succeeded int `json:"succeeded"`
+	Total     int `json:"total"`
+	Unknown   int `json:"unknown"`
+}
+type CampaignCreateInput struct {
+	IdempotencyKey string `json:"idempotency_key"`
+	PreviewId      string `json:"preview_id"`
+}
+type CampaignInput struct {
+	BatchSize          int                   `json:"batch_size"`
+	CanaryIds          []string              `json:"canary_ids"`
+	CanarySize         int                   `json:"canary_size"`
+	Concurrency        int                   `json:"concurrency"`
+	FailureLimit       int                   `json:"failure_limit"`
+	FailurePercent     int                   `json:"failure_percent"`
+	Kind               CampaignInputKind     `json:"kind"`
+	Members            []CampaignMemberInput `json:"members"`
+	Name               string                `json:"name"`
+	NotBefore          *time.Time            `json:"not_before,omitempty"`
+	ObservationSeconds int64                 `json:"observation_seconds"`
+	Selection          string                `json:"selection"`
+	Success            CampaignInputSuccess  `json:"success"`
+	Windows            []CampaignWindow      `json:"windows"`
+}
+type CampaignInputKind string
+type CampaignInputSuccess string
+type CampaignMember struct {
+	ActionId       *string             `json:"action_id,omitempty"`
+	Canary         bool                `json:"canary"`
+	Group          string              `json:"group"`
+	Halt           bool                `json:"halt"`
+	Id             string              `json:"id"`
+	Input          CampaignMemberInput `json:"input"`
+	Pins           map[string]string   `json:"pins"`
+	Reason         string              `json:"reason"`
+	Repositories   []string            `json:"repositories"`
+	RepositoryId   string              `json:"repository_id"`
+	RepositoryName string              `json:"repository_name"`
+	Stage          int                 `json:"stage"`
+	State          string              `json:"state"`
+	SucceededAt    *time.Time          `json:"succeeded_at,omitempty"`
+}
+type CampaignMemberInput struct {
+	Environment  *string                 `json:"environment,omitempty"`
+	Gitops       *GitOpsPreviewInput     `json:"gitops,omitempty"`
+	Pipeline     *DeploymentPreviewInput `json:"pipeline,omitempty"`
+	Repair       *RepairInput            `json:"repair,omitempty"`
+	RepositoryId string                  `json:"repository_id"`
+}
+type CampaignMemberPage struct {
+	Complete   bool             `json:"complete"`
+	Items      []CampaignMember `json:"items"`
+	NextCursor *string          `json:"next_cursor,omitempty"`
+}
+type CampaignPage struct {
+	Complete   bool       `json:"complete"`
+	Items      []Campaign `json:"items"`
+	NextCursor *string    `json:"next_cursor,omitempty"`
+}
+type CampaignPreview struct {
+	Blockers  []string         `json:"blockers"`
+	ExpiresAt time.Time        `json:"expires_at"`
+	Hash      string           `json:"hash"`
+	Id        string           `json:"id"`
+	Input     CampaignInput    `json:"input"`
+	Members   []CampaignMember `json:"members"`
+}
+type CampaignWindow struct {
+	EndMinute   int   `json:"end_minute"`
+	StartMinute int   `json:"start_minute"`
+	Weekdays    []int `json:"weekdays"`
 }
 type Capability struct {
 	LastChecked time.Time       `json:"last_checked"`
@@ -2235,6 +2382,37 @@ type PutBudgetParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
+type PreviewCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type ListCampaignsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	State  *string `form:"state,omitempty" json:"state,omitempty"`
+}
+type CreateCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ListCampaignMembersParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type PauseCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type ResumeCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
+type StartCampaignParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	IfMatch    string `json:"If-Match"`
+}
 type ListConnectionsParams struct {
 	Kind   *string `form:"kind,omitempty" json:"kind,omitempty"`
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -2588,6 +2766,12 @@ type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
 type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
+type PreviewCampaignJSONRequestBody = CampaignInput
+type CreateCampaignJSONRequestBody = CampaignCreateInput
+type CancelCampaignJSONRequestBody = CampaignControlInput
+type PauseCampaignJSONRequestBody = CampaignControlInput
+type ResumeCampaignJSONRequestBody = CampaignControlInput
+type StartCampaignJSONRequestBody = CampaignControlInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
 type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
 type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate

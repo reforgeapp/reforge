@@ -81,6 +81,63 @@ type BudgetSpend struct {
 	Amount      []byte             `json:"amount"`
 }
 
+type Campaign struct {
+	OrgID              pgtype.UUID        `json:"org_id"`
+	ID                 pgtype.UUID        `json:"id"`
+	PreviewID          pgtype.UUID        `json:"preview_id"`
+	IdempotencyKey     string             `json:"idempotency_key"`
+	RequestedBy        pgtype.UUID        `json:"requested_by"`
+	RequestedSessionID pgtype.UUID        `json:"requested_session_id"`
+	GrantExpiresAt     pgtype.Timestamptz `json:"grant_expires_at"`
+	Spec               []byte             `json:"spec"`
+	Name               string             `json:"name"`
+	Kind               string             `json:"kind"`
+	State              string             `json:"state"`
+	Reason             string             `json:"reason"`
+	Version            int64              `json:"version"`
+	Stage              int32              `json:"stage"`
+	ObservingSince     pgtype.Timestamptz `json:"observing_since"`
+	ObserveDue         pgtype.Timestamptz `json:"observe_due"`
+	ControllerID       pgtype.UUID        `json:"controller_id"`
+	ControllerUntil    pgtype.Timestamptz `json:"controller_until"`
+	CreatedAt          pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt          pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CampaignMember struct {
+	OrgID           pgtype.UUID        `json:"org_id"`
+	CampaignID      pgtype.UUID        `json:"campaign_id"`
+	ID              pgtype.UUID        `json:"id"`
+	RepositoryID    pgtype.UUID        `json:"repository_id"`
+	Document        []byte             `json:"document"`
+	State           string             `json:"state"`
+	Reason          string             `json:"reason"`
+	Stage           int32              `json:"stage"`
+	ActionID        pgtype.UUID        `json:"action_id"`
+	GateID          pgtype.UUID        `json:"gate_id"`
+	SucceededAt     pgtype.Timestamptz `json:"succeeded_at"`
+	Halt            bool               `json:"halt"`
+	StopComplete    bool               `json:"stop_complete"`
+	ResumeRequested bool               `json:"resume_requested"`
+	ObserveDue      pgtype.Timestamptz `json:"observe_due"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CampaignPreview struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ID          pgtype.UUID        `json:"id"`
+	RequestedBy pgtype.UUID        `json:"requested_by"`
+	Document    []byte             `json:"document"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+}
+
+type CampaignRepositoryScope struct {
+	OrgID        pgtype.UUID `json:"org_id"`
+	CampaignID   pgtype.UUID `json:"campaign_id"`
+	RepositoryID pgtype.UUID `json:"repository_id"`
+}
+
 type Connection struct {
 	OrgID             pgtype.UUID        `json:"org_id"`
 	ID                pgtype.UUID        `json:"id"`
