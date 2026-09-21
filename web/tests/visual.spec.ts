@@ -26,8 +26,13 @@ test.describe('T29 visual captures', () => {
       const file = `${route}-${width}.png`
       await page.screenshot({ path: join(outDir, file), fullPage: true })
       const title = await page.locator('h1').first().innerText().catch(() => '')
+      const titles = await page.locator('h1').count()
+      const toolbars = await page.locator('.repository-toolbar').count()
+      const cardHeadings = await page.locator('.state-card h2').count()
       const tables = await page.locator('table').count()
-      captures.push({ route, viewport: `${width}x${height}`, title, tables, file, captured_at: new Date().toISOString() })
+      if (titles !== 1) throw new Error(`${route} must have exactly one page title, found ${titles}`)
+      if (toolbars > 1) throw new Error(`${route} must have at most one primary toolbar, found ${toolbars}`)
+      captures.push({ route, viewport: `${width}x${height}`, title, titles, toolbars, card_headings: cardHeadings, tables, file, captured_at: new Date().toISOString() })
     }
     const metadata = { product: meta.name ?? 'Reforge', version: meta.version ?? 'unknown', edition: meta.edition ?? 'unknown', development: meta.development ?? false, browser: browser.browserType().name(), browser_version: browser.version(), runtime, route_count: routes.length, captures }
     writeFileSync(join(outDir, 'metadata.json'), JSON.stringify(metadata, null, 2))
