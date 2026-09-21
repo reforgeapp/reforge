@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net"
 	"net/http"
@@ -100,7 +101,7 @@ func New(ctx context.Context, db *store.Store, cfg Config) (*Service, error) {
 		}
 		provider, err := oidc.NewProvider(oidc.ClientContext(ctx, s.httpClient), cfg.OIDCIssuer)
 		if err != nil {
-			return nil, errors.New("OIDC discovery failed")
+			return nil, fmt.Errorf("OIDC discovery failed: %w", err)
 		}
 		s.verifier = provider.Verifier(&oidc.Config{ClientID: cfg.OIDCClientID})
 		s.oauth = oauth2.Config{ClientID: cfg.OIDCClientID, ClientSecret: cfg.OIDCClientSecret, Endpoint: provider.Endpoint(), RedirectURL: cfg.PublicURL + "/auth/callback", Scopes: []string{oidc.ScopeOpenID, "profile", "email"}}

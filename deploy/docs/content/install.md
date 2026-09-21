@@ -65,6 +65,19 @@ See [Security model](security.md) for credential custody, egress rules and the r
 trust boundary, and [Support matrix and limitations](support-matrix.md) for what is
 certified in this build.
 
+## Local non-development verification
+
+`make install-check` (`scripts/install-check.sh`) runs the real non-development
+configuration without fixture authentication against a disposable local OIDC issuer and a
+local CA/TLS proxy. It creates and migrates a scratch database, starts the control plane
+with an HTTPS public origin, verifies `/readyz`, the production `/api/v1/meta`, the OIDC
+redirect, the full authorization-code login and the resulting session, then optionally
+repeats the login in a browser. It needs a superuser maintenance URL, migration and
+runtime URLs for the scratch database, the operator encryption key and PostgreSQL client
+binaries. This is a verification harness that uses host Go; the supported install remains
+the container build. It proves local production-mode startup and OIDC login, not customer
+OIDC or hosted cluster certification.
+
 ## Hosted GitOps reference
 
 `deploy/gitops` is a versioned reference for deploying the control plane from a GitOps
