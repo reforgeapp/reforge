@@ -99,6 +99,7 @@ func OfficialSupportMatrix() map[string]domain.Capability {
 	return map[string]domain.Capability{
 		"codex":  disabledFeature("managed app-server bridge implemented; no deployment certified", "qualify pinned runtime, account custody, native tool containment, entitlement, quota, terms and topology"),
 		"claude": disabledFeature("official binary hosting and custom subscription SDK integrations have different permission requirements", "retain unmodified binary and native authentication; confirm deployment terms and certify pre-effect isolation before adding a bridge"),
+		"agy":    disabledFeature("Google Antigravity CLI is a distinct runtime from Gemini CLI; no bridge activated", "qualify the pinned agy headless protocol, account custody, pre-effect approval and container isolation for the exact deployment topology"),
 		"gemini": disabledFeature("headless authentication does not qualify unattended hosted subscription use", "confirm customer plan and deployment permission; certify official binary isolation without extracting CLI OAuth credentials"),
 	}
 }

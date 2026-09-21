@@ -7,6 +7,24 @@ import (
 	"testing"
 )
 
+func TestOfficialAgentProvidersAreDistinct(t *testing.T) {
+	base := CreateRequest{Kind: "agent", Name: "runtime", Endpoint: "https://runtime.example", Settings: Settings{AuthKind: "official_runtime", BillingRoute: "subscription"}}
+	for _, provider := range []string{"codex", "claude_code", "agy", "gemini_cli"} {
+		request := base
+		request.Provider = provider
+		if !validSetup(request) {
+			t.Fatalf("provider %q should be accepted for an official agent connection", provider)
+		}
+	}
+	for _, provider := range []string{"gemini", "antigravity", "codex_cli", ""} {
+		request := base
+		request.Provider = provider
+		if validSetup(request) {
+			t.Fatalf("provider %q must not be accepted", provider)
+		}
+	}
+}
+
 func TestWriteOnlyCredential(t *testing.T) {
 	const secret = "credential-must-never-be-emitted"
 	var input CreateRequest

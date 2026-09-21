@@ -35,6 +35,7 @@ A native turn may contain multiple internal model requests. `MaxTurns=1` does no
 | Codex managed app-server | Bridge implemented; no production deployment qualified | Exact customer account/runtime/model binding, isolated custody and native tools, entitlement, terms, topology, quota and no paid overage |
 | Claude Code official binary | Disabled; no bridge activated | Unmodified binary and native user authentication, direct end-user billing, applicable commercial conditions, and proved pre-effect isolation |
 | Claude Agent SDK subscription login | Disabled | Explicit provider permission for the intended third-party product; API-backed adapters remain a separate billing route |
+| Google Antigravity CLI `agy` | Disabled; no bridge activated | `agy` is a distinct runtime from Gemini CLI. Pinned headless protocol, account custody, pre-effect approval and container isolation for the exact topology |
 | Gemini CLI official binary | Disabled; no bridge activated | Customer plan/deployment permission, official login custody and proved pre-effect isolation |
 | Direct use of CLI OAuth credentials | Unsupported | Never extract, store or reuse CLI session tokens in model adapters |
 

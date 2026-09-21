@@ -94,7 +94,7 @@ func validSetup(r CreateRequest) bool {
 		}
 		return r.Secret != "" || r.Provider == "compatible"
 	case "agent":
-		return (r.Provider == "codex" || r.Provider == "claude_code" || r.Provider == "gemini_cli") && r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == ""
+		return (r.Provider == "codex" || r.Provider == "claude_code" || r.Provider == "agy" || r.Provider == "gemini_cli") && r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == ""
 	default:
 		return false
 	}
