@@ -207,13 +207,21 @@ func (s *Service) Get(ctx context.Context, session auth.Session, orgID, id strin
 	})
 	return result, err
 }
-func (s *Service) List(ctx context.Context, session auth.Session, orgID string, limit int, cursor string) (domain.Page[Task], error) {
+func validTaskState(state string) bool {
+	switch domain.TaskState(state) {
+	case "", domain.TaskQueued, domain.TaskReproducing, domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating, domain.TaskPublishing, domain.TaskCompleted, domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelling, domain.TaskCancelled, domain.TaskReconciling:
+		return true
+	}
+	return false
+}
+
+func (s *Service) List(ctx context.Context, session auth.Session, orgID, state string, limit int, cursor string) (domain.Page[Task], error) {
 	page := domain.Page[Task]{Items: []Task{}}
-	if limit < 1 || limit > 200 || (cursor != "" && !auth.ValidID(cursor)) {
+	if limit < 1 || limit > 200 || (cursor != "" && !auth.ValidID(cursor)) || !validTaskState(state) {
 		return page, auth.ErrInvalid
 	}
 	err := s.auth.WithActor(ctx, session, orgID, func(tx pgx.Tx, a domain.Actor) error {
-		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id::text>$2 AND ($3 OR repository_id::text=ANY($4::text[])) ORDER BY id LIMIT $5`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, limit+1)
+		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id::text>$2 AND ($3 OR repository_id::text=ANY($4::text[])) AND ($5='' OR state=$5) ORDER BY id LIMIT $6`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, state, limit+1)
 		if err != nil {
 			return err
 		}

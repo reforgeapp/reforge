@@ -5485,6 +5485,7 @@ export interface operations {
             query?: {
                 cursor?: string;
                 limit?: number;
+                state?: string;
             };
             header?: never;
             path: {

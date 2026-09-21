@@ -18,9 +18,10 @@ const path = (orgID: string, suffix: string) => '/api/v1/orgs/' + encodeURICompo
 const tag = (version: number) => '"' + version + '"'
 
 export const runsAPI = {
-  tasks: (orgID: string, params: { cursor?: string; limit?: number; signal?: AbortSignal } = {}) => {
+  tasks: (orgID: string, params: { cursor?: string; limit?: number; state?: string; signal?: AbortSignal } = {}) => {
     const query = new URLSearchParams()
     if (params.cursor) query.set('cursor', params.cursor)
+    if (params.state) query.set('state', params.state)
     query.set('limit', String(params.limit ?? 30))
     return apiRequest<TaskPage>(path(orgID, '/tasks?' + query.toString()), { signal: params.signal })
   },

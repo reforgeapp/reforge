@@ -2815,6 +2815,7 @@ type RevokeRunnerParams struct {
 type ListTasksParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int64  `form:"limit,omitempty" json:"limit,omitempty"`
+	State  *string `form:"state,omitempty" json:"state,omitempty"`
 }
 type EnqueueTaskParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`

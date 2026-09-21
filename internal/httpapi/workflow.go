@@ -20,7 +20,7 @@ func (s *Server) RegisterWorkflow(service *workflow.Service) {
 			return
 		}
 		session, _ := SessionFromContext(c)
-		value, err := service.List(c.Request.Context(), session, c.Param("orgID"), limit, cursor)
+		value, err := service.List(c.Request.Context(), session, c.Param("orgID"), c.Query("state"), limit, cursor)
 		if err != nil {
 			workflowFailure(c, err)
 			return
