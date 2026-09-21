@@ -424,3 +424,32 @@ Root sole Astra X-High; max three Luna workers. T22/T23 locally complete; T24 lo
 - Final retained repair run is blocked after the model stopped without a candidate or PR: [b1cca48f-eab5-4ee3-adac-0a7873743926](http://127.0.0.1:8081/org/00000000-0000-4000-8000-000000000001/runs?run=b1cca48f-eab5-4ee3-adac-0a7873743926). No verified repair result is claimed. Earlier successful repair evidence remains historical only.
 - Backend targeted race passed17.740s in `.local/frozen-targeted-race-final.log`, including pre-dispatch cancellation and startup callback ordering review. Harness commit `c110fe4` retained the cleanup/recreate path.
 - T25 remains partial and uncommitted pending fuller review. T16/T17/T26–T28 remain deferred; G5 remains open.
+
+## Solo resume checkpoint — 2026-09-21
+
+- Started from `6ef9025` with uncommitted T25 work and a broken build: generated
+  `internal/httpapi/generated/models.go` imported `github.com/oapi-codegen/runtime/types`
+  but `go.mod` never required it. Root cause was `BotRevalidation.task_id` missing the
+  `x-go-type: string` override every other UUID field carries. Fixed at the schema and
+  regenerated; `make check` now passes. `internal/httpapi/discovery.go` had committed
+  gofmt drift and was corrected separately (`7815b0c`).
+- T25 committed as `9215b9f`. Reviewed the full campaign service, controller, execution,
+  authority and rules source; ran `go test -race ./test/integration/ -run 'Campaign|DeploymentContinue'`
+  and the campaign browser suite (`5 passed`, `.local`). Campaign dispatch reuses existing
+  repair/pipeline/GitOps authority callbacks and a non-serializable automation grant.
+- T29 increment committed as `32c365b`: route header gate (one title, one toolbar, no
+  duplicate eyebrow or generic intro), new scoped Overview aggregate
+  (`GET /api/v1/orgs/{orgID}/overview`) and Organisation team/membership route, on-demand
+  help drawer. Full non-live browser suite `87 passed, 1 skipped`; shell/overview/
+  organisation specs cover keyboard, 390px, axe and real fixture revocation.
+- T30 committed as `3306efd`: versioned/searchable MkDocs site under `deploy/docs`,
+  pinned docs container, `REFORGE_DOCS_URL` meta field and help deep links. `mkdocs build
+  --strict` passes locally with the search index generated.
+- T26 partial committed as `e0713ee`: pinned control-plane/migrator, runner and docs
+  images, Compose stack with PostgreSQL, `.dockerignore`. Image builds are unverified
+  because the Docker daemon is unavailable on this host.
+- Verification: `make check` pass; full `go test -race -count=1 ./test/integration/...`
+  pass 58.956s against disposable PostgreSQL 18.6. No paid provider or customer repo
+  touched.
+- Not implemented: T16/T17 production wiring and qualification GUI, T31 custom command
+  runtime, remaining T26 agent/validation images, T27/T28 qualification. G5 open.
