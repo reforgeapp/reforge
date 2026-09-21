@@ -1,0 +1,9 @@
+.git
+.local
+var
+bin
+web/node_modules
+web/dist
+web/test-results
+web/playwright-report
+deploy/docs/site

@@ -1,0 +1,82 @@
+name: reforge
+
+services:
+  postgres:
+    image: postgres:18.6-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-reforge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB:-reforge}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-reforge}"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  migrator:
+    build:
+      context: ../..
+      dockerfile: deploy/control/Dockerfile
+    command: ["/app/reforge-migrate"]
+    restart: "no"
+    environment:
+      REFORGE_MIGRATION_DATABASE_URL: ${REFORGE_MIGRATION_DATABASE_URL:?set REFORGE_MIGRATION_DATABASE_URL}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  server:
+    build:
+      context: ../..
+      dockerfile: deploy/control/Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${REFORGE_BIND:-127.0.0.1:8080}:8080"
+    environment:
+      REFORGE_ADDRESS: 0.0.0.0:8080
+      REFORGE_PUBLIC_URL: ${REFORGE_PUBLIC_URL:?set REFORGE_PUBLIC_URL}
+      REFORGE_DATABASE_URL: ${REFORGE_DATABASE_URL:?set REFORGE_DATABASE_URL}
+      REFORGE_ENCRYPTION_KEY: ${REFORGE_ENCRYPTION_KEY:?set REFORGE_ENCRYPTION_KEY}
+      REFORGE_ENCRYPTION_KEY_ID: ${REFORGE_ENCRYPTION_KEY_ID:-primary}
+      REFORGE_EDITION: ${REFORGE_EDITION:-self-hosted}
+      REFORGE_DOCS_URL: ${REFORGE_DOCS_URL:-/docs/}
+      REFORGE_OIDC_ISSUER: ${REFORGE_OIDC_ISSUER:-}
+      REFORGE_OIDC_CLIENT_ID: ${REFORGE_OIDC_CLIENT_ID:-}
+      REFORGE_OIDC_CLIENT_SECRET: ${REFORGE_OIDC_CLIENT_SECRET:-}
+      REFORGE_BOOTSTRAP_TOKEN: ${REFORGE_BOOTSTRAP_TOKEN:-}
+      REFORGE_BOOTSTRAP_EXPIRES_AT: ${REFORGE_BOOTSTRAP_EXPIRES_AT:-}
+      REFORGE_KMS_REGION: ${REFORGE_KMS_REGION:-}
+      REFORGE_KMS_KEY_ARN: ${REFORGE_KMS_KEY_ARN:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrator:
+        condition: service_completed_successfully
+
+  docs:
+    build:
+      context: ../docs
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "${REFORGE_DOCS_BIND:-127.0.0.1:8082}:80"
+    environment:
+      DOCS_VERSION: ${REFORGE_VERSION:-dev}
+
+  runner:
+    profiles: ["runner"]
+    build:
+      context: ../..
+      dockerfile: deploy/runner/Dockerfile
+    restart: unless-stopped
+    command: ["run", "--endpoint", "${REFORGE_PUBLIC_URL}", "--credentials", "/runner/credentials", "--runtime-config", "/runner/runtime-config.json"]
+    volumes:
+      - ${REFORGE_RUNNER_DIR:?set REFORGE_RUNNER_DIR}:/runner:ro
+    depends_on:
+      - server
+
+volumes:
+  pgdata:
