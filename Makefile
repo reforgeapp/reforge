@@ -5,7 +5,7 @@ export GOPATH ?= /tmp/reforge-go
 export GOTOOLCHAIN := auto
 GO := go
 
-.PHONY: dev generate build check test test-integration test-e2e qualify migrate
+.PHONY: dev generate build check test test-integration test-e2e qualify migrate restore-drill
 
 dev: build
 	bash scripts/dev.sh
@@ -39,3 +39,6 @@ qualify:
 
 migrate:
 	$(GO) run ./cmd/migrate
+
+restore-drill:
+	bash scripts/restore-drill.sh

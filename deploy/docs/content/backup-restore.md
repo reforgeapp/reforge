@@ -23,6 +23,16 @@ Artifacts are stored separately; back them up if run evidence must survive.
 If credentials cannot be decrypted, the restore is incomplete: re-enter the affected
 connection secrets rather than deleting the records.
 
+## Drill
+
+`make restore-drill` (or `scripts/restore-drill.sh`) dumps a source database, restores it
+into a scratch database and verifies the schema, migration count and encryption-key
+recovery. It needs `REFORGE_DRILL_SOURCE_URL`, a superuser `REFORGE_DRILL_ADMIN_DB`, a
+scratch `REFORGE_DRILL_TARGET_URL`, the backed-up `REFORGE_ENCRYPTION_KEY`, and PostgreSQL
+client binaries on `REFORGE_DRILL_PG_BIN`. Run it against a disposable copy, never
+production. A successful drill restores the schema and decrypts a sealed envelope; it does
+not prove provider credentials still work, which needs a live connection test.
+
 ## Retention
 
 Audit and artifact retention are operator settings. Export audit to durable storage before
