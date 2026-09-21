@@ -107,9 +107,17 @@ Solo resume session (`2026-09-21`, commits `5dd6b5b`…`fb9f081`):
   findings/policies/usage/audit/runners. Caught and fixed a real 14px topbar overflow and
   an unlabelled scrollable table region.
 - Full browser suite `npx playwright test --grep-invert live` against `127.0.0.1:8080` —
-  `92 passed, 2 skipped` (62s total across the resume runs).
+  final `93 passed, 2 skipped`.
 - Targeted regression subset (`insights`, `repositories`, `organisation`, `connections`)
   — 15 passed after the card-heading removal.
+- `go test -count=1 ./...` with the disposable test database — exit 0 (no failures).
+- `make check` (gofmt, `go vet ./...`, frontend build, generation drift) — exit 0.
+- T31 real container protocol:
+  `REFORGE_TEST_DOCKER=1 go test -race -count=1 -run TestRealContainerProfileProtocol ./internal/customcmd/`
+  — pass `3.882s`.
+- T16 agent qualification integration
+  `go test -count=1 -run TestAgentQualificationGatesCapabilities ./test/integration/` —
+  pass `0.599s`.
 
 Not run: hosted sandbox isolation, live provider certification, full non-development
 Compose install (no OIDC/HTTPS origin supplied).
