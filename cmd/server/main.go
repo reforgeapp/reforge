@@ -88,7 +88,16 @@ func run() error {
 	app.RegisterConnections(connectionService)
 	qualifications := agent.NewQualificationService(db, identity)
 	app.RegisterAgentQualification(qualifications, connectionService)
-	agentLauncher := agent.NewCommandLauncher(agent.CommandConfig{Executable: os.Getenv("REFORGE_AGENT_RUNTIME"), Args: []string{"app-server"}})
+	agentLauncher := agent.NewCommandLauncher(agent.CommandConfig{Executable: os.Getenv("REFORGE_AGENT_RUNTIME"), Args: []string{"app-server"}, ExpectedSHA256: os.Getenv("REFORGE_AGENT_RUNTIME_SHA256")})
+	if image := os.Getenv("REFORGE_AGENT_RUNTIME_IMAGE"); image != "" {
+		executable := os.Getenv("REFORGE_AGENT_RUNTIME_EXECUTABLE")
+		if executable == "" {
+			executable = "/app/codex"
+		}
+		if container := agent.NewContainerLauncher(agent.ContainerConfig{Image: image, Executable: executable, Args: []string{"app-server"}}); container != nil {
+			agentLauncher = container
+		}
+	}
 	app.RegisterAgentAuth(agent.NewAuthService(db, identity, connectionService, qualifications, agent.NewFactory(agentLauncher, nil)))
 	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
 	if cfg.PolicyFile != "" {

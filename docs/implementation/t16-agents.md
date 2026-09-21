@@ -43,6 +43,25 @@ The matrix distinguishes documented binary-hosting conditions from an authorizat
 
 Official sources checked: [Codex app-server](https://learn.chatgpt.com/docs/app-server), [Codex authentication](https://learn.chatgpt.com/docs/auth), [Claude Code legal and compliance](https://code.claude.com/docs/en/legal-and-compliance), [Claude Agent SDK](https://code.claude.com/docs/en/agent-sdk/overview), [Gemini CLI terms](https://geminicli.com/docs/resources/tos-privacy/) and [Gemini CLI authentication](https://geminicli.com/docs/get-started/authentication/). Protocol field checks use the installed 0.150.1 experimental schema, not assumptions from a newer documentation example.
 
+## Runtime delivery (2026-09-22)
+
+The controller now owns a launcher factory rather than an unspecified operator
+executable. Two launchers are implemented and unit-tested:
+
+- `agent.NewCommandLauncher` runs an absolute host binary and, when
+  `REFORGE_AGENT_RUNTIME_SHA256` is set, refuses to start it unless the file digest
+  matches.
+- `agent.NewContainerLauncher` runs a digest-pinned image (`repo/name@sha256:...`) with no
+  network, a read-only root, a tmpfs and a non-root user; mutable tags, relative
+  executables and credential-shaped environment variables are rejected.
+
+`cmd/server` selects the container launcher when `REFORGE_AGENT_RUNTIME_IMAGE` is set,
+otherwise the host launcher when `REFORGE_AGENT_RUNTIME` is set, otherwise no launcher.
+With no launcher, managed login/logout and turns fail closed with `agent_runtime_disabled`.
+The launcher is a delivery and digest-integrity boundary, not hosted tenant isolation;
+hosted execution still requires the runner host namespace/cgroup boundary. Account
+entitlement, live login and isolation certification remain externally gated.
+
 ## Validation
 
 Race-enabled JSONL subprocess fixtures cover pre-effect durable claims, broker-only execution, declined native approvals, post-effect/false-callback rejection, traversal and unknown tools, premature terminal messages, native cancellation, resume without replay, quota/billing distinction, account-binding rejection and explicit managed login/logout. These fixtures do not certify provider entitlement or isolation.

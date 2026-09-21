@@ -37,6 +37,25 @@ changing the connection binding disables it again.
 A feature check does not certify the runtime itself: the runtime entry stays
 `unsupported` until a qualified deployment binding exists for it.
 
+## Runtime delivery
+
+Reforge ships the bridge, custody checks and managed login/logout; the official runtime
+binary or image is supplied by the operator. Configure one of:
+
+- `REFORGE_AGENT_RUNTIME_IMAGE` — a container reference pinned by digest
+  (`repo/name@sha256:...`). The runtime runs with no network, a read-only root, a small
+  tmpfs and a non-root user. `REFORGE_AGENT_RUNTIME_EXECUTABLE` selects the executable
+  inside the image (default `/app/codex`).
+- `REFORGE_AGENT_RUNTIME` — an absolute host binary path, optionally pinned with
+  `REFORGE_AGENT_RUNTIME_SHA256`. Reforge refuses to start a binary whose digest does not
+  match.
+
+Neither launcher passes provider keys, user authentication variables or shell
+initialisation to the runtime, and no credential is baked into an image. A container is
+not hosted tenant isolation: hosted untrusted execution still requires the runner host
+namespace/cgroup boundary described in [Security model](security.md). With no launcher
+configured, every official runtime stays disabled and login/logout are refused.
+
 ## Approval and cancellation
 
 An approval request must be intercepted before the effect, not inferred from a
