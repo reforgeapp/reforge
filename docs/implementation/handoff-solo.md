@@ -44,7 +44,13 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `a68e1f2` | T28 support matrix: custom profile limits and verification identity |
 | `e28eea3` | T27/T29 handoff evidence |
 | `5ebc8e5` | T28 dependency and notice inventory refresh |
-| final HEAD | `5ebc8e5` (see `git log`) |
+| `442b4ee` | T31 custom profile output advances to validated repair |
+| `fb6d67a` | T29 visual-review fixes (duplicate titles, budget group) |
+| `70208d3` | T26 non-development install with local OIDC/TLS |
+| `300391f` | T28 control-plane scale harness |
+| `9486b9d` | T27 reproducible sandbox hostile corpus target |
+| `e385a49` | T16 digest-pinned runtime delivery |
+| final HEAD | `e385a49` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -58,15 +64,15 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 
 | Ticket | Status | Notes |
 | --- | --- | --- |
-| T25 | local complete | Committed. Campaign controller/authority/execution reviewed; PG race and browser suites pass. External native-provider campaign acceptance not run. |
-| T29 | partial | Header gate, Overview (portfolio + capacity), Runs (server-side state filter), Changes and Deployments work surfaces rebuilt; Organisation connected; visual capture harness stores route/runtime metadata. Findings/Policies/Usage/Audit/Runners/Repositories consistency pass and approved baselines remain. |
-| T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search. |
-| T26 | partial | Control/migrator/runner/docs images, Compose install, hosted GitOps reference manifests (`deploy/gitops`) and a scripted encrypted restore drill. Full non-development install acceptance and the agent runtime image remain; both need an OIDC/HTTPS origin and an operator-supplied isolated runtime. |
-| T16 | partial | Agent qualification, distinct `agy` provider, a runtime launcher factory and managed official login/logout behind owner/admin authority, current qualification, a durable audit claim and fail-closed disabled states. The default launcher stays unconfigured until an operator supplies an isolated runtime path; no live account/entitlement evidence. |
-| T17 | partial | Agent qualification flow in Connections. Forge/model/runner qualification flows largely pre-existed; SaaS/OSS qualification matrix still incomplete. |
-| T29 | partial | All 13 routes pass a machine-enforced one-title/one-toolbar/390px/axe gate; populated and actionable error captures exist for every route with route/runtime metadata; repeated card headings and generic intros removed across the rebuilt routes. Remaining: human review of the captured baselines and explicit blocked/stale capture coverage. |
-| T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, and controller-to-runner dispatch: a repair binds a profile through a `custom_command` agent connection and quota route; the controller revalidates task fence, policy, profile approval/version/digest and concurrency, commits a durable budget reservation and run row, the runner executes the profile in its sandbox and reports state/usage, and revocation fences later dispatches. The v1 protocol is a single bounded invocation, so `max_turns` is declared and validated but not looped; a profile run records `handoff`, never a validated repair. |
-| T27/T28 | not started | Qualification and release handoff outstanding. |
+| T16 | partial (externally gated) | Agent qualification, distinct `agy` provider, runtime launcher factory, digest-pinned host/container runtime delivery, and managed official login/logout behind owner/admin authority, current qualification, a durable audit claim and fail-closed disabled states. Live account/entitlement and hosted isolation evidence remain external. |
+| T17 | partial | Connection/agent qualification GUI is backend-connected and shows disabled reasons. Forge/model/runner qualification flows pre-existed; live SaaS/OSS probe evidence remains external. |
+| T25 | local complete | Campaign controller/authority/execution reviewed; PG race and browser suites pass. External native-provider campaign acceptance not run. |
+| T26 | partial (externally gated) | Control/migrator/runner/docs images, Compose install, hosted GitOps reference (`deploy/gitops`), encrypted restore drill, and a non-development install check with local OIDC/TLS (fixture auth disabled, browser login verified). Hosted cluster/customer OIDC certification remains external. |
+| T27 | partial | Integrated race suite over isolation/concurrency/recovery passes; reproducible gVisor hostile corpus (traversal, symlink, corrupt fetch, cancellation) passes locally; 10,000-repo import, 50-session and 100-claim load harness recorded. Hosted cgroup-enforced isolation and live-provider certification remain external. |
+| T28 | partial | Support matrix, verification identity, dependency/notice inventory, restore/install/GitOps limits and the scale harness are recorded. Final release sign-off, licence review of remaining "review required" transitive dependencies and hosted certification remain. |
+| T29 | partial (agent-reviewed) | All 13 routes pass a machine-enforced one-title/one-toolbar/390px/axe gate; populated and actionable error captures exist for every route with route/runtime metadata; repeated card headings, duplicate table titles and generic intros removed; budget group labelled; on-demand help linked per route. Baselines are agent-reviewed, not human-approved. Remaining: blocked/stale capture coverage. |
+| T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search; every route links contextual help. |
+| T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, controller-to-runner dispatch with durable budget reservation and revocation fencing, and end-to-end advancement: a `completed_unverified` profile run has its changed source extracted and passed through the frozen baseline/candidate/target checks, then staged and published by the existing processor. Turn events are bounded by `max_turns`; exit 0 alone never publishes. |
 
 ## Architecture decisions
 
@@ -152,8 +158,31 @@ Solo resume session (`2026-09-21`, commits `5dd6b5b`…`fb9f081`):
   gate violations.
 - `mkdocs build --strict` after the support-matrix update — pass.
 
-Not run: hosted sandbox isolation, live provider certification, full non-development
-Compose install (no OIDC/HTTPS origin supplied).
+Acceptance continuation (`2026-09-22`, commits `442b4ee`…`e385a49`):
+
+- T31 end-to-end: `TestValidateCustomRequiresBaselineAndTarget`, `TestCustomProfilePatchExtraction`
+  and `TestTurnBudgetIsEnforced` pass; the custom path now extracts changed source, runs the
+  frozen checks and continues to stage/publish.
+- T26 install: `scripts/install-check.sh` (`make install-check`) passes end-to-end against
+  disposable PostgreSQL with a local OIDC issuer and TLS proxy, fixture auth disabled:
+  production `/api/v1/meta`, OIDC redirect, authorization-code login, session and browser
+  login all verified.
+- T27 isolation: `make sandbox-test` passes the real gVisor hostile corpus (traversal,
+  symlink escape, truncated/corrupt fetch, cancellation, development boundary) with the
+  pinned `runsc`.
+- T28 scale: `REFORGE_LOAD=1 go test -run TestControlPlaneLoadTargets ./test/integration/`
+  passes; measured 10,000-repo scan `2.6s`, import `9.8s`, first page/search `5ms`,
+  50-session p50/p95/max `16/19/20ms`, 100 claims `2.0s`.
+- T29 visual review: screenshots opened and inspected; fixed duplicate Overview/Findings/
+  Campaigns titles and labelled the budget group; captures re-generated.
+- T16 runtime delivery: digest-pinned host launcher and digest-pinned container launcher
+  added with unit tests rejecting mutable tags, relative executables and credential env.
+- `make check`, `go test ./...`, full browser suite (`--grep-invert live`) and the
+  integration race suite remain green after these changes.
+
+Not run: hosted cgroup-enforced isolation, live provider/agent-account certification,
+customer OIDC/hosted-cluster install, and the 50-real-browser-session variant of the load
+harness (the harness uses 50 concurrent authenticated HTTP sessions).
 
 ## Running the local stack
 
@@ -282,20 +311,18 @@ V25/V27 not satisfied. G5 remains open.
 
 ### Stopping condition
 
-**Interrupted, not complete.** Neither the normal-finish nor externally-blocked condition
-is met: T27, T28 and T29 retain locally implementable work, T16/T26 retain work that is
-locally complete but externally gated for certification, and no single missing external
-credential is the sole blocker. The next executable actions, in dependency order:
+**Local work not yet exhausted.** Remaining locally implementable work exists, so this is
+not a completion and not an external-only block. The next executable actions, in order:
 
-1. T29: review the captured populated/error baselines and add explicit blocked/stale
-   captures for the route families that can enter those states.
-2. T27: run the hostile-repository corpus on a cgroup-capable host and record the
-   container/clean-install qualification that the current host cannot complete.
-3. T28: rerun the licence/dependency inventory, the 10,000-repo/100-run load gate and the
-   operator handoff once T27 passes.
-4. External certification when supplied: OIDC/HTTPS origin for the non-development
-   Compose install, an isolated official runtime path for T16 login evidence, and live
-   forge/model accounts.
+1. T29: add explicit blocked/stale state captures (Changes gate unknown, Runs blocked,
+   GitOps/promotion blocked) and review them; finish the Connections copy pass.
+2. T28: review the dependency inventory's "review required" transitive dependencies for
+   licence compatibility, and extend the load harness to the 50-real-browser-session
+   variant where resources allow.
+3. T27: package the hostile corpus and load harness results into the qualification report
+   and re-run only affected checks after any fix.
+4. External certification when supplied: hosted cgroup-enforced isolation, a live official
+   agent account/runtime, customer OIDC + hosted cluster, and live forge/model accounts.
 
 No `.cc-writes`/`.claude` cleanup was needed at this checkpoint; `/home/mnorris/repos/.claude`
 and all non-empty directories were preserved.
