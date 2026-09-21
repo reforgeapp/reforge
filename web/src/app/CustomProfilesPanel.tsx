@@ -31,8 +31,8 @@ export function CustomProfilesPanel({ orgID }: { orgID: string }) {
   const act = async (name: string, profile: CustomProfile, run: () => Promise<unknown>) => { setBusy(name); setError(''); try { await run(); await profiles.refetch() } catch (reason) { setError(message(reason)) } finally { setBusy('') } }
   const valid = draft.name.trim() && /^sha256:[a-f0-9]{64}$/.test(draft.image_digest.trim()) && draft.executable.trim().startsWith('/')
 
-  return <section className="state-card" aria-label="Custom command profiles"><div className="stack"><h2>Custom command profiles</h2>
-    <p className="table-meta">Versioned, administrator-approved profiles. The runner executes only the approved image digest with fixed argv and no shell. Exit 0 is never a validated repair; unknown or unverified profiles stay disabled.</p>
+  return <section className="state-card" aria-label="Custom command profiles"><div className="stack">
+    <p className="table-meta">Exit 0 is never a validated repair; unknown or unverified profiles stay disabled. The runner executes only the approved image digest with fixed argv and no shell.</p>
     {error && <p className="error-text" role="alert">{error}</p>}
     {canWrite && <details><summary>New profile</summary><div className="form-grid">
       <label>Name<input value={draft.name} onChange={event => setDraft({ ...draft, name: event.target.value })} /></label>
