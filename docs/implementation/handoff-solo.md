@@ -40,7 +40,11 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `ba5efb5` | T16 runtime factory and managed login/logout plumbing |
 | `79834b6` | T26 encrypted restore drill |
 | `1716f93` | T26 hosted GitOps reference manifests |
-| final HEAD | `1716f93` (see `git log`) |
+| `350f244` | T29 per-route error-state visual captures |
+| `a68e1f2` | T28 support matrix: custom profile limits and verification identity |
+| `e28eea3` | T27/T29 handoff evidence |
+| `5ebc8e5` | T28 dependency and notice inventory refresh |
+| final HEAD | `5ebc8e5` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -187,10 +191,11 @@ cd deploy/docs && PYTHONPATH=/tmp/mkdocs-deps python3 -m mkdocs build --strict -
   removed from Usage, Policies, Runners, Campaigns and the custom-profile panel. Still
   outstanding: reviewed baselines for populated/empty/error/blocked/stale captures per
   route family, and a pass over the remaining explanatory copy in Connections.
-- T31 profiles are managed and gated but the repair engine does not yet select a profile
-  as a model/agent route; the controller-to-runner dispatch is the remaining slice.
-- T16 runtime custody/factory and managed login/logout are not wired; no live account
-  evidence exists, so every official runtime stays disabled.
+- T31 dispatch is wired and locally verified. The v1 profile protocol is a single bounded
+  invocation, so `max_turns` is declared and validated but not looped, and a profile run
+  records `handoff` rather than a validated repair.
+- T16 runtime factory and managed login/logout are wired but stay disabled until an
+  operator supplies an isolated runtime path; no live account evidence exists.
 - Agent qualification records the seven checks but does not itself certify the runtime;
   the runtime entry intentionally stays `unsupported`.
 - `web/tests/merge-settings.spec.ts` and `web/tests/deployments.spec.ts` had brittle
