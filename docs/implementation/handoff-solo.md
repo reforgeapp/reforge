@@ -24,7 +24,10 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `32c365b` | T29 increment: route header gate, Overview aggregate/route, Organisation route, help drawer |
 | `3306efd` | T30 versioned MkDocs site, docs container, `REFORGE_DOCS_URL` help links |
 | `e0713ee` | T26 partial: control/runner/docs images, Compose stack, `.dockerignore` |
-| final HEAD | `e0713ee` (see `git log`) |
+| `f02e762` | T31 approved custom command profiles, executor and container test |
+| `0a8d040` | T16/T17 agent qualification records, capability endpoint and GUI panel |
+| `310d550` | T26 fixes: PostgreSQL 18 volume path, private artifact directory; container verification |
+| final HEAD | `310d550` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -40,11 +43,11 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | --- | --- | --- |
 | T25 | local complete | Committed. Campaign controller/authority/execution reviewed; PG race and browser suites pass. External native-provider campaign acceptance not run. |
 | T29 | partial | Header gate, Overview and Organisation connected. Remaining routes still render their pre-existing work surfaces; route-coverage and visual-regression baselines for every family are not complete. |
-| T30 | local complete (content) | MkDocs `--strict` build passes locally; docs container image build unverified (no daemon). |
-| T26 | partial | Control/migrator/runner/docs images and Compose authored. Agent runtime and validation images, hosted GitOps reference, restore drill not done. |
-| T16 | not started | Codex bridge exists from prior work; production custody/wiring and entitlement qualification outstanding. |
-| T17 | not started | Qualification GUI flows outstanding. |
-| T31 | not started | Custom command runtime not implemented; route stays disabled and documented. |
+| T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search. |
+| T26 | partial | Control/migrator/runner/docs images build and run verified with the Docker daemon; Compose clean install verified to migrate and serve. Agent runtime and validation images, hosted GitOps reference, restore drill not done. |
+| T16 | partial | Persisted qualification against the exact binding plus capability endpoint and GUI panel. Runtime custody/factory and managed login/logout not wired; no live entitlement evidence. |
+| T17 | partial | Agent qualification flow in Connections. Forge/model/runner qualification flows largely pre-existed; SaaS/OSS qualification matrix still incomplete. |
+| T31 | implemented | Approved custom command profiles, protocol executor and real container test. Controller-side run dispatch into a repair/model turn is not wired; profiles are managed and gated but not yet invoked by the repair engine. |
 | T27/T28 | not started | Qualification and release handoff outstanding. |
 
 ## Architecture decisions
@@ -61,20 +64,29 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 ## Checks actually run
 
 - `make check` — pass (gofmt, `go vet ./...`, frontend production build, generation drift).
-- `go test -race -count=1 -timeout 25m ./test/integration/...` — pass `58.956s` against
-  disposable PostgreSQL 18.6 (migration applied first).
+- `go test -race -count=1 -timeout 25m ./test/integration/...` — final pass `82.591s`
+  against disposable PostgreSQL 18.6 (migration applied first).
 - `go test -count=1 ./...` — pass.
 - Campaign integration subset `Campaign|DeploymentContinue` — pass `10.403s`.
 - Browser suite `npx playwright test --grep-invert live` against `127.0.0.1:8080` —
-  `87 passed, 1 skipped`. New specs: `web/tests/overview.spec.ts`,
-  `web/tests/organisation.spec.ts`.
+  `90 passed, 1 skipped`. New specs: `web/tests/overview.spec.ts`,
+  `web/tests/organisation.spec.ts`, `web/tests/custom-profiles.spec.ts`,
+  `web/tests/agent-qualification.spec.ts`.
+- Custom command container test: `REFORGE_TEST_DOCKER=1 go test -race -run TestRealContainerProfileProtocol ./internal/customcmd/`
+  — 6 subtests pass (input/output, malformed, nonzero exit, timeout, cancellation, secret
+  isolation).
 - `mkdocs build --strict` (material 9.7.0, local deps in `/tmp/mkdocs-deps`) — pass,
   `search/search_index.json` generated.
-- Live endpoint probe: `/api/v1/orgs/00000000-0000-4000-8000-000000000001/overview`
-  returned real scoped counts after fixture sign-in.
+- Docker (daemon available this session): docs/control/runner images build. Docs container
+  served `/docs/`, `/docs/agents/`, `/docs/0.1.0/agents/`, `/docs/versions.json` and
+  `search_index.json` (200). Control container ran as uid 10001, no
+  `/var/run/docker.sock`, no mounts, `/readyz` 200, SPA and meta served after migrating a
+  clean database.
+- Live endpoint probes: overview counts; custom-profile create/list/approve/revoke; agent
+  qualification PUT returned feature capabilities.
 
-Not run: container image builds (`docker`/`podman` daemon unavailable), hosted sandbox
-isolation, live provider certification, T31 container protocol test.
+Not run: hosted sandbox isolation, live provider certification, full non-development
+Compose install (no OIDC/HTTPS origin supplied).
 
 ## Running the local stack
 
@@ -109,17 +121,20 @@ cd deploy/docs && PYTHONPATH=/tmp/mkdocs-deps python3 -m mkdocs build --strict -
 
 - T29 is incomplete: the product-rebuild route table is not fully rebuilt and no visual
   regression baselines with route/runtime metadata are stored.
-- T31 custom command runtime is unimplemented; the GUI must keep it disabled.
-- T16/T17 production agent custody and qualification GUI are outstanding.
-- Container images are unverified because no daemon is available.
+- T31 profiles are managed and gated but the repair engine does not yet select a profile
+  as a model/agent route; the controller-to-runner dispatch is the remaining slice.
+- T16 runtime custody/factory and managed login/logout are not wired; no live account
+  evidence exists, so every official runtime stays disabled.
+- Agent qualification records the seven checks but does not itself certify the runtime;
+  the runtime entry intentionally stays `unsupported`.
 - `web/tests/merge-settings.spec.ts` and `web/tests/deployments.spec.ts` had brittle
   locators from earlier route additions; locators were tightened. `merge-settings`
   non-Gitea now waits for the primary connection provider before saving.
 
 ## External actions required
 
-- Docker/Podman daemon to build and run the Compose stack, then verify clean install,
-  migration, restart, docs serving and no-Docker-socket.
+- OIDC issuer/client and an HTTPS public origin to verify a non-development Compose
+  install (development mode requires host loopback and cannot run behind port mapping).
 - Sandbox host with working cgroup delegation for hosted untrusted execution.
 - Live GitHub/GitLab test organisations and credentials for provider certification.
 - Official agent accounts only where terms and topology permit; Codex/Claude/`agy`
@@ -128,7 +143,10 @@ cd deploy/docs && PYTHONPATH=/tmp/mkdocs-deps python3 -m mkdocs build --strict -
 
 ## Review boundary
 
-Review `7815b0c`, `9215b9f`, `32c365b`, `3306efd`, `e0713ee`. The T25 commit is large and
-includes inherited uncommitted work; review the campaign authority callbacks in
-`internal/campaign/authority.go` and `execution.go` first, then the header/help changes in
-`web/src/app/SectionPage.tsx` and `web/src/components/Help.tsx`.
+Review `7815b0c`, `9215b9f`, `32c365b`, `3306efd`, `e0713ee`, `f02e762`, `0a8d040`,
+`310d550`. The T25 commit is large and includes inherited uncommitted work; review the
+campaign authority callbacks in `internal/campaign/authority.go` and `execution.go` first.
+For T31 review `internal/customcmd/{executor,rules,service}.go` and the container test;
+confirm the sandbox stdin addition in `internal/sandbox/runtime_linux.go` is bounded. For
+T16 review `internal/agent/qualification.go` and `internal/httpapi/agentqualification.go`,
+especially the binding derived from the connection rather than the request body.

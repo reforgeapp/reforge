@@ -454,3 +454,25 @@ Root sole Astra X-High; max three Luna workers. T22/T23 locally complete; T24 lo
   touched.
 - Not implemented: T16/T17 production wiring and qualification GUI, T31 custom command
   runtime, remaining T26 agent/validation images, T27/T28 qualification. G5 open.
+
+## Solo resume checkpoint 2 — 2026-09-21
+
+- T31 implemented (`f02e762`): versioned, administrator-approved custom command profiles
+  binding pinned image digest, fixed executable/argv, protocol v1 and wall-clock/output/
+  turn/concurrency budgets. Draft profiles are inert; approval requires evidence; revocation
+  fences future runs. Runner executes only the approved image with typed argv and no shell.
+  A real Docker container test covers input/output, malformed events, nonzero exit, timeout,
+  cancellation and secret isolation. Sandbox command now forwards bounded stdin.
+- T16/T17 slice implemented (`0a8d040`): persisted agent runtime qualification against the
+  exact connection binding, capability resolution from the official support matrix, and a
+  Connections GUI panel to record/clear evidence. Feature checks do not certify the runtime
+  itself.
+- T26 container verification with the now-available Docker daemon (`310d550`): fixed the
+  PostgreSQL 18 volume path and private artifact directory; docs, control and runner images
+  build; docs container serves current/archived/search; control container migrates a clean
+  database, serves SPA/meta, runs as uid 10001 with no Docker socket.
+- Verification: `make check` pass; `go test -race ./test/integration/...` pass 82.591s;
+  non-live browser suite 90 passed, 1 skipped. New specs: `custom-profiles.spec.ts`,
+  `agent-qualification.spec.ts`.
+- Still open: full T29 route rebuild/visual baselines, official runtime custody/entitlement
+  certification (no accounts), T27/T28. G5 open.

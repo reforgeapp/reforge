@@ -1,8 +1,10 @@
 # T31 custom command runtime contract
 
-Status: frozen contract for local implementation. Not implemented in this build; the
-runtime stays disabled and the interface must show the reason. This document is the
-build-ready specification for the remaining implementation.
+Status: core implemented. Profiles, approval/revocation, protocol executor, HTTP, GUI and
+a real Docker container test are in place (`internal/customcmd`, migration 030). The
+remaining slice is controller-to-runner dispatch so a repair or model route can select an
+approved profile; until then profiles are managed and gated but not invoked by the repair
+engine. The interface shows profile state and keeps unapproved profiles inert.
 
 ## Profile identity
 
@@ -68,12 +70,16 @@ digest are immutable per run. Unknown or unverified entitlement, headless behavi
 container topology or approval interception keeps the profile disabled with an actionable
 reason.
 
-## Remaining implementation slices
+## Implementation status
 
-1. Migration `030_custom_profiles.sql` with RLS and approval/revocation columns.
+1. Migration `030_custom_profiles.sql` with RLS and approval/revocation columns. Done.
 2. `internal/customcmd` domain, validation, executor over `sandbox.SandboxRuntime` and
-   protocol parser, with race tests for malformed/unknown/timeout/cancel paths.
+   protocol parser, with race tests for malformed/unknown/timeout/cancel paths. Done; a
+   real Docker container test covers the protocol and secret isolation.
 3. HTTP create/list/approve/revoke under `/api/v1/orgs/{orgID}/custom-profiles` and
-   OpenAPI schemas.
-4. Runner wiring so an admitted job can select a profile, with durable budget reservation.
-5. Connections GUI panel showing capability state, approval, digest and disabled reason.
+   OpenAPI schemas. Done.
+4. Connections GUI panel showing capability state, approval, digest and disabled reason.
+   Done.
+5. Runner wiring so an admitted job can select a profile, with durable budget reservation.
+   Remaining. The controller must dispatch an approved profile through the existing runner
+   claim/result protocol and reserve budget before any effect.
