@@ -79,3 +79,36 @@ func TestAgentQualificationGatesCapabilities(t *testing.T) {
 		t.Fatalf("qualification must be cleared found=%v err=%v", found, err)
 	}
 }
+
+func TestAgentAuthStaysDisabledUntilRuntimeAndQualificationExist(t *testing.T) {
+	f := newInventoryFixture(t, 0)
+	ctx := context.Background()
+	connection, err := f.connections.Create(ctx, f.owner, f.org, connections.CreateRequest{
+		Kind: "agent", Provider: "codex", Name: "Codex runtime", Endpoint: "https://codex.example",
+		Settings: connections.Settings{AuthKind: "official_runtime", BillingRoute: "subscription", RuntimeVersion: "0.150.1", Namespace: "workspace-1", Model: "gpt-5", Profile: "customer-runner"},
+	}, "agent-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	qualifications := agent.NewQualificationService(f.db, f.identity)
+	unconfigured := agent.NewAuthService(f.db, f.identity, f.connections, qualifications, agent.NewFactory(nil, nil))
+	if _, err := unconfigured.Login(ctx, f.owner, f.org, connection.ID); !errors.Is(err, agent.ErrDisabled) {
+		t.Fatalf("unconfigured runtime login must be disabled, got %v", err)
+	}
+	launcher := agent.NewFactory(func(context.Context, agent.Binding) (agent.Runtime, error) {
+		return agent.Runtime{}, errors.New("no runtime")
+	}, nil)
+	service := agent.NewAuthService(f.db, f.identity, f.connections, qualifications, launcher)
+	if _, err := service.Login(ctx, f.owner, f.org, connection.ID); !errors.Is(err, agent.ErrDisabled) {
+		t.Fatalf("unqualified runtime login must be disabled, got %v", err)
+	}
+	binding := agent.BindingFor(connection)
+	now := time.Now().UTC().Truncate(time.Second)
+	q := agent.Qualification{Binding: binding, EvidenceID: domain.NewID(), CheckedAt: now, ExpiresAt: now.Add(24 * time.Hour), AuthCustody: true, Topology: true}
+	if _, err := qualifications.Put(ctx, f.owner, f.org, connection.ID, q); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Login(ctx, f.owner, f.org, connection.ID); !errors.Is(err, agent.ErrDisabled) {
+		t.Fatalf("login must fail closed when the launcher cannot start the runtime, got %v", err)
+	}
+}

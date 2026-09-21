@@ -86,7 +86,10 @@ func run() error {
 	connectionService := connections.New(db, identity, vault, cfg.Development)
 	providers.Factory{Development: cfg.Development}.Register(connectionService)
 	app.RegisterConnections(connectionService)
-	app.RegisterAgentQualification(agent.NewQualificationService(db, identity), connectionService)
+	qualifications := agent.NewQualificationService(db, identity)
+	app.RegisterAgentQualification(qualifications, connectionService)
+	agentLauncher := agent.NewCommandLauncher(agent.CommandConfig{Executable: os.Getenv("REFORGE_AGENT_RUNTIME"), Args: []string{"app-server"}})
+	app.RegisterAgentAuth(agent.NewAuthService(db, identity, connectionService, qualifications, agent.NewFactory(agentLauncher, nil)))
 	deploymentPolicy := policy.Policy{Schema: "maintenance/v1"}
 	if cfg.PolicyFile != "" {
 		body, readErr := os.ReadFile(cfg.PolicyFile)

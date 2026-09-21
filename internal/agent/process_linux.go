@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"context"
 	"errors"
 	"io"
 	"os/exec"
@@ -10,6 +11,27 @@ import (
 	"syscall"
 	"time"
 )
+
+type CommandConfig struct {
+	Executable string
+	Args       []string
+}
+
+func NewCommandLauncher(config CommandConfig) Launcher {
+	if !filepath.IsAbs(config.Executable) {
+		return nil
+	}
+	args := append([]string(nil), config.Args...)
+	return func(ctx context.Context, binding Binding) (Runtime, error) {
+		command := exec.CommandContext(ctx, config.Executable, args...)
+		command.Env = []string{"PATH=/usr/bin:/bin"}
+		process, err := StartPreparedRuntime(command)
+		if err != nil {
+			return Runtime{}, err
+		}
+		return Runtime{Transport: process, Binding: binding}, nil
+	}
+}
 
 type StdioProcess struct {
 	command *exec.Cmd

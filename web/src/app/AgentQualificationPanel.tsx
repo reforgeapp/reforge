@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
 import { StatusBadge } from '../components/Status'
-import { agentAPI, type AgentQualificationInput } from '../agent-api'
+import { agentAPI, type AgentLogin, type AgentQualificationInput } from '../agent-api'
 import { useSession } from './query'
 
 const message = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
@@ -18,14 +18,21 @@ export function AgentQualificationPanel({ orgID, connectionID, provider }: { org
   const [draft, setDraft] = useState<AgentQualificationInput>({ evidence_id: '', checked_at: '', expires_at: '', auth_custody: false, native_tool_containment: false, terms: false, topology: false, entitlement: false, quota: false, no_paid_overage: false })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [login, setLogin] = useState<AgentLogin>()
   const capabilities = state.data?.capabilities ?? {}
+  const custodyReady = capabilities.auth_custody?.state === 'supported'
   const valid = draft.evidence_id.trim() && draft.checked_at && draft.expires_at
+  const signIn = async () => { setBusy(true); setError(''); try { const result = await agentAPI.login(orgID, connectionID, csrf); setLogin(result.login) } catch (reason) { setLogin(undefined); setError(message(reason)) } finally { setBusy(false) } }
+  const signOut = async () => { setBusy(true); setError(''); try { await agentAPI.logout(orgID, connectionID, csrf); setLogin(undefined) } catch (reason) { setError(message(reason)) } finally { setBusy(false) } }
   const save = async () => { setBusy(true); setError(''); try { await agentAPI.putQualification(orgID, connectionID, { ...draft, evidence_id: draft.evidence_id.trim(), checked_at: new Date(draft.checked_at).toISOString(), expires_at: new Date(draft.expires_at).toISOString() }, csrf); await state.refetch() } catch (reason) { setError(message(reason)) } finally { setBusy(false) } }
   const clear = async () => { setBusy(true); setError(''); try { await agentAPI.clearQualification(orgID, connectionID, csrf); await state.refetch() } catch (reason) { setError(message(reason)) } finally { setBusy(false) } }
   return <fieldset aria-label="Agent runtime qualification"><legend>Agent runtime · {provider}</legend>
     {state.isLoading ? <p className="table-meta">Loading qualification…</p> : state.error ? <p className="error-text" role="alert">Qualification unavailable: {message(state.error)} <Button onClick={() => void state.refetch()}>Retry</Button></p> : <>
       <ul className="compact-list">{Object.entries(capabilities).map(([name, capability]) => <li key={name}><StatusBadge label={capability.state} tone={capability.state === 'supported' ? 'green' : capability.state === 'unsupported' ? 'red' : 'amber'} /> <strong>{name}</strong>: {capability.reason}</li>)}</ul>
       <p className="table-meta">The route stays disabled until a dated qualification matches this runtime, account, model and topology. A login is not entitlement evidence.</p>
+      {provider === 'codex' && <div className="row-actions"><Button disabled={!csrf || busy || !canWrite || !custodyReady} onClick={() => void signIn()}>Sign in with official runtime</Button><Button disabled={!csrf || busy || !canWrite || !custodyReady} onClick={() => void signOut()}>Sign out</Button></div>}
+      {provider === 'codex' && !custodyReady && <p className="table-meta">Official sign-in stays disabled until the operator configures an isolated runtime and records credential-custody evidence.</p>}
+      {login && <p role="status">Sign-in URL for {login.id}: <a href={login.url} target="_blank" rel="noreferrer">open provider window</a>. Credentials remain in the isolated runtime.</p>}
       {canWrite && <details><summary>Record qualification evidence</summary><div className="form-grid">
         <label>Evidence reference<input value={draft.evidence_id} onChange={event => setDraft({ ...draft, evidence_id: event.target.value })} /></label>
         <label>Verified at<input type="datetime-local" value={draft.checked_at} onChange={event => setDraft({ ...draft, checked_at: event.target.value })} /></label>

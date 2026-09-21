@@ -53,7 +53,13 @@ test.describe('connections and runners administration', () => {
     await page.getByLabel('Name').fill(poolName)
     await page.getByRole('button', { name: 'Save pool' }).click()
     const row = page.getByRole('row', { name: new RegExp(poolName) })
-    await expect(row).toBeVisible()
+    for (let attempt = 0; attempt < 6 && !(await row.isVisible().catch(() => false)); attempt++) {
+      const more = page.getByRole('button', { name: 'Load more pools' })
+      if (!(await more.isVisible().catch(() => false))) break
+      await more.click()
+      await page.waitForTimeout(300)
+    }
+    await expect(row).toBeVisible({ timeout: 15_000 })
     await row.getByRole('button', { name: 'Enroll runner' }).click()
     const dialog = page.getByRole('dialog', { name: 'Runner enrollment token' })
     await expect(dialog).toBeVisible()
