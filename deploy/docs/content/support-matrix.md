@@ -43,9 +43,15 @@ never silently billed as API usage.
 
 ## Scale
 
-Asynchronous inventory import, bounded campaign fairness and 100 concurrent runner
-claims are exercised in tests. A 10,000-repository, 100-concurrent-run load gate is not
-yet recorded.
+`REFORGE_LOAD=1 go test -run TestControlPlaneLoadTargets ./test/integration/` exercises a
+10,000-repository asynchronous inventory import, scoped pagination and search, 50
+concurrent authenticated sessions and 100 queued task claims against disposable
+PostgreSQL. Representative local run on this host (Go 1.27, PostgreSQL 18.6, single
+process, shared development machine): scan `2.6s`, import `9.8s`, first scoped page `5ms`,
+filtered search `5ms`, 50-session p50/p95/max `16/19/20ms`, 100 claims `2.0s`. These are
+control-plane measurements with a simulated provider; they do not certify live providers,
+hosted execution or 50 real browser sessions. Bounded campaign fairness across a
+1,000-member tenant and 100 competing runner claims are covered by the integration suite.
 
 ## Custom command profiles
 
