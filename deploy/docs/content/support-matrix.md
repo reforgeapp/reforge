@@ -84,7 +84,10 @@ under `deploy/gitops` renders manifests but does not certify a hosted cluster.
 
 - Hosted untrusted execution requires a sandbox host with resource enforcement. On hosts
   without working cgroup delegation, the runner reports the sandbox as unavailable and
-  hostile repositories must not be admitted.
+  hostile repositories must not be admitted. `make sandbox-test` runs the hostile corpus
+  (path traversal, symlink escape, truncated/corrupt fetch, cancellation, boundary) under
+  a rootless gVisor sandbox; it passes locally with development resource limits and does
+  not substitute for hosted cgroup-enforced isolation.
 - Migration, backup and credential restore procedures are operator steps; see
   [Backup and restore](backup-restore.md).
 - The interface does not perform infrastructure installation, Kubernetes changes, or

@@ -5,7 +5,7 @@ export GOPATH ?= /tmp/reforge-go
 export GOTOOLCHAIN := auto
 GO := go
 
-.PHONY: dev generate build check test test-integration test-e2e qualify migrate restore-drill install-check
+.PHONY: dev generate build check test test-integration test-e2e qualify migrate restore-drill install-check sandbox-test
 
 dev: build
 	bash scripts/dev.sh
@@ -45,3 +45,11 @@ restore-drill:
 
 install-check:
 	bash scripts/install-check.sh
+
+sandbox-test:
+	CGO_ENABLED=0 $(GO) build -o /tmp/reforge-sandbox-tool ./cmd/sandbox-tool
+	CGO_ENABLED=0 $(GO) build -o /tmp/reforge-sandbox-probe ./test/sandboxprobe
+	REFORGE_TEST_RUNSC="$${REFORGE_TEST_RUNSC:?set the pinned runsc binary}" \
+	REFORGE_TEST_SANDBOX_TOOL=/tmp/reforge-sandbox-tool \
+	REFORGE_TEST_SANDBOX_PROBE=/tmp/reforge-sandbox-probe \
+	$(GO) test -count=1 ./internal/sandbox/
