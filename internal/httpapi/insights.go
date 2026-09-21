@@ -60,6 +60,15 @@ func (s *Server) RegisterInsights(service *insights.Service) {
 		}
 		c.JSON(200, value)
 	})
+	g.GET("/overview", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, e := service.Overview(c.Request.Context(), session, c.Param("orgID"))
+		if e != nil {
+			IdentityFailure(c, e)
+			return
+		}
+		c.JSON(200, value)
+	})
 	for _, export := range []bool{false, true} {
 		path := "/audit-events"
 		if export {

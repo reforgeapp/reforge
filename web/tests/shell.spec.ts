@@ -101,7 +101,7 @@ test.describe('T04 application shell', () => {
   test('has no detectable accessibility violations on the shell', async ({ page }) => {
     await signIn(page)
     await page.goto(`/org/${developmentOrganisation}/overview`)
-    await expect(page.getByRole('heading', { name: 'Portfolio overview' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible()
     const results = await new AxeBuilder({ page }).analyze()
     expect(results.violations).toEqual([])
   })

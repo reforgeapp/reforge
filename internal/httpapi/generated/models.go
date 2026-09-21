@@ -1842,6 +1842,30 @@ type Organisation struct {
 	Paused  bool   `json:"paused"`
 	Version int64  `json:"version"`
 }
+type Overview struct {
+	Attention []OverviewAttention `json:"attention"`
+	Counts    OverviewCounts      `json:"counts"`
+}
+type OverviewAttention struct {
+	AgeSeconds     int     `json:"age_seconds"`
+	AssignedTo     *string `json:"assigned_to,omitempty"`
+	Id             string  `json:"id"`
+	RepositoryId   string  `json:"repository_id"`
+	RepositoryName string  `json:"repository_name"`
+	Severity       string  `json:"severity"`
+	State          string  `json:"state"`
+	Title          string  `json:"title"`
+}
+type OverviewCounts struct {
+	AccessibleRepositories int `json:"accessible_repositories"`
+	Blocked                int `json:"blocked"`
+	NeedsDecision          int `json:"needs_decision"`
+	QueuedJobs             int `json:"queued_jobs"`
+	ReadyForReview         int `json:"ready_for_review"`
+	Running                int `json:"running"`
+	StaleRepositories      int `json:"stale_repositories"`
+	VerifiedDeployments    int `json:"verified_deployments"`
+}
 type Pause struct {
 	Id      string `json:"id"`
 	Kind    string `json:"kind"`

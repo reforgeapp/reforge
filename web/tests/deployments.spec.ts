@@ -31,7 +31,7 @@ test('previews, requests, and observes native pending then signed health', async
   await page.getByLabel('Artifact digest').fill(request.artifact_digest)
   await page.getByLabel('Signed provenance JSON').fill(JSON.stringify(request.provenance))
   await page.getByRole('button', { name: 'Preview deployment gate' }).click()
-  await expect(page.getByText('Native pipeline')).toBeVisible()
+  await expect(page.getByText('Native pipeline', { exact: true })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Open native approval' })).toHaveAttribute('href', gate().native.approval_url)
   await page.getByRole('button', { name: 'Request deployment' }).click()
   await expect(page.getByRole('heading', { name: 'Deployment deployment-1' })).toBeVisible()

@@ -1809,6 +1809,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/usage/summary": {
         parameters: {
             query?: never;
@@ -1998,6 +2014,30 @@ export interface components {
             details?: {
                 [key: string]: unknown;
             };
+        };
+        Overview: {
+            counts: components["schemas"]["OverviewCounts"];
+            attention: components["schemas"]["OverviewAttention"][];
+        };
+        OverviewCounts: {
+            needs_decision: number;
+            running: number;
+            ready_for_review: number;
+            blocked: number;
+            verified_deployments: number;
+            accessible_repositories: number;
+            stale_repositories: number;
+            queued_jobs: number;
+        };
+        OverviewAttention: {
+            id: string;
+            repository_id: string;
+            repository_name: string;
+            title: string;
+            severity: string;
+            state: string;
+            age_seconds: number;
+            assigned_to?: string;
         };
         Meta: {
             name: string;
@@ -8696,6 +8736,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsagePage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Overview"];
                 };
             };
 

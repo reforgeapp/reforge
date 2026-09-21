@@ -8132,6 +8132,48 @@
         }
       }
     },
+    "/api/v1/orgs/{orgID}/overview": {
+      "get": {
+        "operationId": "getOverview",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Overview"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/usage/summary": {
       "get": {
         "operationId": "summarizeUsage",
@@ -9104,6 +9146,104 @@
           "message",
           "request_id",
           "retryable"
+        ],
+        "additionalProperties": false
+      },
+      "Overview": {
+        "type": "object",
+        "properties": {
+          "counts": {
+            "$ref": "#/components/schemas/OverviewCounts"
+          },
+          "attention": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewAttention"
+            }
+          }
+        },
+        "required": [
+          "counts",
+          "attention"
+        ],
+        "additionalProperties": false
+      },
+      "OverviewCounts": {
+        "type": "object",
+        "properties": {
+          "needs_decision": {
+            "type": "integer"
+          },
+          "running": {
+            "type": "integer"
+          },
+          "ready_for_review": {
+            "type": "integer"
+          },
+          "blocked": {
+            "type": "integer"
+          },
+          "verified_deployments": {
+            "type": "integer"
+          },
+          "accessible_repositories": {
+            "type": "integer"
+          },
+          "stale_repositories": {
+            "type": "integer"
+          },
+          "queued_jobs": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "needs_decision",
+          "running",
+          "ready_for_review",
+          "blocked",
+          "verified_deployments",
+          "accessible_repositories",
+          "stale_repositories",
+          "queued_jobs"
+        ],
+        "additionalProperties": false
+      },
+      "OverviewAttention": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "repository_name": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          },
+          "age_seconds": {
+            "type": "integer"
+          },
+          "assigned_to": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "repository_id",
+          "repository_name",
+          "title",
+          "severity",
+          "state",
+          "age_seconds"
         ],
         "additionalProperties": false
       },

@@ -26,7 +26,7 @@ test('loads scoped settings and saves with version and CSRF', async ({ page }) =
   await page.goto(`/org/${organisation}/deployments`)
   await page.getByRole('button', { name: /Deployment settings/i }).click()
   await expect(page.getByRole('heading', { name: 'Deployment settings' })).toBeVisible()
-  await page.getByLabel('Mode').selectOption('observe')
+  await page.getByRole('combobox', { name: 'Mode' }).selectOption('observe')
   await page.getByRole('button', { name: 'Save deployment settings' }).click()
   await expect(page.getByText('Deployment settings saved.', { exact: true })).toBeVisible()
   expect(savedBody?.mode).toBe('observe')

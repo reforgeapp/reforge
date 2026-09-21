@@ -43,6 +43,7 @@ test('non-Gitea configuration can enable without a protection reader', async ({ 
   await common(page)
   await page.route(`**/api/v1/orgs/${org}/connections/forge-1`, route => route.fulfill({ json: { id: 'forge-1', name: 'Primary forge', provider: 'github', endpoint: 'https://github.example', version: 4, server_version: '1', state: 'healthy' } }))
   await page.route(`**/api/v1/orgs/${org}/repositories/${repo}/merge-configuration`, async route => { if (route.request().method() === 'PUT') { body = route.request().postDataJSON(); return route.fulfill({ json: { ...config, enabled: true, inspector_connection_id: undefined, version: 5 } }) }; return route.fulfill({ json: config }) })
+  await expect(page.getByText(/Current provider:/)).toHaveText(/Current provider: github/)
   await page.getByRole('checkbox', { name: 'Enabled' }).check()
   await page.getByRole('button', { name: 'Save merge settings' }).click()
   await expect.poll(() => body).toBeTruthy()
