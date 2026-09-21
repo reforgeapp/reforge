@@ -17,6 +17,23 @@ test.describe('T29 route surface gate', () => {
     }
   })
 
+  test('every route opens on-demand help with versioned doc links', async ({ page }) => {
+    await page.goto('/auth/login')
+    await page.waitForURL(/\/overview/)
+    for (const route of routes) {
+      await page.goto(`/org/${org}/${route}`)
+      await page.getByRole('button', { name: 'Help' }).click()
+      const dialog = page.getByRole('dialog', { name: `Help · ${route}` })
+      await expect(dialog).toBeVisible()
+      const links = dialog.getByRole('link')
+      expect(await links.count(), `${route} help links`).toBeGreaterThan(0)
+      const href = await links.first().getAttribute('href')
+      expect(href, `${route} help link target`).toMatch(/^(https?:|\/docs\/)/)
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden()
+    }
+  })
+
   test('administration routes meet accessibility checks at a narrow width', async ({ page }) => {
     await page.goto('/auth/login')
     await page.waitForURL(/\/overview/)
