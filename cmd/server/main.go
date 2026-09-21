@@ -15,6 +15,7 @@ import (
 	"reforge/internal/config"
 	"reforge/internal/connections"
 	"reforge/internal/control"
+	"reforge/internal/customcmd"
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
@@ -181,6 +182,7 @@ func run() error {
 		return ref, campaigns.CheckMergeTx(ctx, tx, org, repo, snapshot)
 	})
 	app.RegisterCampaigns(campaigns)
+	app.RegisterCustomProfiles(customcmd.New(db, identity))
 	campaignContext, stopCampaign := context.WithCancel(ctx)
 	campaignDone := make(chan struct{})
 	defer func() { stopCampaign(); <-campaignDone }()

@@ -302,7 +302,7 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace Workspace
 	if err != nil {
 		return CommandResult{}, err
 	}
-	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" {
+	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" || len(command.Stdin) > 1<<20 {
 		return CommandResult{}, ErrBoundary
 	}
 	for _, arg := range command.Args {
@@ -334,7 +334,7 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace Workspace
 	args := []string{"exec", "--user=65532:65532", "--cwd=" + path.Join("/workspace", directory), workspace.ID}
 	args = append(args, command.Args...)
 	start := time.Now()
-	result, err := r.invoke(callctx, w, nil, command.MaxOutputBytes, true, args...)
+	result, err := r.invoke(callctx, w, command.Stdin, command.MaxOutputBytes, true, args...)
 	result.Duration = time.Since(start)
 	result.TimedOut = errors.Is(callctx.Err(), context.DeadlineExceeded)
 	if callctx.Err() != nil {

@@ -11,7 +11,7 @@ not Gemini CLI. Direct reuse of CLI OAuth credentials is unsupported in every ca
 | Claude Code official binary | Disabled | No unmodified binary binding with proved pre-effect isolation |
 | Google Antigravity CLI `agy` | Disabled | No qualified headless, custody or entitlement evidence |
 | Gemini CLI | Disabled | Direct CLI credential reuse is unsupported |
-| Custom command profiles | Not enabled in this build | Requires an administrator-approved, digest-pinned profile; this build ships none |
+| Custom command profiles | Implemented; disabled until approved | An administrator creates and approves a digest-pinned profile; no profile is enabled by default |
 
 ## Why a route is disabled
 
@@ -34,8 +34,18 @@ reconciliation.
 
 ## Custom command profiles
 
-The intended contract for an administrator-approved custom profile binds a fixed
-executable and argv, a container image digest, a protocol version and the declared input,
-event, output, cancel, exit and usage semantics, plus an approval record. A tenant cannot
-submit an arbitrary shell or executable path. Until a profile is registered, approved and
-its image digest pinned, the runtime stays unavailable with an actionable reason.
+A custom command profile binds a fixed executable and argv, a pinned container image
+digest, a protocol version and declared wall-clock, output, turn and concurrency budgets.
+An owner or administrator creates a draft and approves it with an evidence reference; the
+profile can be revoked at any time, which fences future runs.
+
+The runner executes only the approved image digest with the fixed argv. A tenant cannot
+submit an arbitrary shell, executable path or interpolated argument. Version 1 of the
+protocol reads one JSON input on stdin and emits newline-delimited JSON events; a malformed
+or unknown event, oversized output or timeout leaves the outcome `unknown` and requires
+reconciliation. A nonzero exit is a failure, and **exit 0 is never a validated repair** —
+the declared validation still has to pass. Usage is recorded only when the profile reports
+it; otherwise it stays unknown and the reservation is held.
+
+Profiles are managed in **Connections → Custom command profiles**. Until a profile is
+approved, it stays disabled with an actionable reason.

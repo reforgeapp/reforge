@@ -8,6 +8,7 @@ import { Button, Dialog } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
+import { CustomProfilesPanel } from './CustomProfilesPanel'
 
 const profileOptions = ['openai:responses', 'anthropic:messages', 'google:gemini', 'compatible:chat_completions', 'compatible:ollama', 'compatible:vllm', 'compatible:responses']
 
@@ -31,6 +32,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
     {!result.data?.complete && <Button disabled={result.isFetching} onClick={() => setCursor(result.data?.next_cursor)}>{result.isFetching ? 'Loading…' : 'Load more connections'}</Button>}
     <ConnectionForm open={formOpen} orgID={orgID} csrf={csrf} onClose={() => setFormOpen(false)} onCreated={() => { setFormOpen(false); refresh() }} />
     {selectedID && <ConnectionDetails connectionID={selectedID} orgID={orgID} csrf={csrf} onClose={() => setSelectedID(undefined)} onRefresh={refresh} />}
+    <CustomProfilesPanel orgID={orgID} />
   </div>
 }
 

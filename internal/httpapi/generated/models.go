@@ -1111,6 +1111,43 @@ type ConnectionSettings struct {
 type CredentialRotation struct {
 	Secret *string `json:"secret,omitempty"`
 }
+type CustomProfile struct {
+	ApprovalEvidence string   `json:"approval_evidence"`
+	ApprovedAt       *string  `json:"approved_at,omitempty"`
+	ApprovedBy       *string  `json:"approved_by,omitempty"`
+	Argv             []string `json:"argv"`
+	Concurrency      int      `json:"concurrency"`
+	CreatedAt        string   `json:"created_at"`
+	Executable       string   `json:"executable"`
+	Id               string   `json:"id"`
+	ImageDigest      string   `json:"image_digest"`
+	MaxOutputBytes   int      `json:"max_output_bytes"`
+	MaxTurns         int      `json:"max_turns"`
+	MaxWallSeconds   int      `json:"max_wall_seconds"`
+	Name             string   `json:"name"`
+	ProtocolVersion  int      `json:"protocol_version"`
+	RevokedAt        *string  `json:"revoked_at,omitempty"`
+	Version          int      `json:"version"`
+}
+type CustomProfileApproval struct {
+	Evidence string `json:"evidence"`
+}
+type CustomProfileInput struct {
+	Argv            []string `json:"argv"`
+	Concurrency     int      `json:"concurrency"`
+	Executable      string   `json:"executable"`
+	ImageDigest     string   `json:"image_digest"`
+	MaxOutputBytes  int      `json:"max_output_bytes"`
+	MaxTurns        int      `json:"max_turns"`
+	MaxWallSeconds  int      `json:"max_wall_seconds"`
+	Name            string   `json:"name"`
+	ProtocolVersion int      `json:"protocol_version"`
+}
+type CustomProfilePage struct {
+	Complete   bool            `json:"complete"`
+	Items      []CustomProfile `json:"items"`
+	NextCursor *string         `json:"next_cursor,omitempty"`
+}
 type Decision struct {
 	Blockers        []string        `json:"blockers"`
 	Outcome         DecisionOutcome `json:"outcome"`
@@ -2502,6 +2539,16 @@ type RotateInventoryWebhookParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
+type ListCustomProfilesParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type ApproveCustomProfileParams struct {
+	IfMatch string `json:"If-Match"`
+}
+type RevokeCustomProfileParams struct {
+	IfMatch string `json:"If-Match"`
+}
 type PutDeploymentConfigurationParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -2804,6 +2851,8 @@ type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
+type CreateCustomProfileJSONRequestBody = CustomProfileInput
+type ApproveCustomProfileJSONRequestBody = CustomProfileApproval
 type PutDeploymentConfigurationJSONRequestBody = DeploymentConfiguration
 type PreviewDeploymentJSONRequestBody = DeploymentPreviewInput
 type TrackDeploymentJSONRequestBody = DeploymentTrackInput

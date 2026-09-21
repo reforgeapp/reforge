@@ -178,6 +178,43 @@ type ConnectionSecret struct {
 	RotatedAt    pgtype.Timestamptz `json:"rotated_at"`
 }
 
+type CustomProfile struct {
+	OrgID            pgtype.UUID        `json:"org_id"`
+	ID               pgtype.UUID        `json:"id"`
+	Name             string             `json:"name"`
+	Version          int64              `json:"version"`
+	ImageDigest      string             `json:"image_digest"`
+	Executable       string             `json:"executable"`
+	Argv             []byte             `json:"argv"`
+	ProtocolVersion  int32              `json:"protocol_version"`
+	MaxWallSeconds   int32              `json:"max_wall_seconds"`
+	MaxOutputBytes   int64              `json:"max_output_bytes"`
+	MaxTurns         int32              `json:"max_turns"`
+	Concurrency      int32              `json:"concurrency"`
+	ApprovalEvidence string             `json:"approval_evidence"`
+	ApprovedBy       pgtype.UUID        `json:"approved_by"`
+	ApprovedAt       pgtype.Timestamptz `json:"approved_at"`
+	RevokedAt        pgtype.Timestamptz `json:"revoked_at"`
+	CreatedBy        pgtype.UUID        `json:"created_by"`
+	CreatedAt        pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `json:"updated_at"`
+}
+
+type CustomProfileRun struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	ProfileID      pgtype.UUID        `json:"profile_id"`
+	ProfileVersion int64              `json:"profile_version"`
+	ImageDigest    string             `json:"image_digest"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	RequestedBy    pgtype.UUID        `json:"requested_by"`
+	State          string             `json:"state"`
+	Usage          []byte             `json:"usage"`
+	Reason         string             `json:"reason"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
 type Deployment struct {
 	OrgID             pgtype.UUID        `json:"org_id"`
 	ID                pgtype.UUID        `json:"id"`

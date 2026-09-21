@@ -26,6 +26,7 @@ type Command struct {
 	Timeout        time.Duration
 	MaxOutputBytes int64
 	NetworkProfile string
+	Stdin          []byte
 }
 type CommandResult struct {
 	ExitCode  int

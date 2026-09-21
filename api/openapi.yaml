@@ -8479,6 +8479,288 @@
         "description": "Exports one authorized page. Continue with X-Next-Cursor until X-Export-Complete is true."
       }
     },
+    "/api/v1/orgs/{orgID}/custom-profiles": {
+      "get": {
+        "operationId": "listCustomProfiles",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomProfilePage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createCustomProfile",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomProfileInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/custom-profiles/{profileID}": {
+      "get": {
+        "operationId": "getCustomProfile",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profileID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/custom-profiles/{profileID}/approve": {
+      "post": {
+        "operationId": "approveCustomProfile",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profileID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CustomProfileApproval"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/custom-profiles/{profileID}/revoke": {
+      "post": {
+        "operationId": "revokeCustomProfile",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "profileID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CustomProfile"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/campaign-previews": {
       "post": {
         "operationId": "previewCampaign",
@@ -9147,6 +9429,87 @@
           "request_id",
           "retryable"
         ],
+        "additionalProperties": false
+      },
+      "CustomProfile": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "name": { "type": "string" },
+          "version": { "type": "integer" },
+          "image_digest": { "type": "string" },
+          "executable": { "type": "string" },
+          "argv": { "type": "array", "items": { "type": "string" } },
+          "protocol_version": { "type": "integer" },
+          "max_wall_seconds": { "type": "integer" },
+          "max_output_bytes": { "type": "integer" },
+          "max_turns": { "type": "integer" },
+          "concurrency": { "type": "integer" },
+          "approval_evidence": { "type": "string" },
+          "approved_by": { "type": "string" },
+          "approved_at": { "type": "string" },
+          "revoked_at": { "type": "string" },
+          "created_at": { "type": "string" }
+        },
+        "required": [
+          "id",
+          "name",
+          "version",
+          "image_digest",
+          "executable",
+          "argv",
+          "protocol_version",
+          "max_wall_seconds",
+          "max_output_bytes",
+          "max_turns",
+          "concurrency",
+          "approval_evidence",
+          "created_at"
+        ],
+        "additionalProperties": false
+      },
+      "CustomProfileInput": {
+        "type": "object",
+        "properties": {
+          "name": { "type": "string" },
+          "image_digest": { "type": "string" },
+          "executable": { "type": "string" },
+          "argv": { "type": "array", "items": { "type": "string" } },
+          "protocol_version": { "type": "integer" },
+          "max_wall_seconds": { "type": "integer" },
+          "max_output_bytes": { "type": "integer" },
+          "max_turns": { "type": "integer" },
+          "concurrency": { "type": "integer" }
+        },
+        "required": [
+          "name",
+          "image_digest",
+          "executable",
+          "argv",
+          "protocol_version",
+          "max_wall_seconds",
+          "max_output_bytes",
+          "max_turns",
+          "concurrency"
+        ],
+        "additionalProperties": false
+      },
+      "CustomProfilePage": {
+        "type": "object",
+        "properties": {
+          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CustomProfile" } },
+          "next_cursor": { "type": "string" },
+          "complete": { "type": "boolean" }
+        },
+        "required": ["items", "complete"],
+        "additionalProperties": false
+      },
+      "CustomProfileApproval": {
+        "type": "object",
+        "properties": {
+          "evidence": { "type": "string" }
+        },
+        "required": ["evidence"],
         "additionalProperties": false
       },
       "Overview": {

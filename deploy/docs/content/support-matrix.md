@@ -26,7 +26,7 @@ action and shows the reason.
 | Codex managed app-server | Bridge implemented; production route disabled pending account, custody, topology and quota qualification |
 | Claude Code official binary | Disabled; no qualified deployment binding |
 | Google Antigravity CLI `agy` | Disabled; `agy` is not Gemini CLI and has no qualified binding |
-| Administrator-approved custom command profiles | Disabled; see [Agent runtimes](agents.md) |
+| Administrator-approved custom command profiles | Implemented; disabled until an administrator approves a digest-pinned profile; see [Agent runtimes](agents.md) |
 | Gemini CLI | Disabled; direct CLI credential reuse is unsupported |
 
 Subscription routes are enabled only for a documented, permitted, qualified runtime,
