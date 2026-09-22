@@ -47,11 +47,14 @@ never silently billed as API usage.
 10,000-repository asynchronous inventory import, scoped pagination and search, 50
 concurrent authenticated sessions and 100 queued task claims against disposable
 PostgreSQL. Representative local run on this host (Go 1.27, PostgreSQL 18.6, single
-process, shared development machine): scan `2.6s`, import `9.8s`, first scoped page `5ms`,
-filtered search `5ms`, 50-session p50/p95/max `16/19/20ms`, 100 claims `2.0s`. These are
-control-plane measurements with a simulated provider; they do not certify live providers,
-hosted execution or 50 real browser sessions. Bounded campaign fairness across a
-1,000-member tenant and 100 competing runner claims are covered by the integration suite.
+process, shared development machine): scan `2.9s`, import `10.5s`, first scoped page
+`6ms`, filtered search `5ms`, 50-session p50/p95/max `19/21/22ms`, 100 claims `2.2s`.
+
+These are control-plane measurements with a simulated provider. They measure claim
+lifecycles, not 100 fully executing runs, and 50 authenticated HTTP sessions, not 50 real
+browser sessions. They do not certify live providers or hosted execution. Bounded campaign
+fairness across a 1,000-member tenant and 100 competing runner claims are covered by the
+integration suite; a 100-executing-run and 50-browser-session gate remains open (T28).
 
 ## Custom command profiles
 

@@ -251,6 +251,20 @@ T29 structural rebuild (`bcc479b`…`fb4f560`):
   before/after captures at 1440x900 and 390x844 (`t29f-review-2026-09-22.md`).
 - `go test ./...` and `make check` re-run green after the runner/pool API and OpenAPI changes.
 
+Remaining-ticket focused re-runs (2026-09-22, after the T29 rebuild):
+
+- T31: `TestCustomProfileDispatchAuthorizesExecutesAndFencesRevocation`,
+  `TestValidateCustomRequiresBaselineAndTarget`, `TestTurnBudgetIsEnforced`,
+  `TestCustomProfilePatchExtraction` pass; real container protocol
+  (`REFORGE_TEST_DOCKER=1`) pass `4.315s`.
+- T26: `scripts/install-check.sh` pass (production mode, OIDC login, browser login).
+- T27: `make sandbox-test` (real gVisor hostile corpus) pass `7.169s`;
+  `go test -race ./test/integration/...` pass `139.769s` including the new runner pool API.
+- T28: load harness pass (10,000-repo import `2.9s/10.5s`, 50 sessions p50/p95/max
+  `19/21/22ms`, 100 claims `2.2s`). The 100-executing-run and 50-real-browser-session
+  targets remain unproven and are recorded as open, not passed.
+- `make check` 0 and `go test ./...` 0 after the runner/pool API, OpenAPI and demo-seed changes.
+
 Not run: hosted cgroup-enforced isolation, live provider/agent-account certification,
 customer OIDC/hosted-cluster install, and the 50-real-browser-session variant of the load
 harness (the harness uses 50 concurrent authenticated HTTP sessions).
