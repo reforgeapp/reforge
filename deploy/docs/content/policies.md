@@ -31,6 +31,20 @@ Provide a reason, choose a preset, select **Apply preset**, review the draft gat
 select **Save immutable version**. Raw policy JSON is available under **Advanced policy
 JSON import/export** for exceptional cases.
 
+## Impact preview
+
+After saving a candidate version, use **Impact preview** to choose **repair**, **publish**
+or **merge**, then select **Run impact preview**. Preview reads stored repository heads,
+stored findings or changes and effective policy evidence. It does not call providers,
+activate policy or mutate repositories.
+
+Coverage is shown as complete or partial. Load more repositories or stored evidence, then
+run preview again. Missing, stale or incomplete evidence, missing candidate binding,
+unknown effective policy or provider state leaves results blocked or unknown; preview never
+fabricates gate changes or enables mutation. A dirty draft disables preview until saved.
+Manual **Open simulation** remains available for the selected repository as a separate
+workflow.
+
 ## Simulate and activate
 
 After saving immutable version, select **Open simulation** in **Candidate simulation** and
