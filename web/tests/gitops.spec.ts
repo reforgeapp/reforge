@@ -18,15 +18,16 @@ async function fixture(page: Page, role = 'owner', configs = [configuration()], 
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role, team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { development: true, fixture_auth: true } }))
   let repositoryCalls = 0
-  await page.route(`**${base}/repositories**`, route => { repositoryCalls += 1; return repoError && repositoryCalls <= 2 ? route.fulfill({ status: 503, json: { message: 'Inventory unavailable' } }) : route.fulfill({ json: { items: [{ id: sourceRepo, name: 'org/source', full_name: 'org/source' }, { id: deliveryRepo, name: 'org/delivery', full_name: 'org/delivery' }], complete: !repoError, next_cursor: repoError ? 'next-1' : undefined } }) })
+  await page.route(`**${base}/repositories**`, route => { repositoryCalls += 1; return repoError && repositoryCalls <= 4 ? route.fulfill({ status: 503, json: { message: 'Inventory unavailable' } }) : route.fulfill({ json: { items: [{ id: sourceRepo, name: 'org/source', full_name: 'org/source' }, { id: deliveryRepo, name: 'org/delivery', full_name: 'org/delivery' }], complete: !repoError, next_cursor: repoError ? 'next-1' : undefined } }) })
   await page.route(`**${base}/gitops-configurations`, route => route.fulfill({ json: { items: configs } }))
   await page.route(`**${base}/gitops-promotions?**`, route => route.fulfill({ json: { items: rows, complete: true } }))
   await page.goto(`/org/${org}/deployments`)
-  await page.getByRole('button', { name: /GitOps promotions/i }).click()
+  await page.getByRole('tab', { name: /GitOps promotions/i }).click()
 }
 
 test('creates first and second environments from real configuration routes', async ({ page }) => {
   await fixture(page, 'owner', [])
+  await page.getByRole('tab', { name: 'Configuration' }).click()
   await page.getByLabel('New environment').fill('staging')
   await page.getByRole('button', { name: 'Create draft' }).click()
   await page.getByLabel('Source repository').selectOption(sourceRepo)
@@ -45,6 +46,7 @@ test('paginates repositories and reports preview errors and invalid provenance',
   await fixture(page, 'owner', [configuration()], [promotion()], true)
   await expect(page.getByRole('heading', { name: 'GitOps controls unavailable' })).toBeVisible()
   await page.getByRole('button', { name: 'Retry' }).click()
+  await page.getByRole('tab', { name: 'Configuration' }).click()
   await expect(page.getByLabel('Source repository')).toBeVisible()
   await page.getByLabel('Change ID').fill('1')
   await page.getByLabel('Source SHA').fill(source)
@@ -56,6 +58,7 @@ test('paginates repositories and reports preview errors and invalid provenance',
 
 test('maintainer retries lost promotion request with stable idempotency key', async ({ page }) => {
   await fixture(page, 'maintainer', [configuration()])
+  await page.getByRole('tab', { name: 'Configuration' }).click()
   await page.route(`**${base}/gitops-configurations/production/preview`, route => route.fulfill({ json: gate() }))
   const requests: string[] = []
   await page.route(`**${base}/gitops-promotions`, async route => { if (route.request().method() === 'POST') { requests.push((await route.request().postDataJSON()).idempotency_key); await route.fulfill({ status: 503, json: { message: 'write outcome unknown' } }) } else await route.fulfill({ json: { items: [], complete: true } }) })
@@ -80,5 +83,5 @@ test('detail switching and narrow keyboard layout remain usable', async ({ page 
 })
 
 test('real local GitOps page renders its unmocked empty state', async ({ page }) => {
-  await page.goto('/auth/login'); await expect(page).toHaveURL(/\/org\/[^/]+\//); const liveOrg = new URL(page.url()).pathname.split('/')[2]; await page.goto(`/org/${liveOrg}/deployments`); await page.getByRole('button', { name: /GitOps promotions/i }).click(); await expect(page.getByText('No GitOps promotions recorded.')).toBeVisible()
+  await page.goto('/auth/login'); await expect(page).toHaveURL(/\/org\/[^/]+\//); const liveOrg = new URL(page.url()).pathname.split('/')[2]; await page.goto(`/org/${liveOrg}/deployments`); await page.getByRole('tab', { name: /GitOps promotions/i }).click(); await expect(page.getByText('No GitOps promotions recorded.')).toBeVisible()
 })

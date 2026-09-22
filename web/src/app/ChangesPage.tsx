@@ -5,7 +5,7 @@ import { Button } from '../components/Accessible'
 import { EmptyTable, DataTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
-import { Toolbar, SplitView, SplitPlaceholder } from '../components/Workspace'
+import { Toolbar, SplitView, SplitPlaceholder, Tabs } from '../components/Workspace'
 import { MergeSettings } from './MergeSettings'
 import { BotRevalidation } from './BotRevalidation'
 import { useSession } from './query'
@@ -81,16 +81,13 @@ export function ChangesPage({ orgID }: { orgID: string }) {
     {changes.hasNextPage && <Button onClick={() => void changes.fetchNextPage()} disabled={changes.isFetchingNextPage}>{changes.isFetchingNextPage ? 'Loading…' : 'Load more changes'}</Button>}
   </>
   return <div className="stack">
+    <Tabs id="changes" label="Change workspace" items={[{ id: 'review', label: 'Review' }, { id: 'settings', label: 'Merge settings' }]} value={showSettings ? 'settings' : 'review'} onChange={value => setShowSettings(value === 'settings')} />
     <Toolbar label="Change filters">
       <label>Search repositories<input aria-label="Search repositories" value={repositoryQuery} onChange={event => setRepositoryQuery(event.target.value)} placeholder="Search repositories" /></label>
       <label>Repository<select aria-label="Repository" value={repositoryID} onChange={event => { setRepositoryID(event.target.value); setChangeID(''); setShowSettings(false) }}><option value="">Choose repository</option>{repositoryOptions.map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       {repositories.hasNextPage && <Button onClick={() => void repositories.fetchNextPage()} disabled={repositories.isFetchingNextPage}>{repositories.isFetchingNextPage ? 'Loading…' : 'Load more repositories'}</Button>}
-      <Button className="button button-primary" onClick={() => setShowSettings(value => !value)} disabled={!repositoryID}>{showSettings ? 'Close merge settings' : 'Merge settings'}</Button>
     </Toolbar>
-    {showSettings && repositoryID && <MergeSettings key={`${orgID}:${repositoryID}`} orgID={orgID} repositoryID={repositoryID} onSaved={() => { setShowSettings(false); void changes.refetch() }} />}
-    {changes.error ? <p className="error-text" role="alert">Changes unavailable: {text(changes.error)} <Button onClick={() => void changes.refetch()}>Retry</Button></p> : null}
-    {changeID && !selected && !changes.isFetching && <p role="status">Requested change is not in the loaded pages. {changes.hasNextPage ? 'Load more changes to continue searching.' : 'The requested change was not found.'}</p>}
-    <SplitView listLabel="Changes" selected={!!selected} onBack={() => { void navigate({ search: previous => { const next = { ...previous }; delete next.change; return next } }) }} list={list} detail={selected ? <ChangeDetail key={`${orgID}:${repositoryID}:${selected.id}:${selected.head_sha}:${selected.target_sha}`} orgID={orgID} repositoryID={repositoryID} change={selected} csrf={session.data?.csrf_token ?? ''} canWrite={session.data?.memberships.some(membership => membership.org_id === orgID && ['owner', 'admin', 'maintainer'].includes(membership.role)) ?? false} /> : <SplitPlaceholder label="Select a change to inspect native gates and request a merge." />} />
+    {showSettings ? repositoryID ? <section id="changes-panel-settings" role="tabpanel" aria-label="Merge settings"><MergeSettings key={`${orgID}:${repositoryID}`} orgID={orgID} repositoryID={repositoryID} onSaved={() => { setShowSettings(false); void changes.refetch() }} /></section> : <StatePanel kind="blocked" title="Select a repository" detail="Choose a repository before editing merge settings." /> : <><div id="changes-panel-review" role="tabpanel" aria-label="Change review">{changes.error ? <p className="error-text" role="alert">Changes unavailable: {text(changes.error)} <Button onClick={() => void changes.refetch()}>Retry</Button></p> : null}{changeID && !selected && !changes.isFetching && <p role="status">Requested change is not in the loaded pages. {changes.hasNextPage ? 'Load more changes to continue searching.' : 'The requested change was not found.'}</p>}<SplitView listLabel="Changes" selected={!!selected} onBack={() => { void navigate({ search: previous => { const next = { ...previous }; delete next.change; return next } }) }} list={list} detail={selected ? <ChangeDetail key={`${orgID}:${repositoryID}:${selected.id}:${selected.head_sha}:${selected.target_sha}`} orgID={orgID} repositoryID={repositoryID} change={selected} csrf={session.data?.csrf_token ?? ''} canWrite={session.data?.memberships.some(membership => membership.org_id === orgID && ['owner', 'admin', 'maintainer'].includes(membership.role)) ?? false} /> : <SplitPlaceholder label="Select a change to inspect native gates and request a merge." />} /></div></>}
   </div>
 }
 

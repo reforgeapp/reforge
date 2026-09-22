@@ -5,6 +5,7 @@ import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
+import { Tabs } from '../components/Workspace'
 import { gitopsAPI, type Configuration, type Detail, type Gate, type PreviewRequest, type Promotion } from '../gitops-api'
 import type { Gate as MergeGate } from '../merge-api'
 import { useSession } from './query'
@@ -30,25 +31,27 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
   const [draftConfig, setDraftConfig] = useState<Configuration>()
   const [newEnvironment, setNewEnvironment] = useState('')
   const [detailID, setDetailID] = useState('')
+  const [view, setView] = useState('history')
   const config = draftConfig ?? (environment === null ? configurations.data?.items?.[0] : configurations.data?.items.find(item => item.environment === environment))
   const detail = useQuery({ queryKey: ['org', orgID, 'gitops-promotion', detailID], queryFn: ({ signal }) => gitopsAPI.promotion(orgID, detailID, signal), enabled: !!detailID, refetchInterval: query => active(query.state.data?.promotion) ? 5000 : false })
   const repos = repositories.data?.pages.flatMap(page => page.items) ?? []
-  const requested = (p: Promotion) => { setDetailID(p.id); void promotions.refetch() }
+  const requested = (p: Promotion) => { setView('history'); setDetailID(p.id); void promotions.refetch() }
   const saved = (c: Configuration) => { setDraftConfig(undefined); setEnvironment(c.environment); setNewEnvironment(''); void configurations.refetch() }
   const rows = promotions.data?.pages.flatMap(page => page.items) ?? []
   if (configurations.isLoading) return <StatePanel kind="loading" title="Loading GitOps controls" detail="Fetching promotion configuration and history." />
   if (configurations.error || repositories.error) return <StatePanel kind="error" title="GitOps controls unavailable" detail={text(configurations.error ?? repositories.error)} action={<Button onClick={() => { void configurations.refetch(); void repositories.refetch() }}>Retry</Button>} />
   return <div className="stack gitops-page">
-    <section className="state-card" aria-label="GitOps configuration">
+    <Tabs id="gitops" label="GitOps workspace" items={[{ id: 'configuration', label: 'Configuration' }, { id: 'history', label: 'Promotion history' }]} value={view} onChange={setView} />
+    {view === 'configuration' && <section className="state-card" aria-label="GitOps configuration">
       <div className="subsection-actions"><h2>Configuration</h2><label>Environment<select value={config?.environment ?? ""} onChange={event => { setDraftConfig(undefined); setEnvironment(event.target.value) }}>{draftConfig && <option value={draftConfig.environment}>{draftConfig.environment} (new)</option>}{(configurations.data?.items ?? []).map(item => <option key={item.environment} value={item.environment}>{item.environment}</option>)}</select></label></div>
       <div className="row-actions"><label>New environment<input value={newEnvironment} onChange={event => setNewEnvironment(event.target.value)} placeholder="production" /></label><Button disabled={!canWrite || !newEnvironment.trim()} onClick={() => { const name = newEnvironment.trim(); setEnvironment(name); setDraftConfig(configurations.data?.items.some(c => c.environment === name) ? undefined : emptyConfiguration(name)) }}>Create draft</Button></div>
       {config ? <ConfigurationEditor key={`${orgID}:${config.environment}:${config.version}`} orgID={orgID} config={config} repos={repos} csrf={csrf} canWrite={canWrite} canPreview={canPromote} onSaved={saved} onRequested={requested} /> : <EmptyTable label="Create an environment to configure GitOps." />}
       {repositories.hasNextPage && <Button disabled={repositories.isFetchingNextPage} onClick={() => void repositories.fetchNextPage()}>Load more repositories</Button>}
-    </section>
-    {promotions.isLoading && <p role="status">Loading promotions…</p>}
-    {promotions.error && <p className="error-text" role="alert">{text(promotions.error)} <Button onClick={() => void promotions.refetch()}>Retry history</Button></p>}
-    <PromotionList rows={rows} complete={promotions.data?.pages.at(-1)?.complete ?? true} loading={promotions.isFetchingNextPage} onMore={() => void promotions.fetchNextPage()} onSelect={setDetailID} />
-    {detailID && <PromotionDetail key={`${orgID}:${detailID}`} orgID={orgID} detail={detail.data} loading={detail.isLoading} error={detail.error} csrf={csrf} canWrite={canPromote} onChanged={() => { void detail.refetch(); void promotions.refetch() }} />}
+    </section>}
+    {view === 'history' && promotions.isLoading && <p role="status">Loading promotions…</p>}
+    {view === 'history' && promotions.error && <p className="error-text" role="alert">{text(promotions.error)} <Button onClick={() => void promotions.refetch()}>Retry history</Button></p>}
+    {view === 'history' && <PromotionList rows={rows} complete={promotions.data?.pages.at(-1)?.complete ?? true} loading={promotions.isFetchingNextPage} onMore={() => void promotions.fetchNextPage()} onSelect={setDetailID} />}
+    {view === 'history' && detailID && <PromotionDetail key={`${orgID}:${detailID}`} orgID={orgID} detail={detail.data} loading={detail.isLoading} error={detail.error} csrf={csrf} canWrite={canPromote} onChanged={() => { void detail.refetch(); void promotions.refetch() }} />}
   </div>
 }
 
