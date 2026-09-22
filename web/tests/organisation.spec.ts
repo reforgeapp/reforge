@@ -16,9 +16,11 @@ async function mock(page: Page, role: string) {
 test('an owner reviews members and teams with version-checked edits', async ({ page }) => {
   let saved: { user: string; role: string; ifMatch: string } | undefined
   await mock(page, 'owner')
-  await page.route(`**/api/v1/orgs/${org}/memberships/${user}`, route => { saved = { user, role: (route.request().postDataJSON() as { role: string }).role, ifMatch: route.request().headers()['if-match'] ?? '' }; return route.fulfill({ json: { org_id: org, user_id: user, role: 'maintainer', team_ids: [], repository_ids: [], all_repositories: false, version: 3 } }) })
+  await page.getByRole('tab', { name: 'Teams' }).click()
   await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: `Team name ${team}` })).toHaveValue('Platform')
+  await page.getByRole('tab', { name: 'Members' }).click()
+  await page.route(`**/api/v1/orgs/${org}/memberships/${user}`, route => { saved = { user, role: (route.request().postDataJSON() as { role: string }).role, ifMatch: route.request().headers()['if-match'] ?? '' }; return route.fulfill({ json: { org_id: org, user_id: user, role: 'maintainer', team_ids: [], repository_ids: [], all_repositories: false, version: 3 } }) })
   await page.getByLabel(`Role for ${user}`).selectOption('maintainer')
   await expect.poll(() => saved?.role).toBe('maintainer')
   expect(saved?.ifMatch).toBe('"2"')
