@@ -1,5 +1,24 @@
 # Implementation progress
 
+## Resumed owner review — 2026-09-23
+
+Owner resumed GUI work, superseding the usage pause below. Astra coordinates/reviews; maximum three Luna workers implement with exclusive files. Existing persistent goal still reports `blocked`; available goal tools have no resume operation. Work is active under the owner's explicit instruction.
+
+Baseline `b7f2a11`: Deepseek implemented T29k/l/m. Before-review evidence: `.local/resume-2026-09-23/before/`, 16 served-page captures across light/dark and 1440/390px; no page errors. Baseline bundle: `index-D1yu7M0w.js`. These captures do not establish functional or accessibility acceptance.
+
+| Ticket | Current state | Remaining acceptance |
+| --- | --- | --- |
+| T29g | parked, open | Finish stored-evidence impact preview; no fake attestations |
+| T29h/i | implemented, recheck | Warm-cache inventory and Organisation payload regression |
+| T29j | review | Dropdown keyboard, outside dismissal, tenant switching |
+| T29k | Deepseek implementation under review | Campaign/GitOps desktop/narrow and functional regression |
+| T29l | Luna repair in progress | Attached X, keyboard/focus/filter/deep-link regression |
+| T29m | Luna repair in progress | Neutral dark palette; both-theme route/contrast checks |
+| T29o | Luna implementation in progress | Consistent compact Policies workspace, preserved security/state |
+| T29n | open | Integrated checks, current screenshots/docs/images and handoff |
+
+Material decisions: neutral charcoal dark surfaces with blue actions; dedicated responsive policy editor/version layout (generic selected-detail layout hides the editor on narrow screens); shared reason/save actions accessible from every editor tab. Keep advanced manual simulation and immutable activation controls. Local application/DB/docs remain available; no external certification or G5 completion claimed. Preserve pre-existing owner edits to `copilot-handoff-2026-09-22.md`.
+
 ## Owner usage pause — 2026-09-22
 
 Owner requested workers finish quickly and remaining work move to tickets. No further feature implementation is authorised until resumed. See [T29g–n and closing worker results](copilot-handoff-2026-09-22.md). New policy impact work is parked under `.local/wip/`, unintegrated and untested. Latest owner feedback covers quick organisation switching, repository navigation, Organisation crash, compact layouts, Findings close control and dark mode. The 108-test/26-route checkpoint below predates this final feedback batch; do not present it as final-batch certification.

@@ -1,5 +1,9 @@
 # Solo resume handoff
 
+## Owner resumed — 2026-09-23
+
+Latest owner instruction supersedes the pause below. Astra reviews Deepseek T29k/l/m; Luna repairs Findings, theme and Policies, then completes remaining GUI acceptance. See the current status/ownership in `progress.md` and new T29o in `backlog.md`. Preserve historical evidence; do not treat it as verification of today's changes.
+
 ## Owner usage pause — 2026-09-22
 
 Do not continue automatically. Owner requested a usage pause after closing the current workers. Resume from [Copilot/Luna tickets T29g–n](copilot-handoff-2026-09-22.md), which supersede earlier stopping instructions and identify pending work, file ownership and actual checks. Keep the current local demo available. Do not integrate the parked policy impact experiment as completed functionality.

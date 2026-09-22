@@ -1,8 +1,8 @@
 # Worker execution runbook
 
-Status: planning pause, 2026-09-21. Do not launch workers or restart implementation from this revision. Read [PLAN.md](../../PLAN.md), [product-rebuild.md](product-rebuild.md) and [backlog.md](backlog.md) when owner resumes.
+Status: owner resumed GUI review/implementation, 2026-09-23. Read [PLAN.md](../../PLAN.md), [product-rebuild.md](product-rebuild.md) and [backlog.md](backlog.md). Earlier planning/usage pauses are superseded.
 
-Current allocation override: root/Astra owns architecture and final review; Luna owns bounded implementation slices including sensitive work under Astra review. Root allocates exclusive Luna ownership for shared files/contracts/migrations after architecture freeze; workers cannot self-expand ownership. No implementation workers during current pause; maximum three Luna workers when resumed. Completion notifications preferred; avoid repeated polling.
+Current allocation override: root/Astra owns architecture and final review; Luna owns bounded implementation slices including sensitive work under Astra review. Root allocates exclusive ownership for shared files/contracts/migrations; workers cannot self-expand ownership. Maximum three Luna workers. Completion notifications preferred; avoid repeated polling.
 
 ## Initial invocation
 
