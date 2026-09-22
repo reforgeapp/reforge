@@ -21,6 +21,7 @@ async function install(page: Page, role = 'owner', options: { previewResponse?: 
   await page.route(`**${base}/repair-recipes`, route => route.fulfill({ json: { go: 'reforge/go:1' } }))
   await page.route(`**${base}/connections**`, route => route.fulfill({ json: { items: [{ id: '00000000-0000-4000-8000-000000000041', name: 'Local model', kind: 'model', state: 'healthy', settings: { model: 'local' } }], complete: true } }))
   await page.route(`**${base}/runner-pools**`, route => route.fulfill({ json: { items: [{ id: '00000000-0000-4000-8000-000000000051', name: 'Local runners', state: 'active' }], complete: true } }))
+  await page.route(`**${base}/repositories**`, route => route.fulfill({ json: { items: [{ id: repo1, name: 'payments' }, { id: repo2, name: 'catalog' }], complete: true } }))
   await page.route(`**${base}/deployment-configurations`, route => route.fulfill({ json: { items: [{ environment: 'production', repository_id: repo1, version: 1, enabled: true }, { environment: 'staging', repository_id: repo2, version: 1, enabled: true }] } }))
   await page.route(`**${base}/gitops-configurations`, route => route.fulfill({ json: { items: [] } }))
   await page.route(`**${base}/campaign-previews`, async route => { if (options.delayedPreview) return options.delayedPreview(route); await route.fulfill({ json: options.previewResponse ?? preview() }) })
@@ -29,6 +30,8 @@ async function install(page: Page, role = 'owner', options: { previewResponse?: 
 
 test('repair advanced JSON previews, creates, starts, pauses and resumes with CAS', async ({ page }) => {
   await install(page)
+  await page.getByText('Plan campaign', { exact: true }).click()
+  await page.getByText('Advanced member JSON import', { exact: true }).click()
   let actionCalls: Array<{ action: string; version: string; body: Record<string, unknown> }> = []
   let current = campaign()
   let pauseAttempts = 0
@@ -45,6 +48,8 @@ test('repair advanced JSON previews, creates, starts, pauses and resumes with CA
   await page.route(`**${base}/campaigns`, async route => { if (route.request().method() === 'POST') await route.fulfill({ status: 201, headers: { ETag: '"1"' }, json: current }); else await route.fallback() })
   await page.getByLabel('Name').fill('Weekly repair')
   await page.getByLabel('Advanced member JSON').fill(JSON.stringify(repairMember()))
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('button', { name: 'Next' }).click()
   await page.getByLabel('Batch size').fill('2')
   await page.getByRole('button', { name: 'Preview campaign' }).click()
   await expect(page.getByRole('region', { name: 'Campaign preview' })).toBeVisible()
@@ -77,9 +82,15 @@ test('stale preview response does not replace edited form state', async ({ page 
   let release!: () => void
   const wait = new Promise<void>(resolve => { release = resolve })
   await install(page, 'owner', { delayedPreview: async route => { await wait; await route.fulfill({ json: preview() }) } })
+  await page.getByText('Plan campaign', { exact: true }).click()
+  await page.getByText('Advanced member JSON import', { exact: true }).click()
   await page.getByLabel('Name').fill('Before response')
   await page.getByLabel('Advanced member JSON').fill(JSON.stringify(repairMember()))
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('button', { name: 'Next' }).click()
   await page.getByRole('button', { name: 'Preview campaign' }).click()
+  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByRole('button', { name: 'Back' }).click()
   await page.getByLabel('Name').fill('Edited while waiting')
   release()
   await expect(page.getByRole('region', { name: 'Campaign preview' })).toHaveCount(0)
@@ -89,11 +100,14 @@ test('stale preview response does not replace edited form state', async ({ page 
 test('native campaign captures distinct provenance for two environments', async ({ page }) => {
   let captured: Record<string, unknown> | undefined
   await install(page)
+  await page.getByText('Plan campaign', { exact: true }).click()
+  await page.getByText('Advanced member JSON import', { exact: true }).click()
   await page.route(`**${base}/campaign-previews`, async route => { captured = route.request().postDataJSON() as Record<string, unknown>; await route.fulfill({ json: preview() }) })
   await page.getByLabel('Name').fill('Native rollout')
   await page.getByLabel('Kind').selectOption('pipeline')
+  await page.getByLabel('Configured environment').selectOption({ label: 'payments · production' })
+  await page.getByRole('button', { name: 'Next' }).click()
   const add = async (environment: string, source: string, artifact: string, signature: string) => {
-    await page.getByLabel('Configured environment').selectOption(environment)
     await page.getByLabel('Change ID').fill(`change-${environment}`)
     await page.getByLabel('Source SHA').fill(source)
     await page.getByLabel('Artifact digest').fill(artifact)
@@ -101,23 +115,33 @@ test('native campaign captures distinct provenance for two environments', async 
     await page.getByRole('button', { name: 'Add configured member' }).click()
   }
   await add('production', sha('a'), `sha256:${'b'.repeat(64)}`, 'sig-production')
+  await page.getByRole('button', { name: 'Back' }).click()
+  await page.getByLabel('Configured environment').selectOption({ label: 'catalog · staging' })
+  await page.getByRole('button', { name: 'Next' }).click()
   await add('staging', sha('c'), `sha256:${'d'.repeat(64)}`, 'sig-staging')
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByLabel('payments · production').check()
   await page.getByRole('button', { name: 'Preview campaign' }).click()
   await expect.poll(() => captured).toBeTruthy()
   const members = captured?.members as Array<{ pipeline: { provenance: { document: { source_sha: string }; signature: string } } }>
   expect(members).toHaveLength(2)
   expect(members[0].pipeline.provenance.document.source_sha).not.toBe(members[1].pipeline.provenance.document.source_sha)
   expect(new Set(members.map(member => member.pipeline.provenance.signature))).toEqual(new Set(['sig-production', 'sig-staging']))
+  expect(captured?.canary_ids).toEqual([repo1])
 })
 
 test('UTC window and unknown canary blocker remain explicit', async ({ page }) => {
   await install(page, 'owner', { previewResponse: preview(['Canary size exceeds eligible members; resolve exclusions or create a new selection'], [{ ...preview().members[0], state: 'excluded', reason: 'Unknown canary evidence' }]) })
+  await page.getByText('Plan campaign', { exact: true }).click()
+  await page.getByText('Advanced member JSON import', { exact: true }).click()
   await page.getByLabel('Name').fill('Blocked campaign')
   await page.getByLabel('Advanced member JSON').fill(JSON.stringify(repairMember()))
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('button', { name: 'Next' }).click()
   await page.getByRole('button', { name: 'Add UTC window' }).click()
   await page.getByLabel('Window 1 weekdays').fill('0')
-  await page.getByLabel('Start minute (inclusive)').fill('60')
-  await page.getByLabel('End minute (exclusive)').fill('120')
+  await page.getByLabel('Start minute').fill('60')
+  await page.getByLabel('End minute').fill('120')
   await page.getByRole('button', { name: 'Preview campaign' }).click()
   await expect(page.getByText('Canary size exceeds eligible members', { exact: false })).toBeVisible()
   await expect(page.getByText('Unknown canary evidence', { exact: false }).first()).toBeVisible()

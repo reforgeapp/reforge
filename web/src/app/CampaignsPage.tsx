@@ -21,9 +21,9 @@ export function CampaignsPage({ orgID }: { orgID: string }) {
   const csrf = session.data?.csrf_token ?? ''
   const role = session.data?.memberships.find(item => item.org_id === orgID)?.role
   const canMutate = role === 'owner' || role === 'admin' || role === 'maintainer'
-  const [state, setState] = useState('')
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
+  const state = search.state ?? ''
   const selectedID = search.campaign ?? ''
   const setSelectedID = (id: string) => { void navigate({ search: previous => id ? { ...previous, campaign: id } : (() => { const next = { ...previous }; delete next.campaign; return next })() }) }
   const [preview, setPreview] = useState<Preview>()
@@ -31,6 +31,7 @@ export function CampaignsPage({ orgID }: { orgID: string }) {
   const previewGeneration = useRef(0)
   const [busy, setBusy] = useState(false)
   const [previewBusy, setPreviewBusy] = useState(false)
+  const [planningOpen, setPlanningOpen] = useState(false)
   const [error, setError] = useState('')
   const campaigns = useInfiniteQuery({ queryKey: ['org', orgID, 'campaigns', state], queryFn: ({ pageParam, signal }) => campaignAPI.list(orgID, pageParam, state || undefined, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
   const rows = campaigns.data?.pages.flatMap(page => page.items) ?? []
@@ -43,8 +44,9 @@ export function CampaignsPage({ orgID }: { orgID: string }) {
   if (campaigns.error) return <StatePanel kind="error" title="Campaigns unavailable" detail={errorText(campaigns.error)} action={<Button onClick={() => void campaigns.refetch()}>Retry</Button>} />
   return <div className="stack campaigns-page">
     <section className="state-card" aria-label="Campaign planning">
-      <div className="subsection-actions"><label>State<select aria-label="Campaign state" value={state} onChange={event => { setState(event.target.value); setSelectedID('') }}><option value="">All states</option><option value="planned">Planned</option><option value="canary">Canary</option><option value="observing">Observing</option><option value="expanding">Expanding</option><option value="paused">Paused</option><option value="failed">Failed</option><option value="completed">Completed</option></select></label></div>
-      {canMutate && <CampaignCreateForm orgID={orgID} onPreview={previewInput} onChange={resetPreview} busy={busy} pending={previewBusy} />}
+      <div className="subsection-actions"><label>State<select aria-label="Campaign state" value={state} onChange={event => { const next = { ...search }; if (event.target.value) next.state = event.target.value; else delete next.state; delete next.campaign; void navigate({ search: next, replace: true }) }}><option value="">All states</option><option value="planned">Planned</option><option value="canary">Canary</option><option value="observing">Observing</option><option value="expanding">Expanding</option><option value="paused">Paused</option><option value="failed">Failed</option><option value="completed">Completed</option></select></label></div>
+      {canMutate && <div className="row-actions"><Button className="button button-primary" onClick={() => setPlanningOpen(value => !value)} aria-expanded={planningOpen}>{planningOpen ? 'Close planner' : 'Plan campaign'}</Button></div>}
+      {planningOpen && <section className="detail-section" aria-label="Campaign planner"><div className="subsection-actions"><h2>Plan campaign</h2><Button onClick={() => setPlanningOpen(false)}>Close planner</Button></div><CampaignCreateForm orgID={orgID} onPreview={previewInput} onChange={resetPreview} busy={busy} pending={previewBusy} /></section>}
       {preview && <PreviewCard preview={preview} canCreate={canMutate} csrf={csrf} busy={busy} onCreate={() => void create()} />}
       {error && <p className="error-text" role="alert">{error}</p>}
     </section>
