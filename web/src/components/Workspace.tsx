@@ -17,7 +17,7 @@ export function Toolbar({ label, children }: { label: string; children: ReactNod
   return <div className="toolbar" role="group" aria-label={label}>{children}</div>
 }
 
-export function SplitView({ listLabel, list, detail, selected, onBack }: { listLabel: string; list: ReactNode; detail: ReactNode; selected: boolean; onBack: () => void }) {
+export function SplitView({ listLabel, list, detail, selected, onBack, hideBack }: { listLabel: string; list: ReactNode; detail: ReactNode; selected: boolean; onBack: () => void; hideBack?: boolean }) {
   const listRef = useRef<HTMLElement>(null)
   const detailRef = useRef<HTMLElement>(null)
   const originRef = useRef<HTMLElement | null>(null)
@@ -38,15 +38,15 @@ export function SplitView({ listLabel, list, detail, selected, onBack }: { listL
   return <div className={`split-view ${selected ? 'detail-open' : ''}`}>
     <section ref={listRef} className="split-list" aria-label={listLabel} tabIndex={-1}>{list}</section>
     <section ref={detailRef} className="split-detail" aria-label="Detail" tabIndex={-1} hidden={!selected}>
-      {selected && <button className="back-link" onClick={onBack}><Icon name="chevron" size={14} />Back to list</button>}
+      {selected && !hideBack && <button className="back-link" onClick={onBack}><Icon name="chevron" size={14} />Back to list</button>}
       {detail}
     </section>
   </div>
 }
 
-export function DetailPanel({ title, status, actions, children }: { title: string; status?: ReactNode; actions?: ReactNode; children: ReactNode }) {
+export function DetailPanel({ title, status, actions, onClose, closeLabel, children }: { title: string; status?: ReactNode; actions?: ReactNode; onClose?: () => void; closeLabel?: string; children: ReactNode }) {
   return <section className="detail-panel" aria-label={title}>
-    <header><div><h2>{title}</h2>{status}</div>{actions && <div className="detail-actions">{actions}</div>}</header>
+    <header><div><h2>{title}</h2>{status}</div>{(actions || onClose) && <div className="detail-actions">{actions}{onClose && <button className="icon-button panel-close" aria-label={closeLabel ?? 'Close details'} onClick={onClose}><Icon name="close" /></button>}</div>}</header>
     {children}
   </section>
 }
