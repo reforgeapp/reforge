@@ -16,7 +16,7 @@ test.describe('non-development OIDC install', () => {
   test('completes an OIDC login without fixture authentication', async ({ page }) => {
     const origin = base as string
     await page.goto(`${origin}/auth/login`)
-    await expect(page.getByRole('heading', { name: /No organisation access|Organisation access denied/ })).toBeVisible({ timeout: 30_000 })
+    await expect(page.getByRole('heading', { name: /Create the first organisation|No organisation access/ })).toBeVisible({ timeout: 30_000 })
     const session = await page.request.get(`${origin}/api/v1/session`, { headers: { Origin: origin } })
     expect(session.ok()).toBeTruthy()
     const body = await session.json() as { user: { email: string }; organisations: unknown[] }

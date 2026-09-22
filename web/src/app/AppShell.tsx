@@ -7,6 +7,7 @@ import { sectionFor, sections } from './types'
 import { Button, Dialog } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
 import { SignInPage } from './SignInPage'
+import { BootstrapPage } from './BootstrapPage'
 
 export function AppShell() {
   const { data: meta, isLoading: metaLoading } = useMeta()
@@ -60,6 +61,7 @@ export function AppShell() {
   if (session.error) return <main className="centered-page"><StatePanel kind="error" title="Session unavailable" detail={session.error.message} action={<Button onClick={() => session.refetch()}>Retry</Button>} /></main>
   if (!session.data || visibleUserID !== session.data.user.id) return <main className="centered-page"><StatePanel kind="loading" title="Checking access" detail="" /></main>
   if (params.orgID && !org) return <main className="centered-page"><StatePanel kind="blocked" title="Organisation access denied" detail="Your session does not include this organisation. Choose an organisation you can access from its deep link." /></main>
+  if (!org && meta?.edition === 'self-hosted') return <BootstrapPage csrf={session.data.csrf_token} onDone={id => { void session.refetch().then(() => navigate({ to: '/org/$orgID/$section', params: { orgID: id, section: 'overview' }, search: { q: undefined } })) }} />
   if (!org) return <main className="centered-page"><StatePanel kind="empty" title="No organisation access" detail="Your account is signed in, but has no organisation membership." /></main>
 
   return <div className="app-shell">

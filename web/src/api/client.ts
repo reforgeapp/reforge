@@ -92,4 +92,5 @@ export const api = {
   revokeRunner: (orgID: string, runnerID: string, version: number, csrfToken: string) => request<void>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runners/${encodeURIComponent(runnerID)}`, { method: 'DELETE', headers: { 'If-Match': versionTag(version) } }, csrfToken),
   login: () => { window.location.assign('/auth/login') },
   logout: (csrfToken: string) => request<void>('/auth/logout', { method: 'POST' }, csrfToken),
+  bootstrap: (name: string, token: string, csrfToken: string) => request<{ id: string; name: string }>('/auth/bootstrap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, token }) }, csrfToken),
 }
