@@ -111,6 +111,8 @@ pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, mon
 .button-ghost { border-color: transparent; background: transparent; }
 .button-ghost:hover { border-color: var(--border); background: var(--surface-2); }
 .button-sm { min-height: 30px; padding: 4px 10px; font-size: 12.5px; }
+.button[aria-pressed="true"] { border-color: var(--primary-border); color: var(--primary); background: var(--primary-soft); }
+.stack > .button, .form-stack > .button, .state-card > .button { justify-self: start; }
 .link-button { padding: 0; border: 0; color: var(--primary); background: transparent; font-size: inherit; font-weight: 650; text-align: left; }
 .link-button:hover { color: var(--primary-hover); text-decoration: underline; }
 .help-link { display: inline-flex; align-items: center; gap: 5px; padding: 5px 11px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--surface); color: var(--text-muted); font-size: 12px; font-weight: 600; }
@@ -121,6 +123,7 @@ pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, mon
 .detail-section { display: grid; gap: var(--space-3); min-width: 0; }
 .subsection-actions { display: flex; align-items: center; justify-content: space-between; gap: var(--space-4); flex-wrap: wrap; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.row-actions > input, .row-actions > select { width: auto; max-width: 260px; }
 .metric-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: var(--space-3); }
 .metric-card, .table-card, .state-card, .state-panel, .gate-list { border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); }
 .metric-card { display: grid; gap: 6px; min-height: 96px; padding: var(--space-4); box-shadow: var(--shadow-xs); }
@@ -222,11 +225,13 @@ legend { padding: 0 6px; color: #40525f; font-size: 12px; font-weight: 700; }
 .detail-list dt { color: var(--text-subtle); font-size: 12px; }
 .detail-list dd { max-width: 68%; margin: 0; overflow-wrap: anywhere; text-align: right; font-size: 12.5px; }
 .compact-list { display: grid; gap: 5px; margin: 0; padding-left: 18px; color: #40525f; font-size: 12.5px; }
+.compact-list label { display: flex; align-items: flex-start; gap: 8px; font-weight: 500; }
+.compact-list input[type="checkbox"] { width: auto; min-height: auto; margin-top: 2px; }
 .command-block { margin: 0; padding: var(--space-3); overflow-x: auto; border-radius: var(--radius); color: #d7e7ee; background: #12222d; font-size: 12px; line-height: 1.55; }
 .raw-json { margin: 0; padding: var(--space-3); overflow: auto; border-radius: var(--radius); background: var(--surface-3); font-size: 12px; }
 
 /* ---------- Dialogs ---------- */
-.dialog { width: min(94vw, 560px); max-height: 88vh; padding: 0; border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); }
+.dialog { width: min(94vw, 680px); max-height: 88vh; padding: 0; border: 0; border-radius: var(--radius-lg); box-shadow: var(--shadow-lg); color: var(--text); background: var(--surface); }
 .dialog::backdrop { background: rgb(12 22 31 / 52%); backdrop-filter: blur(1px); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
 .dialog-head h2 { font-size: 15px; font-weight: 700; }

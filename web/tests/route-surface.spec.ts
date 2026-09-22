@@ -34,11 +34,11 @@ test.describe('T29 route surface gate', () => {
     }
   })
 
-  test('administration routes meet accessibility checks at a narrow width', async ({ page }) => {
+  test('every route meets accessibility checks at a narrow width', async ({ page }) => {
     await page.goto('/auth/login')
     await page.waitForURL(/\/overview/)
     await page.setViewportSize({ width: 390, height: 844 })
-    for (const route of ['findings', 'policies', 'usage', 'audit', 'runners'] as const) {
+    for (const route of routes) {
       await page.goto(`/org/${org}/${route}`)
       const results = await new AxeBuilder({ page }).analyze()
       expect(results.violations, `${route} accessibility violations`).toEqual([])
