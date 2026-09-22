@@ -43,8 +43,9 @@ Self-hosted installs create the first organisation through the one-time bootstra
 
 1. The operator sets `REFORGE_BOOTSTRAP_TOKEN` and `REFORGE_BOOTSTRAP_EXPIRES_AT` for the
    first start.
-2. Sign in through the configured identity provider, then open `Organisation` and enter
-   the bootstrap token to create the initial organisation and owner membership.
+2. Sign in through the configured identity provider. A signed-in user with no organisation
+   sees the bootstrap form and enters the organisation name and the one-time token to
+   create the initial organisation and owner membership.
 3. The token is single-use. Remove it from the environment and restart after use.
 
 The host OIDC issuer, client ID and client secret are configured by the operator; the

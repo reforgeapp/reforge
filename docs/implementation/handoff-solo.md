@@ -50,7 +50,11 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `300391f` | T28 control-plane scale harness |
 | `9486b9d` | T27 reproducible sandbox hostile corpus target |
 | `e385a49` | T16 digest-pinned runtime delivery |
-| final HEAD | `e385a49` (see `git log`) |
+| `480cf9f` | handoff ticket-status consolidation |
+| `7eaa3d7` | T29 blocked/stale visual captures |
+| `107b335` | T28 licence review outcome |
+| `dee4965` | T17 self-hosted bootstrap GUI |
+| final HEAD | `dee4965` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -174,11 +178,17 @@ Acceptance continuation (`2026-09-22`, commits `442b4ee`…`e385a49`):
   passes; measured 10,000-repo scan `2.6s`, import `9.8s`, first page/search `5ms`,
   50-session p50/p95/max `16/19/20ms`, 100 claims `2.0s`.
 - T29 visual review: screenshots opened and inspected; fixed duplicate Overview/Findings/
-  Campaigns titles and labelled the budget group; captures re-generated.
+  Campaigns titles and labelled the budget group; captures re-generated. Added
+  `web/tests/visual-states.spec.ts` capturing a blocked run and a stale repository.
 - T16 runtime delivery: digest-pinned host launcher and digest-pinned container launcher
   added with unit tests rejecting mutable tags, relative executables and credential env.
-- `make check`, `go test ./...`, full browser suite (`--grep-invert live`) and the
-  integration race suite remain green after these changes.
+- T17 bootstrap GUI: `web/tests/bootstrap.spec.ts` passes; the self-hosted no-organisation
+  dead end is now the one-time bootstrap form.
+- T28 licence review: no GPL/AGPL runtime dependency; MPL-2.0 build/test dependencies are
+  compatible with notice retention; `review required` transitive modules recorded.
+- `make check`, `go test ./...` (exit 0), full browser suite `--grep-invert live`
+  (`95 passed, 4 skipped`), `make sandbox-test`, `make install-check`, the load harness
+  and `go test -race ./test/integration/...` (`117.416s`) all pass after these changes.
 
 Not run: hosted cgroup-enforced isolation, live provider/agent-account certification,
 customer OIDC/hosted-cluster install, and the 50-real-browser-session variant of the load
