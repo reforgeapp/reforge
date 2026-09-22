@@ -1,8 +1,18 @@
 # Solo resume handoff
 
-## Superseding handoff note — 2026-09-22
+## Owner usage pause — 2026-09-22
 
-This note supersedes stale completion rows below. T29 was reopened at `d945ede` and completed through T29a–f; final HEAD is `7aefeda`. Review baseline for the comparative captures is `b00e929`; the rebuilt captures are under `.local/visual/after` with `.local/visual/before` as the baseline. T29 status is **local complete (agent-reviewed)**; human aesthetic feedback is optional and not a gate. Backend, API and accessibility gains are preserved. T31, T26 and T27 focused regressions were re-run; T28’s 100-executing-run and 50-browser-session targets remain open.
+Do not continue automatically. Owner requested a usage pause after closing the current workers. Resume from [Copilot/Luna tickets T29g–n](copilot-handoff-2026-09-22.md), which supersede earlier stopping instructions and identify pending work, file ownership and actual checks. Keep the current local demo available. Do not integrate the parked policy impact experiment as completed functionality.
+
+## Authoritative handoff — 2026-09-22
+
+The prior solo-complete narrative is superseded by the agent-reviewed T29 GUI review. Continue from current source and evidence. GUI rebuild is locally verified; T29 acceptance remains open for documented policy workflow gaps: automatic stored-evidence/portfolio simulation. See [GUI policy requirements](../design/gui.md). T30/T31 and release qualification remain evidence-bound. Do not claim human sign-off, G5 completion, external provider certification or external OIDC certification.
+
+Verified current evidence: `go test ./...` and `make check` pass; browser final `.local/rebuild-browser-final.json` records 108 passed, 0 failed, 9 opt-in skipped; policy/insights `.local/policy-final.json`; persisted policy activation, zero budget and audit export `.local/live-controls.json`; fresh 26-route and eight-detail captures pass in `.local/rebuild-final/`; full authority and launch details are in [the GUI rebuild review](gui-rebuild-review-2026-09-22.md). The historical `83/24/9` full-suite result is retained for comparison only.
+
+## Historical handoff note — superseded 2026-09-22
+
+This historical note records an earlier claim. Current T29 status and evidence are defined by the authoritative section above and current review document; do not use the old HEAD or completion claim. All content under this note is historical evidence.
 
 Review covered the three existing artifacts `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png`, not a fresh live-browser review of every route. Findings: shell organization remains materially unchanged; runner view lacks searchable/filterable inventory and operational heartbeat/capacity/trust summary, while current pool pagination is cursor-based Load more; it uses raw repository IDs. Connections has a large revoked table before profile workflows; Runs is empty despite populated-state claims. Existing selector/heading counts, axe output and 700ms screenshot delay are necessary checks only, not evidence of coherent design or populated data.
 
@@ -18,7 +28,7 @@ Resume T29 through children T29a–f in backlog: IA/wireframes; shared resource 
 
 All rows and claims below are historical. Reconcile them against current code and evidence before marking any ticket complete.
 
-Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
+Updated: 2026-09-21 historical checkpoint. Single implementing agent, no workers, no subagents.
 
 ## Checkpoint
 
@@ -271,11 +281,10 @@ harness (the harness uses 50 concurrent authenticated HTTP sessions).
 
 ## Running the local stack
 
-Development server left running for the next session (pid `2843697` on
-`127.0.0.1:8080`, log `.local/server-solo.log`; PostgreSQL pid `2312959` on
-`127.0.0.1:55432`). Stop the server with `kill 2843697` and PostgreSQL with
-`/tmp/reforge-postgres/bin/pg_ctl -D .local/postgres stop -m fast`. Do not use broad
-`pkill`. Start it again with:
+Historical stack checkpoint: development server pid `2843697` on `127.0.0.1:8080`,
+log `.local/server-solo.log`; PostgreSQL pid `2312959` on `127.0.0.1:55432`. If that
+historical stack is still present, stop those exact PIDs with `kill 2843697` and
+`/tmp/reforge-postgres/bin/pg_ctl -D .local/postgres stop -m fast`. Start it again with:
 
 ```sh
 set -a; . .local/development.env; set +a
@@ -284,9 +293,11 @@ export REFORGE_MODE=development REFORGE_FIXTURE_AUTH=true REFORGE_EDITION=self-h
 setsid --fork ./bin/reforge >.local/server-solo.log 2>&1 </dev/null
 ```
 
-Stop: `pkill -f 'bin/reforge'` (also stops the older `8081` repair fixture process
-`1974931`; restart it separately if needed). PostgreSQL runs from `/tmp/reforge-postgres`
-on `127.0.0.1:55432` (pid was `1969990`).
+Current verified services: PostgreSQL PID `2952266` on `127.0.0.1:55432`, application PID
+`2976298` on `127.0.0.1:8080`, and docs container `reforge-review-docs` on
+`127.0.0.1:8082`. Stop only exact services with `kill 2976298` and
+`/tmp/reforge-postgres/bin/pg_ctl -D .local/postgres stop -m fast`; stop docs with
+`docker stop reforge-review-docs` when present. Recheck each PID/command before stopping.
 
 Browser tests:
 

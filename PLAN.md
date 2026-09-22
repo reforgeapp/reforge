@@ -1,6 +1,6 @@
 # Reforge — implementation plan
 
-Status: current rebuild review active; historical planning pause retained below for context. Existing implementation and progress history preserved; current GUI rebuild is authorised by the owner.
+Status: GUI rebuild locally verified; T29 acceptance remains open for documented policy workflow gaps. Historical planning pause retained below for context.
 Updated: 2026-09-22. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
 
 ## Release requirements

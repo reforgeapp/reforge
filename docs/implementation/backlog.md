@@ -1,6 +1,16 @@
 # Implementation backlog
 
-Updated: 2026-09-22. Planning revision only; preserve implementation status/history in `progress.md`. T29 is reopened and prior GUI completion acceptance is superseded. Do not erase backend gains or restart unrelated implementation.
+## Owner usage pause — 2026-09-22
+
+Stop further implementation after the closing worker batch. Outstanding T29g–n tickets, exclusive file ownership, acceptance checks and Copilot/Luna suitability are in [the Copilot handoff](copilot-handoff-2026-09-22.md). Current pause overrides earlier autonomous continuation instructions. Broader release tickets remain open.
+
+## Current review authority — 2026-09-22
+
+GUI rebuild locally verified. T29 acceptance remains open for documented policy workflow gaps: automatic stored-evidence/portfolio simulation. The delivered GUI is a restrained operator console with a white workspace, light slate navigation, blue 14px controls, flat inventory surfaces and functioning tabs/workspaces. See [GUI policy requirements](../design/gui.md). Historical “complete” rows remain evidence history. No G5, human approval or external certification is implied.
+
+Current checks: Go tests and `make check` pass; browser final `.local/rebuild-browser-final.json` records 108 passed, 0 failed, 9 opt-in skipped; policy/insights `.local/policy-final.json`, persisted controls `.local/live-controls.json`, and fresh route/detail captures under `.local/rebuild-final/` pass. The historical full-suite `83 passed, 24 failed, 9 skipped` result remains comparison history.
+
+Updated: 2026-09-22. Detailed planning history remains below; current implementation status is recorded above. Do not erase backend gains or restart unrelated implementation.
 
 ## Working rules
 
