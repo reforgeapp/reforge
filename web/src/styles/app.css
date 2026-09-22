@@ -197,7 +197,7 @@ legend { padding: 0 5px; color: var(--text-muted); font-size: 11px; font-weight:
 .detail-tabs .button { border-width: 0 0 2px; border-color: transparent; background: transparent; }
 .detail-tabs .button[aria-pressed="true"] { border-color: var(--primary); color: var(--primary); background: transparent; }
 .dialog { width: min(94vw, 680px); max-height: 88vh; padding: 0; border: 1px solid var(--border); color: var(--text); background: var(--surface); }
-.dialog::backdrop { background: rgb(19 35 49 / 42%); }
+.dialog::backdrop { background: rgb(16 18 18 / 54%); }
 .dialog-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 15px; border-bottom: 1px solid var(--border); }
 .dialog-head h2 { font-size: 14px; font-weight: 700; }
 .dialog-body { max-height: calc(88vh - 53px); padding: 15px; overflow-y: auto; }
