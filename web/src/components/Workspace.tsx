@@ -1,4 +1,4 @@
-import { useEffect, useRef, type KeyboardEvent, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from 'react'
 import { Icon } from './Icons'
 
 export function Tabs({ id, label, items, value, onChange }: { id: string; label: string; items: Array<{ id: string; label: string }>; value: string; onChange: (id: string) => void }) {
@@ -17,27 +17,43 @@ export function Toolbar({ label, children }: { label: string; children: ReactNod
   return <div className="toolbar" role="group" aria-label={label}>{children}</div>
 }
 
-export function SplitView({ listLabel, list, detail, selected, onBack, hideBack }: { listLabel: string; list: ReactNode; detail: ReactNode; selected: boolean; onBack: () => void; hideBack?: boolean }) {
+export function SplitView({ listLabel, list, detail, selected, onBack, hideBack, closeControl }: { listLabel: string; list: ReactNode; detail: ReactNode; selected: boolean; onBack: () => void; hideBack?: boolean; closeControl?: { label: string; onClose: () => void } }) {
   const listRef = useRef<HTMLElement>(null)
   const detailRef = useRef<HTMLElement>(null)
+  const closeRef = useRef<HTMLButtonElement>(null)
   const originRef = useRef<HTMLElement | null>(null)
   const mountedRef = useRef(false)
+  const [listFocusNonce, setListFocusNonce] = useState(0)
 
   useEffect(() => {
-    if (!mountedRef.current) { mountedRef.current = true; return }
-    if (selected) {
-      const active = document.activeElement
-      if (active instanceof HTMLElement && listRef.current?.contains(active)) originRef.current = active
-      detailRef.current?.focus()
+    const firstRender = !mountedRef.current
+    mountedRef.current = true
+    if (!selected) {
+      if (!firstRender && originRef.current?.isConnected) originRef.current.focus()
+      else if (!firstRender) listRef.current?.focus()
       return
     }
-    if (originRef.current?.isConnected) originRef.current.focus()
-    else listRef.current?.focus()
-  }, [selected])
+    const active = document.activeElement
+    if (active instanceof HTMLElement && listRef.current?.contains(active)) originRef.current = active
+    if (closeControl) closeRef.current?.focus()
+    else detailRef.current?.focus()
+  }, [selected, Boolean(closeControl), listFocusNonce])
+
+  const close = closeControl?.onClose ?? onBack
+  const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
+    const target = event.target as HTMLElement
+    if (event.key === 'Escape' && selected && closeControl && !event.defaultPrevented && !target.closest('dialog, [role="dialog"], input, textarea, select, [contenteditable="true"]')) { event.preventDefault(); close() }
+  }
+  const onListClick = (event: MouseEvent<HTMLElement>) => {
+    if (!selected || !closeControl) return
+    if (!(event.target as HTMLElement).closest('button.link-button')) return
+    setListFocusNonce(value => value + 1)
+  }
 
   return <div className={`split-view ${selected ? 'detail-open' : ''}`}>
-    <section ref={listRef} className="split-list" aria-label={listLabel} tabIndex={-1}>{list}</section>
-    <section ref={detailRef} className="split-detail" aria-label="Detail" tabIndex={-1} hidden={!selected}>
+    <section ref={listRef} className="split-list" aria-label={listLabel} tabIndex={-1} onClick={onListClick}>{list}</section>
+    <section ref={detailRef} className="split-detail" aria-label="Detail" tabIndex={-1} hidden={!selected} onKeyDown={onKeyDown}>
+      {selected && closeControl && <button ref={closeRef} className="icon-button panel-close" aria-label={closeControl.label} onClick={close}><Icon name="close" /></button>}
       {selected && !hideBack && <button className="back-link" onClick={onBack}><Icon name="chevron" size={14} />Back to list</button>}
       {detail}
     </section>
