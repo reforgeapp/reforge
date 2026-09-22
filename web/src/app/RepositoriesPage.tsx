@@ -44,7 +44,7 @@ export function RepositoriesPage({ orgID }: { orgID: string }) {
   const connections = useQuery({ queryKey: ['org', orgID, 'forge-connections'], queryFn: ({ signal }) => inventoryAPI.connections(orgID, signal) })
   const result = useQuery({ queryKey: ['org', orgID, 'inventory-repositories', { q, provider, teamID, status, cursor }], queryFn: ({ signal }) => inventoryAPI.repositories(orgID, { q, provider: provider || undefined, team_id: teamID || undefined, status: status === 'all' ? undefined : status, cursor, limit: 50, signal }) })
   useEffect(() => { if (result.data) setRows(previous => cursor ? [...new Map([...previous, ...result.data.items].map(item => [item.id, item])).values()] : result.data.items) }, [cursor, result.data])
-  useEffect(() => { setQ(routeSearch.q ?? ''); setProvider(routeSearch.provider ?? ''); setTeamID(routeSearch.team_id ?? ''); setStatus(routeSearch.status ?? 'all'); setCursor(undefined); setRows([]) }, [routeSearch.q, routeSearch.provider, routeSearch.team_id, routeSearch.status])
+  useEffect(() => { setQ(routeSearch.q ?? ''); setProvider(routeSearch.provider ?? ''); setTeamID(routeSearch.team_id ?? ''); setStatus(routeSearch.status ?? 'all'); setCursor(undefined) }, [routeSearch.q, routeSearch.provider, routeSearch.team_id, routeSearch.status])
   useEffect(() => () => { if (qTimer.current) window.clearTimeout(qTimer.current) }, [])
   useEffect(() => { setDetailID(routeSearch.repository ?? '') }, [routeSearch.repository])
   useEffect(() => {
