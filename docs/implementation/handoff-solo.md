@@ -189,6 +189,9 @@ Acceptance continuation (`2026-09-22`, commits `442b4ee`…`e385a49`):
 - `make check`, `go test ./...` (exit 0), full browser suite `--grep-invert live`
   (`95 passed, 4 skipped`), `make sandbox-test`, `make install-check`, the load harness
   and `go test -race ./test/integration/...` (`117.416s`) all pass after these changes.
+- Container re-verification after the changes: `docker build` succeeds for the control,
+  runner and docs images; the control container runs as uid 10001 with no
+  `/var/run/docker.sock`, serves `/readyz` 200 and `/api/v1/meta`, then is removed.
 
 Not run: hosted cgroup-enforced isolation, live provider/agent-account certification,
 customer OIDC/hosted-cluster install, and the 50-real-browser-session variant of the load
