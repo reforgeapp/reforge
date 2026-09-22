@@ -39,16 +39,28 @@ test('zero policy limits survive save payload', async ({ page }) => {
   await expect.poll(() => payload?.policy?.limits).toEqual({ budget: 0, concurrency: 0 })
 })
 
+test('persistent save action works from non-Scope tab and editor remains visible on mobile', async ({ page }) => {
+  await fixture(page)
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.getByRole('tab', { name: 'Models & spend' }).click()
+  await expect(page.getByRole('tabpanel', { name: 'Models & spend' })).toBeVisible()
+  await page.getByLabel('Reason').fill('saved from spend')
+  let payload: any
+  await page.route(`**${base}/policies/versions`, async route => { payload = await route.request().postDataJSON(); await route.fulfill({ json: version }) })
+  await page.getByRole('button', { name: 'Save immutable version' }).click()
+  await expect.poll(() => payload?.reason).toBe('saved from spend')
+})
+
 test('draft preset preserves policy evidence and waits for explicit save', async ({ page }) => {
   await fixture(page)
   let payload: any
   await page.route(`**${base}/policies/versions`, async route => { payload = await route.request().postDataJSON(); await route.fulfill({ json: version }) })
   await page.getByRole('button', { name: 'Apply preset' }).click()
-  await expect(page.getByText(/Draft allows: none · blocks: read, repair, publish, merge, deploy, recover/)).toBeVisible()
+  await expect(page.getByText(/Draft gate: allows none · blocks read, repair, publish, merge, deploy, recover/)).toBeVisible()
   expect(payload).toBeUndefined()
   await page.getByLabel('Draft preset').selectOption('propose')
   await page.getByRole('button', { name: 'Apply preset' }).click()
-  await expect(page.getByText(/Draft allows: repair, publish · blocks: read, merge, deploy, recover/)).toBeVisible()
+  await expect(page.getByText(/Draft gate: allows repair, publish · blocks read, merge, deploy, recover/)).toBeVisible()
   await page.getByLabel('Draft preset').selectOption('deliver')
   await page.getByRole('button', { name: 'Apply preset' }).click()
   await page.getByRole('button', { name: 'Save immutable version' }).click()
