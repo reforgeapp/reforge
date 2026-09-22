@@ -1,10 +1,20 @@
 # Solo resume handoff
 
-## Owner resumed — 2026-09-23
+## Current GUI handoff — 2026-09-23
 
-Latest owner instruction supersedes the pause below. Astra reviews Deepseek T29k/l/m; Luna repairs Findings, theme and Policies, then completes remaining GUI acceptance. See the current status/ownership in `progress.md` and new T29o in `backlog.md`. Preserve historical evidence; do not treat it as verification of today's changes.
+Owner resumed GUI work; pause below is historical. T29g–o locally complete after Astra
+review and Luna repairs. Full browser suite: 133 passed, 0 failed, 9 opt-in skipped;
+real policy/budget/audit controls also passed. Deepseek's Campaign/GitOps work retained
+with compact filter correction; Findings close/focus, organisation menu, dark palette and
+Policies workspace repaired. Impact preview uses stored evidence and real simulation APIs.
 
-## Owner usage pause — 2026-09-22
+Start from [current progress](progress.md) and [GUI feedback review](gui-feedback-review-2026-09-23.md)
+for exact artifacts, image identities, live demo and remaining work. Preserve owner edits
+to `copilot-handoff-2026-09-22.md`; its old ticket states are superseded by this checkpoint.
+T16/T26 certification, T27 hosted isolation, T28 actual executing-run/browser load and
+release/dependency review remain open. No G5, human approval or external certification claimed.
+
+## Historical usage pause — 2026-09-22 (superseded)
 
 Do not continue automatically. Owner requested a usage pause after closing the current workers. Resume from [Copilot/Luna tickets T29g–n](copilot-handoff-2026-09-22.md), which supersede earlier stopping instructions and identify pending work, file ownership and actual checks. Keep the current local demo available. Do not integrate the parked policy impact experiment as completed functionality.
 

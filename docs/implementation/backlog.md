@@ -6,11 +6,13 @@ Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, r
 
 ### T29o — Consistent Policies workspace
 
+- Status: **local complete, 2026-09-23**. See [review evidence](gui-feedback-review-2026-09-23.md).
+
 - Owner: Luna; Astra reviews policy-state/security preservation. Depends T29b/d; coordinate T29g after layout review.
 - Build: compact repository/scope toolbar, concise effective policy, connected editor/version history, shared reason/save controls, deliberate simulation surface. Established console theme; advanced evidence collapsed. Dedicated responsive layout keeps editor visible at 390px.
 - Accept: owner/admin/read-only permissions, CSRF, immutable versions, presets, zero limits, required/default/forbidden rules, dirty-draft simulation invalidation, activation hash/CAS preserved. Keyboard and both-theme desktop/narrow review; real backend save/reload/simulation; no repeated explanations or raw UUID dominance.
 
-## Owner usage pause — 2026-09-22
+## Historical usage pause — 2026-09-22 (superseded)
 
 Stop further implementation after the closing worker batch. Outstanding T29g–n tickets, exclusive file ownership, acceptance checks and Copilot/Luna suitability are in [the Copilot handoff](copilot-handoff-2026-09-22.md). Current pause overrides earlier autonomous continuation instructions. Broader release tickets remain open.
 
@@ -227,7 +229,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Status: **in progress, owner review resumed 2026-09-23**. T29a–f have a locally reviewed checkpoint; T29g–o remain subject to current feedback and integration review. Earlier “local complete” rows describe historical checkpoints, not parent acceptance.
+- Status: **locally complete, agent-reviewed 2026-09-23**. T29a–f checkpoint retained; T29g–o feedback integrated and verified. See [current review](gui-feedback-review-2026-09-23.md) for 133 passing browser tests, loaded route/theme captures and limits. Human feedback and G5/provider/release qualification remain separate.
 - Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
 - Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
 - T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.

@@ -1,25 +1,40 @@
 # Implementation progress
 
-## Resumed owner review — 2026-09-23
+## Current GUI checkpoint — 2026-09-23
 
-Owner resumed GUI work, superseding the usage pause below. Astra coordinates/reviews; maximum three Luna workers implement with exclusive files. Existing persistent goal still reports `blocked`; available goal tools have no resume operation. Work is active under the owner's explicit instruction.
+Owner resumed GUI feedback work; earlier usage pause is superseded. Astra reviewed;
+Luna implemented with exclusive files and at most three workers. Full browser regression:
+**133 passed, 0 failed, 9 opt-in skipped**. Final Campaign-only CSS correction has separate
+focused verification and delivered-bundle screenshots. No G5 or live-provider certification.
 
-Baseline `b7f2a11`: Deepseek implemented T29k/l/m. Before-review evidence: `.local/resume-2026-09-23/before/`, 16 served-page captures across light/dark and 1440/390px; no page errors. Baseline bundle: `index-D1yu7M0w.js`. These captures do not establish functional or accessibility acceptance.
-
-| Ticket | Current state | Remaining acceptance |
+| Ticket | Current state | Evidence / remaining work |
 | --- | --- | --- |
-| T29g | parked, open | Finish stored-evidence impact preview; no fake attestations |
-| T29h/i | implemented, recheck | Warm-cache inventory and Organisation payload regression |
-| T29j | review | Dropdown keyboard, outside dismissal, tenant switching |
-| T29k | Deepseek implementation under review | Campaign/GitOps desktop/narrow and functional regression |
-| T29l | Luna repair in progress | Attached X, keyboard/focus/filter/deep-link regression |
-| T29m | Luna repair in progress | Neutral dark palette; both-theme route/contrast checks |
-| T29o | Luna implementation in progress | Consistent compact Policies workspace, preserved security/state |
-| T29n | open | Integrated checks, current screenshots/docs/images and handoff |
+| T29g | local complete | Ten impact cases; scoped sequential backend simulations, pagination, cancellation, empty/stale evidence and gate deltas |
+| T29h/i | local complete | Warm-cache inventory, tenant switching, nullable Organisation regression; integrated suite |
+| T29j | local complete | Dropdown/More modal, arrow/Tab/Shift+Tab/Escape and focus restoration |
+| T29k | local complete | Campaign/GitOps layouts retained; Campaign filter width corrected; focused layout verification |
+| T29l | local complete | Attached X, Escape, row/deep-link focus restoration; shared async focus theft fixed |
+| T29m | local complete | Neutral charcoal palette; both themes, system/persisted preference and narrow layouts |
+| T29o | local complete | Consistent policy editor/history workspace, compact presets, shared save/reason controls; real activation/budget/audit test |
+| T29n | local complete | Full browser suite, 52-route theme/viewport audit, docs/control images and current handoff |
 
-Material decisions: neutral charcoal dark surfaces with blue actions; dedicated responsive policy editor/version layout (generic selected-detail layout hides the editor on narrow screens); shared reason/save actions accessible from every editor tab. Keep advanced manual simulation and immutable activation controls. Local application/DB/docs remain available; no external certification or G5 completion claimed. Preserve pre-existing owner edits to `copilot-handoff-2026-09-22.md`.
+Evidence, exact assets/images, launch instructions and intermediate failures:
+[GUI feedback review](gui-feedback-review-2026-09-23.md). Artifact directory:
+`.local/resume-2026-09-23/`. Baseline `b7f2a11`; before screenshots preserve Deepseek's
+T29k/l/m implementation. No fake successful integrations or fabricated execution history.
 
-## Owner usage pause — 2026-09-22
+Material decisions: neutral charcoal dark surfaces; dedicated responsive policy editor and
+version rail; shared reason/save actions on every editor tab; backend-authoritative preview
+with collapsed blocker details; focus changes only for intentional detail navigation.
+Advanced simulation, immutable activation, RBAC/CSRF, policy hashes and zero caps preserved.
+
+Demo remains on `127.0.0.1:8080`; docs on `127.0.0.1:8082/docs/`. Preserve owner's existing
+edits to `copilot-handoff-2026-09-22.md`. Persistent goal tools expose no resume operation;
+work proceeded under explicit owner resumption. Broader T16/T26 certification, T27 hosted
+isolation and T28 executing-run/browser load plus release review remain open. Historical
+local install/race/restore evidence below was not rerun for this frontend feedback batch.
+
+## Historical usage pause — 2026-09-22 (superseded)
 
 Owner requested workers finish quickly and remaining work move to tickets. No further feature implementation is authorised until resumed. See [T29g–n and closing worker results](copilot-handoff-2026-09-22.md). New policy impact work is parked under `.local/wip/`, unintegrated and untested. Latest owner feedback covers quick organisation switching, repository navigation, Organisation crash, compact layouts, Findings close control and dark mode. The 108-test/26-route checkpoint below predates this final feedback batch; do not present it as final-batch certification.
 
