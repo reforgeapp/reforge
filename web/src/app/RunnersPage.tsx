@@ -1,60 +1,126 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, type RunnerPool, type RunnerPoolInput } from '../api/client'
-import { runnerPoolsQuery, runnersQuery, useMeta, useSession } from './query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
+import { api, type Runner, type RunnerPool, type RunnerPoolInput } from '../api/client'
+import { runnerPoolsQuery, runnersQuery, useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
+import { Toolbar, SplitView, DetailPanel, SplitPlaceholder } from '../components/Workspace'
+
+const message = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
+const tone = (state: string) => state === 'active' ? 'green' as const : state === 'draining' ? 'amber' as const : 'red' as const
+const heartbeat = (value: string) => { const seconds = Math.max(0, Math.round((Date.now() - new Date(value).getTime()) / 1000)); return seconds < 60 ? `${seconds}s ago` : seconds < 3600 ? `${Math.round(seconds / 60)}m ago` : `${Math.round(seconds / 3600)}h ago` }
 
 export function RunnersPage({ orgID }: { orgID: string }) {
   const session = useSession()
+  const client = useQueryClient()
+  const search = useSearch({ strict: false }) as Record<string, string | undefined>
+  const navigate = useNavigate({ from: '/org/$orgID/$section' })
+  const [q, setQ] = useState(search.q ?? '')
+  const [state, setState] = useState(search.state ?? '')
   const [cursor, setCursor] = useState<string>()
   const [loaded, setLoaded] = useState<RunnerPool[]>([])
-  const pools = useQuery(runnerPoolsQuery(orgID, cursor))
-  const client = useQueryClient()
-  const [selectedPool, setSelectedPool] = useState<RunnerPool | undefined>()
-  const [formPool, setFormPool] = useState<RunnerPool | undefined>()
+  const selectedID = search.pool ?? ''
   const [newPool, setNewPool] = useState(false)
+  const [editPool, setEditPool] = useState<RunnerPool>()
   const [enrollment, setEnrollment] = useState<{ token: string; expires_at: string; pool: string }>()
   const [enrollmentError, setEnrollmentError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const csrf = session.data?.csrf_token ?? ''
+
+  useEffect(() => { setQ(search.q ?? ''); setState(search.state ?? ''); setCursor(undefined); setLoaded([]) }, [search.q, search.state])
+  const pools = useQuery(runnerPoolsQuery(orgID, { q: q || undefined, state: state || undefined }, cursor))
   useEffect(() => { if (pools.data) setLoaded(previous => [...new Map((cursor ? [...previous, ...pools.data.items] : pools.data.items).map(item => [item.id, item])).values()]) }, [cursor, pools.data])
+
+  const detail = useQuery({ queryKey: ['org', orgID, 'runner-pool', selectedID], queryFn: ({ signal }) => api.getRunnerPool(orgID, selectedID, signal), enabled: !!selectedID })
+  const runners = useQuery(runnersQuery(orgID, selectedID))
+  const repositories = useQuery({ queryKey: ['org', orgID, 'runner-repositories'], queryFn: ({ signal }) => api.getRepositories(orgID, { limit: 200, signal }) })
+  const repositoryName = (id: string) => repositories.data?.items.find(item => item.id === id)?.name ?? id
+
+  const refresh = () => { setCursor(undefined); setLoaded([]); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pools'] }); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pool'] }) }
+  const select = (id: string) => { void navigate({ search: previous => ({ ...previous, pool: id }) }) }
+  const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.pool; return next } }) }
+  const setFilter = (key: 'q' | 'state', value: string) => { if (key === 'q') setQ(value); else setState(value); setCursor(undefined); setLoaded([]); void navigate({ search: previous => ({ ...previous, [key]: value || undefined }) }) }
+  const enrol = async (pool: RunnerPool) => { setEnrollmentError(''); try { const token = await api.createEnrollment(orgID, pool.id, csrf); setEnrollment({ ...token, pool: pool.name }) } catch (reason) { setEnrollment(undefined); setEnrollmentError(message(reason)) } }
+  const act = async (run: () => Promise<unknown>) => { setActionError(''); try { await run(); refresh() } catch (reason) { setActionError(message(reason)) } }
+
   if (pools.isLoading && !loaded.length) return <StatePanel kind="loading" title="Loading runner pools" detail="Fetching execution trust boundaries for this organisation." />
   if (pools.error) return <StatePanel kind="error" title="Runner pools could not be loaded" detail={message(pools.error)} action={<Button onClick={() => pools.refetch()}>Retry</Button>} />
-  const items = loaded
-  const csrf = session.data?.csrf_token ?? ''
-  const refresh = () => { setCursor(undefined); setLoaded([]); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pools'] }) }
-  return <div className="stack"><div className="subsection-actions"><Button className="button button-primary" onClick={() => setNewPool(true)}>Create pool</Button></div>{enrollmentError && <p className="error-text" role="alert">{enrollmentError}</p>}{!items.length ? <div className="state-card"><span className="state-icon teal" aria-hidden="true">▤</span><div><h2>No runner pools configured</h2><p>Create an empty pool, then enroll a runner on an approved private route.</p></div></div> : <DataTable caption="Runner pools"><table><thead><tr><th>Pool</th><th>State</th><th>Repositories</th><th>Version</th><th>Actions</th></tr></thead><tbody>{items.map(pool => <tr key={pool.id}><td><button className="link-button" onClick={() => setSelectedPool(pool)}>{pool.name}</button></td><td><StatusBadge label={pool.state} tone={pool.state === 'active' ? 'green' : pool.state === 'draining' ? 'amber' : 'red'} /></td><td>{pool.repository_ids.length ? pool.repository_ids.length : '0 (onboarding only)'}</td><td>{pool.version}</td><td><div className="row-actions"><Button onClick={() => setFormPool(pool)}>Edit</Button><Button disabled={!csrf} onClick={async () => { setEnrollmentError(''); try { const token = await api.createEnrollment(orgID, pool.id, csrf); setEnrollment({ ...token, pool: pool.name }) } catch (reason) { setEnrollment(undefined); setEnrollmentError(message(reason)) } }}>Enroll runner</Button></div></td></tr>)}</tbody></table></DataTable>}{!pools.data?.complete && <Button disabled={pools.isFetching} onClick={() => setCursor(pools.data?.next_cursor)}>{pools.isFetching ? 'Loading…' : 'Load more pools'}</Button>}{selectedPool && <PoolRunners pool={selectedPool} orgID={orgID} csrf={csrf} onClose={() => setSelectedPool(undefined)} />}{(newPool || formPool) && <PoolForm pool={formPool} orgID={orgID} csrf={csrf} onClose={() => { setNewPool(false); setFormPool(undefined) }} onSaved={() => { setNewPool(false); setFormPool(undefined); refresh() }} />}{enrollment && <EnrollmentDialog enrollment={enrollment} onClose={() => setEnrollment(undefined)} />}</div>
+
+  const poolTable = <DataTable caption="Runner pools"><table><thead><tr><th>Pool</th><th>State</th><th>Runners</th><th>Busy</th><th>Repositories</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{loaded.map(pool => <tr key={pool.id}><td><button className="link-button" onClick={() => select(pool.id)}>{pool.name}</button></td><td><StatusBadge label={pool.state} tone={tone(pool.state)} /></td><td>{pool.runner_count}</td><td>{pool.busy_slots}</td><td>{pool.repository_ids.length}</td><td><div className="row-actions"><Button className="button button-sm" onClick={() => select(pool.id)}>Open</Button><Button className="button button-sm" disabled={!csrf || pool.state === 'revoked'} onClick={() => void enrol(pool)}>Enroll runner</Button></div></td></tr>)}</tbody></table>{!loaded.length && <EmptyTable label="No runner pools match these filters." />}{!pools.data?.complete && <div className="table-note"><Button disabled={pools.isFetching} onClick={() => setCursor(pools.data?.next_cursor)}>{pools.isFetching ? 'Loading…' : 'Load more pools'}</Button></div>}</DataTable>
+
+  const poolDetail = !selectedID ? <SplitPlaceholder label="Select a pool to view runners, capacity and routes." />
+    : detail.isLoading ? <StatePanel kind="loading" title="Loading pool" detail="Fetching capacity and trust data." />
+    : detail.error || !detail.data ? <StatePanel kind="error" title="Pool unavailable" detail={message(detail.error)} action={<Button onClick={() => detail.refetch()}>Retry</Button>} />
+    : <DetailPanel title={detail.data.name} status={<p><StatusBadge label={detail.data.state} tone={tone(detail.data.state)} /> <span className="table-meta">trust customer-owned · version {detail.data.version}</span></p>} actions={<>
+        <Button className="button button-primary" disabled={!csrf || detail.data.state === 'revoked'} onClick={() => void enrol(detail.data!)}>Enrol runner</Button>
+        <Button disabled={!csrf} onClick={() => setEditPool(detail.data)}>Edit</Button>
+        <Button disabled={!csrf || detail.data.state === 'revoked'} onClick={() => void act(() => setPoolState(orgID, detail.data!, detail.data!.state === 'draining' ? 'active' : 'draining', csrf))}>{detail.data.state === 'draining' ? 'Activate' : 'Drain'}</Button>
+        <Button className="button button-danger" disabled={!csrf || detail.data.state === 'revoked'} onClick={() => void act(() => setPoolState(orgID, detail.data!, 'revoked', csrf))}>Revoke</Button>
+      </>}>
+      <dl className="metric-inline">
+        <div><dt>Active runners</dt><dd>{detail.data.runner_count}</dd></div>
+        <div><dt>Busy slots</dt><dd>{detail.data.busy_slots}</dd></div>
+        <div><dt>Repositories</dt><dd>{detail.data.repository_ids.length}</dd></div>
+      </dl>
+      <div><h3>Repositories</h3>{detail.data.repository_ids.length ? <ul className="compact-list">{detail.data.repository_ids.map(id => <li key={id}>{repositoryName(id)}</li>)}</ul> : <p className="table-meta">Onboarding pool; no repository job authority.</p>}</div>
+      <div><h3>Runners</h3>{runners.isLoading ? <p className="table-meta">Loading runners…</p> : runners.error ? <p className="error-text" role="alert">Runners unavailable: {message(runners.error)}</p> : !(runners.data?.items.length) ? <EmptyTable label="No runners have enrolled in this pool." /> : <DataTable caption="Enrolled runners"><table><thead><tr><th>Runner</th><th>State</th><th>Heartbeat</th><th>Busy</th><th>Routes</th><th>Credential</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{runners.data.items.map((runner: Runner) => <tr key={runner.id}><td>{runner.name}</td><td><StatusBadge label={runner.state} tone={runner.state === 'active' ? 'green' : 'red'} /></td><td>{heartbeat(runner.last_seen_at)}</td><td>{runner.busy_slots}</td><td>{runner.route_count}</td><td>{new Date(runner.credential_expires_at).toLocaleDateString()}</td><td><Button className="button button-sm" disabled={!csrf} onClick={() => void act(() => revokeRunner(orgID, runner, csrf))}>Revoke</Button></td></tr>)}</tbody></table></DataTable>}</div>
+      {actionError && <p className="error-text" role="alert">{actionError}</p>}
+      {enrollmentError && <p className="error-text" role="alert">{enrollmentError}</p>}
+    </DetailPanel>
+
+  return <div className="stack">
+    <Toolbar label="Runner pool filters">
+      <label>Search<input value={q} onChange={event => setFilter('q', event.target.value)} placeholder="Pool name" /></label>
+      <label>State<select value={state} onChange={event => setFilter('state', event.target.value)}><option value="">All states</option><option value="active">Active</option><option value="draining">Draining</option><option value="revoked">Revoked</option></select></label>
+      <Button onClick={refresh}>Refresh</Button>
+      <Button className="button button-primary" onClick={() => setNewPool(true)}>Create pool</Button>
+    </Toolbar>
+    <SplitView listLabel="Runner pool inventory" selected={!!selectedID} onBack={clear} list={poolTable} detail={poolDetail} />
+    {(newPool || editPool) && <PoolForm pool={editPool} orgID={orgID} csrf={csrf} repositories={repositories.data?.items ?? []} onClose={() => { setNewPool(false); setEditPool(undefined) }} onSaved={() => { setNewPool(false); setEditPool(undefined); refresh() }} />}
+    {enrollment && <EnrollmentDialog enrollment={enrollment} onClose={() => setEnrollment(undefined)} />}
+  </div>
 }
 
-function PoolForm({ pool, orgID, csrf, onClose, onSaved }: { pool?: RunnerPool; orgID: string; csrf: string; onClose: () => void; onSaved: () => void }) {
+async function setPoolState(orgID: string, pool: RunnerPool, state: RunnerPoolInput['state'], csrf: string) {
+  await api.updateRunnerPool(orgID, pool.id, pool.version, { name: pool.name, state, repository_ids: pool.repository_ids }, csrf)
+}
+async function revokeRunner(orgID: string, runner: Runner, csrf: string) {
+  await api.revokeRunner(orgID, runner.id, runner.version, csrf)
+}
+
+function PoolForm({ pool, orgID, csrf, repositories, onClose, onSaved }: { pool?: RunnerPool; orgID: string; csrf: string; repositories: Array<{ id: string; name: string }>; onClose: () => void; onSaved: () => void }) {
   const [name, setName] = useState(pool?.name ?? '')
   const [state, setState] = useState<RunnerPoolInput['state']>(pool?.state ?? 'active')
-  const [repositories, setRepositories] = useState(pool?.repository_ids.join(', ') ?? '')
+  const [selected, setSelected] = useState<string[]>(pool?.repository_ids ?? [])
+  const [search, setSearch] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const save = async (event: FormEvent) => { event.preventDefault(); setBusy(true); setError(''); const payload: RunnerPoolInput = { name, state, repository_ids: repositories.split(',').map(item => item.trim()).filter(Boolean) }; try { if (pool) await api.updateRunnerPool(orgID, pool.id, pool.version, payload, csrf); else await api.createRunnerPool(orgID, payload, csrf); onSaved() } catch (reason) { setError(message(reason)) } finally { setBusy(false) } }
-  return <Dialog open title={pool ? 'Edit runner pool' : 'Create runner pool'} onClose={onClose}><form className="form-stack" onSubmit={save}><p className="dialog-copy">Repository IDs are explicit. Leave the list empty for an onboarding pool.</p><label>Name<input required value={name} onChange={event => setName(event.target.value)} /></label>{pool && <label>State<select value={state} onChange={event => setState(event.target.value as RunnerPoolInput['state'])}><option value="active">Active</option><option value="draining">Draining</option><option value="revoked">Revoked</option></select></label>}<label>Repository IDs<input value={repositories} onChange={event => setRepositories(event.target.value)} placeholder="repo-id-1, repo-id-2" /></label>{error && <p className="error-text" role="alert">{error}</p>}<div className="dialog-actions"><Button type="button" onClick={onClose}>Cancel</Button><Button className="button button-primary" disabled={busy || !csrf}>{busy ? 'Saving…' : 'Save pool'}</Button></div></form></Dialog>
-}
-
-function PoolRunners({ pool, orgID, csrf, onClose }: { pool: RunnerPool; orgID: string; csrf: string; onClose: () => void }) {
-  const result = useQuery(runnersQuery(orgID, pool.id))
-  const client = useQueryClient()
-  const [error, setError] = useState('')
-  if (result.isLoading) return <Dialog open title={pool.name} onClose={onClose}><StatePanel kind="loading" title="Loading runners" detail="Fetching enrolled runners." /></Dialog>
-  if (result.error) return <Dialog open title={pool.name} onClose={onClose}><StatePanel kind="error" title="Runners could not be loaded" detail={message(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} /></Dialog>
-  const runners = result.data?.items ?? []
-  const revoke = async (runner: typeof runners[number]) => { setError(''); try { await api.revokeRunner(orgID, runner.id, runner.version, csrf); await client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pools', pool.id, 'runners'] }) } catch (reason) { setError(message(reason)) } }
-  return <Dialog open title={`${pool.name} runners`} onClose={onClose}>{!runners.length ? <EmptyTable label="No runners have enrolled in this pool." /> : <DataTable caption="Enrolled runners"><table><thead><tr><th>Name</th><th>State</th><th>Credential expiry</th><th /></tr></thead><tbody>{runners.map(runner => <tr key={runner.id}><td>{runner.name}</td><td><StatusBadge label={runner.state} tone={runner.state === 'active' ? 'green' : 'amber'} /></td><td>{new Date(runner.credential_expires_at).toLocaleString()}</td><td><Button disabled={!csrf} onClick={() => revoke(runner)}>Revoke</Button></td></tr>)}</tbody></table></DataTable>}{error && <p className="error-text" role="alert">{error}</p>}</Dialog>
+  const matches = useMemo(() => repositories.filter(item => item.name.toLowerCase().includes(search.trim().toLowerCase())), [repositories, search])
+  const save = async (event: FormEvent) => {
+    event.preventDefault(); setBusy(true); setError('')
+    const payload: RunnerPoolInput = { name: name.trim(), state, repository_ids: selected }
+    try { if (pool) await api.updateRunnerPool(orgID, pool.id, pool.version, payload, csrf); else await api.createRunnerPool(orgID, payload, csrf); onSaved() } catch (reason) { setError(message(reason)) } finally { setBusy(false) }
+  }
+  return <Dialog open title={pool ? 'Edit runner pool' : 'Create runner pool'} onClose={onClose}><form className="form-stack" onSubmit={save}>
+    <label>Name<input required value={name} onChange={event => setName(event.target.value)} /></label>
+    {pool && <label>State<select value={state} onChange={event => setState(event.target.value as RunnerPoolInput['state'])}><option value="active">Active</option><option value="draining">Draining</option><option value="revoked">Revoked</option></select></label>}
+    <fieldset><legend>Repository scope</legend><p className="table-meta">Leave the list empty for an onboarding pool with no repository job authority.</p>
+      <label>Search repositories<input value={search} onChange={event => setSearch(event.target.value)} placeholder="Filter by name" /></label>
+      <div className="checkbox-list">{matches.slice(0, 100).map(repository => <label key={repository.id} className="checkbox-label"><input type="checkbox" checked={selected.includes(repository.id)} onChange={event => setSelected(previous => event.target.checked ? [...previous, repository.id] : previous.filter(id => id !== repository.id))} />{repository.name}</label>)}{!matches.length && <p className="table-meta">No repositories match.</p>}</div>
+      {selected.length > 0 && <p className="table-meta">{selected.length} repositories assigned.</p>}
+    </fieldset>
+    {error && <p className="error-text" role="alert">{error}</p>}
+    <div className="dialog-actions"><Button type="button" onClick={onClose}>Cancel</Button><Button className="button button-primary" disabled={busy || !csrf}>{busy ? 'Saving…' : 'Save pool'}</Button></div>
+  </form></Dialog>
 }
 
 function EnrollmentDialog({ enrollment, onClose }: { enrollment: { token: string; expires_at: string; pool: string }; onClose: () => void }) {
   const endpoint = window.location.origin
-  const meta = useMeta()
   const loopback = window.location.hostname === '127.0.0.1' || window.location.hostname === '::1'
-  const development = meta.data?.development && loopback ? ' --development' : ''
-  return <Dialog open title="Runner enrollment token" onClose={onClose}><div className="stack"><p className="dialog-copy">This token is shown once for {enrollment.pool}. Save it in a private file with mode 0600 before it expires.</p><label>One-use token<input readOnly value={enrollment.token} /></label><p className="table-meta">Expires {new Date(enrollment.expires_at).toLocaleString()}.</p><pre className="command-block">{`chmod 600 /path/token\nreforge-runner enroll --endpoint ${endpoint} --credentials /path/runner-credentials --token-file /path/token${development}`}</pre><pre className="command-block">{`reforge-runner connector --endpoint ${endpoint} --credentials /path/runner-credentials${development}`}</pre><p className="table-meta">Run connector after enrollment with saved credential file. Do not put token in command history or browser storage.</p><Button className="button button-primary" onClick={onClose}>Clear token</Button></div></Dialog>
+  const development = loopback ? ' --development' : ''
+  return <Dialog open title="Runner enrollment token" onClose={onClose}><div className="stack"><p className="dialog-copy">This token is shown once for {enrollment.pool}. Save it in a private file with mode 0600 before it expires.</p><label>One-use token<input readOnly value={enrollment.token} /></label><p className="table-meta">Expires {new Date(enrollment.expires_at).toLocaleString()}.</p><pre className="command-block">{`chmod 600 /path/token\nreforge-runner enroll --endpoint ${endpoint} --credentials /path/runner-credentials --token-file /path/token${development}`}</pre><pre className="command-block">{`reforge-runner connector --endpoint ${endpoint} --credentials /path/runner-credentials${development}`}</pre><p className="table-meta">Run connector after enrollment with the saved credential file. Do not put the token in command history or browser storage.</p><Button className="button button-primary" onClick={onClose}>Clear token</Button></div></Dialog>
 }
-
-function message(value: unknown) { return value instanceof Error ? value.message : 'The server returned an unknown error.' }

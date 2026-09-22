@@ -350,23 +350,23 @@ func (s *Service) CheckScopeTx(ctx context.Context, tx pgx.Tx, org, kind, id str
 	return nil
 }
 
-func (s *Service) Pools(ctx context.Context, session auth.Session, org string, limit int, cursor string) (domain.Page[Pool], error) {
+func (s *Service) Pools(ctx context.Context, session auth.Session, org string, filter PoolFilter, limit int, cursor string) (domain.Page[Pool], error) {
 	page := domain.Page[Pool]{Items: []Pool{}}
-	if limit < 1 || limit > 200 || (cursor != "" && !auth.ValidID(cursor)) {
+	if limit < 1 || limit > 200 || (cursor != "" && !auth.ValidID(cursor)) || len(filter.Query) > 200 || (filter.State != "" && filter.State != "active" && filter.State != "draining" && filter.State != "revoked") {
 		return page, auth.ErrInvalid
 	}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
-		rows, err := tx.Query(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(r.repository_id::text ORDER BY r.repository_id) FILTER(WHERE r.repository_id IS NOT NULL),'{}') FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id::text>$2 AND ($3 OR NOT EXISTS(SELECT 1 FROM runner_pool_repositories excluded WHERE excluded.org_id=p.org_id AND excluded.pool_id=p.id AND NOT (excluded.repository_id::text=ANY(coalesce($4::text[],'{}'))))) GROUP BY p.org_id,p.id ORDER BY p.id LIMIT $5`, org, cursor, a.AllRepositories, a.RepositoryIDs, limit+1)
+		rows, err := tx.Query(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running') FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id::text>$2 AND ($3='' OR p.state=$3) AND ($4='' OR p.name ILIKE '%'||$4||'%') AND ($5 OR NOT EXISTS(SELECT 1 FROM runner_pool_repositories excluded WHERE excluded.org_id=p.org_id AND excluded.pool_id=p.id AND NOT (excluded.repository_id::text=ANY(coalesce($6::text[],'{}'))))) GROUP BY p.org_id,p.id ORDER BY p.id LIMIT $7`, org, cursor, filter.State, filter.Query, a.AllRepositories, a.RepositoryIDs, limit+1)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var p Pool
-			if err = rows.Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs); err != nil {
+			if err = rows.Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots); err != nil {
 				return err
 			}
 			page.Items = append(page.Items, p)
@@ -383,6 +383,27 @@ func (s *Service) Pools(ctx context.Context, session auth.Session, org string, l
 	})
 	return page, err
 }
+func (s *Service) Pool(ctx context.Context, session auth.Session, org, id string) (Pool, error) {
+	var p Pool
+	if !auth.ValidID(id) {
+		return p, auth.ErrInvalid
+	}
+	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if a.Role != domain.Owner {
+			return auth.ErrForbidden
+		}
+		if err := checkPoolAccess(ctx, tx, a, id); err != nil {
+			return err
+		}
+		err := tx.QueryRow(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running') FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id=$2 GROUP BY p.org_id,p.id`, org, id).Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return auth.ErrForbidden
+		}
+		return err
+	})
+	return p, err
+}
+
 func (s *Service) Runners(ctx context.Context, session auth.Session, org, pool string, limit int, cursor string) (domain.Page[Runner], error) {
 	page := domain.Page[Runner]{Items: []Runner{}}
 	if !auth.ValidID(pool) || limit < 1 || limit > 200 || (cursor != "" && !auth.ValidID(cursor)) {
@@ -395,14 +416,14 @@ func (s *Service) Runners(ctx context.Context, session auth.Session, org, pool s
 		if err := checkPoolAccess(ctx, tx, a, pool); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text,org_id::text,pool_id::text,name,state,version,credential_expires_at FROM runners WHERE org_id=$1 AND pool_id=$2 AND id::text>$3 ORDER BY id LIMIT $4`, org, pool, cursor, limit+1)
+		rows, err := tx.Query(ctx, `SELECT r.id::text,r.org_id::text,r.pool_id::text,r.name,r.state,r.version,r.credential_expires_at,p.name,p.state,r.last_seen_at,r.enrolled_at,(SELECT count(*) FROM workflow_jobs j WHERE j.org_id=r.org_id AND j.lease_owner=r.id::text AND j.state='running'),(SELECT count(*) FROM connection_routes c WHERE c.org_id=r.org_id AND c.runner_id=r.id AND c.revoked_at IS NULL) FROM runners r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND r.pool_id=$2 AND r.id::text>$3 ORDER BY r.id LIMIT $4`, org, pool, cursor, limit+1)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var r Runner
-			if err = rows.Scan(&r.ID, &r.OrgID, &r.PoolID, &r.Name, &r.State, &r.Version, &r.CredentialExpiresAt); err != nil {
+			if err = rows.Scan(&r.ID, &r.OrgID, &r.PoolID, &r.Name, &r.State, &r.Version, &r.CredentialExpiresAt, &r.PoolName, &r.PoolState, &r.LastSeenAt, &r.EnrolledAt, &r.BusySlots, &r.RouteCount); err != nil {
 				return err
 			}
 			page.Items = append(page.Items, r)

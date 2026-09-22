@@ -21,11 +21,17 @@ type Pool struct {
 	State         string   `json:"state"`
 	RepositoryIDs []string `json:"repository_ids"`
 	Version       int64    `json:"version"`
+	RunnerCount   int      `json:"runner_count"`
+	BusySlots     int      `json:"busy_slots"`
 }
 type PoolInput struct {
 	Name          string   `json:"name"`
 	State         string   `json:"state"`
 	RepositoryIDs []string `json:"repository_ids"`
+}
+type PoolFilter struct {
+	Query string
+	State string
 }
 type Runner struct {
 	ID                  string    `json:"id"`
@@ -35,6 +41,12 @@ type Runner struct {
 	State               string    `json:"state"`
 	Version             int64     `json:"version"`
 	CredentialExpiresAt time.Time `json:"credential_expires_at"`
+	PoolName            string    `json:"pool_name"`
+	PoolState           string    `json:"pool_state"`
+	LastSeenAt          time.Time `json:"last_seen_at"`
+	EnrolledAt          time.Time `json:"enrolled_at"`
+	BusySlots           int       `json:"busy_slots"`
+	RouteCount          int       `json:"route_count"`
 }
 type Credential struct {
 	Token     string    `json:"-"`

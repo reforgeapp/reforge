@@ -78,13 +78,16 @@ export const api = {
   rotateConnection: (orgID: string, connectionID: string, version: number, secret: string, csrfToken: string) => request<Connection>(`/api/v1/orgs/${encodeURIComponent(orgID)}/connections/${encodeURIComponent(connectionID)}/rotate`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'If-Match': versionTag(version) }, body: JSON.stringify({ secret }) }, csrfToken),
   revokeConnection: (orgID: string, connectionID: string, version: number, csrfToken: string) => request<Connection>(`/api/v1/orgs/${encodeURIComponent(orgID)}/connections/${encodeURIComponent(connectionID)}`, { method: 'DELETE', headers: { 'If-Match': versionTag(version) } }, csrfToken),
   setPrivateRoute: (orgID: string, connectionID: string, version: number, route: { runner_id: string; host: string; cidrs: string[] }, csrfToken: string) => request<Connection>(`/api/v1/orgs/${encodeURIComponent(orgID)}/connections/${encodeURIComponent(connectionID)}/private-route`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': versionTag(version) }, body: JSON.stringify({ route }) }, csrfToken),
-  getRunnerPools: (orgID: string, params: { cursor?: string; limit?: number; signal?: AbortSignal } = {}) => {
+  getRunnerPools: (orgID: string, params: { cursor?: string; limit?: number; q?: string; state?: string; signal?: AbortSignal } = {}) => {
     const search = new URLSearchParams()
     if (params.cursor) search.set('cursor', params.cursor)
     if (params.limit) search.set('limit', String(params.limit))
+    if (params.q) search.set('q', params.q)
+    if (params.state) search.set('state', params.state)
     const suffix = search.size ? `?${search.toString()}` : ''
     return request<{ items: RunnerPool[]; next_cursor?: string; complete: boolean }>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools${suffix}`, { signal: params.signal })
   },
+  getRunnerPool: (orgID: string, poolID: string, signal?: AbortSignal) => request<RunnerPool>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools/${encodeURIComponent(poolID)}`, { signal }),
   createRunnerPool: (orgID: string, payload: RunnerPoolInput, csrfToken: string) => request<RunnerPool>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }, csrfToken),
   updateRunnerPool: (orgID: string, poolID: string, version: number, payload: RunnerPoolInput, csrfToken: string) => request<RunnerPool>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools/${encodeURIComponent(poolID)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': versionTag(version) }, body: JSON.stringify(payload) }, csrfToken),
   createEnrollment: (orgID: string, poolID: string, csrfToken: string) => request<EnrollmentToken>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools/${encodeURIComponent(poolID)}/enrollments`, { method: 'POST' }, csrfToken),

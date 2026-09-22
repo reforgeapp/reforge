@@ -15,9 +15,9 @@ export const connectionQuery = (orgID: string, connectionID: string) => ({
   queryKey: ['org', orgID, 'connections', 'detail', connectionID] as const,
   queryFn: ({ signal }: { signal: AbortSignal }) => api.getConnection(orgID, connectionID, signal),
 })
-export const runnerPoolsQuery = (orgID: string, cursor?: string) => ({
-  queryKey: ['org', orgID, 'runner-pools', cursor ?? 'first'] as const,
-  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunnerPools(orgID, { cursor, signal }),
+export const runnerPoolsQuery = (orgID: string, filter: { q?: string; state?: string } = {}, cursor?: string) => ({
+  queryKey: ['org', orgID, 'runner-pools', filter.q ?? '', filter.state ?? '', cursor ?? 'first'] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunnerPools(orgID, { q: filter.q, state: filter.state, cursor, signal }),
 })
 export const runnersQuery = (orgID: string, poolID: string) => ({
   queryKey: ['org', orgID, 'runner-pools', poolID, 'runners'] as const,

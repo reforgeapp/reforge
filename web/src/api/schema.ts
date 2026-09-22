@@ -646,7 +646,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["getRunnerPool"];
         put: operations["updateRunnerPool"];
         post?: never;
         delete?: never;
@@ -2831,6 +2831,8 @@ export interface components {
             org_id: string;
 
             version: number;
+            runner_count?: number;
+            busy_slots?: number;
         };
         Runner: {
 
@@ -2845,6 +2847,14 @@ export interface components {
             version: number;
 
             credential_expires_at: string;
+            pool_name: string;
+            pool_state: string;
+
+            last_seen_at: string;
+
+            enrolled_at: string;
+            busy_slots: number;
+            route_count: number;
         };
         EnrollmentToken: {
             token: string;
@@ -5950,6 +5960,8 @@ export interface operations {
             query?: {
                 limit?: number;
                 cursor?: string;
+                q?: string;
+                state?: "active" | "draining" | "revoked";
             };
             header?: never;
             path: {
@@ -5998,6 +6010,38 @@ export interface operations {
         responses: {
 
             201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunnerPool"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getRunnerPool: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                poolID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
                 headers: {
                     [name: string]: unknown;
                 };

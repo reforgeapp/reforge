@@ -3047,6 +3047,26 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "maxLength": 200
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "active",
+                "draining",
+                "revoked"
+              ]
+            }
           }
         ],
         "responses": {
@@ -3134,6 +3154,58 @@
       }
     },
     "/api/v1/orgs/{orgID}/runner-pools/{poolID}": {
+      "get": {
+        "operationId": "getRunnerPool",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "poolID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunnerPool"
+                }
+              }
+            }
+          }
+        }
+      },
       "put": {
         "operationId": "updateRunnerPool",
         "security": [
@@ -12066,6 +12138,12 @@
           "version": {
             "type": "integer",
             "format": "int64"
+          },
+          "runner_count": {
+            "type": "integer"
+          },
+          "busy_slots": {
+            "type": "integer"
           }
         }
       },
@@ -12078,7 +12156,13 @@
           "name",
           "state",
           "version",
-          "credential_expires_at"
+          "credential_expires_at",
+          "pool_name",
+          "pool_state",
+          "last_seen_at",
+          "enrolled_at",
+          "busy_slots",
+          "route_count"
         ],
         "properties": {
           "id": {
@@ -12109,6 +12193,26 @@
           "credential_expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "pool_name": {
+            "type": "string"
+          },
+          "pool_state": {
+            "type": "string"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "enrolled_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "busy_slots": {
+            "type": "integer"
+          },
+          "route_count": {
+            "type": "integer"
           }
         }
       },

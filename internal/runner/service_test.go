@@ -569,7 +569,7 @@ func TestScopedOwnerCannotEnrollOrReplaceUnpermittedPool(t *testing.T) {
 	if _, err := f.service.PutPool(ctx, f.session, f.org, f.pool.ID, runner.PoolInput{Name: f.pool.Name, RepositoryIDs: f.repos[:1]}, f.pool.Version, "fixture"); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatal("scoped owner replaced inaccessible pool")
 	}
-	if list, err := f.service.Pools(ctx, f.session, f.org, 100, ""); err != nil || len(list.Items) != 0 {
+	if list, err := f.service.Pools(ctx, f.session, f.org, runner.PoolFilter{}, 100, ""); err != nil || len(list.Items) != 0 {
 		t.Fatal("scoped owner listed inaccessible pool")
 	}
 }
@@ -656,7 +656,7 @@ func TestRunnerInventoryPagination(t *testing.T) {
 	cursor := ""
 	seen := map[string]bool{}
 	for {
-		page, err := f.service.Pools(ctx, f.session, f.org, 1, cursor)
+		page, err := f.service.Pools(ctx, f.session, f.org, runner.PoolFilter{}, 1, cursor)
 		if err != nil {
 			t.Fatal(err)
 		}

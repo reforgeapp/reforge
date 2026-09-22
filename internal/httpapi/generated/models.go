@@ -778,6 +778,25 @@ func (e TaskState) Valid() bool {
 	}
 }
 
+const (
+	ListRunnerPoolsParamsStateActive   ListRunnerPoolsParamsState = "active"
+	ListRunnerPoolsParamsStateDraining ListRunnerPoolsParamsState = "draining"
+	ListRunnerPoolsParamsStateRevoked  ListRunnerPoolsParamsState = "revoked"
+)
+
+func (e ListRunnerPoolsParamsState) Valid() bool {
+	switch e {
+	case ListRunnerPoolsParamsStateActive:
+		return true
+	case ListRunnerPoolsParamsStateDraining:
+		return true
+	case ListRunnerPoolsParamsStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
 type APIError struct {
 	Code      string                  `json:"code"`
 	Details   *map[string]interface{} `json:"details,omitempty"`
@@ -2304,11 +2323,17 @@ type ResolvedPolicy struct {
 }
 type Role string
 type Runner struct {
+	BusySlots           int       `json:"busy_slots"`
 	CredentialExpiresAt time.Time `json:"credential_expires_at"`
+	EnrolledAt          time.Time `json:"enrolled_at"`
 	Id                  string    `json:"id"`
+	LastSeenAt          time.Time `json:"last_seen_at"`
 	Name                string    `json:"name"`
 	OrgId               string    `json:"org_id"`
 	PoolId              string    `json:"pool_id"`
+	PoolName            string    `json:"pool_name"`
+	PoolState           string    `json:"pool_state"`
+	RouteCount          int       `json:"route_count"`
 	State               string    `json:"state"`
 	Version             int64     `json:"version"`
 }
@@ -2339,10 +2364,12 @@ type RunnerPage struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 type RunnerPool struct {
+	BusySlots     *int            `json:"busy_slots,omitempty"`
 	Id            string          `json:"id"`
 	Name          string          `json:"name"`
 	OrgId         string          `json:"org_id"`
 	RepositoryIds []string        `json:"repository_ids"`
+	RunnerCount   *int            `json:"runner_count,omitempty"`
 	State         RunnerPoolState `json:"state"`
 	Version       int64           `json:"version"`
 }
@@ -2793,9 +2820,12 @@ type PutMergeConfigurationParams struct {
 	IfMatch    string `json:"If-Match"`
 }
 type ListRunnerPoolsParams struct {
-	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
-	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                        `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string                     `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Q      *string                     `form:"q,omitempty" json:"q,omitempty"`
+	State  *ListRunnerPoolsParamsState `form:"state,omitempty" json:"state,omitempty"`
 }
+type ListRunnerPoolsParamsState string
 type CreateRunnerPoolParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }

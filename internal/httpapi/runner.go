@@ -28,7 +28,17 @@ func (s *Server) RegisterRunner(service *runner.Service) {
 			return
 		}
 		session, _ := SessionFromContext(c)
-		value, err := service.Pools(c.Request.Context(), session, c.Param("orgID"), limit, cursor)
+		filter := runner.PoolFilter{Query: strings.TrimSpace(c.Query("q")), State: strings.TrimSpace(c.Query("state"))}
+		value, err := service.Pools(c.Request.Context(), session, c.Param("orgID"), filter, limit, cursor)
+		if err != nil {
+			runnerFailure(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
+	browser.GET("/runner-pools/:poolID", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, err := service.Pool(c.Request.Context(), session, c.Param("orgID"), c.Param("poolID"))
 		if err != nil {
 			runnerFailure(c, err)
 			return

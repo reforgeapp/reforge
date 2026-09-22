@@ -138,7 +138,7 @@ pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, mon
 .capacity-strip dd { margin: 0; color: var(--text); font-size: 16px; font-weight: 700; }
 
 /* ---------- Toolbars ---------- */
-.repository-toolbar {
+.toolbar, .repository-toolbar {
   display: flex;
   flex-wrap: wrap;
   align-items: end;
@@ -149,9 +149,31 @@ pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, mon
   background: var(--surface);
   box-shadow: var(--shadow-xs);
 }
-.repository-toolbar label { flex: 1 1 168px; max-width: 340px; min-width: 0; }
-.repository-toolbar .button { flex: 0 0 auto; margin-left: auto; }
+.toolbar label, .repository-toolbar label { flex: 1 1 168px; max-width: 340px; min-width: 0; }
+.toolbar .button, .repository-toolbar .button { flex: 0 0 auto; margin-left: auto; }
 .toolbar-meta { align-self: center; color: var(--text-subtle); font-size: 12px; }
+
+/* ---------- Resource split view ---------- */
+.split-view { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: var(--space-4); align-items: start; }
+.split-list, .split-detail { min-width: 0; }
+.split-detail { position: sticky; top: var(--space-4); }
+.split-placeholder { display: grid; place-items: center; min-height: 180px; padding: var(--space-6); border: 1px dashed var(--border-strong); border-radius: var(--radius-lg); color: var(--text-subtle); font-size: 13px; text-align: center; }
+.back-link { display: none; align-items: center; gap: 5px; margin-bottom: var(--space-3); padding: 0; color: var(--primary); font-size: 13px; font-weight: 650; }
+.detail-panel { display: grid; gap: var(--space-4); min-width: 0; padding: var(--space-5); border: 1px solid var(--border); border-radius: var(--radius-lg); background: var(--surface); box-shadow: var(--shadow-xs); }
+.detail-panel > header { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--space-3); }
+.detail-panel h2 { font-size: 16px; font-weight: 700; }
+.detail-panel .detail-actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.metric-inline { display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-6); margin: 0; }
+.metric-inline div { display: grid; gap: 1px; }
+.metric-inline dt { color: var(--text-subtle); font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.metric-inline dd { margin: 0; font-size: 14px; font-weight: 650; }
+@media (max-width: 1000px) {
+  .split-view { grid-template-columns: 1fr; }
+  .split-view .split-detail { position: static; display: none; }
+  .split-view.detail-open .split-list { display: none; }
+  .split-view.detail-open .split-detail { display: block; }
+  .back-link { display: inline-flex; }
+}
 
 /* ---------- Cards and state ---------- */
 .state-card { min-width: 0; padding: var(--space-5); box-shadow: var(--shadow-xs); }
