@@ -271,9 +271,9 @@ harness (the harness uses 50 concurrent authenticated HTTP sessions).
 
 ## Running the local stack
 
-Development server left running for the next session (pid `2669662` on
+Development server left running for the next session (pid `2843697` on
 `127.0.0.1:8080`, log `.local/server-solo.log`; PostgreSQL pid `2312959` on
-`127.0.0.1:55432`). Stop the server with `kill 2669662` and PostgreSQL with
+`127.0.0.1:55432`). Stop the server with `kill 2843697` and PostgreSQL with
 `/tmp/reforge-postgres/bin/pg_ctl -D .local/postgres stop -m fast`. Do not use broad
 `pkill`. Start it again with:
 
