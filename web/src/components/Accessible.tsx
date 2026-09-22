@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import type { ButtonHTMLAttributes, ReactNode } from 'react'
+import { Icon } from './Icons'
 
 export function Button({ className = 'button', ...props }: ButtonHTMLAttributes<HTMLButtonElement>) { return <button className={className} {...props} /> }
 
@@ -12,5 +13,5 @@ export function Dialog({ open, title, onClose, children }: { open: boolean; titl
     if (open && !dialog.open) { dialog.showModal(); dialog.querySelector<HTMLElement>('button')?.focus() }
     if (!open && dialog.open) dialog.close()
   }, [open])
-  return <dialog ref={ref} className="dialog" aria-labelledby={titleID} onClose={onClose}><div className="dialog-head"><h2 id={titleID}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}>×</button></div><div className="dialog-body">{children}</div></dialog>
+  return <dialog ref={ref} className="dialog" aria-labelledby={titleID} onClose={onClose}><div className="dialog-head"><h2 id={titleID}>{title}</h2><button className="icon-button" aria-label="Close dialog" onClick={onClose}><Icon name="close" /></button></div><div className="dialog-body">{children}</div></dialog>
 }

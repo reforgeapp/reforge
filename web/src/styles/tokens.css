@@ -1,8 +1,69 @@
 :root {
-  --slate-950: #12212d; --slate-900: #172b3a; --slate-800: #223b4d; --slate-700: #385368;
-  --ink: #20323f; --muted: #5f717f; --line: #dce5e9; --wash: #f3f7f8; --paper: #fff;
-  --teal: #087f7a; --teal-dark: #056662; --teal-pale: #e3f3f1; --amber: #956100; --amber-pale: #fff4da;
-  --red: #b53b3b; --red-pale: #fdeaea; --green: #187b4b; --green-pale: #e5f5eb;
-  --shadow: 0 12px 30px rgb(24 48 70 / 7%);
-  color: var(--ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-synthesis: none;
+  --bg: #f4f6f8;
+  --bg-subtle: #eaeff3;
+  --surface: #ffffff;
+  --surface-2: #f8fafb;
+  --surface-3: #eff3f6;
+  --surface-inset: #e9eef2;
+  --border: #d9e1e8;
+  --border-strong: #bcc9d3;
+  --text: #17242f;
+  --text-muted: #5a6b78;
+  --text-subtle: #5f6d78;
+
+  --nav-bg: #101d28;
+  --nav-bg-2: #172836;
+  --nav-bg-3: #1f3444;
+  --nav-text: #c8d6e0;
+  --nav-text-muted: #8296a6;
+  --nav-text-strong: #ffffff;
+
+  --primary: #0f766e;
+  --primary-hover: #0b5d57;
+  --primary-soft: #e0f1ef;
+  --primary-border: #a9d6d1;
+  --on-primary: #ffffff;
+
+  --amber: #925f00;
+  --amber-soft: #fdf3d9;
+  --amber-border: #eeda9f;
+  --red: #b3261e;
+  --red-soft: #fdeceb;
+  --red-border: #f1c7c4;
+  --green: #15794a;
+  --green-soft: #e4f4eb;
+  --green-border: #bee1cd;
+  --info: #1c6ea4;
+  --info-soft: #e6f1f9;
+  --info-border: #bcd9ec;
+
+  --radius-sm: 4px;
+  --radius: 7px;
+  --radius-lg: 11px;
+  --radius-pill: 999px;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+
+  --shadow-xs: 0 1px 2px rgb(16 29 40 / 6%);
+  --shadow-sm: 0 2px 6px rgb(16 29 40 / 7%);
+  --shadow-md: 0 10px 26px rgb(16 29 40 / 10%);
+  --shadow-lg: 0 22px 60px rgb(16 29 40 / 22%);
+
+  --focus: #0d9488;
+  --content-max: 1440px;
+
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  font-synthesis: none;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }

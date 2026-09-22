@@ -1,11 +1,8 @@
-.deployment-card { display: block; min-width: 0; }
+.deployment-page, .gitops-page { min-width: 0; max-width: 100%; }
+.deployment-card, .gitops-page .state-card { display: block; min-width: 0; }
 .deployment-card > *, .deployment-card .detail-list > div { min-width: 0; }
 .deployment-card .button { max-width: 100%; overflow-wrap: anywhere; white-space: normal; }
-body:has(.deployment-page) .topbar-actions { min-width: 0; }
-body:has(.deployment-page) .search-box { width: min(32vw, 140px); }
-
-.gitops-page, .gitops-page .stack, .gitops-page fieldset { min-width: 0; max-width: 100%; }
-.gitops-page .state-card { display: block; min-width: 0; }
-.gitops-page .state-card > * + * { margin-top: 14px; }
+.gitops-page .stack, .gitops-page fieldset { min-width: 0; max-width: 100%; }
+.gitops-page .state-card > * + * { margin-top: var(--space-3); }
 .gitops-page h2, .gitops-page code { overflow-wrap: anywhere; }
 .gitops-page input, .gitops-page select, .gitops-page textarea { min-width: 0; max-width: 100%; }

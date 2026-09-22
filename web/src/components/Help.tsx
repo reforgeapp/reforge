@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Dialog } from './Accessible'
+import { Icon } from './Icons'
 
 const topics: Record<string, { summary: string; links: Array<{ label: string; path: string }> }> = {
   overview: { summary: 'Portfolio counts and the attention queue. Counts open their filtered list.', links: [{ label: 'Triage findings', path: 'findings/' }, { label: 'Runners and capacity', path: 'runners/' }] },
@@ -22,7 +23,7 @@ export function HelpLink({ route }: { route: string }) {
   const topic = topics[route] ?? topics.overview
   const root = document.documentElement.dataset.docsRoot || '/docs/'
   return <>
-    <button className="help-link" onClick={() => setOpen(true)} aria-haspopup="dialog">Help</button>
+    <button className="help-link" onClick={() => setOpen(true)} aria-haspopup="dialog"><Icon name="search" size={14} />Help</button>
     <Dialog open={open} title={`Help · ${route}`} onClose={() => setOpen(false)}>
       <p>{topic.summary}</p>
       <ul className="compact-list">{topic.links.map(link => <li key={link.path}><a href={`${root}${link.path}`} target="_blank" rel="noreferrer">{link.label}</a></li>)}</ul>

@@ -6,6 +6,7 @@ import { clearOrganisationQueries, useMeta, useSession } from './query'
 import { sectionFor, sections } from './types'
 import { Button, Dialog } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
+import { Icon } from '../components/Icons'
 import { SignInPage } from './SignInPage'
 import { BootstrapPage } from './BootstrapPage'
 
@@ -64,26 +65,32 @@ export function AppShell() {
   if (!org && meta?.edition === 'self-hosted') return <BootstrapPage csrf={session.data.csrf_token} onDone={id => { void session.refetch().then(() => navigate({ to: '/org/$orgID/$section', params: { orgID: id, section: 'overview' }, search: { q: undefined } })) }} />
   if (!org) return <main className="centered-page"><StatePanel kind="empty" title="No organisation access" detail="Your account is signed in, but has no organisation membership." /></main>
 
+  const group = (name: 'workspace' | 'admin') => sections.filter(section => section.group === name)
+
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <aside id="primary-navigation" className={`sidebar ${navOpen ? 'sidebar-open' : ''}`} aria-label="Primary navigation">
-      <div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></div>
+      <div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge<small>Portfolio operations</small></span></div>
       <nav className="nav-list">
         <p className="nav-label">Workspace</p>
-        {sections.filter(section => section.group === 'workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon" aria-hidden="true">{section.id === 'overview' ? '⌂' : section.id === 'repositories' ? '▦' : section.id === 'findings' ? '!' : section.id === 'runs' ? '↻' : section.id === 'changes' ? '⇄' : section.id === 'deployments' ? '↗' : '◈'}</span>{section.label}</Link>)}
+        {group('workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
         <p className="nav-label nav-label-admin">Administration</p>
-        {sections.filter(section => section.group === 'admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon" aria-hidden="true">{section.id === 'policies' ? '⚙' : section.id === 'connections' ? '◇' : section.id === 'runners' ? '▤' : section.id === 'usage' ? '◒' : section.id === 'audit' ? '≡' : '◎'}</span>{section.label}</Link>)}
+        {group('admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
       </nav>
-      <div className="sidebar-footer"><span className="user-avatar" aria-hidden="true">{session.data.user.name.slice(0, 1).toUpperCase()}</span><div><strong>{session.data.user.name}</strong><span>{session.data.user.email}</span></div><button className="icon-button" aria-label="Sign out" onClick={signOut}>↪</button></div>
+      <div className="sidebar-footer"><span className="user-avatar" aria-hidden="true">{session.data.user.name.slice(0, 1).toUpperCase()}</span><div><strong>{session.data.user.name}</strong><span>{session.data.user.email}</span></div><button className="icon-button" aria-label="Sign out" onClick={signOut}><Icon name="signout" /></button></div>
     </aside>
     <div className="main-column">
       <header className="topbar">
-        <button className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" onClick={() => setNavOpen(open => !open)}>☰<span className="sr-only">Menu</span></button>
+        <button className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button>
         <div className="breadcrumbs"><span className="eyebrow">{active.group === 'admin' ? 'Administration' : 'Workspace'}</span><span aria-hidden="true">/</span><strong>{active.label}</strong></div>
-        <div className="topbar-actions"><span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} /><label className="search-box"><span className="sr-only">Search repositories</span><span aria-hidden="true">⌕</span><input value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></label><Button className="org-button" onClick={() => setOrgDialog(true)} aria-haspopup="dialog" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span>{org.name}<span aria-hidden="true">⌄</span></Button></div>
+        <div className="topbar-actions">
+          <span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} />
+          <label className="search-box"><span className="sr-only">Search repositories</span><Icon name="search" size={15} /><input value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></label>
+          <Button className="org-button" onClick={() => setOrgDialog(true)} aria-haspopup="dialog" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></Button>
+        </div>
       </header>
-      {meta?.development && <div className="fixture-banner" role="status"><span aria-hidden="true">◆</span><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
-      {org.paused && <div className="pause-banner" role="status"><span aria-hidden="true">Ⅱ</span><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}
+      {meta?.development && <div className="fixture-banner" role="status"><Icon name="warning" size={15} /><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
+      {org.paused && <div className="pause-banner" role="status"><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}
       <main id="main-content" className="content"><Outlet key={`${session.data.user.id}:${org.id}`} /></main>
     </div>
     <Dialog open={orgDialog} title="Switch organisation" onClose={() => setOrgDialog(false)}><p className="dialog-copy">Choose the organisation whose repositories and activity you want to view.</p><div className="org-options">{orgs.map(item => <button key={item.id} className={`org-option ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'} · version {item.version}</small></span>{item.id === org.id && <span className="check" aria-label="Current organisation">✓</span>}</button>)}</div></Dialog>
