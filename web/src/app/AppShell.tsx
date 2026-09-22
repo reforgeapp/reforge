@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { Link, Outlet, useNavigate, useParams, useSearch } from '@tanstack/react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { api, ReforgeAPIError } from '../api/client'
@@ -19,9 +19,19 @@ export function AppShell() {
   const params = useParams({ strict: false }) as { orgID?: string; section?: string }
   const [navOpen, setNavOpen] = useState(false)
   const [orgDialog, setOrgDialog] = useState(false)
+  const [orgMenuOpen, setOrgMenuOpen] = useState(false)
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    try {
+      const stored = window.localStorage.getItem('reforge-theme')
+      if (stored === 'light' || stored === 'dark') return stored
+    } catch {}
+    return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+  })
   const [search, setSearch] = useState(routeSearch.q ?? '')
   const [visibleUserID, setVisibleUserID] = useState<string | undefined>(undefined)
   const menuRef = useRef<HTMLButtonElement>(null)
+  const orgButtonRef = useRef<HTMLButtonElement>(null)
+  const orgMenuRef = useRef<HTMLDivElement>(null)
   const sidebarRef = useRef<HTMLElement>(null)
   const navWasOpenRef = useRef(false)
   const org = session.data?.organisations.find(item => item.id === params.orgID)
@@ -32,6 +42,14 @@ export function AppShell() {
   }, [navOpen])
 
   useEffect(() => setSearch(routeSearch.q ?? ''), [routeSearch.q])
+
+  useEffect(() => { document.documentElement.dataset.theme = theme }, [theme])
+
+  const toggleTheme = () => setTheme(current => {
+    const next = current === 'dark' ? 'light' : 'dark'
+    try { window.localStorage.setItem('reforge-theme', next) } catch {}
+    return next
+  })
 
   useEffect(() => { if (meta?.docs_url) document.documentElement.dataset.docsRoot = meta.docs_url }, [meta?.docs_url])
 
@@ -45,6 +63,17 @@ export function AppShell() {
     window.addEventListener('resize', syncSidebar)
     return () => window.removeEventListener('resize', syncSidebar)
   }, [navOpen])
+
+  useEffect(() => {
+    if (!orgMenuOpen) return
+    const closeOnOutside = (event: MouseEvent) => {
+      if (!orgMenuRef.current?.contains(event.target as Node) && event.target !== orgButtonRef.current) {
+        setOrgMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', closeOnOutside)
+    return () => document.removeEventListener('mousedown', closeOnOutside)
+  }, [orgMenuOpen])
 
   useEffect(() => {
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -81,10 +110,21 @@ export function AppShell() {
   }
 
   const chooseOrg = (id: string) => {
-    if (id === org?.id) { setOrgDialog(false); return }
+    if (id === org?.id) { setOrgMenuOpen(false); setOrgDialog(false); return }
     clearOrganisationQueries(queryClient)
+    setOrgMenuOpen(false)
     setOrgDialog(false)
     navigate({ to: '/org/$orgID/$section', params: { orgID: id, section: params.section ?? 'overview' }, search: { q: search || undefined } })
+  }
+
+  const handleOrgMenuKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+    const items = Array.from(orgMenuRef.current?.querySelectorAll<HTMLButtonElement>('[role="menuitem"]') ?? [])
+    const index = items.indexOf(document.activeElement as HTMLButtonElement)
+    if (event.key === 'Escape') { event.preventDefault(); setOrgMenuOpen(false); orgButtonRef.current?.focus(); return }
+    if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+    event.preventDefault()
+    const next = event.key === 'ArrowDown' ? (index + 1) % items.length : (index - 1 + items.length) % items.length
+    items[next]?.focus()
   }
 
   const signOut = async () => {
@@ -106,20 +146,24 @@ export function AppShell() {
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="topbar">
       <div className="masthead-brand"><button ref={menuRef} className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button><div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></div></div>
-      <Button className="org-button" onClick={() => setOrgDialog(true)} aria-haspopup="dialog" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></Button>
+      <button ref={orgButtonRef} className="org-button" onClick={() => setOrgMenuOpen(open => !open)} aria-haspopup="menu" aria-expanded={orgMenuOpen} aria-controls="organisation-menu" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></button>
+      {orgMenuOpen && <div ref={orgMenuRef} id="organisation-menu" className="org-menu" role="menu" aria-label="Quick switch organisation" onKeyDown={handleOrgMenuKeyDown}>
+        {orgs.map(item => <button key={item.id} role="menuitem" className={`org-menu-item ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot" aria-hidden="true">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'}</small></span></button>)}
+        <button role="menuitem" className="org-menu-manage" onClick={() => { setOrgMenuOpen(false); setOrgDialog(true) }}>More / manage organisations</button>
+      </div>}
       <div className="topbar-actions">
         <span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} />
         <form className="search-box" role="search" onSubmit={submitSearch}><label className="sr-only" htmlFor="global-search">Search repositories</label><Icon name="search" size={15} /><input id="global-search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></form>
-        <div className="masthead-user"><span className="user-avatar" aria-hidden="true">{session.data.user.name.slice(0, 1).toUpperCase()}</span><span className="masthead-user-name">{session.data.user.name}</span><button className="icon-button" aria-label="Sign out" onClick={signOut}><Icon name="signout" /></button></div>
+        <button className="icon-button theme-toggle" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={toggleTheme}>{theme === 'dark' ? '☀' : '◐'}</button><div className="masthead-user"><span className="user-avatar" aria-hidden="true">{session.data.user.name.slice(0, 1).toUpperCase()}</span><span className="masthead-user-name">{session.data.user.name}</span><button className="icon-button" aria-label="Sign out" onClick={signOut}><Icon name="signout" /></button></div>
       </div>
     </header>
     <div className="app-body">
       <aside ref={setSidebarRef} id="primary-navigation" className={`sidebar ${navOpen ? 'sidebar-open' : ''}`} aria-label="Primary navigation">
         <nav className="nav-list">
           <p className="nav-label">Workspace</p>
-          {group('workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
+          {group('workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
           <p className="nav-label nav-label-admin">Administration</p>
-          {group('admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
+          {group('admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
         </nav>
       </aside>
       <div className="main-column">

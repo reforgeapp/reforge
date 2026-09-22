@@ -93,6 +93,8 @@ test.describe('T04 application shell', () => {
     await signIn(page)
     await page.goto(`/org/${developmentOrganisation}/overview`)
     await page.getByRole('button', { name: 'Switch organisation' }).click()
+    await expect(page.getByRole('menu', { name: 'Quick switch organisation' })).toBeVisible()
+    await page.getByRole('menuitem', { name: 'More / manage organisations' }).click()
     await expect(page.getByRole('dialog', { name: 'Switch organisation' })).toBeVisible()
     await expect(page.getByRole('button', { name: 'Close dialog' })).toBeFocused()
     await page.keyboard.press('Escape')
