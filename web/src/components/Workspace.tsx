@@ -28,15 +28,22 @@ export function SplitView({ listLabel, list, detail, selected, onBack, hideBack,
   useEffect(() => {
     const firstRender = !mountedRef.current
     mountedRef.current = true
+    const active = document.activeElement
+    const fromDetail = active instanceof HTMLElement && !!detailRef.current?.contains(active)
+    const noMeaningfulFocus = !active || active === document.body || active === document.documentElement
     if (!selected) {
-      if (!firstRender && originRef.current?.isConnected) originRef.current.focus()
-      else if (!firstRender) listRef.current?.focus()
+      if (!firstRender && (fromDetail || noMeaningfulFocus)) {
+        if (originRef.current?.isConnected) originRef.current.focus()
+        else listRef.current?.focus()
+      }
       return
     }
-    const active = document.activeElement
-    if (active instanceof HTMLElement && listRef.current?.contains(active)) originRef.current = active
-    if (closeControl) closeRef.current?.focus()
-    else detailRef.current?.focus()
+    const fromList = active instanceof HTMLElement && !!listRef.current?.contains(active)
+    if (fromList) originRef.current = active
+    if (fromList || noMeaningfulFocus) {
+      if (closeControl) closeRef.current?.focus()
+      else detailRef.current?.focus()
+    }
   }, [selected, Boolean(closeControl), listFocusNonce])
 
   const close = closeControl?.onClose ?? onBack
