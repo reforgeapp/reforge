@@ -7,8 +7,8 @@ const team = '00000000-0000-4000-8000-0000000000bb'
 async function mock(page: Page, role: string) {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role, team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
-  await page.route(`**/api/v1/orgs/${org}/memberships**`, route => route.fulfill({ json: { items: [{ org_id: org, user_id: user, role: 'viewer', team_ids: [], repository_ids: [], all_repositories: false, version: 2 }], complete: true } }))
-  await page.route(`**/api/v1/orgs/${org}/teams**`, route => route.fulfill({ json: { items: [{ id: team, name: 'Platform', repository_ids: [], version: 1 }], complete: true } }))
+  await page.route(`**/api/v1/orgs/${org}/memberships**`, route => route.fulfill({ json: { items: [{ org_id: org, user_id: user, role: 'viewer', all_repositories: false, version: 2 }], complete: true } }))
+  await page.route(`**/api/v1/orgs/${org}/teams**`, route => route.fulfill({ json: { items: [{ id: team, name: 'Platform', version: 1 }], complete: true } }))
   await page.route(`**/api/v1/orgs/${org}/repositories**`, route => route.fulfill({ json: { items: [{ id: 'repo-1', name: 'payments', provider: 'github', default_branch: 'main', archived: false, paused: false, accessible: true, team_ids: [], version: 1, connection_id: 'forge-1', native_id: '1', url: 'https://github.example/payments', org_id: org, last_synced_at: null }], complete: true } }))
   await page.goto(`/org/${org}/organisation`)
 }
