@@ -1,6 +1,13 @@
 # Decisions and open items
 
-Updated: 2026-09-21.
+Updated: 2026-09-22.
+
+## 2026-09-22 — T29 review and reopen
+
+- Direct review of `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png` found styling/shell refinement but no proven structural operator-console rebuild. T29 is reopened in progress; backend and accessibility gains remain.
+- T29a–f now govern IA/wireframes, shared list/detail layouts, Runners/Connections pilot, all remaining routes/auth/help, workflow/accessibility/responsive evidence and comparative visual review. Old screenshots remain reference evidence, not golden baselines.
+- Visual acceptance requires same route/data/state before/after at 1440x900 and 390x844, route readiness, browser and built/served asset identity, cache reset, qualitative criteria and measured task paths. Heading/toolbar/axe counts and agent self-review are supporting checks only.
+- Runners require searchable operational pool/runner inventory and API-backed heartbeat, capacity, trust and version details. Connections require Forge, Models & agents and Delivery tabs with proper profile management. Policies use named structured controls; raw JSON is advanced import/export only.
 
 ## 2026-09-21 — planning-only GUI/runtime rebuild
 

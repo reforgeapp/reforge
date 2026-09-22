@@ -1,6 +1,6 @@
 # Reforge GUI specification
 
-Updated: 2026-09-21. T29 rebuild authority; prior prototype direction is superseded.
+Updated: 2026-09-22. T29 rebuild authority; prior prototype direction is superseded.
 
 ## Rebuild authority
 
@@ -13,6 +13,16 @@ One application vocabulary and one connected journey: repository → finding →
 Use a restrained desktop web interface: slate navigation, light neutral content, teal primary action, amber blocked/pending, red failure and green verified outcomes. Status always includes text/icon, never colour alone. Dense but legible tables; 14–16 px body text; consistent 8 px spacing; visible keyboard focus. No animated agent avatars, decorative fake activity, or opaque health scores.
 
 React/TypeScript with accessible headless primitives and shared tokens. Responsive layout: desktop table+detail drawer; smaller widths show list rows and a full-screen detail view. Target WCAG 2.2 AA; keyboard navigation, labels, live-region announcements and reduced motion.
+
+## Structural work surfaces
+
+Shared hierarchy for inventory/workspace pages: organisation scope and one breadcrumb/context line; route title; one primary toolbar; work surface. Auth and short forms use appropriate controls. Work surface keeps list/filter state beside persistent detail context using split pane, route detail tabs, or URL detail. Modals are for short confirmation or focused editing only. Primary toolbar controls must be meaningful for route; tests query role and accessible name, never a universal class or one-toolbar count.
+
+Runners use pool/runner inventory with search, state filters, pagination and persistent detail route or master-detail pane. Show only API-backed heartbeat, capacity/busy slots, trust, version, route capability and drain/enrolment state. Pool create/enrol is labelled form with progress, safe one-time handoff, actionable disabled reasons and recovery. Repository assignment uses names and searchable selectors, never comma-separated raw repository UUID input.
+
+Connections use Forges, Models & agents, and Delivery tabs. Each tab has inventory and route detail/profile view. Create, capability test, rotate and revoke are guided forms. Credentials remain write-only. Model/agent detail names route, billing/qualification status, entitlement, protocol, version and last probe; unknown stays unknown. Avoid huge revoked-row table followed by essay card. Policies use named selectors and structured fields for simulation and rollout; raw JSON is advanced export/import only.
+
+Findings, runs, changes and deployments use connected filterable lists, URL-addressable details and evidence timelines. Activity, artifacts, gates and provider links stay available while list context remains visible. Usage, audit and organisation routes use same inventory/detail pattern. All route states use persisted records; curated local demo data is labelled and separate from fixtures.
 
 ## Application shell
 

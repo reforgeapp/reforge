@@ -1,5 +1,23 @@
 # Solo resume handoff
 
+## Superseding handoff note — 2026-09-22
+
+This note supersedes stale completion rows below. Review baseline HEAD is `b00e929` (cache fix; subsequent planning commits change HEAD); the prior “final HEAD” `d7f66ef` is stale. Cache changes may affect visibility but do not satisfy T29’s structural rebuild. T29 status is **in progress, reopened**. Preserve backend, API and accessibility gains; reopen GUI acceptance only.
+
+Review covered the three existing artifacts `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png`, not a fresh live-browser review of every route. Findings: shell organization remains materially unchanged; runner view lacks searchable/filterable inventory and operational heartbeat/capacity/trust summary, while current pool pagination is cursor-based Load more; it uses raw repository IDs. Connections has a large revoked table before profile workflows; Runs is empty despite populated-state claims. Existing selector/heading counts, axe output and 700ms screenshot delay are necessary checks only, not evidence of coherent design or populated data.
+
+Resume T29 through children T29a–f in backlog: IA/wireframes; shared resource layouts; Runners/Connections pilot; remaining routes/auth/help; workflow/accessibility/responsive states; comparative visual review. Use same route/data/state before/after at 1440x900 and 390x844, with built/served asset identity and cache reset. Do not wait for human sign-off or stop after the pilot; propagate through all routes. Keep APIs/security and backend gains. Raw JSON is advanced policy export only; named controls are primary.
+
+| Ticket | Current status | Evidence boundary / next action |
+| --- | --- | --- |
+| T29 | in progress, reopened | Existing patch is styling/shell refinement, not full structural rebuild. Complete T29a–f and record task evidence. |
+| T30 | reported local complete | Preserve reported docs build evidence; recheck links after T29 route changes. |
+| T31 | implemented, reported extraction/validation; focused regression pending | Patch is reported integrated; inspect evidence and run focused regression checks. |
+| T26 | partial | Local OIDC/TLS evidence reported passed; hosted/customer OIDC remains separate external certification. |
+| T28 | partial | Load notes do not prove 100 executing runs or 50 real browser sessions; release qualification remains open. |
+
+All rows and claims below are historical. Reconcile them against current code and evidence before marking any ticket complete.
+
 Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 
 ## Checkpoint
@@ -78,7 +96,7 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | T26 | partial (externally gated) | Control/migrator/runner/docs images, Compose install, hosted GitOps reference (`deploy/gitops`), encrypted restore drill, and a non-development install check with local OIDC/TLS (fixture auth disabled, browser login verified). Hosted cluster/customer OIDC certification remains external. |
 | T27 | partial | Integrated race suite over isolation/concurrency/recovery passes; reproducible gVisor hostile corpus (traversal, symlink, corrupt fetch, cancellation) passes locally; 10,000-repo import, 50-session and 100-claim load harness recorded. Hosted cgroup-enforced isolation and live-provider certification remain external. |
 | T28 | partial | Support matrix, verification identity, dependency/notice inventory, restore/install/GitOps limits and the scale harness are recorded. Final release sign-off, licence review of remaining "review required" transitive dependencies and hosted certification remain. |
-| T29 | local complete (agent-reviewed) | Ground-up visual rebuild: new token palette, inline icon set, denser typography/spacing, redesigned sidebar/topbar, and restyled cards, toolbars, tables, forms, status badges, dialogs, sign-in and bootstrap surfaces; this is a real visual redesign, not the earlier consistency pass. All 13 routes pass the one-title/one-toolbar/390px/no-overflow gate and axe at 390px; populated, error, blocked and stale captures exist per route with route/runtime metadata; help and docs links work. Baselines are agent-reviewed, not human-approved. |
+| T29 | in progress, reopened | Prior shell/CSS and route-gate evidence retained as history; structural IA/list-detail rebuild and T29a–f acceptance remain. |
 | T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search; every route links contextual help. |
 | T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, controller-to-runner dispatch with durable budget reservation and revocation fencing, and end-to-end advancement: a `completed_unverified` profile run has its changed source extracted and passed through the frozen baseline/candidate/target checks, then staged and published by the existing processor. Turn events are bounded by `max_turns`; exit 0 alone never publishes. |
 
@@ -328,12 +346,12 @@ certification is always separate from local completion.
 | T23 | local complete (inherited) | GitOps promotion | Hosted GitOps reference (T26) |
 | T24 | local complete (inherited) | policy/deployment/usage/audit GUI | — |
 | T25 | local complete (inherited) | campaigns, fairness | External native-provider campaign run |
-| T26 | partial | control/migrator/runner/docs images, Compose install, GitOps reference, restore drill (re-run pass) | Full non-development install acceptance (OIDC/HTTPS origin) and operator agent runtime image |
+| T26 | partial | control/migrator/runner/docs images, Compose install, GitOps reference, restore drill and local OIDC/TLS evidence reported pass | Hosted/customer OIDC, hosted isolation and operator agent runtime image |
 | T27 | partial | integrated race suite over isolation/concurrency/recovery (re-run pass) | Hostile-repository corpus on a cgroup-capable host, load gate, clean-install/upgrade qualification |
 | T28 | partial | support matrix, verification identity and restore/GitOps limits documented | 10,000-repo/100-run load gate, licence/dependency inventory rerun, non-development install, operator handoff sign-off |
-| T29 | partial | route-surface gate, help-link test, populated+error visual captures (re-run pass) | Human-reviewed baselines and explicit blocked/stale captures |
+| T29 | in progress, reopened | Prior route-surface/help-link/populated+error evidence retained; structural T29a–f rebuild required | Comparative same-state captures, task evidence and remaining route/state coverage |
 | T30 | local complete (inherited) | MkDocs `--strict`, docs container, help links (re-run route help-link test) | — |
-| T31 | local complete | profiles/executor/container test plus dispatch/authorize/report/revocation integration (re-run pass) | `max_turns` loop and repair publication remain out of the v1 protocol by design |
+| T31 | implemented, reported; focused regression pending | profiles/executor/container plus dispatch and extraction/validation integration reported | inspect current evidence; do not infer failure from stale handoff wording |
 
 Validation matrix: V01–V05, V07–V18, V20–V22 inherited local evidence; V06 (official
 agent runtime) and V19 (clean install/restore) partial; V23/V24/V26 partially re-run here;

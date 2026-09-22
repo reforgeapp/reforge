@@ -1,6 +1,6 @@
 # Acceptance and qualification matrix
 
-This is a release-evidence template, not a claim of implemented or tested capability. Record results in `progress.md` during implementation. Exact provider/model versions and runtime image digests belong in the resulting support matrix. T29–T31 add V23–V27 below.
+This is a release-evidence template, not a claim of implemented or tested capability. Record results in `progress.md` during implementation. Exact provider/model versions and runtime image digests belong in the resulting support matrix. T29–T31 add V23–V29 below.
 
 ## Required scenarios
 
@@ -33,6 +33,8 @@ This is a release-evidence template, not a claim of implemented or tested capabi
 | V25 | Claude Code, Codex and `agy` are distinct qualified runtime choices; entitlement, headless, container topology and pre-effect approval evidence required; unknown stays disabled | T16/T31, G2/G5 |
 | V26 | Custom command profile is versioned and admin-approved, binds fixed executable/argv and image digest, records protocol input/events/output/cancel/exit/usage including unknown, and fences revocation | T31/T07/T05, G5 |
 | V27 | SaaS and OSS GUI workflows complete through native auth/approval/provider actions; SQL/curl/raw JSON are not primary workflows; unsupported states show remediation | T29/T30/T16/T26, G5 |
+| V28 | T29 children T29a–f complete: shared resource list/detail hierarchy, Runners and Connections vertical slice, propagated routes, named structured policy controls, responsive/accessibility states and no generic fixture fallback; APIs/security preserved | T29, G5 |
+| V29 | Comparative captures use same route, viewport, data and state before/after at 1440x900 and 390x844; built/served asset identity and cache reset recorded; task completion/click path and qualitative findings recorded. Counts, axe and agent self-review support but cannot alone pass | T29, G5 |
 
 ## External test environments
 
@@ -44,6 +46,8 @@ This is a release-evidence template, not a claim of implemented or tested capabi
 - Hosted runner infrastructure plus hostile fixtures and a private customer-runner network; no production customer source or secrets needed.
 
 Local fixtures unblock development. They do not substitute for V10–V14 certification, subscription eligibility or the hosted sandbox proof.
+
+Visual evidence review rule: screenshots are evidence of the rendered build only when route readiness, backend state, viewport, browser, commit/build identity and served asset identity are recorded. A screenshot capture after a fixed delay without nonempty/state assertions cannot prove a populated workflow. The reviewed `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png` remain findings/reference artifacts, not approved baselines.
 
 ## Evidence record
 

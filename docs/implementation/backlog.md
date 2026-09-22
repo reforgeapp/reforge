@@ -1,6 +1,6 @@
 # Implementation backlog
 
-Updated: 2026-09-21. Planning revision only; preserve implementation status/history in `progress.md`. Prior GUI completion acceptance is superseded by T29. Do not restart implementation until owner resumes it.
+Updated: 2026-09-22. Planning revision only; preserve implementation status/history in `progress.md`. T29 is reopened and prior GUI completion acceptance is superseded. Do not erase backend gains or restart unrelated implementation.
 
 ## Working rules
 
@@ -207,9 +207,17 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. Design child T29a depends only on T04 and may start early. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links.
-- Build: rebuild shell/navigation/design system/forms/tables/work surfaces across every route in `docs/implementation/product-rebuild.md`; support SaaS and OSS workflows; enforce one-title/one-toolbar/interface-copy gate; retain labels, security notices, actionable errors, stale/unknown/unsupported states and on-demand help. Rundeck/AWX are interaction references only; prototype has no visual authority.
-- Accept: route coverage and operation/help matrix complete; populated and empty/error/blocked/stale states use persisted records; keyboard/390px checks pass; runner screenshot shows one title, one toolbar and dense table; no SQL/curl/JSON primary journey; visual captures store route/runtime metadata.
+- Status: **in progress, reopened 2026-09-22**. Earlier “local complete” rows are historical claims superseded by direct screenshot review: the reported patch changed shell styling and card/table CSS but did not establish the required information architecture or operational workflows.
+- Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
+- Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
+- T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.
+- T29b — shell/resource layouts: depends T29a,T04. Implement shared hierarchy and resource inventory/detail patterns; remove repeated intro/card clutter; retain labels, errors, security and unknown states.
+- T29c — Runners and Connections vertical slice: depends T29b,T17,T31. Complete real persisted list/detail, search/filter/pagination, health/heartbeat/capacity/trust/version fields, named repository selectors, guided enrol/create/test/rotate/revoke flows and safe progress/handoff states. Connections tabs: Forges, Models & agents, Delivery.
+- T29d — remaining routes and auth/help: depends T29b,T20,T24,T25,T31. Propagate connected list/detail/evidence patterns to Overview, Repositories, Findings, Runs, Changes, Deployments, Campaigns, Policies, Usage, Audit, Organisation and auth/help. Policies use named structured controls; raw JSON only advanced export/import.
+- T29e — workflow, accessibility and responsive states: depends T29c,T29d. Exercise representative operator tasks with persisted records at desktop and 390px; cover keyboard, loading, empty, error, blocked and stale states; measure completion/click path.
+- T29f — comparative visual review: depends T29e. Capture same viewport/data/state before/after at 1440x900 and 390x844, record built/served asset identity and cache reset, review qualitative criteria and findings. Selector/heading/axe counts are supporting checks only; agent review is not human sign-off.
+- Accept: all children complete; route coverage and operation/help matrix complete; no full-page UUID fixture or fake production fallback baseline; SaaS/OSS workflows use real records; no SQL/curl/raw JSON primary journey. Preserve historical screenshots as reference only.
+- Existing T17/T20/T24/T25 backend and functional checks remain retained evidence; their GUI acceptance is superseded by T29’s reopened children. T30 revalidation is limited to help/content affected by route changes; do not redo the MkDocs engine without a regression.
 
 ### T30 — Versioned MkDocs end-user, administrator and operator documentation
 

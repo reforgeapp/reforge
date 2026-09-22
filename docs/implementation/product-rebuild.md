@@ -1,6 +1,6 @@
 # Product rebuild specification
 
-Status: planning authority for T29–T31. Updated 2026-09-21. No implementation or certification claimed.
+Status: planning authority for T29–T31. Updated 2026-09-22. T29 reopened; no implementation or certification claimed.
 
 ## Scope
 
@@ -8,9 +8,15 @@ Rebuild GUI across shell, navigation, design system, forms, tables, states and e
 
 GUI supports actual SaaS and OSS/self-hosted workflows with persisted records. GUI actions and documented provider integrations are primary. Tenant configuration and operational tasks use forms and guided workflows, not raw JSON. Infrastructure install/upgrade, host preparation and official provider login/native approval steps may require documented operator or provider handoff outside the browser; GUI must show prerequisites, status, links and remediation. SQL and curl remain diagnostic/admin escape hatches only.
 
+This is a structural operator-console rebuild. Shared shell hierarchy is: organisation scope and breadcrumb, route title, one primary toolbar, then a route work surface. Work surfaces use filterable inventory/list + persistent detail context (split pane, route detail tabs, or URL detail), followed by evidence/activity. Detail must not be hidden behind a modal when the operator needs to compare rows, act, or retain filters. Rundeck project/job/activity and AWX resource/task workflows are research references for hierarchy and interaction only: [Rundeck](https://docs.rundeck.com/docs/manual/03-getting-started.html), [AWX](https://docs.ansible.com/projects/awx/en/24.6.1/userguide/index.html).
+
+Every route must show representative persisted local records separately from explicitly labelled fixtures. A full page of UUID-heavy revoked fixtures, fake production fallback, or aggregate “success” derived from unknown data is not an acceptable design baseline. Counts, health, capacity, billing and qualification are real values or visibly unknown.
+
+The first vertical slice is concrete. Runners has Pools/Runners inventory tabs, searchable and state-filtered rows, cursor pagination with explicit Load more, and URL-addressable detail showing only API-backed heartbeat, capacity, busy slots, trust, version, private-route capability and drain state. Enrolment and pool creation use named repository selectors, labelled fields, progress and expiring safe handoff. Connections has Forges, Models & agents and Delivery tabs; each supports inventory, profile detail, create/test/rotate/revoke actions, write-only credentials, route/billing/qualification status, capability evidence and actionable unknown/disabled states. This pilot becomes the shared pattern for remaining resource routes.
+
 ## Hard interface rules
 
-- One page title, one breadcrumb/context line, one primary toolbar per route.
+- Inventory/workspace routes use one page title, one breadcrumb/context line and one primary toolbar; auth and short forms use appropriate controls.
 - No duplicated breadcrumb plus eyebrow; no generic intro or explanatory header above every card.
 - Dense tables, filters, row actions, detail panes and timelines carry operational context.
 - Help appears on demand through field help, searchable MkDocs and in-app help drawer.
@@ -52,7 +58,9 @@ GUI supports actual SaaS and OSS/self-hosted workflows with persisted records. G
 
 ## Visual regression
 
-Capture route screenshots at desktop and 390px widths, keyboard focus, empty/loading/error/blocked/stale states and populated workflows for each route family. Runner regression must show exactly one page title, one toolbar and one dense table. Compare against approved T29 baselines with route/runtime metadata. Prototype screenshots cannot satisfy acceptance.
+Capture before/after screenshots from the same viewport, data and state at 1440x900 and 390x844. Each route family needs first viewport plus detail, populated, empty/loading/error/blocked/stale and keyboard-focus evidence. Runner regression must show exactly one page title, one primary toolbar with meaningful controls, and a dense searchable/paginated table or master-detail surface. Record built/served asset identity and clear browser cache; stale CSS or a stale server is not evidence of redesign. Screenshots reviewed this turn are `.local/visual/runners-1440.png`, `connections-1440.png`, and `runs-1440.png`; they are findings, not baselines. Prototype screenshots cannot satisfy acceptance.
+
+Acceptance names qualitative criteria and task evidence: normal desktop first viewport has title, filters and several useful rows; no oversized nested cards or repeated intro copy; responsive layout remains operable; controls expose actionable disabled reasons; errors and security notices remain clear. Measure task completion and click path for representative operator tasks. Screenshot counts, heading counts and axe output are necessary checks, never sufficient proof. Agent self-review may report findings but is not human sign-off.
 
 ## Agent and command flows
 

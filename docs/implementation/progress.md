@@ -1,6 +1,14 @@
 # Implementation progress
 
-Updated: 2026-09-21. Planning-only revision. Existing implementation evidence below is historical and preserved; no implementation restart, worker launch, build, certification or external mutation authorised by this revision. Current progress source authoritative for status.
+Updated: 2026-09-22. Planning-only revision. Existing implementation evidence below is historical and preserved; no implementation restart, worker launch, build, certification or external mutation authorised by this revision. Current progress source authoritative for status.
+
+## Superseding review — 2026-09-22
+
+Direct review of `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png` found T29’s reported “ground-up” patch did not establish a structural operator-console rebuild. App shell hierarchy remains the same aside/navigation/main organization; runner view lacks required search/filtering, operational heartbeat/capacity/trust summary and named repository selection (cursor `Load more` exists); Connections places a large revoked table before profile workflows; Runs capture is empty despite a populated-state claim. `route-surface.spec.ts` counts a class, and `visual.spec.ts` waits 700ms, but neither proves meaningful controls, populated state or design criteria. No fresh browser review of all routes was performed in this review.
+
+T29 is **in progress, reopened**. Preserve backend and accessibility gains. Execute T29a–f from `docs/implementation/backlog.md`: IA/wireframes, shared resource layouts, Runners/Connections vertical slice, remaining routes/auth/help, workflow/accessibility/responsive coverage, comparative visual review. No line-count quota, framework rewrite, generic toolbar test or human-review dependency. Record built/served asset identity and cache reset; stale CSS/browser cache cannot establish redesign.
+
+Status reconciliation: T31 patch integration is reported, but root has not re-tested the new extraction/validation path in this review; earlier claims of unconditional handoff are superseded by the newer code and must be verified. Local OIDC/TLS evidence is reported as passed and is not an external OIDC blocker. Load notes claiming 100 runs and 50 sessions are not proof of 100 executing runs or 50 real browser sessions. T28 remains partial; do not claim full release qualification. Historical handoff tables below remain evidence history, not current status.
 
 ## Planning revision status
 
