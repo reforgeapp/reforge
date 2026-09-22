@@ -39,7 +39,7 @@ test('lost merge response recovers persisted operation before retry', async ({ p
 })
 
 test('merge actions remain keyboard reachable at narrow width', async ({ page }) => {
-  await page.setViewportSize({ width: 390, height: 844 }); await signIn(page); await fixture(page); await page.goto(`/org/${org}/changes`); await page.getByRole('button', { name: 'Preview merge gate' }).focus(); await expect(page.getByRole('button', { name: 'Preview merge gate' })).toBeFocused()
+  await page.setViewportSize({ width: 390, height: 844 }); await signIn(page); await fixture(page); await page.goto(`/org/${org}/changes?change=${change}`); await page.getByRole('button', { name: 'Preview merge gate' }).focus(); await expect(page.getByRole('button', { name: 'Preview merge gate' })).toBeFocused()
 })
 
 test('loads repository and native change cursor pages', async ({ page }) => {
