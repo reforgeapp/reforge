@@ -1,10 +1,12 @@
 import { useState } from 'react'
 import { useInfiniteQuery } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { inventoryAPI } from '../api/inventory'
 import { auditAPI, type AuditEvent } from '../audit-api'
 import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
+import { SplitView, SplitPlaceholder } from '../components/Workspace'
 import { useSession } from './query'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
@@ -18,7 +20,10 @@ export function AuditPage({ orgID }: { orgID: string }) {
   const [action, setAction] = useState('')
   const [since, setSince] = useState('')
   const [until, setUntil] = useState('')
-  const [selectedID, setSelectedID] = useState<string>()
+  const search = useSearch({ strict: false }) as Record<string, string | undefined>
+  const navigate = useNavigate({ from: '/org/$orgID/$section' })
+  const selectedID = search.event ?? ''
+  const setSelectedID = (id?: string) => { void navigate({ search: previous => id ? { ...previous, event: id } : (() => { const next = { ...previous }; delete next.event; return next })() }) }
   const [applied, setApplied] = useState({ repositoryID: '', actorID: '', action: '', since: '', until: '' })
   const [exportPageIndex, setExportPageIndex] = useState(0)
   const [exporting, setExporting] = useState(false)
@@ -76,7 +81,7 @@ export function AuditPage({ orgID }: { orgID: string }) {
   if (session.isLoading) return <StatePanel kind="loading" title="Loading audit access" detail="Checking the current session." />
   if (session.error) return <StatePanel kind="error" title="Audit access unavailable" detail={errorText(session.error)} />
   return <div className="stack audit-page">
-    <form className="row-actions" onSubmit={event => { event.preventDefault(); applyFilters() }}>
+    <form className="toolbar" aria-label="Audit filters" onSubmit={event => { event.preventDefault(); applyFilters() }}>
       <label>Repository<select aria-label="Repository filter" value={repositoryID} onChange={event => setRepositoryID(event.target.value)}><option value="">All visible repositories</option>{repositoryItems.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label>Actor<input aria-label="Actor filter" value={actorID} onChange={event => setActorID(event.target.value)} placeholder="Actor ID" /></label>
       <label>Action<input aria-label="Action filter" value={action} onChange={event => setAction(event.target.value)} placeholder="Action" /></label>
@@ -90,12 +95,10 @@ export function AuditPage({ orgID }: { orgID: string }) {
     {exportMessage && <p className="error-text" role="alert">Export unavailable: {exportMessage}</p>}
     {exportStatus && <p role="status">Exported page {exportPageIndex + 1}. {exportStatus.complete ? 'Final page reached; earlier pages export separately.' : `More events available${exportStatus.nextCursor ? '; load the next page before exporting it.' : '.'}`}</p>}
     {events.error ? <p className="error-text" role="alert">Audit events unavailable: {errorText(events.error)} <Button onClick={() => void events.refetch()}>Retry</Button></p> : null}
-    {events.isLoading ? <StatePanel kind="loading" title="Loading audit events" detail="Fetching the selected audit page." /> : <DataTable caption="Audit events"><table><thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Object</th><th>Repository</th></tr></thead><tbody>{rows.map(event => <tr key={event.id}><td><button className="link-button" onClick={() => setSelectedID(event.id)}>{localTime(event.created_at)}</button></td><td>{event.action}</td><td><code>{event.actor_id}</code></td><td><code>{event.object_id}</code></td><td>{repositoryName(event.repository_id)}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No audit events match these filters." />}</DataTable>}
-    {events.hasNextPage && <Button onClick={() => void events.fetchNextPage()} disabled={events.isFetchingNextPage}>{events.isFetchingNextPage ? 'Loading events…' : 'Load more events'}</Button>}
-    {selected && <AuditDetails event={selected} />}
+    {events.isLoading ? <StatePanel kind="loading" title="Loading audit events" detail="Fetching the selected audit page." /> : <SplitView listLabel="Audit events" selected={!!selected} onBack={() => setSelectedID(undefined)} list={<><DataTable caption="Audit events"><table><thead><tr><th>When</th><th>Action</th><th>Actor</th><th>Object</th><th>Repository</th></tr></thead><tbody>{rows.map(event => <tr key={event.id}><td><button className="link-button" onClick={() => setSelectedID(event.id)}>{localTime(event.created_at)}</button></td><td>{event.action}</td><td><code>{event.actor_id}</code></td><td><code>{event.object_id}</code></td><td>{repositoryName(event.repository_id)}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No audit events match these filters." />}</DataTable>{events.hasNextPage && <Button onClick={() => void events.fetchNextPage()} disabled={events.isFetchingNextPage}>{events.isFetchingNextPage ? 'Loading events…' : 'Load more events'}</Button>}</>} detail={selected ? <AuditDetails event={selected} /> : <SplitPlaceholder label="Select an event to inspect actor, policy and provider data." />} />}
   </div>
 }
 
 function AuditDetails({ event }: { event: AuditEvent }) {
-  return <section className="state-card" aria-label="Audit event details"><h2>Event details</h2><dl className="detail-list"><div><dt>Event ID</dt><dd><code>{event.id}</code></dd></div><div><dt>Request ID</dt><dd><code>{event.request_id}</code></dd></div><div><dt>Actor</dt><dd><code>{event.actor_id}</code></dd></div><div><dt>Action</dt><dd>{event.action}</dd></div><div><dt>Object</dt><dd><code>{event.object_id}</code></dd></div></dl><details><summary>Event data</summary><pre>{JSON.stringify(event.data, null, 2)}</pre></details></section>
+  return <section className="detail-panel" aria-label="Audit event details"><h2>Event details</h2><dl className="detail-list"><div><dt>Event ID</dt><dd><code>{event.id}</code></dd></div><div><dt>Request ID</dt><dd><code>{event.request_id}</code></dd></div><div><dt>Actor</dt><dd><code>{event.actor_id}</code></dd></div><div><dt>Action</dt><dd>{event.action}</dd></div><div><dt>Object</dt><dd><code>{event.object_id}</code></dd></div></dl><details><summary>Event data</summary><pre>{JSON.stringify(event.data, null, 2)}</pre></details></section>
 }
