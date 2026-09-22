@@ -10,7 +10,9 @@ async function openFinding(page: import('@playwright/test').Page) {
   await expect(page).toHaveURL(/\/org\/[^/]+\/overview/)
   await page.goto(`/org/${organisation}/findings`)
   await page.getByRole('button', { name: finding.title }).click()
-  return page.getByRole('region', { name: finding.title })
+  const details = page.getByRole('region', { name: finding.title })
+  await details.getByRole('tab', { name: 'Repair' }).click()
+  return details
 }
 
 function installFindingRoutes(page: import('@playwright/test').Page) {

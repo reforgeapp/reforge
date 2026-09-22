@@ -19,6 +19,7 @@ test('runs detail exposes frozen evidence and supports keyboard deep links', asy
   await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ': keepalive\\n\\n' }))
   await page.goto(`/org/${organisation}/runs?run=task-1`)
   await expect(page.getByRole('heading', { name: /go · task-1/ })).toBeVisible()
+  await page.getByRole('tab', { name: 'Evidence' }).click()
   await page.getByText('Source diff').click()
   await expect(page.getByText('H baseline')).toBeVisible()
   await expect(page.getByText('baseline case: passed')).toBeVisible()
@@ -60,6 +61,7 @@ test('event stream deduplicates and surfaces access revocation', async ({ page }
   let eventRequests = 0
   await page.route(`**/api/v1/orgs/${organisation}/events**`, route => { eventRequests++; const body = eventRequests === 1 ? 'id: 7\nevent: reforge\ndata: {"id":7,"type":"repair.stage","aggregate_type":"task","aggregate_id":"task-3","aggregate_version":1,"occurred_at":"2026-01-01T00:00:00Z","data":{}}\n\nid: 7\nevent: reforge\ndata: {"id":7,"type":"repair.stage","aggregate_type":"task","aggregate_id":"task-3","aggregate_version":1,"occurred_at":"2026-01-01T00:00:00Z","data":{}}\n\n' : 'event: reset\ndata: {"code":"access_revoked"}\n\n'; return route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body }) })
   await page.goto(`/org/${organisation}/runs?run=task-3`)
+  await page.getByRole('tab', { name: 'Activity' }).click()
   await expect(page.getByText('repair.stage')).toHaveCount(1)
   await expect(page.getByText('Event access revoked; reload to authenticate again.')).toBeVisible()
   expect(eventRequests).toBeGreaterThan(0)
