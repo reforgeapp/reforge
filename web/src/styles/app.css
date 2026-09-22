@@ -251,6 +251,8 @@ legend { padding: 0 5px; color: var(--text-muted); font-size: 11px; font-weight:
 .policy-version-rail th:first-child, .policy-version-rail td:first-child { width: 40%; }
 .policy-version-rail th, .policy-version-rail td { overflow-wrap: anywhere; white-space: normal; }
 .policy-version-rail td:first-child small { display: block; color: var(--text-subtle); font-size: 10px; }
+.campaigns-page > .state-card .toolbar label { flex: 0 1 240px; max-width: 240px; }
+.campaigns-page > .state-card .toolbar > .button { margin-left: 0; }
 :is(.usage-page, .policies-page, .audit-page, .campaigns-page, .gitops-page) :is(fieldset, label, .row-actions > *, .detail-list > *, input, select, textarea) { min-width: 0; max-width: 100%; }
 :is(.usage-page, .policies-page, .audit-page, .campaigns-page, .gitops-page) :is(code, dd, li) { overflow-wrap: anywhere; }
 :is(.usage-page, .policies-page, .audit-page, .campaigns-page, .gitops-page) pre { max-width: 100%; overflow: auto; }
