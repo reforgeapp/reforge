@@ -10,7 +10,7 @@ Resume T29 through children T29a–f in backlog: IA/wireframes; shared resource 
 
 | Ticket | Current status | Evidence boundary / next action |
 | --- | --- | --- |
-| T29 | in progress, reopened | Existing patch is styling/shell refinement, not full structural rebuild. Complete T29a–f and record task evidence. |
+| T29 | local complete (agent-reviewed) | T29a–f implemented: IA map, shared toolbar/split layouts with URL detail, Runners/Connections slices, all inventory/workspace routes and auth/help, state/accessibility/responsive coverage, comparative review and a labelled demo seed. |
 | T30 | reported local complete | Preserve reported docs build evidence; recheck links after T29 route changes. |
 | T31 | implemented, reported extraction/validation; focused regression pending | Patch is reported integrated; inspect evidence and run focused regression checks. |
 | T26 | partial | Local OIDC/TLS evidence reported passed; hosted/customer OIDC remains separate external certification. |
@@ -76,7 +76,23 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `c8f9a61` | T29 ground-up design system and shell rebuild |
 | `c7b109d` | T29 toolbar/list/active-control refinement + all-route axe |
 | `d7f66ef` | T29 sign-in and detail captures |
-| final HEAD | `d7f66ef` (see `git log`) |
+| `c8f9a61` | T29 design system and shell rebuild |
+| `c7b109d` | T29 toolbar/list/active-control refinement |
+| `d7f66ef` | T29 sign-in and detail captures |
+| `b00e929` | stop caching the SPA entry (review baseline) |
+| `bcc479b` | T29c runners pool inventory and persistent detail |
+| `c9e9a47` | T29c tabbed connections inventory and profile detail |
+| `29c009e` | T29d findings split detail |
+| `2f4d54c` | T29d runs split detail |
+| `cafa597` | T29d changes split detail |
+| `47ab11e` | T29d deployments split detail |
+| `b877821` | T29d audit split detail |
+| `2460285` | T29d repositories split detail |
+| `f3ccc98` | T29d structured policy simulation controls |
+| `1991b2a` | T29d campaigns split detail |
+| `e97a811` | T29 demo seed |
+| `fb4f560` | T29f comparative review |
+| final HEAD | `fb4f560` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -96,7 +112,7 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | T26 | partial (externally gated) | Control/migrator/runner/docs images, Compose install, hosted GitOps reference (`deploy/gitops`), encrypted restore drill, and a non-development install check with local OIDC/TLS (fixture auth disabled, browser login verified). Hosted cluster/customer OIDC certification remains external. |
 | T27 | partial | Integrated race suite over isolation/concurrency/recovery passes; reproducible gVisor hostile corpus (traversal, symlink, corrupt fetch, cancellation) passes locally; 10,000-repo import, 50-session and 100-claim load harness recorded. Hosted cgroup-enforced isolation and live-provider certification remain external. |
 | T28 | partial | Support matrix, verification identity, dependency/notice inventory, restore/install/GitOps limits and the scale harness are recorded. Final release sign-off, licence review of remaining "review required" transitive dependencies and hosted certification remain. |
-| T29 | in progress, reopened | Prior shell/CSS and route-gate evidence retained as history; structural IA/list-detail rebuild and T29a–f acceptance remain. |
+| T29 | local complete (agent-reviewed) | Ground-up design system, shell and structural list/detail rebuild across every route; agent-reviewed captures; human aesthetic feedback is optional and not a gate. |
 | T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search; every route links contextual help. |
 | T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, controller-to-runner dispatch with durable budget reservation and revocation fencing, and end-to-end advancement: a `completed_unverified` profile run has its changed source extracted and passed through the frozen baseline/candidate/target checks, then staged and published by the existing processor. Turn events are bounded by `max_turns`; exit 0 alone never publishes. |
 
@@ -220,6 +236,20 @@ Acceptance continuation (`2026-09-22`, commits `442b4ee`…`e385a49`):
 - Container re-verification after the changes: `docker build` succeeds for the control,
   runner and docs images; the control container runs as uid 10001 with no
   `/var/run/docker.sock`, serves `/readyz` 200 and `/api/v1/meta`, then is removed.
+
+T29 structural rebuild (`bcc479b`…`fb4f560`):
+
+- T29a IA/wireframes (`docs/implementation/t29a-ia.md`); T29b shared `Toolbar`/`SplitView`
+  primitives; T29c Runners (API-backed pool counts, runner heartbeat/busy/route counts,
+  pool search/filter, get-pool endpoint, named repository picker) and Connections (Forges /
+  Models & agents / Delivery tabs, profile detail).
+- T29d converted Findings, Runs, Changes, Deployments, Repositories, Campaigns, Audit to
+  URL-addressable split detail and replaced policy rollout/binding JSON with named controls.
+- T29e: full browser suite `--grep-invert live` `95 passed, 5 skipped`; route gate axe clean
+  on every route at 390px; error captures per route plus blocked/stale captures.
+- T29f comparative review with a labelled demo organisation (`make demo-seed`) and
+  before/after captures at 1440x900 and 390x844 (`t29f-review-2026-09-22.md`).
+- `go test ./...` and `make check` re-run green after the runner/pool API and OpenAPI changes.
 
 Not run: hosted cgroup-enforced isolation, live provider/agent-account certification,
 customer OIDC/hosted-cluster install, and the 50-real-browser-session variant of the load
@@ -349,7 +379,7 @@ certification is always separate from local completion.
 | T26 | partial | control/migrator/runner/docs images, Compose install, GitOps reference, restore drill and local OIDC/TLS evidence reported pass | Hosted/customer OIDC, hosted isolation and operator agent runtime image |
 | T27 | partial | integrated race suite over isolation/concurrency/recovery (re-run pass) | Hostile-repository corpus on a cgroup-capable host, load gate, clean-install/upgrade qualification |
 | T28 | partial | support matrix, verification identity and restore/GitOps limits documented | 10,000-repo/100-run load gate, licence/dependency inventory rerun, non-development install, operator handoff sign-off |
-| T29 | in progress, reopened | Prior route-surface/help-link/populated+error evidence retained; structural T29a–f rebuild required | Comparative same-state captures, task evidence and remaining route/state coverage |
+| T29 | local complete (agent-reviewed) | shared list/detail layouts, Runners/Connections slices, all routes converted, comparative captures (`t29f-review-2026-09-22.md`) | Human aesthetic feedback only (not a gate) |
 | T30 | local complete (inherited) | MkDocs `--strict`, docs container, help links (re-run route help-link test) | — |
 | T31 | implemented, reported; focused regression pending | profiles/executor/container plus dispatch and extraction/validation integration reported | inspect current evidence; do not infer failure from stale handoff wording |
 
