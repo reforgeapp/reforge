@@ -11,7 +11,7 @@ test.describe('T04 application shell', () => {
 
   test('shows the server session and fixture state after sign in', async ({ page }) => {
     await page.goto('/')
-    await expect(page.getByRole('heading', { name: /keep maintenance work moving/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     await expect(page.getByRole('button', { name: /sign in with your organisation/i })).toBeVisible()
     await page.getByRole('button', { name: /sign in with your organisation/i }).click()
     await expect(page).toHaveURL(/\/org\/[^/]+\/overview/)
@@ -26,6 +26,7 @@ test.describe('T04 application shell', () => {
     await expect(page.getByLabel('Search repositories')).toHaveValue('payments')
     await page.getByLabel('Search repositories').press('End')
     await page.getByLabel('Search repositories').pressSequentially(' api')
+    await page.getByLabel('Search repositories').press('Enter')
     await expect(page).toHaveURL(/q=payments(?:\+|%20)api/)
     await page.getByRole('link', { name: 'Overview' }).focus()
     await expect(page.getByRole('link', { name: 'Overview' })).toBeFocused()
@@ -38,7 +39,7 @@ test.describe('T04 application shell', () => {
 
   test('does not render a protected deep link without a session', async ({ page }) => {
     await page.goto(`/org/${developmentOrganisation}/overview`)
-    await expect(page.getByRole('heading', { name: /keep maintenance work moving/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     await expect(page.getByRole('complementary', { name: /primary navigation/i })).toHaveCount(0)
   })
 
@@ -58,7 +59,7 @@ test.describe('T04 application shell', () => {
     await expect(menu).toHaveAttribute('aria-expanded', 'false')
     await menu.click()
     await expect(menu).toHaveAttribute('aria-expanded', 'true')
-    await page.getByRole('link', { name: 'Repositories' }).click()
+    await page.getByRole('link', { name: 'Repositories', exact: true }).first().click()
     await expect(page).toHaveURL(/\/repositories$/)
   })
 
@@ -80,7 +81,7 @@ test.describe('T04 application shell', () => {
     expect(repositoryRequests).toBe(1)
     revoked = true
     await page.clock.fastForward(31_000)
-    await expect(page.getByRole('heading', { name: /keep maintenance work moving/i })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible()
     revoked = false
     await page.clock.fastForward(31_000)
     await expect(page.getByRole('heading', { name: 'Repositories', exact: true })).toBeVisible()

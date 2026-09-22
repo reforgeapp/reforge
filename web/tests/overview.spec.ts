@@ -19,7 +19,7 @@ test('renders persisted counts, opens the filtered queue and exposes on-demand h
   const metrics = page.getByRole('region', { name: 'Portfolio counts' })
   await expect(metrics.getByText('Needs decision')).toBeVisible()
   await expect(metrics.getByText('4')).toBeVisible()
-  await expect(page.getByText('Stale/unsynced repositories: 2')).toBeVisible()
+  await expect(page.getByText('2 repositories need sync')).toBeVisible()
   const row = page.getByRole('link', { name: 'Default branch checks failed' })
   await expect(row).toHaveAttribute('href', /findings\?repository=repo-1&finding=finding-1/)
   await page.getByRole('button', { name: 'Help' }).click()
