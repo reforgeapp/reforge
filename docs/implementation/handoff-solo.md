@@ -2,7 +2,7 @@
 
 ## Superseding handoff note — 2026-09-22
 
-This note supersedes stale completion rows below. Review baseline HEAD is `b00e929` (cache fix; subsequent planning commits change HEAD); the prior “final HEAD” `d7f66ef` is stale. Cache changes may affect visibility but do not satisfy T29’s structural rebuild. T29 status is **in progress, reopened**. Preserve backend, API and accessibility gains; reopen GUI acceptance only.
+This note supersedes stale completion rows below. T29 was reopened at `d945ede` and completed through T29a–f; final HEAD is `7aefeda`. Review baseline for the comparative captures is `b00e929`; the rebuilt captures are under `.local/visual/after` with `.local/visual/before` as the baseline. T29 status is **local complete (agent-reviewed)**; human aesthetic feedback is optional and not a gate. Backend, API and accessibility gains are preserved. T31, T26 and T27 focused regressions were re-run; T28’s 100-executing-run and 50-browser-session targets remain open.
 
 Review covered the three existing artifacts `.local/visual/runners-1440.png`, `connections-1440.png` and `runs-1440.png`, not a fresh live-browser review of every route. Findings: shell organization remains materially unchanged; runner view lacks searchable/filterable inventory and operational heartbeat/capacity/trust summary, while current pool pagination is cursor-based Load more; it uses raw repository IDs. Connections has a large revoked table before profile workflows; Runs is empty despite populated-state claims. Existing selector/heading counts, axe output and 700ms screenshot delay are necessary checks only, not evidence of coherent design or populated data.
 
@@ -403,18 +403,22 @@ V25/V27 not satisfied. G5 remains open.
 
 ### Stopping condition
 
-**Local work not yet exhausted.** Remaining locally implementable work exists, so this is
-not a completion and not an external-only block. The next executable actions, in order:
+**Local work exhausted for the authorised acceptance scope; external acceptance blocked.**
+T29a–f are implemented and agent-reviewed; T31 focused regression, T26 install-check and
+T27 sandbox/race checks pass. The remaining unsatisfied criteria need inputs or resources
+not available here:
 
-1. T29: add explicit blocked/stale state captures (Changes gate unknown, Runs blocked,
-   GitOps/promotion blocked) and review them; finish the Connections copy pass.
-2. T28: review the dependency inventory's "review required" transitive dependencies for
-   licence compatibility, and extend the load harness to the 50-real-browser-session
-   variant where resources allow.
-3. T27: package the hostile corpus and load harness results into the qualification report
-   and re-run only affected checks after any fix.
-4. External certification when supplied: hosted cgroup-enforced isolation, a live official
-   agent account/runtime, customer OIDC + hosted cluster, and live forge/model accounts.
+1. T28: 100 fully executing runs and 50 real browser sessions. The harness measures 100
+   claim lifecycles and 50 authenticated HTTP sessions; proving 100 executing runs needs a
+   runner fleet or a job-execution simulator, and 50 browser sessions needs browser
+   resources. Recorded as open, not passed.
+2. T16/T26: hosted cgroup-enforced isolation host, a live official agent account/runtime
+   and entitlement evidence, customer OIDC issuer and a hosted cluster.
+3. T08/T09/T12–T15/T22/T23: live forge, paid model and native-approval certification.
+4. T28: human release sign-off and licence confirmation of `review required` transitive
+   dependencies.
+
+`~/repos/.claude` and all non-empty directories are preserved.
 
 No `.cc-writes`/`.claude` cleanup was needed at this checkpoint; `/home/mnorris/repos/.claude`
 and all non-empty directories were preserved.
