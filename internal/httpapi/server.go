@@ -106,6 +106,12 @@ func (s *Server) frontend(c *gin.Context) {
 		return
 	}
 	if info, err := os.Stat(filepath.Join(s.Config.WebDir, name)); err == nil && !info.IsDir() {
+		switch {
+		case strings.HasPrefix(name, "assets/"):
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		case name == "index.html":
+			c.Header("Cache-Control", "no-store, must-revalidate")
+		}
 		c.File(filepath.Join(s.Config.WebDir, name))
 		return
 	}
@@ -117,6 +123,6 @@ func (s *Server) frontend(c *gin.Context) {
 		Fail(c, 503, "frontend_unbuilt", "Run make build to build the interface", false)
 		return
 	}
-	c.Header("Cache-Control", "no-cache")
+	c.Header("Cache-Control", "no-store, must-revalidate")
 	c.File(filepath.Join(s.Config.WebDir, "index.html"))
 }
