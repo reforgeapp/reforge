@@ -24,6 +24,8 @@ test('draft profile requires evidence before approval and records revocation', a
   await page.route(`**/api/v1/orgs/${org}/custom-profiles/profile-1/approve`, async route => { approved = { evidence: (route.request().postDataJSON() as { evidence: string }).evidence, ifMatch: route.request().headers()['if-match'] ?? '' }; current = { ...current, version: 2, approval_evidence: approved.evidence, approved_at: '2026-09-21T00:00:00Z' }; return route.fulfill({ json: current }) })
   await page.route(`**/api/v1/orgs/${org}/custom-profiles/profile-1/revoke`, async route => { current = { ...current, version: 3, revoked_at: '2026-09-21T00:00:00Z' }; return route.fulfill({ json: current }) })
 
+  await page.getByRole('button', { name: 'Models & agents' }).click()
+  await page.getByText('Custom command profiles', { exact: true }).click()
   const panel = page.getByRole('region', { name: 'Custom command profiles' })
   await panel.getByText('New profile').click()
   await panel.getByLabel('Name').fill('reviewer')
@@ -46,6 +48,8 @@ test('draft profile requires evidence before approval and records revocation', a
 
 test('a viewer cannot create or approve profiles', async ({ page }) => {
   await mock(page, 'viewer')
+  await page.getByRole('button', { name: 'Models & agents' }).click()
+  await page.getByText('Custom command profiles', { exact: true }).click()
   const panel = page.getByRole('region', { name: 'Custom command profiles' })
   await expect(panel.getByText('New profile')).toHaveCount(0)
   await expect(panel.getByRole('button', { name: 'Approve' })).toHaveCount(0)

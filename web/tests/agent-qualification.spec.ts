@@ -22,6 +22,7 @@ test('agent runtime shows uncertified status until dated evidence is recorded', 
     const capabilities = saved ? { runtime: runtimeCapability, entitlement: { ...runtimeCapability, state: 'supported', reason: 'verified by dated deployment evidence' } } : { runtime: runtimeCapability }
     return route.fulfill({ json: { qualification: saved ? { ...saved, binding: {} } : undefined, capabilities } })
   })
+  await page.getByRole('button', { name: 'Models & agents' }).click()
   await page.getByRole('button', { name: 'Codex runtime' }).click()
   const panel = page.getByRole('group', { name: 'Agent runtime qualification' })
   await expect(panel.getByText(/no deployment certified/)).toBeVisible()
