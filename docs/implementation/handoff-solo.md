@@ -54,7 +54,11 @@ Updated: 2026-09-21. Single implementing agent, no workers, no subagents.
 | `7eaa3d7` | T29 blocked/stale visual captures |
 | `107b335` | T28 licence review outcome |
 | `dee4965` | T17 self-hosted bootstrap GUI |
-| final HEAD | `dee4965` (see `git log`) |
+| `6973e24` | docs container root redirect / port preservation |
+| `c8f9a61` | T29 ground-up design system and shell rebuild |
+| `c7b109d` | T29 toolbar/list/active-control refinement + all-route axe |
+| `d7f66ef` | T29 sign-in and detail captures |
+| final HEAD | `d7f66ef` (see `git log`) |
 
 Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 `api/openapi.yaml`, `cmd/server/main.go`, `internal/deployment/{cancel,operations,service}.go`,
@@ -74,7 +78,7 @@ Inherited uncommitted paths preserved and committed in `9215b9f`/`7815b0c`:
 | T26 | partial (externally gated) | Control/migrator/runner/docs images, Compose install, hosted GitOps reference (`deploy/gitops`), encrypted restore drill, and a non-development install check with local OIDC/TLS (fixture auth disabled, browser login verified). Hosted cluster/customer OIDC certification remains external. |
 | T27 | partial | Integrated race suite over isolation/concurrency/recovery passes; reproducible gVisor hostile corpus (traversal, symlink, corrupt fetch, cancellation) passes locally; 10,000-repo import, 50-session and 100-claim load harness recorded. Hosted cgroup-enforced isolation and live-provider certification remain external. |
 | T28 | partial | Support matrix, verification identity, dependency/notice inventory, restore/install/GitOps limits and the scale harness are recorded. Final release sign-off, licence review of remaining "review required" transitive dependencies and hosted certification remain. |
-| T29 | partial (agent-reviewed) | All 13 routes pass a machine-enforced one-title/one-toolbar/390px/axe gate; populated and actionable error captures exist for every route with route/runtime metadata; repeated card headings, duplicate table titles and generic intros removed; budget group labelled; on-demand help linked per route. Baselines are agent-reviewed, not human-approved. Remaining: blocked/stale capture coverage. |
+| T29 | local complete (agent-reviewed) | Ground-up visual rebuild: new token palette, inline icon set, denser typography/spacing, redesigned sidebar/topbar, and restyled cards, toolbars, tables, forms, status badges, dialogs, sign-in and bootstrap surfaces; this is a real visual redesign, not the earlier consistency pass. All 13 routes pass the one-title/one-toolbar/390px/no-overflow gate and axe at 390px; populated, error, blocked and stale captures exist per route with route/runtime metadata; help and docs links work. Baselines are agent-reviewed, not human-approved. |
 | T30 | local complete | MkDocs `--strict` build passes; docs container verified serving current/archived versions and search; every route links contextual help. |
 | T31 | local complete | Versioned admin-approved profiles, protocol executor, real container test, controller-to-runner dispatch with durable budget reservation and revocation fencing, and end-to-end advancement: a `completed_unverified` profile run has its changed source extracted and passed through the frozen baseline/candidate/target checks, then staged and published by the existing processor. Turn events are bounded by `max_turns`; exit 0 alone never publishes. |
 
@@ -177,9 +181,15 @@ Acceptance continuation (`2026-09-22`, commits `442b4ee`…`e385a49`):
 - T28 scale: `REFORGE_LOAD=1 go test -run TestControlPlaneLoadTargets ./test/integration/`
   passes; measured 10,000-repo scan `2.6s`, import `9.8s`, first page/search `5ms`,
   50-session p50/p95/max `16/19/20ms`, 100 claims `2.0s`.
-- T29 visual review: screenshots opened and inspected; fixed duplicate Overview/Findings/
-  Campaigns titles and labelled the budget group; captures re-generated. Added
-  `web/tests/visual-states.spec.ts` capturing a blocked run and a stale repository.
+- T29 ground-up redesign (owner feedback: the previous consistency pass was not a
+  redesign): replaced the token palette, added an inline icon set, redesigned the
+  sidebar/topbar, and restyled cards, toolbars, tables, forms, status badges, dialogs,
+  sign-in and bootstrap. Screenshots opened and inspected for every route at desktop and
+  390px; fixed contrast (axe) and narrow-width overflow the new layout exposed; extended
+  the route gate to run axe across all 13 routes. `web/tests/visual-states.spec.ts`
+  captures sign-in, a finding detail, a blocked run and a stale repository.
+- T29 early pass (retained): fixed duplicate Overview/Findings/Campaigns titles, labelled
+  the budget group, removed repeated card headings and generic intros.
 - T16 runtime delivery: digest-pinned host launcher and digest-pinned container launcher
   added with unit tests rejecting mutable tags, relative executables and credential env.
 - T17 bootstrap GUI: `web/tests/bootstrap.spec.ts` passes; the self-hosted no-organisation
