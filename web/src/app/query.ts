@@ -19,9 +19,9 @@ export const runnerPoolsQuery = (orgID: string, filter: { q?: string; state?: st
   queryKey: ['org', orgID, 'runner-pools', filter.q ?? '', filter.state ?? '', cursor ?? 'first'] as const,
   queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunnerPools(orgID, { q: filter.q, state: filter.state, cursor, signal }),
 })
-export const runnersQuery = (orgID: string, poolID: string) => ({
-  queryKey: ['org', orgID, 'runner-pools', poolID, 'runners'] as const,
-  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunners(orgID, poolID, signal),
+export const runnersQuery = (orgID: string, poolID: string, cursor?: string) => ({
+  queryKey: ['org', orgID, 'runner-pools', poolID, 'runners', cursor ?? 'first'] as const,
+  queryFn: ({ signal }: { signal: AbortSignal }) => api.getRunners(orgID, poolID, { cursor, signal }),
 })
 
 export function useSession() { return useQuery({ ...sessionQuery(), retry: false, refetchInterval: 30_000, refetchOnWindowFocus: true }) }

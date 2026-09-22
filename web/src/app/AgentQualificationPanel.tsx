@@ -29,7 +29,7 @@ export function AgentQualificationPanel({ orgID, connectionID, provider }: { org
   return <fieldset aria-label="Agent runtime qualification"><legend>Agent runtime · {provider}</legend>
     {state.isLoading ? <p className="table-meta">Loading qualification…</p> : state.error ? <p className="error-text" role="alert">Qualification unavailable: {message(state.error)} <Button onClick={() => void state.refetch()}>Retry</Button></p> : <>
       <ul className="compact-list">{Object.entries(capabilities).map(([name, capability]) => <li key={name}><StatusBadge label={capability.state} tone={capability.state === 'supported' ? 'green' : capability.state === 'unsupported' ? 'red' : 'amber'} /> <strong>{name}</strong>: {capability.reason}</li>)}</ul>
-      <p className="table-meta">The route stays disabled until a dated qualification matches this runtime, account, model and topology. A login is not entitlement evidence.</p>
+      <p className="table-meta">No deployment certified until dated runtime, account, model and topology evidence is recorded.</p>
       {provider === 'codex' && <div className="row-actions"><Button disabled={!csrf || busy || !canWrite || !custodyReady} onClick={() => void signIn()}>Sign in with official runtime</Button><Button disabled={!csrf || busy || !canWrite || !custodyReady} onClick={() => void signOut()}>Sign out</Button></div>}
       {provider === 'codex' && !custodyReady && <p className="table-meta">Official sign-in stays disabled until the operator configures an isolated runtime and records credential-custody evidence.</p>}
       {login && <p role="status">Sign-in URL for {login.id}: <a href={login.url} target="_blank" rel="noreferrer">open provider window</a>. Credentials remain in the isolated runtime.</p>}

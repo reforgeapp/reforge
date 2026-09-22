@@ -24,6 +24,7 @@ test('agent runtime shows uncertified status until dated evidence is recorded', 
   })
   await page.getByRole('button', { name: 'Models & agents' }).click()
   await page.getByRole('button', { name: 'Codex runtime' }).click()
+  await page.getByRole('button', { name: 'Qualification', exact: true }).click()
   const panel = page.getByRole('group', { name: 'Agent runtime qualification' })
   await expect(panel.getByText(/no deployment certified/)).toBeVisible()
   await panel.getByText('Record qualification evidence').click()
