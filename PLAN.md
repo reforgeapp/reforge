@@ -1,7 +1,7 @@
 # Reforge — implementation plan
 
-Status: planning revision only. Existing implementation and progress history preserved; no implementation restart authorised.
-Updated: 2026-09-21. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
+Status: current rebuild review active; historical planning pause retained below for context. Existing implementation and progress history preserved; current GUI rebuild is authorised by the owner.
+Updated: 2026-09-22. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
 
 ## Release requirements
 
@@ -78,6 +78,6 @@ Connect a GitHub organisation, GitLab group and Gitea organisation. Import repos
 
 ## Planning checks
 
-This revision records planning-only pause, preserves implementation evidence, reopens T29 after direct screenshot review, and adds explicit acyclic T29a–f children. T29 requires structural resource list/detail workflows across all routes, not shell restyling or heading-count tests. No certification, entitlement, release or implementation restart claimed. Root/Astra performs final architecture/review; Luna owns assigned slices when work resumes.
+Historical planning note: this records the earlier pause and T29 reopening, preserves implementation evidence, and adds explicit acyclic T29a–f children. The current T29 status is maintained in `docs/implementation/progress.md` and the dated GUI review. No certification, entitlement or release claim is made here. Root/Astra performs final architecture/review; Luna owns assigned slices under the current handoff.
 
 Research inputs: [competition](docs/research/competition.md), [forge capabilities](docs/research/forge-integrations.md), [model integrations](docs/research/model-integrations.md). Official planning references: [Rundeck getting started](https://docs.rundeck.com/docs/manual/03-getting-started.html), [Rundeck activity](https://docs.rundeck.com/docs/manual/08-activity.html), [AWX guide](https://docs.ansible.com/projects/awx/en/24.6.1/userguide/index.html), [Antigravity headless CLI](https://antigravity.google/docs/cli/headless/), [MkDocs](https://www.mkdocs.org/). These references support interaction/protocol planning only; they do not certify entitlement, isolation or provider support.

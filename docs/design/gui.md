@@ -4,13 +4,13 @@ Updated: 2026-09-22. T29 rebuild authority; prior prototype direction is superse
 
 ## Rebuild authority
 
-Apply [product-rebuild](../implementation/product-rebuild.md) across every route. Rundeck and AWX guide information density and operator workflow research only; no code or visual copying. Each route has one page title, one breadcrumb/context line and one primary toolbar. Remove duplicate breadcrumb/eyebrow headings and generic page/card introductions. Dense tables, filters and work surfaces carry context. Help is on demand through contextual links, versioned/searchable MkDocs and the in-app help drawer. Retain labels, accessibility, security notices, actionable errors, visible disabled reasons and unknown/stale states.
+Apply [product-rebuild](../implementation/product-rebuild.md) across every route. Rundeck, AWX and Temporal Web UI guide information density and operator workflow research only; no code or visual copying. Each route has one page title, one breadcrumb/context line and one primary toolbar. Remove duplicate breadcrumb/eyebrow headings and generic page/card introductions. Dense tables, filters and work surfaces carry context. Help is on demand through contextual links, versioned/searchable MkDocs and the in-app help drawer. Retain labels, accessibility, security notices, actionable errors, visible disabled reasons and unknown/stale states.
 
 ## Design stance
 
 One application vocabulary and one connected journey: repository → finding → task → change → deployment. The operator can explain what happened without reading an agent transcript or visiting five dashboards. Native forge links remain available for reviews and controls that belong there.
 
-Use a restrained desktop web interface: slate navigation, light neutral content, teal primary action, amber blocked/pending, red failure and green verified outcomes. Status always includes text/icon, never colour alone. Dense but legible tables; 14–16 px body text; consistent 8 px spacing; visible keyboard focus. No animated agent avatars, decorative fake activity, or opaque health scores.
+Use a restrained desktop web interface: light slate navigation, white workspace, blue primary action, amber blocked/pending, red failure and green verified outcomes. Status always includes text/icon, never colour alone. Dense flat inventory surfaces; 14 px body text; consistent 8 px spacing; visible keyboard focus. No animated agent avatars, decorative fake activity, or opaque health scores.
 
 React/TypeScript with accessible headless primitives and shared tokens. Responsive layout: desktop table+detail drawer; smaller widths show list rows and a full-screen detail view. Target WCAG 2.2 AA; keyboard navigation, labels, live-region announcements and reduced motion.
 
