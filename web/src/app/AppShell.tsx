@@ -138,6 +138,7 @@ export function AppShell() {
     }
     if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
     event.preventDefault()
+    if (index < 0) { items[event.key === 'ArrowDown' ? 0 : items.length - 1]?.focus(); return }
     const next = event.key === 'ArrowDown' ? (index + 1) % items.length : (index - 1 + items.length) % items.length
     items[next]?.focus()
   }
@@ -161,11 +162,15 @@ export function AppShell() {
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header className="topbar">
       <div className="masthead-brand"><button ref={menuRef} className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button><div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></div></div>
-      <button ref={orgButtonRef} className="org-button" onClick={() => setOrgMenuOpen(open => !open)} aria-haspopup="menu" aria-expanded={orgMenuOpen} aria-controls="organisation-menu" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></button>
-      {orgMenuOpen && <div ref={orgMenuRef} id="organisation-menu" className="org-menu" role="menu" aria-label="Quick switch organisation" onKeyDown={handleOrgMenuKeyDown}>
-        {orgs.map(item => <button key={item.id} role="menuitem" tabIndex={-1} className={`org-menu-item ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot" aria-hidden="true">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'}</small></span></button>)}
-        <button role="menuitem" tabIndex={-1} className="org-menu-manage" onClick={() => { setOrgMenuOpen(false); setOrgDialog(true) }}>More / manage organisations</button>
-      </div>}
+      <div className="org-switcher">
+        <button ref={orgButtonRef} className="org-button" onClick={() => setOrgMenuOpen(open => !open)} aria-haspopup="menu" aria-expanded={orgMenuOpen} aria-controls="organisation-menu" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></button>
+        {orgMenuOpen && <div ref={orgMenuRef} id="organisation-menu" className="org-menu" role="menu" aria-label="Quick switch organisation" onKeyDown={handleOrgMenuKeyDown}>
+          <div className="org-menu-list" role="group" tabIndex={0} aria-label="Organisations">
+            {orgs.map(item => <button key={item.id} title={item.name} role="menuitem" tabIndex={-1} className={`org-menu-item ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span>{item.name}</span>{item.paused && <small>Paused</small>}{item.id === org.id && <span className="check" aria-label="Current organisation">✓</span>}</button>)}
+          </div>
+          <button role="menuitem" tabIndex={-1} aria-label="More / manage organisations" className="org-menu-manage" onClick={() => { setOrgMenuOpen(false); setOrgDialog(true) }}>More…</button>
+        </div>}
+      </div>
       <div className="topbar-actions">
         <span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} />
         <form className="search-box" role="search" onSubmit={submitSearch}><label className="sr-only" htmlFor="global-search">Search repositories</label><Icon name="search" size={15} /><input id="global-search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></form>
@@ -187,6 +192,6 @@ export function AppShell() {
       <main id="main-content" className="content"><Outlet key={`${session.data.user.id}:${org.id}`} /></main>
       </div>
     </div>
-    <Dialog open={orgDialog} title="Switch organisation" onClose={() => { setOrgDialog(false); requestAnimationFrame(() => orgButtonRef.current?.focus()) }}><p className="dialog-copy">Choose the organisation whose repositories and activity you want to view.</p><div className="org-options">{orgs.map(item => <button key={item.id} className={`org-option ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'} · version {item.version}</small></span>{item.id === org.id && <span className="check" aria-label="Current organisation">✓</span>}</button>)}</div></Dialog>
+    <Dialog open={orgDialog} title="Switch organisation" onClose={() => { setOrgDialog(false); requestAnimationFrame(() => orgButtonRef.current?.focus()) }}><div className="org-options">{orgs.map(item => <button key={item.id} className={`org-option ${item.id === org.id ? 'selected' : ''}`} onClick={() => chooseOrg(item.id)}><span className="org-dot">{item.name.slice(0, 1)}</span><span><strong>{item.name}</strong><small>{item.paused ? 'Paused' : 'Active'} · version {item.version}</small></span>{item.id === org.id && <span className="check" aria-label="Current organisation">✓</span>}</button>)}</div></Dialog>
   </div>
 }

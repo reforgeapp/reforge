@@ -101,13 +101,79 @@ test.describe('T04 application shell', () => {
     await expect(page.getByRole('dialog', { name: 'Switch organisation' })).toBeHidden()
   })
 
+  test('keeps a long organisation list aligned and bounded', async ({ page }) => {
+    await page.route('**/api/v1/session', async route => {
+      const response = await route.fetch()
+      const body = await response.json()
+      body.organisations = [...body.organisations, ...Array.from({ length: 12 }, (_, index) => ({
+        id: `00000000-0000-4000-8000-${String(index + 10).padStart(12, '0')}`,
+        name: `Organisation_${'x'.repeat(80)}_${index}`,
+        paused: index === 0,
+        version: 1,
+      }))]
+      await route.fulfill({ response, json: body })
+    })
+    await signIn(page)
+    for (const width of [1280, 390]) {
+      await page.setViewportSize({ width, height: 844 })
+      for (const theme of ['light', 'dark']) {
+        await page.evaluate(value => window.localStorage.setItem('reforge-theme', value), theme)
+        await page.reload()
+        await page.getByRole('button', { name: 'Switch organisation' }).click()
+        const menu = page.getByRole('menu', { name: 'Quick switch organisation' })
+        const list = menu.locator('.org-menu-list')
+        const footer = menu.getByRole('menuitem', { name: 'More / manage organisations' })
+        const trigger = page.getByRole('button', { name: 'Switch organisation' })
+        const searchBox = page.getByRole('search')
+        const searchInput = page.getByLabel('Search repositories')
+        await expect(menu).toBeVisible()
+        await expect(menu.locator('.org-menu-item.selected')).toContainText('✓')
+        await expect(footer).toBeVisible()
+        const menuBox = await menu.boundingBox()
+        const triggerBox = await trigger.boundingBox()
+        const footerBox = await footer.boundingBox()
+        expect(menuBox).toBeTruthy()
+        expect(triggerBox).toBeTruthy()
+        expect(footerBox).toBeTruthy()
+        const searchBoxRect = await searchBox.boundingBox()
+        const searchInputRect = await searchInput.boundingBox()
+        expect(searchBoxRect).toBeTruthy()
+        expect(searchInputRect).toBeTruthy()
+        expect(triggerBox!.x + triggerBox!.width).toBeLessThanOrEqual(searchBoxRect!.x)
+        expect(searchInputRect!.width).toBeGreaterThanOrEqual(24)
+        if (width > 720) expect(Math.abs(menuBox!.x - triggerBox!.x)).toBeLessThanOrEqual(1)
+        else {
+          expect(menuBox!.x).toBeGreaterThanOrEqual(0)
+          expect(menuBox!.x + menuBox!.width).toBeLessThanOrEqual(width)
+        }
+        expect(footerBox!.y).toBeGreaterThanOrEqual(menuBox!.y)
+        expect(footerBox!.y + footerBox!.height).toBeLessThanOrEqual(menuBox!.y + menuBox!.height)
+        expect(menuBox!.width).toBeLessThanOrEqual(width)
+        expect(await list.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(await list.evaluate(element => element.clientWidth))
+        expect(await list.evaluate(element => element.scrollHeight)).toBeGreaterThan(await list.evaluate(element => element.clientHeight))
+        await list.focus()
+        await list.press('ArrowUp')
+        await expect(footer).toBeFocused()
+        await list.focus()
+        await list.press('ArrowDown')
+        await expect(menu.locator('.org-menu-item').first()).toBeFocused()
+        await list.evaluate(element => { element.scrollTop = element.scrollHeight })
+        const scrolledFooterBox = await footer.boundingBox()
+        expect(scrolledFooterBox).toBeTruthy()
+        expect(scrolledFooterBox!.y).toBeGreaterThanOrEqual(menuBox!.y)
+        expect(scrolledFooterBox!.y + scrolledFooterBox!.height).toBeLessThanOrEqual(menuBox!.y + menuBox!.height)
+        await page.getByRole('button', { name: 'Switch organisation' }).click()
+      }
+    }
+  })
+
   test('dismisses quick switch from button child and restores focus after manage', async ({ page }) => {
     await signIn(page)
     await page.goto(`/org/${developmentOrganisation}/overview`)
     const button = page.getByRole('button', { name: 'Switch organisation' })
     await button.click()
     await expect(page.getByRole('menu', { name: 'Quick switch organisation' })).toBeVisible()
-    await button.locator('.org-dot').click()
+    await button.locator('svg').click()
     await expect(page.getByRole('menu', { name: 'Quick switch organisation' })).toBeHidden()
     await button.click()
     const menuItems = page.getByRole('menuitem')

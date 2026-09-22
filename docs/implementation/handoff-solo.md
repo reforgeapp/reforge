@@ -2,6 +2,8 @@
 
 ## Current GUI handoff — 2026-09-23
 
+Latest follow-up: T29j organisation switcher reworked after owner screenshots; 17 fresh shell/theme checks pass. See [switcher review](organisation-switcher-review-2026-09-23.md) for current assets and menu-specific evidence.
+
 Owner resumed GUI work; pause below is historical. T29g–o locally complete after Astra
 review and Luna repairs. Full browser suite: 133 passed, 0 failed, 9 opt-in skipped;
 real policy/budget/audit controls also passed. Deepseek's Campaign/GitOps work retained

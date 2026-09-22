@@ -1,6 +1,20 @@
 # Implementation progress
 
-## Current GUI checkpoint — 2026-09-23
+## Organisation switcher follow-up — 2026-09-23
+
+T29j follow-up locally complete after owner screenshots reopened visual acceptance.
+One Luna worker implemented; Astra reviewed. Borderless inline trigger, anchored dropdown,
+compact current/paused rows, scrolling list and permanent More footer. Mobile controls no
+longer overlap. Session/tenant cache behavior unchanged; all persisted organisations retained.
+
+Fresh verification: **17/17 shell/theme tests passed**, including long unbroken names,
+list overflow, menu alignment, visible footer, keyboard navigation and responsive geometry.
+Actual open menu checked in light/dark at 1440px/390px: zero axe violations, horizontal
+or page overflow; focus restored in every case. Build passed; demo serves current assets.
+[Review and artifacts](organisation-switcher-review-2026-09-23.md). Broader release limits
+and the earlier full-suite evidence below remain unchanged.
+
+## GUI checkpoint before switcher follow-up — 2026-09-23
 
 Owner resumed GUI feedback work; earlier usage pause is superseded. Astra reviewed;
 Luna implemented with exclusive files and at most three workers. Full browser regression:

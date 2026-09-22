@@ -4,6 +4,12 @@
 
 Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, repair Findings/theme issues, rebuild Policies, then finish outstanding GUI acceptance. Astra coordinates/reviews; Luna implements. See current `progress.md`; earlier checks remain historical.
 
+### T29j follow-up — Integrated organisation switcher
+
+- Status: **local complete, 2026-09-23** after owner screenshot feedback. [Follow-up review](organisation-switcher-review-2026-09-23.md): 17 passing shell/theme tests and actual open-menu checks in both themes at desktop/390px.
+- Own: AppShell, scoped switcher styles and shell regression tests; Luna implements, Astra reviews.
+- Accept: borderless inline header trigger; dropdown aligned to trigger and contained on narrow screens; compact names with current marker, Paused only where applicable; no horizontal scrollbar; independently scrolling list and always-visible More action. Preserve keyboard/focus, modal and tenant cache behavior. Verify many/long names, both themes, desktop and 390px against real session data and fixtures.
+
 ### T29o — Consistent Policies workspace
 
 - Status: **local complete, 2026-09-23**. See [review evidence](gui-feedback-review-2026-09-23.md).

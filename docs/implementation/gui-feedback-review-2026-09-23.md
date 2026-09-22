@@ -1,5 +1,7 @@
 # GUI feedback review — 2026-09-23
 
+Subsequent owner feedback reopened T29j. [Organisation switcher follow-up](organisation-switcher-review-2026-09-23.md) supersedes the shell presentation and build identities below; this report remains the preceding full-suite checkpoint.
+
 T29g–o locally complete. Owner resumed work after Deepseek commits `80fce9c`, `862c0c4`
 and `b7f2a11`. Astra reviewed; Luna implemented. No external provider mutations or paid APIs.
 Human feedback, provider certification and G5 release qualification remain separate.
