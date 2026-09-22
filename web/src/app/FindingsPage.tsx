@@ -41,7 +41,7 @@ export function FindingsPage({ orgID }: { orgID: string }) {
       <label>Repository<select value={repositoryID} onChange={event => reset(setRepositoryID, 'repository', event.target.value)}><option value="">All repositories</option>{(repositories.data?.items ?? []).map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <Button className="button button-primary" onClick={() => setAdvisoryOpen(true)}>Import advisory</Button>
     </Toolbar>
-    <SplitView listLabel="Finding queue" selected={!!selected} onBack={clear} list={list} detail={selected ? <FindingDetails orgID={orgID} findingID={selected} csrf={session.data?.csrf_token ?? ''} onRefresh={refresh} /> : <SplitPlaceholder label="Select a finding to inspect evidence and repair options." />} />
+    <SplitView listLabel="Findings" selected={!!selected} onBack={clear} list={list} detail={selected ? <FindingDetails orgID={orgID} findingID={selected} csrf={session.data?.csrf_token ?? ''} onRefresh={refresh} /> : <SplitPlaceholder label="Select a finding to inspect evidence and repair options." />} />
     {advisoryOpen && <AdvisoryDialog orgID={orgID} csrf={session.data?.csrf_token ?? ''} defaultRepository={repositoryID} onClose={() => setAdvisoryOpen(false)} onImported={refresh} />}
   </div>
 }

@@ -35,7 +35,7 @@ export function RunsPage({ orgID }: { orgID: string }) {
 
   return <div className="stack">
     <Toolbar label="Run filters"><label>State<select value={state} onChange={event => setFilter(event.target.value)}><option value="">All states</option>{['queued', 'reproducing', 'planning', 'repairing', 'validating', 'publishing', 'blocked', 'reconciling', 'completed', 'failed', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label><span className="toolbar-meta">{items.length} loaded{result.data?.complete === false ? ' · more available' : ''}</span></Toolbar>
-    <SplitView listLabel="Maintenance runs" selected={!!search.run} onBack={clear} list={list} detail={search.run ? <RunDetail key={search.run} orgID={orgID} taskID={search.run} csrf={session.data?.csrf_token ?? ''} onClose={clear} onChanged={() => { setCursor(undefined); void client.invalidateQueries({ queryKey: ['org', orgID, 'tasks'] }) }} /> : <SplitPlaceholder label="Select a run to inspect stages, evidence and cancellation." />} />
+    <SplitView listLabel="Runs" selected={!!search.run} onBack={clear} list={list} detail={search.run ? <RunDetail key={search.run} orgID={orgID} taskID={search.run} csrf={session.data?.csrf_token ?? ''} onClose={clear} onChanged={() => { setCursor(undefined); void client.invalidateQueries({ queryKey: ['org', orgID, 'tasks'] }) }} /> : <SplitPlaceholder label="Select a run to inspect stages, evidence and cancellation." />} />
   </div>
 }
 

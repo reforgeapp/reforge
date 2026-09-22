@@ -15,7 +15,6 @@ async function fixture(page: Page, items: unknown[], role = 'viewer') {
   await page.route(`**${base}/merge-operations*`, route => route.fulfill({ json: { items: [], complete: true } }))
   await page.route(`**${base}/repositories/${repo}/changes/${change}/revalidations`, route => route.fulfill({ json: { items } }))
   await page.goto(`/org/${org}/changes?repository=${repo}&change=${change}`)
-  await page.getByRole('button', { name: changeBody.title }).click()
 }
 
 function revalidation(state: string, gate?: Record<string, unknown>) {
