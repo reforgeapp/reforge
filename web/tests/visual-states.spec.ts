@@ -27,7 +27,7 @@ test.describe('T29 shell and state captures', () => {
     await page.route('**/api/v1/orgs/**/inventory-repositories**', route => route.fulfill({ json: { items: [], complete: true } }))
     await page.goto(`/org/${organisation}/findings`)
     await page.getByRole('button', { name: finding.title }).click()
-    await page.getByRole('dialog', { name: finding.title }).waitFor()
+    await page.getByRole('region', { name: finding.title }).waitFor()
     await page.screenshot({ path: join(outDir, 'findings-detail-1440.png'), fullPage: true })
   })
 

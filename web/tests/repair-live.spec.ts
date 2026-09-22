@@ -24,7 +24,7 @@ test('executes a real repair and exposes native publication evidence', async ({ 
     authority = await configureRepairAuthority(page, fixture)
     const finding = await findFinding(page, fixture.repositoryID)
     await page.goto(`/org/${fixture.orgID}/findings?finding=${encodeURIComponent(finding.id)}`)
-    const details = page.getByRole('dialog', { name: finding.title })
+    const details = page.getByRole('region', { name: finding.title })
     await expect(details).toBeVisible()
     await expect.poll(async () => details.evaluate(element => element.contains(document.activeElement))).toBe(true)
     await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)

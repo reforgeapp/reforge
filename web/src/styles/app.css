@@ -197,7 +197,7 @@ pre { font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, mon
 .table-head { display: flex; align-items: center; justify-content: space-between; gap: var(--space-3); padding: var(--space-4) var(--space-5); border-bottom: 1px solid var(--border); }
 .table-head h2 { color: var(--text); font-size: 14px; font-weight: 700; letter-spacing: -.01em; }
 .table-wrap { overflow-x: auto; }
-table { width: 100%; min-width: 680px; border-collapse: collapse; font-size: 13px; }
+table { width: 100%; min-width: 560px; border-collapse: collapse; font-size: 13px; }
 thead th { position: sticky; top: 0; z-index: 1; padding: 9px var(--space-4); border-bottom: 1px solid var(--border); background: var(--surface-2); color: var(--text-subtle); font-size: 10.5px; font-weight: 700; letter-spacing: .07em; text-align: left; text-transform: uppercase; white-space: nowrap; }
 tbody td { padding: 11px var(--space-4); border-bottom: 1px solid #edf1f4; vertical-align: middle; }
 tbody tr:hover { background: var(--surface-2); }
