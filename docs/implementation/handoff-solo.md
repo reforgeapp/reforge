@@ -270,6 +270,9 @@ confirm the sandbox stdin addition in `internal/sandbox/runtime_linux.go` is bou
 T16 review `internal/agent/qualification.go` and `internal/httpapi/agentqualification.go`,
 especially the binding derived from the connection rather than the request body, plus the
 new `agy` provider validation in `internal/connections/service.go`.
+T27/T28 qualification evidence is consolidated in
+`docs/implementation/t27-qualification.md`; the scale numbers are in
+`deploy/docs/content/support-matrix.md`.
 For T29 review `web/tests/route-surface.spec.ts`, `web/tests/visual.spec.ts`,
 `web/src/components/DataTable.tsx`, the topbar rules in `web/src/styles/app.css`, and the
 removed headings in `web/src/app/{UsagePage,PoliciesPage,RunnersPage,CampaignsPage,CustomProfilesPanel}.tsx`.
