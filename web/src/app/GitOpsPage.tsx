@@ -5,7 +5,7 @@ import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
-import { Tabs } from '../components/Workspace'
+import { Tabs, Toolbar } from '../components/Workspace'
 import { gitopsAPI, type Configuration, type Detail, type Gate, type PreviewRequest, type Promotion } from '../gitops-api'
 import type { Gate as MergeGate } from '../merge-api'
 import { useSession } from './query'
@@ -43,8 +43,11 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
   return <div className="stack gitops-page">
     <Tabs id="gitops" label="GitOps workspace" items={[{ id: 'configuration', label: 'Configuration' }, { id: 'history', label: 'Promotion history' }]} value={view} onChange={setView} />
     {view === 'configuration' && <section className="state-card" aria-label="GitOps configuration">
-      <div className="subsection-actions"><h2>Configuration</h2><label>Environment<select value={config?.environment ?? ""} onChange={event => { setDraftConfig(undefined); setEnvironment(event.target.value) }}>{draftConfig && <option value={draftConfig.environment}>{draftConfig.environment} (new)</option>}{(configurations.data?.items ?? []).map(item => <option key={item.environment} value={item.environment}>{item.environment}</option>)}</select></label></div>
-      <div className="row-actions"><label>New environment<input value={newEnvironment} onChange={event => setNewEnvironment(event.target.value)} placeholder="production" /></label><Button disabled={!canWrite || !newEnvironment.trim()} onClick={() => { const name = newEnvironment.trim(); setEnvironment(name); setDraftConfig(configurations.data?.items.some(c => c.environment === name) ? undefined : emptyConfiguration(name)) }}>Create draft</Button></div>
+      <Toolbar label="GitOps environment">
+        <label>Environment<select value={config?.environment ?? ""} onChange={event => { setDraftConfig(undefined); setEnvironment(event.target.value) }}>{draftConfig && <option value={draftConfig.environment}>{draftConfig.environment} (new)</option>}{(configurations.data?.items ?? []).map(item => <option key={item.environment} value={item.environment}>{item.environment}</option>)}</select></label>
+        <label>New environment<input value={newEnvironment} onChange={event => setNewEnvironment(event.target.value)} placeholder="production" /></label>
+        <Button disabled={!canWrite || !newEnvironment.trim()} onClick={() => { const name = newEnvironment.trim(); setEnvironment(name); setDraftConfig(configurations.data?.items.some(c => c.environment === name) ? undefined : emptyConfiguration(name)) }}>Create draft</Button>
+      </Toolbar>
       {config ? <ConfigurationEditor key={`${orgID}:${config.environment}:${config.version}`} orgID={orgID} config={config} repos={repos} csrf={csrf} canWrite={canWrite} canPreview={canPromote} onSaved={saved} onRequested={requested} /> : <EmptyTable label="Create an environment to configure GitOps." />}
       {repositories.hasNextPage && <Button disabled={repositories.isFetchingNextPage} onClick={() => void repositories.fetchNextPage()}>Load more repositories</Button>}
     </section>}
@@ -136,7 +139,6 @@ function GateCard({ orgID, gate, csrf, canWrite, idempotencyKey, onRequested }: 
 
 function PromotionList({ rows, complete, loading, onMore, onSelect }: { rows: Promotion[]; complete: boolean; loading: boolean; onMore: () => void; onSelect: (id: string) => void }) {
   return <section className="state-card">
-    <h2>Promotion history</h2>
     <DataTable caption="GitOps promotions">
       <table>
         <thead><tr><th>Promotion</th><th>Delivery candidate</th><th>Delivery revision</th><th>State</th></tr></thead>
