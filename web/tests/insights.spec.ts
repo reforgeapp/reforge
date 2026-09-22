@@ -49,24 +49,21 @@ test('audit filters submit by keyboard, render escaped JSON, and export exact lo
   await page.goto(`/org/${org}/audit`)
   await page.getByLabel('Action filter').fill('policy.activate')
   await page.getByLabel('Action filter').press('Enter')
-  await expect(page).toHaveURL(/\/audit$/)
+  await expect(page).toHaveURL(/\/audit(?:\?.*)?$/)
   await page.getByRole('button', { name: 'Load more events' }).click()
   await page.getByRole('row').filter({ hasText: 'policy.activate' }).getByRole('button').click()
-  await page.getByText('Event data', { exact: true }).click()
+  await page.getByText('Evidence payload', { exact: true }).click()
   await expect(page.locator('pre').filter({ hasText: '<script>alert(1)</script>' })).toBeVisible()
   await page.getByLabel('Audit export page').selectOption('1')
-  await page.getByRole('button', { name: 'Export selected page' }).click()
+  await page.getByRole('button', { name: 'Export server page' }).click()
   await expect.poll(() => exportURL).toContain('cursor=cursor-2')
-  await expect(page.getByText(/^Exported page 2\./)).toContainText('More events available')
+  await expect(page.getByText(/^Server page 2 exported/)).toContainText('Server page 2')
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
-test('usage reports invalid UUID correction and separates unknown hold from settled estimate', async ({ page }) => {
+test('usage named selectors separate unknown holds from settled estimates', async ({ page }) => {
   await usageFixture(page)
-  await page.getByLabel('Repository ID').fill('bad')
-  await page.getByRole('button', { name: 'Apply filters' }).click()
-  await expect(page.getByRole('heading', { name: 'Usage unavailable' })).toBeVisible()
-  await page.getByLabel('Repository ID').fill(repo)
+  await page.getByRole('combobox', { name: 'Repository', exact: true }).selectOption(repo)
   await page.getByRole('button', { name: 'Apply filters' }).click()
   await expect(page.getByText('Unknown usage maximum')).toBeVisible()
   await expect(page.getByText(/Held maximum/)).toBeVisible()
@@ -76,13 +73,14 @@ test('usage reports invalid UUID correction and separates unknown hold from sett
 
 test('usage budget scope change discards old draft and saves with fresh version', async ({ page }) => {
   await usageFixture(page)
+  await page.getByRole('tab', { name: 'Budgets' }).click()
   await page.route(`**${base}/budgets/organisation/${org}`, route => route.fulfill({ json: { scope: { kind: 'organisation', id: org }, period: 'daily', caps: { tokens: 10 }, paused: false, version: 3, held: amount, spent: amount } }))
   await page.route(`**${base}/budgets/repository/${repo}`, route => route.fulfill({ json: { scope: { kind: 'repository', id: repo }, period: 'daily', caps: {}, paused: false, version: 7, held: amount, spent: amount } }))
   let saveIfMatch = ''
   await page.route(`**${base}/budgets/repository/${repo}`, async route => { if (route.request().method() === 'PUT') { saveIfMatch = route.request().headers()['if-match'] ?? ''; await route.fulfill({ json: { scope: { kind: 'repository', id: repo }, period: 'daily', caps: { tokens: 11 }, paused: false, version: 8, held: amount, spent: amount } }) } else await route.fallback() })
-  await page.locator('select').nth(1).selectOption('repository')
-  await page.getByLabel('Scope ID').fill(repo)
-  await expect(page.getByText('Version 7')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Scope', exact: true }).selectOption('repository')
+  await page.getByRole('combobox', { name: 'Named scope', exact: true }).selectOption(repo)
+  await expect(page.getByText(/Version 7/)).toBeVisible()
   await expect(page.getByLabel('tokens')).toHaveValue('')
   await page.getByLabel('tokens').fill('11')
   await page.getByRole('button', { name: 'Save budget' }).click()
@@ -91,6 +89,7 @@ test('usage budget scope change discards old draft and saves with fresh version'
 
 test('viewer cannot edit usage budget', async ({ page }) => {
   await usageFixture(page, 'viewer')
+  await page.getByRole('tab', { name: 'Budgets' }).click()
   await page.route(`**${base}/budgets/organisation/${org}`, route => route.fulfill({ json: { scope: { kind: 'organisation', id: org }, period: 'daily', caps: { tokens: 10 }, paused: false, version: 3, held: amount, spent: amount } }))
   await expect(page.getByLabel('tokens')).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Save budget' })).toBeDisabled()
@@ -112,7 +111,9 @@ async function policyFixture(page: Page, role = 'owner') {
 
 test('policy dirty draft blocks simulation, then save/simulate/activate uses hash and CAS zero', async ({ page }) => {
   await policyFixture(page)
+  await page.getByText('Advanced policy JSON import/export').click()
   await page.getByLabel('Raw policy JSON').fill(JSON.stringify({ ...policy, paused: true }))
+  await page.getByRole('button', { name: 'Open simulation' }).click()
   await expect(page.getByRole('button', { name: 'Simulate candidate rollout' })).toBeDisabled()
   await page.getByLabel('Raw policy JSON').fill('')
   await page.getByLabel('Reason').fill('updated')
@@ -124,6 +125,7 @@ test('policy dirty draft blocks simulation, then save/simulate/activate uses has
   await page.route(`**${base}/policies/versions/version-2/simulate`, route => route.fulfill({ json: { hash: 'simulation-2', resolved: { hash: 'effective-1', paused: false, scope_paused: false }, decision: { outcome: 'allow', blockers: [], required_actions: [] } } }))
   let activationIfMatch = ''
   await page.route(`**${base}/policies/versions/version-2/activate`, async route => { activationIfMatch = route.request().headers()['if-match'] ?? ''; await route.fulfill({ json: { version: 1 } }) })
+  await page.getByRole('button', { name: 'Open simulation' }).click()
   await page.getByRole('button', { name: 'Simulate candidate rollout' }).click()
   await page.getByRole('button', { name: 'Activate exact simulation' }).click()
   await expect.poll(() => activationIfMatch).toBe('"0"')
@@ -141,6 +143,7 @@ test('organisation policy simulation excludes the repository primary team', asyn
     primary = (await route.request().postDataJSON()).primary_team_id
     await route.fulfill({ json: { hash: 'simulation-team', resolved: { hash: 'next', paused: false, scope_paused: false, problems: [] }, decision: { outcome: 'allow', blockers: [] } } })
   })
+  await page.getByRole('button', { name: 'Open simulation' }).click()
   await page.getByRole('button', { name: 'Simulate candidate rollout' }).click()
   await expect.poll(() => primary).toBe('')
   await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('repository')
