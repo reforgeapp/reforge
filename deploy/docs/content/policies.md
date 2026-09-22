@@ -9,21 +9,19 @@ A repository inherits the organisation baseline and any team overlays. The edito
 inherited values and the effective result, including which higher-level rule prevents
 loosening. A candidate repository policy cannot activate itself.
 
-## Presets
+## Editor tabs
 
-- **Observe** — discovery and evidence only.
-- **Propose fixes** — publish changes, never merge.
-- **Merge eligible fixes** — merge when native gates and policy allow.
-- **Deliver to approved environments** — request allowlisted delivery.
-
-Presets are editable configurations, not hidden feature tiers. Moving to a more permissive
-preset requires the policy administrator role and an audit reason.
+The editor uses **Scope**, **Recipes**, **Changes**, **Models & spend**, **Merge** and
+**Deploy** tabs. Structured controls are the primary workflow. Raw policy JSON is available
+only under advanced import/export.
 
 ## Simulation and rollout
 
-Simulation evaluates stored findings and changes without calling tools or mutating
-providers. The apply preview lists affected repositories and proposed gate changes before
-activation. Denials carry the rule that produced them.
+Choose **Open simulation** to reveal rollout inputs, then run **Simulate candidate rollout**.
+For the selected repository, provide the action, recipe, model, paths, binding and evidence
+inputs. The simulation returns the candidate decision, policy hash and blockers without
+calling tools or mutating providers. Denials carry the rule that produced them. Named preset
+workflows are not currently exposed; configure the structured policy fields directly.
 
 Unknown never allows a mutation. A pause prevents new application actions; already
 admitted native actions are observed or cancelled where the provider supports it, without

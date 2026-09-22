@@ -15,6 +15,11 @@ Budgets are hierarchical and can be set for an organisation, team, repository, c
 or campaign. Only an organisation owner can change a budget. A budget edit creates a new
 version; periods are immutable once applied.
 
+Open the **Budgets** tab, choose a named scope, and edit the caps. Organisation, team,
+repository, connection and campaign scopes use selectors backed by persisted inventory.
+The **Usage** tab keeps ledger filters separate from budget editing. USD caps accept six
+decimal places and preserve zero explicitly.
+
 Contending jobs cannot overspend a configured ceiling. When provider usage is unknown the
 reservation is held as unknown until reconciled, which can pause affected automation.
 
