@@ -46,6 +46,9 @@ restore-drill:
 install-check:
 	bash scripts/install-check.sh
 
+demo-seed:
+	$(GO) run ./cmd/demo-seed
+
 sandbox-test:
 	CGO_ENABLED=0 $(GO) build -o /tmp/reforge-sandbox-tool ./cmd/sandbox-tool
 	CGO_ENABLED=0 $(GO) build -o /tmp/reforge-sandbox-probe ./test/sandboxprobe
