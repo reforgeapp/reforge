@@ -13,7 +13,7 @@ export type OrgOIDCSettings = {
   secret_present: boolean
   issuer?: string
   client_id?: string
-  status: 'unconfigured' | 'draft' | 'probe_verified' | 'disabled'
+  status: 'unconfigured' | 'draft' | 'probe_verified' | 'active' | 'disabled'
   version: number
   verified_at?: string
   verified: boolean

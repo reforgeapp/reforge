@@ -47,22 +47,17 @@
 }
 .identity-settings { display: grid; align-content: start; gap: 16px; max-width: 900px; min-width: 0; padding: 8px 0 20px; }
 .identity-form { display: grid; align-content: start; gap: 16px; }
-.identity-status, .identity-activation { display: flex; align-items: center; gap: 8px; }
-.identity-status { justify-content: space-between; }
+.identity-status { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .identity-badges { display: flex; align-items: center; gap: 8px; }
 .identity-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
 .identity-operations { justify-content: flex-start; flex-wrap: wrap; }
-.identity-activation { margin-left: auto; }
 .identity-settings .organisation-field { width: min(100%, 560px); }
 .identity-settings .organisation-field input { min-height: 40px; }
 .identity-settings input[type="password"] { letter-spacing: 0.03em; }
-.identity-help { display: inline-grid; place-items: center; width: 19px; height: 19px; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--text-muted); font-size: 12px; cursor: help; }
-.identity-help:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .identity-settings .organisation-form-actions { justify-content: flex-end; }
 
 @media (max-width: 720px) {
   .identity-actions { align-items: stretch; flex-direction: column; }
-  .identity-operations > *, .identity-activation { width: 100%; margin-left: 0; }
+  .identity-operations > * { width: 100%; }
   .identity-operations > button.button-danger { width: fit-content; align-self: flex-start; }
-  .identity-activation { justify-content: space-between; }
 }

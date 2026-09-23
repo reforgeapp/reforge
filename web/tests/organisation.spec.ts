@@ -204,11 +204,12 @@ test('failed metadata probe remains visibly unverified', async ({ page }) => {
   await expect(page.locator('.identity-status').getByText('Metadata verified')).toHaveCount(0)
 })
 
-test('owner saves, probes, reloads and disables OIDC configuration without exposing the secret', async ({ page }) => {
+test('owner saves, probes, activates, signs in, reloads and disables OIDC without exposing the secret', async ({ page }) => {
   let settings: OrgOIDCSettings = { configured: false, secret_present: false, status: 'unconfigured', version: 0, verified: false, activation_available: false, activation_blocked: 'Organisation login is not available until org-aware login support is implemented' }
   let put: { body: { issuer: string; client_id: string; client_secret: string }; ifMatch: string; csrf: string } | undefined
   let probe: { ifMatch: string; csrf: string } | undefined
   let disabled: { ifMatch: string; csrf: string } | undefined
+  let activated: { ifMatch: string; csrf: string } | undefined
   await mock(page, 'owner')
   await page.route(`**/api/v1/orgs/${org}/identity/oidc`, async route => {
     if (route.request().method() === 'GET') return route.fulfill({ json: settings })
@@ -219,8 +220,13 @@ test('owner saves, probes, reloads and disables OIDC configuration without expos
   })
   await page.route(`**/api/v1/orgs/${org}/identity/oidc/probe`, async route => {
     probe = { ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
-    settings = { ...settings, status: 'probe_verified', verified: true, verified_at: '2026-09-23T02:00:00Z' }
+    settings = { ...settings, status: 'probe_verified', verified: true, activation_available: true, verified_at: '2026-09-23T02:00:00Z' }
     return route.fulfill({ json: settings })
+  })
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc/activate`, async route => {
+    activated = { ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
+    settings = { ...settings, status: 'active', activation_available: false }
+    return route.fulfill({ status: 204 })
   })
   await page.route(`**/api/v1/orgs/${org}/identity/oidc/disable`, async route => {
     disabled = { ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
@@ -244,7 +250,7 @@ test('owner saves, probes, reloads and disables OIDC configuration without expos
   expect(put?.csrf).toBe('csrf-1')
   await expect(page.getByLabel('Client secret')).toHaveValue('')
   await expect(page.locator('.identity-status').getByText('Draft')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Activate login' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Probe issuer metadata' })).toBeEnabled()
   await expect(page.getByText('never-render-this-secret')).toHaveCount(0)
 
@@ -252,6 +258,26 @@ test('owner saves, probes, reloads and disables OIDC configuration without expos
   await expect.poll(() => probe?.ifMatch).toBe('"1"')
   expect(probe?.csrf).toBe('csrf-1')
   await expect(page.locator('.identity-status').getByText('Metadata verified')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activate login' })).toBeEnabled()
+  const activationResponse = page.waitForResponse(response => response.url().endsWith('/identity/oidc/activate'))
+  await page.getByRole('button', { name: 'Activate login' }).click()
+  expect((await activationResponse).status()).toBe(204)
+  await expect.poll(() => activated?.ifMatch).toBe('"1"')
+  expect(activated?.csrf).toBe('csrf-1')
+  await expect(page.locator('.identity-status').getByText('Login active')).toBeVisible()
+  await expect(page.getByText('Draft', { exact: true })).toHaveCount(0)
+  await expect(page.getByText('Login unavailable', { exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
+  const signInLink = page.getByRole('link', { name: 'Open organisation sign-in' })
+  await expect(signInLink).toHaveAttribute('href', `/auth/login?org_id=${org}`)
+  await page.context().route('**/auth/login?org_id=*', route => route.fulfill({ status: 200, contentType: 'text/html', body: 'sign in fixture' }))
+  await signInLink.focus()
+  await expect(signInLink).toBeFocused()
+  const signInPopup = page.waitForEvent('popup')
+  await page.keyboard.press('Enter')
+  const popup = await signInPopup
+  await expect(popup).toHaveURL(new URL(`/auth/login?org_id=${org}`, page.url()).toString())
+  await popup.close()
 
   const captures = resolve(process.cwd(), '../.local/t29-identity-gui')
   await mkdir(captures, { recursive: true })
@@ -275,7 +301,9 @@ test('owner saves, probes, reloads and disables OIDC configuration without expos
   await expect(page.getByLabel('Issuer URL')).toHaveValue('https://idp.example.test')
   await expect(page.getByLabel('Client ID')).toHaveValue('reforge')
   await expect(page.getByLabel('Client secret')).toHaveValue('')
-  await expect(page.getByRole('button', { name: 'Activate login' })).toBeDisabled()
+  await expect(page.locator('.identity-status').getByText('Login active')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
+  await expect(page.getByRole('link', { name: 'Open organisation sign-in' })).toBeVisible()
   await page.getByRole('button', { name: 'Disable', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Disable organisation login' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
@@ -285,6 +313,8 @@ test('owner saves, probes, reloads and disables OIDC configuration without expos
   await expect.poll(() => disabled?.ifMatch).toBe('"1"')
   expect(disabled?.csrf).toBe('csrf-1')
   await expect(page.locator('.identity-status').getByText('Disabled')).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Open organisation sign-in' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
 
   await page.setViewportSize({ width: 390, height: 844 })
   const width = await page.evaluate(() => document.documentElement.scrollWidth)

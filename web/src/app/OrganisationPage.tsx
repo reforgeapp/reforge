@@ -49,7 +49,7 @@ function IdentitySettings({ orgID }: { orgID: string }) {
   const [confirmDisable, setConfirmDisable] = useState(false)
   const settings = query.data
   const dirty = !!settings && (issuer !== (settings.issuer ?? '') || clientID !== (settings.client_id ?? '') || !!clientSecret)
-  const status = dirty ? 'Unsaved changes' : settings?.status === 'probe_verified' ? 'Metadata verified' : settings?.status === 'disabled' ? 'Disabled' : settings?.configured ? 'Draft' : 'Not configured'
+  const status = dirty ? 'Unsaved changes' : settings?.status === 'active' ? 'Login active' : settings?.status === 'probe_verified' ? 'Metadata verified' : settings?.status === 'disabled' ? 'Disabled' : settings?.configured ? 'Draft' : 'Not configured'
 
   useEffect(() => {
     if (!settings) return
@@ -148,7 +148,8 @@ function IdentitySettings({ orgID }: { orgID: string }) {
     </form>
     <div className="identity-actions identity-operations">
       {settings?.configured && <Button type="button" disabled={busy || !csrf || settings.status === 'disabled' || dirty || query.isFetching} onClick={() => void probe()}>{busy ? 'Working…' : 'Probe issuer metadata'}</Button>}
-      {settings?.configured && <div className="identity-activation"><Button type="button" disabled={busy || !csrf || !settings?.activation_available} onClick={() => void activate()}>Activate login</Button><StatusBadge label={settings?.activation_available ? 'Ready' : 'Login unavailable'} tone={settings?.activation_available ? 'green' : 'amber'} />{!settings?.activation_available && <span className="identity-help" tabIndex={0} aria-label="Why is login unavailable?" title={settings?.activation_blocked ?? 'Organisation login is unavailable.'}>?</span>}</div>}
+      {settings?.status === 'probe_verified' && settings.activation_available && !dirty && <Button type="button" disabled={busy || !csrf} onClick={() => void activate()}>Activate login</Button>}
+      {settings?.status === 'active' && !dirty && <a className="button button-primary" href={`/auth/login?org_id=${encodeURIComponent(orgID)}`} target="_blank" rel="noreferrer">Open organisation sign-in</a>}
       {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
     </div>
     <Dialog open={confirmDisable} title="Disable organisation login" onClose={() => setConfirmDisable(false)}><p>Disable this identity configuration?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDisable(false)}>Cancel</Button><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => void disable()}>{busy ? 'Disabling…' : 'Disable'}</Button></div></Dialog>
