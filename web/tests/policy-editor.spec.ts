@@ -1,3 +1,5 @@
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import { test, expect, type Page } from '@playwright/test'
 
 const org = '00000000-0000-4000-8000-000000000001'
@@ -27,14 +29,26 @@ test('policy tabs show only selected editor section', async ({ page }) => {
   await expect(page.getByLabel('Schema')).toBeHidden()
 })
 
+test('policy tabs support keyboard navigation into the Review step', async ({ page }) => {
+  await fixture(page)
+  const tabs = page.getByRole('tablist', { name: 'Policy editor' })
+  await tabs.getByRole('tab', { name: 'Scope' }).focus()
+  await page.keyboard.press('End')
+  await expect(tabs.getByRole('tab', { name: 'Review' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByRole('tabpanel', { name: 'Review' })).toBeVisible()
+  await page.keyboard.press('Home')
+  await expect(tabs.getByRole('tab', { name: 'Scope' })).toHaveAttribute('aria-selected', 'true')
+})
+
 test('zero policy limits survive save payload', async ({ page }) => {
   await fixture(page)
   let payload: any
   await page.route(`**${base}/policies/versions`, async route => { payload = await route.request().postDataJSON(); await route.fulfill({ json: version }) })
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByLabel('Reason').fill('zero caps')
   await page.getByRole('tab', { name: 'Models & spend' }).click()
   await expect(page.getByLabel('Budget', { exact: true })).toHaveValue('0')
-  await page.getByRole('tab', { name: 'Scope' }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByRole('button', { name: 'Save immutable version' }).click()
   await expect.poll(() => payload?.policy?.limits).toEqual({ budget: 0, concurrency: 0 })
 })
@@ -44,6 +58,8 @@ test('persistent save action works from non-Scope tab and editor remains visible
   await page.setViewportSize({ width: 390, height: 844 })
   await page.getByRole('tab', { name: 'Models & spend' }).click()
   await expect(page.getByRole('tabpanel', { name: 'Models & spend' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Save immutable version' })).toBeHidden()
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByLabel('Reason').fill('saved from spend')
   let payload: any
   await page.route(`**${base}/policies/versions`, async route => { payload = await route.request().postDataJSON(); await route.fulfill({ json: version }) })
@@ -56,13 +72,19 @@ test('draft preset preserves policy evidence and waits for explicit save', async
   let payload: any
   await page.route(`**${base}/policies/versions`, async route => { payload = await route.request().postDataJSON(); await route.fulfill({ json: version }) })
   await page.getByRole('button', { name: 'Apply preset' }).click()
-  await expect(page.getByText(/Draft gate: allows none · blocks read, repair, publish, merge, deploy, recover/)).toBeVisible()
+  await page.getByRole('tab', { name: 'Changes' }).click()
+  await expect(page.getByLabel('Denied actions')).toHaveValue('read, repair, publish, merge, deploy, recover')
   expect(payload).toBeUndefined()
+  await page.getByRole('tab', { name: 'Scope' }).click()
   await page.getByLabel('Draft preset').selectOption('propose')
   await page.getByRole('button', { name: 'Apply preset' }).click()
-  await expect(page.getByText(/Draft gate: allows repair, publish · blocks read, merge, deploy, recover/)).toBeVisible()
+  await page.getByRole('tab', { name: 'Changes' }).click()
+  await expect(page.getByLabel('Denied actions')).toHaveValue('read, merge, deploy, recover')
+  await page.getByRole('tab', { name: 'Scope' }).click()
   await page.getByLabel('Draft preset').selectOption('deliver')
   await page.getByRole('button', { name: 'Apply preset' }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
+  await page.getByLabel('Reason').fill('apply deliver preset')
   await page.getByRole('button', { name: 'Save immutable version' }).click()
   await expect.poll(() => payload?.policy).toMatchObject({ deny: ['read', 'recover'], allow: { environments: [], workflows: [] }, forbidden_paths: ['.env'], limits: { budget: 0, concurrency: 0 }, required: [{ id: 'approval' }], defaults: { model: 'local' } })
 })
@@ -72,7 +94,7 @@ test('viewer cannot apply a draft preset', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Apply preset' })).toBeDisabled()
 })
 
-test('dirty draft cannot simulate or apply a preset', async ({ page }) => { await fixture(page); await page.getByText('Advanced policy JSON import/export').click(); await page.getByLabel('Raw policy JSON').fill('{'); await expect(page.getByRole('button', { name: 'Apply preset' })).toBeDisabled(); await page.getByRole('button', { name: 'Open simulation' }).click(); await expect(page.getByRole('button', { name: 'Simulate candidate rollout' })).toBeDisabled() })
+test('dirty draft cannot simulate or apply a preset', async ({ page }) => { await fixture(page); await page.getByText('Advanced policy JSON').click(); await page.getByLabel('Raw policy JSON').fill('{'); await expect(page.getByRole('button', { name: 'Apply preset' })).toBeDisabled(); await page.getByRole('tab', { name: 'Review' }).click(); await page.getByRole('button', { name: 'Open simulation' }).click(); await expect(page.getByRole('button', { name: 'Simulate candidate rollout' })).toBeDisabled() })
 test('deliver preset preserves existing environment and workflow allowlists', async ({ page }) => {
   await fixture(page)
   let payload: any
@@ -85,8 +107,40 @@ test('deliver preset preserves existing environment and workflow allowlists', as
   await page.getByRole('tab', { name: 'Scope', exact: true }).click()
   await page.getByLabel('Draft preset').selectOption('deliver')
   await page.getByRole('button', { name: 'Apply preset' }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
+  await page.getByLabel('Reason').fill('deliver allowed environments')
   await page.getByRole('button', { name: 'Save immutable version' }).click()
   await expect.poll(() => payload?.policy?.allow).toMatchObject({ environments: ['production'], workflows: ['release'] })
 })
-test('organisation admin cannot write organisation policy', async ({ page }) => { await fixture(page, 'admin'); await expect(page.getByRole('button', { name: 'Save immutable version' })).toBeDisabled() })
-test('invalid advanced JSON reports editor error without crashing', async ({ page }) => { await fixture(page); await page.getByText('Advanced policy JSON import/export').click(); await page.getByLabel('Raw policy JSON').fill('{'); await page.getByRole('button', { name: 'Save immutable version' }).click(); await expect(page.getByRole('alert')).toContainText('Policy JSON must be valid JSON.') })
+test('organisation admin cannot write organisation policy', async ({ page }) => { await fixture(page, 'admin'); await page.getByRole('tab', { name: 'Review' }).click(); await expect(page.getByRole('button', { name: 'Save immutable version' })).toBeDisabled() })
+test('invalid advanced JSON reports editor error without crashing', async ({ page }) => { await fixture(page); await page.getByText('Advanced policy JSON').click(); await page.getByLabel('Raw policy JSON').fill('{'); await page.getByRole('tab', { name: 'Review' }).click(); await page.getByRole('button', { name: 'Save immutable version' }).click(); await expect(page.getByRole('alert')).toContainText('Policy JSON must be valid JSON.') })
+
+test('policy workspace fits narrow screens and retains readable dark theme', async ({ page }) => {
+  const captures = join(process.cwd(), '../.local/t29-policies-rebuild')
+  await mkdir(captures, { recursive: true })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await fixture(page)
+  await page.getByRole('tab', { name: 'Review' }).click()
+  await expect(page.getByRole('button', { name: 'Save immutable version' })).toBeVisible()
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({ path: join(captures, 'policies-1440-light.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.screenshot({ path: join(captures, 'policies-1440-dark.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Switch to light theme' }).click()
+
+  await page.setViewportSize({ width: 390, height: 844 })
+  await page.reload()
+  await page.getByLabel('Policy repository').selectOption(repo)
+  await page.locator('.policy-version-rail > summary').click()
+  await page.getByRole('button', { name: version.id }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
+  await expect(page.getByRole('button', { name: 'Save immutable version' })).toBeVisible()
+  const pageWidth = await page.evaluate(() => document.documentElement.scrollWidth)
+  expect(pageWidth).toBeLessThanOrEqual(390)
+  await page.evaluate(() => window.scrollTo(0, 0))
+  await page.screenshot({ path: join(captures, 'policies-390-light.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.screenshot({ path: join(captures, 'policies-390-dark.png'), fullPage: true })
+})
