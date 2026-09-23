@@ -65,6 +65,10 @@ func (d *Dispatcher) Authorize(ctx context.Context, credential string) (Authoriz
 		if stored.PolicyHash != t.PolicyHash {
 			return workflow.ErrPolicy
 		}
+		var lockedProfile string
+		if err := tx.QueryRow(ctx, `SELECT id::text FROM custom_profiles WHERE org_id=$1 AND id=$2 FOR UPDATE`, l.OrgID, stored.CustomProfile.ID).Scan(&lockedProfile); err != nil {
+			return err
+		}
 		profile, err := d.profiles.Bind(ctx, tx, l.OrgID, stored.CustomProfile.ID, stored.CustomProfile.Version)
 		if err != nil {
 			return err
