@@ -4,8 +4,8 @@
 
 [Current work status](work-status.md) is the authoritative open-defect and acceptance index.
 The dated sections below preserve prior evidence; they do not override newer findings.
-T29r is fixed. T31a and T29s are open. T28a–c, hosted isolation and external certification
-remain required; G5 has not passed.
+T29r and T29s are locally complete. T31a remains open. T28a–c, hosted isolation
+and external certification remain required; G5 has not passed.
 
 ### T29r — Align Organisation team creation
 
@@ -17,11 +17,10 @@ remain required; G5 has not passed.
 
 ### T29s — Truthful repository scope status
 
-- Status: **open, P2**. Depends T29q. Source-reviewed in Organisation `TeamsSection`.
-- Own: Luna `OrganisationPage.tsx`, focused Organisation browser scenario; Astra review.
-- Fix: absent `repos.error` cannot imply complete scope while loading or more pages remain.
-- Accept: pending, partial, complete, refresh/error and retry states never show false
-  success; repository assignments, pagination and tenant boundaries remain intact.
+- Status: **local complete, 2026-09-23**. Depends T29q; scoped Organisation GUI change.
+- Result: pending, partial, refreshing, complete and unavailable states reflect repository
+  query state; failed pagination exposes retry while retaining loaded assignment controls.
+- Evidence: [T29s review](t29s-review-2026-09-23.md).
 
 ### T31a — Validate custom-command terminal results
 
@@ -313,7 +312,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Status: **rebuild locally verified; T29s follow-up open, 2026-09-23**. T29a–r baseline retained. Latest full-suite evidence is [T29q](data-lifecycle-review-2026-09-23.md), with focused [T29r](organisation-layout-review-2026-09-23.md) afterward. See [current work](work-status.md); G5/provider/release qualification remains separate.
+- Status: **rebuild locally verified; T29s follow-up locally complete, 2026-09-23**. T29a–r baseline retained. Latest full-suite evidence is [T29q](data-lifecycle-review-2026-09-23.md), with focused [T29r](organisation-layout-review-2026-09-23.md) and [T29s](t29s-review-2026-09-23.md) afterward. See [current work](work-status.md); G5/provider/release qualification remains separate.
 - Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
 - Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
 - T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.

@@ -9,13 +9,31 @@ ticket-table sections below, which remain historical evidence.
 T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass with zero
 input/button offset, overflow or axe violations; four existing Organisation regressions pass.
 [Layout evidence](organisation-layout-review-2026-09-23.md). Current review also identified
-**T31a (P1, reproduced)** missing custom-command terminal-result validation and **T29s
-(P2, source-reviewed)** premature repository-scope success status. Both remain open.
+**T31a (P1, reproduced)** missing custom-command terminal-result validation; it remains open.
+T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md).
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
 run/browser load, T28c dependency/notice review. T27 enforced hosted isolation and external
 provider/agent/identity/delivery certification remain open. Full fresh release audit has
 not been completed; prior GUI checks do not establish it. No G5 claim.
+
+## T29s repository scope status — 2026-09-23
+
+T29s locally complete. Organisation now reports loading, partial, refreshing, complete or
+unavailable repository scope from query state. Failed pagination retains loaded assignments
+and offers retry; organisation-scoped query keys, load-more and assignment requests remain
+unchanged.
+
+Verification: `npm run build` passed (`tsc --noEmit` and Vite production build; existing
+large-chunk advisory remains). The focused Vite browser scenario passed 1/1 for delayed loading,
+partial first page, failed next page, retry and complete second page. Root then reran
+`tests/organisation-scope-status.spec.ts`, `tests/organisation.spec.ts` and
+`tests/team-cache-lifecycle.spec.ts` on the Go-served app at `127.0.0.1:8080`: 5 expected,
+0 unexpected, skipped or flaky (`.local/t29s-acceptance/browser-8080.json`). Served JS
+`index-CJN-NXVT.js` and CSS `index-Bd1oeqz3.css` matched `web/dist`. The initial port-8080
+attempt used stale assets; final run verified the rebuilt bundle. Browser API/session routes were
+mocked, so no live backend data or provider integration was exercised. No G5 or external
+qualification claim.
 
 ## Data lifecycle review — 2026-09-23
 
