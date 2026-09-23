@@ -1,5 +1,13 @@
 # Implementation progress
 
+## Final demo delivery and numeric change follow-up — 2026-09-24
+
+`92e1d03` production control image passed one fresh default suite:193 passed/15 skipped, normal CSP. Root reviewed settled390px Findings capture; rejected transition capture preserved. Demo8084 now serves exact accepted assets; auth, unchanged encrypted environment, persisted Audit event and docs8082 Help200 verified. Delivery report committed `ce3b12d`. Test-only later94e6bbc adds opt-in positive journey; it was not part of the frozen208-test suite.
+
+Positive GUI attempt3 genuinely repaired Go fixture in2 turns, changed only value.go, published PR1 and imported its inventory through GUI. API candidate matched; requested change failed to open Merge review, before any gate/approval/merge. Fixture cleanup empty errors; own services stopped. `94e6bbc` preserves test/evidence. Root found installed router parses raw change=1 numerically; T29aa reproducer/minimal fix allocated, no further model attempt. The earlier90s inventory timeout cannot prove a projection bug because fixture lacks webhook and fallback polls every5min.
+
+Completion check2026-09-23T23:32:38.847Z:40% weekly remaining; below40 wrap threshold not yet triggered. Final suite test services removed; demo/docs/PG retained. Only bounded T29aa worker active.
+
 ## GUI fixes and bounded enforcement — 2026-09-24
 
 Reviewed/integrated `c4fe426` closed mobile drawer shadow, `ba5e45b` unused Unassign reason gate, `92e1d03` five opt-in spec updates. Six backend-connected scenarios passed,12 smoke passed/1 skipped; original failures preserved. Current control image built and frontend bytes match accepted opt-in assets. Final default suite/demo refresh awaiting task-owned disk recovery; no global pruning. Narrow Findings capture rejected for mid-transition sidebar; settled retake required.

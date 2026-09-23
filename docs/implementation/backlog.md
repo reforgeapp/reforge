@@ -9,7 +9,7 @@
 
 ### T29y — Remove closed mobile drawer shadow
 
-- Status: **implemented `c4fe426`,2026-09-24; final image gate pending**. Existing focused checks passed; Astra reviewed.
+- Status: **local complete `c4fe426`,2026-09-24**. Focused checks and final92e1d03 browser/image gate passed; Astra reviewed.
 - Defect: off-canvas closed sidebar still casts a shadow onto every narrow page.
 - Accept: closed sidebar leaves no shadow; open drawer keeps depth cue; light/dark390px captures and existing keyboard dismissal behavior remain correct.
 
@@ -29,7 +29,7 @@
 
 ## Current execution — 2026-09-24
 
-[Work status](work-status.md) is authoritative. Final frozen product `675b0fd`: browser193 passed/15 opt-in skipped/0 failed; exact-source amd64 control/runner/docs builds and direct clean install/recovery passed. T29v onboarding, T29x picker/budget corrections and T28d readiness fix locally complete. T29u positive merge, hosted isolation, provider certification, provenance/legal/human review and G5 remain open.
+[Work status](work-status.md) is authoritative. Product `92e1d03`: fresh browser193 passed/15 opt-in skipped/0 failed and demo refreshed; earlier675b0fd exact-source amd64 image/install/recovery proof retains its attribution. T29v onboarding, T29x picker/budget corrections and T28d readiness fix locally complete. T29u positive merge, hosted isolation, provider certification, provenance/legal/human review and G5 remain open.
 
 Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maximum3 exclusive workers, no nested delegation, coordinator review. On each completion check weekly Codex quota: below40% wrap/checkpoint/demo; below25% hard-stop work. Earlier execution allocations and dated evidence below are historical.
 
@@ -113,7 +113,7 @@ Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maxi
 
 ### T28a — Reconcile release acceptance evidence
 
-- Status: **in progress; local current-build gates passed**. Frozen `675b0fd`: browser193/15, direct clean install/recovery, amd64 images/assets/notices, strict docs passed. T29v first-user onboarding and retained restricted-role race evidence complete. T29u positive merge, hosted/100-run, provider/legal/human certification remain open. [Work status](work-status.md) and dated reviews define evidence boundaries.
+- Status: **in progress; local current-build gates passed**. Current92e1d03 browser193/15/demo passed; earlier675b0fd direct clean install/recovery, amd64 images/assets/notices and strict docs passed. T29v first-user onboarding and retained restricted-role race evidence complete. T29u positive merge, hosted/100-run, provider/legal/human certification remain open. [Work status](work-status.md) and dated reviews define evidence boundaries.
 - Map V01–V29/J01–J10/R01–R13 to implementation and exact observed builds/artifacts.
   Explicitly mark not run, inherited evidence, fixture-only and externally certified.
 - Reconcile T31 extraction/validation evidence; local container-only clean install, migration recovery, process restart and encrypted restore are recorded. Still verify current integrated clean image, published/historical upgrade, active workload across container/runner restart and final recovery acceptance without host language toolchains or `/tmp` tools.
@@ -392,7 +392,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Status: local GUI slices through T29x recorded. Frozen `675b0fd` full suite193/15;16 current light/dark desktop/narrow captures. T29v first-user onboarding and T29w warning locally verified; T29u connected negative path passes, positive merge remains open after genuine qwen3:4b output-limit failure. Human visual approval and full live business journey remain open. See [work status](work-status.md). G5/provider certification remains separate.
+- Status: local GUI slices through T29x recorded. Current92e1d03 full suite193/15 and settled390px Findings capture passed; earlier16 captures retain675b0fd attribution. T29v first-user onboarding and T29w warning locally verified; T29u connected negative path passes, genuine qwen2.5:7b service protected merge passed, while GUI journey reached real repair/import then stopped before gate preview on T29aa. Human visual approval and full live business journey remain open. See [work status](work-status.md). G5/provider certification remains separate.
 - Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
 - Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
 - T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.
