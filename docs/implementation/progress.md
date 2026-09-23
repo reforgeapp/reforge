@@ -2,6 +2,19 @@
 
 ## Current status index — 2026-09-23
 
+Current baseline: HEAD `35b7545` (2026-09-23), including reviewer acceptance `7175484`, connected Identity GUI `35b7545`, OIDC runtime `08669b4`, and [Alpine provenance review](t28c-alpine-provenance-review.md) (`af230bd`). Latest guarded Go/PostgreSQL integration passed (`.local/t28a-final-integration.log`, 183.115s); earlier ENOSPC is superseded. Full GUI run at `cce6879` is 154 passed/14 opt-in skips, before later GUI commits. Focused current GUI checks include Policies, Audit, Connections, Organisation Teams/Members, picker regression (4/4), and Overview sync attention (5/5); connected PG-backed team/member and policy persistence passed. Connected T29u journey passes native negative-path review using server binary built from working tree at `af230bd` on disposable Gitea/PostgreSQL: reload and distinct fresh-page picker both show new healthy connection; stale gate returns 409, reviewer request persists, current-head approval appears after reload, and unqualified merge returns exact 409. Positive authorized merge remains open. Organisation OIDC runtime/session binding is committed at `08669b4`; connected save/probe/activate/reload/sign-in/disable passed against it ([live GUI evidence](t29-identity-active-gui-review.md)). First-user invitation/onboarding remains in progress; customer IdP certification remains external. Restricted-role PG/race checks were reported passed by worker, without retained output. Overview warning has build/typecheck and 1440/390 light/dark captures; API data was fixture-intercepted. Clean amd64 image build/notice checks are at `cce6879`, not exact current `35b7545`. Alpine provenance review at `af230bd` checks package evidence for selected existing local images; source/archive coverage and legal review remain incomplete. Local DB credentials rotated. T27 cgroup/hostile qualification, external provider/runtime/tenant certification and G5 remain open. Use [work status](work-status.md), [backlog](backlog.md), [T28a reconciliation](t28a-reconciliation-review.md) and [evidence matrix](t28a-evidence-matrix.md).
+
+## T28a connected native reviewer journey — 2026-09-23
+
+On fresh disposable PostgreSQL + local Gitea 1.27.3, connected Playwright run passed 1/1 (50.3s), with server built from working tree at HEAD `af230bd`. Fresh-DB preflight prevents prior-run rows from starving private-runner refresh work. Latest healthy forge connection appeared independently after page reload and on a separate fresh browser page; inventory scan/import, second-tenant 403, stale gate 409, native reviewer request, zero pre-approval, current-head approval and reload recovery passed. After approval, gate stayed unknown and merge operation returned 409 because policy/qualification/evidence were absent; native merge not attempted. Exact evidence in [review report](t28a-reviewer-journey-review.md) and ignored `.local/t28a-reviewer-journey/`. Test typecheck and Playwright discovery pass. No picker source edit.
+
+OIDC runtime at `08669b4` and connected existing-member GUI flow are complete; verified first-user invitation/onboarding remains in progress. Restricted-role PG/race pass was reported by worker without retained output; customer IdP remains external. T28c exact-current image build and legal/source closure remain open. G5 open.
+
+## T29w Overview sync attention — 2026-09-23
+
+Stale repository count now has amber status link to Repositories `status=stale`. `npm run typecheck -- --pretty false`, production build and five focused browser checks passed. Before/after captures: `.local/t29-overview-sync-attention/`; API data was intercepted, so no backend filter claim. See [review](t29-overview-sync-attention-review.md).
+
+
 Use [current work and review status](work-status.md) for open bugs, ticket status and exact
 remaining local/external actions. This supersedes all older “current”, “authoritative” and
 ticket-table sections below, which remain historical evidence.
@@ -10,7 +23,7 @@ T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass 
 input/button offset, overflow or axe violations; four existing Organisation regressions pass.
 [Layout evidence](organisation-layout-review-2026-09-23.md). T31a custom-command terminal-result validation is locally complete; external runtime qualification remains open. See [review](t31a-review-2026-09-23.md).
 T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md). T28b browser slice is locally verified; 100 executing runs and broader qualification remain open ([review](t28b-browser-review.md)).
-T29t mobile navigation is locally complete; the focused 4-test check and latest full Playwright run (154 passed, 9 skipped, no failures) are recorded below and in [review](t29t-mobile-navigation-review.md). G5 remains open.
+T29t mobile navigation is locally complete; its historical 154/9 suite is superseded by the newer 154/14 run at `cce6879`. G5 remains open.
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
 run/browser load, T28c dependency/notice review. T28c local slice now records 153 hydrated
