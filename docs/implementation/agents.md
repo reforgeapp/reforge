@@ -39,7 +39,7 @@ The initial T01 checkpoint freezes names, interfaces, enums, SQL migration owner
 | Independent review | Astra | Failure paths, trust boundaries, meaningful tests and acceptance evidence |
 | Optional second opinion | Claude CLI, Opus5 only if actually available | Read-only review of a bounded diff/specification; no required dependency on this runtime/model |
 
-Use `gpt-5.6-luna` for implementation workers; `gpt-6-astra` remains root review/coordinator only. A worker may not recursively delegate without coordinator allocation. Root plus three is the concurrency ceiling, not a target to fill when useful independent work is unavailable.
+Use `gpt-6-luna` for fallback implementation workers under the current allocation override; `gpt-6-astra` remains root review/coordinator only. A worker may not recursively delegate without coordinator allocation. Root plus three is the concurrency ceiling, not a target to fill when useful independent work is unavailable.
 
 Split broad tickets into bounded child tasks before implementation. Each child has one observable outcome, exact files, inputs and acceptance checks. Keep the parent open until all children and integration checks pass. Prefer parallel Luna provider implementations only after Astra freezes the common interface; never let adapters invent different policy semantics.
 

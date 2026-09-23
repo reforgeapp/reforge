@@ -1,5 +1,15 @@
 # Implementation progress
 
+## GUI fixes and bounded enforcement — 2026-09-24
+
+Reviewed/integrated `c4fe426` closed mobile drawer shadow, `ba5e45b` unused Unassign reason gate, `92e1d03` five opt-in spec updates. Six backend-connected scenarios passed,12 smoke passed/1 skipped; original failures preserved. Current control image built and frontend bytes match accepted opt-in assets. Final default suite/demo refresh awaiting task-owned disk recovery; no global pruning. Narrow Findings capture rejected for mid-transition sidebar; settled retake required.
+
+Reviewed/integrated `7e6470f`: current-helper production-config cgroup memory/CPU/PID enforcement, timeout/caller cancellation, SIGKILL orphan recovery. All8 outcomes passed, owned subtree cleaned.12KiB memory peak overshoot recorded; kernel OOM/group-kill events verified. No100-run/hosted qualification or production launcher packaging claim.
+
+Positive GUI attempt2 genuinely repaired Go fixture in4 turns and published native PR1. GUI merge authority, policy and qualification completed; inventory projection absent after90s blocked journey before gate/approval/merge. Cleanup succeeded; own services stopped. Supported GUI refresh path and underlying trigger under bounded review; no fake success. Original service protected-merge pass remains separate.
+
+Worker completion quota checks23:05:46.424Z and23:07:41.467Z: **42% weekly remaining**. No threshold triggered; no paid APIs, customer repositories or external deployments touched.
+
 ## Opus limit and Luna handoff — 2026-09-24
 
 Opus workers hit session quota; reported reset13:10 Australia/Sydney. Completion checks22:48:47.074Z,22:50:40.217Z and failed initial Luna-access check22:52:16.186Z all show **44% Codex weekly remaining**. No owner threshold triggered. Three Luna workers now own bounded completion: T29y/T29z/T28e product fixes and actual opt-in checks; fresh-helper cgroup enforcement/crash evidence; positive protected-merge GUI test. No scope expansion during handoff.
