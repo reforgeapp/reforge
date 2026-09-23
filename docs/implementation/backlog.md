@@ -6,6 +6,19 @@
 
 Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maximum3 exclusive workers, no nested delegation, coordinator review. On each completion check weekly Codex quota: below40% wrap/checkpoint/demo; below25% hard-stop work. Earlier execution allocations and dated evidence below are historical.
 
+### T29x — Complete team-cache invalidation and policy budget units
+
+- Status: **in progress,2026-09-24**. Coordinator visual/source review after production suite passed192/15.
+- Policies and Usage team queries use unrelated cache prefixes, so a warmed picker retains a renamed team for the30-second freshness window. Move both paginated queries beneath the shared organisation team prefix without colliding with finite repository-picker data. Verify rename across all three consumers.
+- Policy effective summary, budget editor and simulation expose raw micro-USD without units. Label units explicitly without changing stored values or introducing silent conversion/rounding.
+- Acceptance: meaningful navigation/mutation regression, policy value preservation, typecheck, focused browser checks; current production bundle refreshed after review.
+
+### T28d — Exclude temporary PostgreSQL startup from readiness
+
+- Status: **in progress,2026-09-24**. Clean-install harness accepted initdb's temporary Unix-socket server, then role creation failed during its shutdown. Original failure retained under `.local/opus-resume/current-images/artifacts/install-run.log`.
+- Confirm pinned image startup behavior; use TCP readiness in Compose and install harness so only the final server qualifies. Keep least-privilege bootstrap and cleanup intact.
+- Acceptance: fresh tracked-harness install, rollback/retry, restart and encrypted restore. Adjusted-copy pass is retained separately and does not substitute for the final tracked-script run.
+
 ### T29r — Align Organisation team creation
 
 - Status: **local complete, 2026-09-23**. Depends T29q; scoped GUI change only.

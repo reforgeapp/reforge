@@ -12,7 +12,7 @@ Opus CLI workers exhausted their session window; reported reset04:00 Sydney. Lun
 | Audit/Policies review findings | Fixed `8846d9d`;36 focused browser checks and8 theme/viewport probes passed. [Review](t28a-audit-policy-regression-review.md). |
 | Shared focus, team cache, pending merge controls | Fixed `e01287c`, `8cb2cac`, `dc9242b`;45/45 focused lifecycle checks passed. Team rename now invalidates both team-cache shapes; pending merge controls retain keyboard focus. [Lifecycle](t28a-lifecycle-regression-review.md), [focus](t29-shared-focus-review.md). |
 | Route surfaces |3/3 checks passed;52 route/theme/viewport records plus2 skip-link records, zero axe violations or overflow. `.local/opus-resume/shared/`. |
-| Full current browser suite | In progress against clean production build of frozen source. Previous full result remains153 passed/27 failed/15 skipped at `35b7545`; focused fixes do not replace the full gate. Worker report will be `t28a-production-browser-review.md`. |
+| Full current browser suite | **192 passed/15 opt-in skipped/0 failed** against clean production build of `18c8045`, normal CSP. Supersedes153/27/15 baseline. Capture/skip review underway; additional coordinator findings tracked T29x. Worker report: `t28a-production-browser-review.md`. |
 | Current control/runner/docs images | In progress from clean detached frozen source; includes strict MkDocs, frontend/source comparison, notices and disposable install/recovery. Worker report will be `t28c-current-images-review.md`. |
 | Go/security checks | `go test -race ./internal/...` passed; fresh restricted-role PostgreSQL integration passed76.774s. Fresh auth/HTTP race and final invitation HTTP race passed. Logs `.local/opus-resume/integration/`. Initial reused-fixture auth failure retained separately. |
 
@@ -20,6 +20,8 @@ Opus CLI workers exhausted their session window; reported reset04:00 Sydney. Lun
 
 | Priority / ticket | Remaining action |
 | --- | --- |
+| P2 / T29x | In progress: Policies/Usage team pickers miss shared rename invalidation; policy budget controls omit micro-USD units. Found in coordinator source/visual review after the production suite passed. |
+| P2 / T28d | In progress: PostgreSQL temporary init server can satisfy socket readiness then shut down before role bootstrap. Fix tracked Compose/harness readiness; repeat clean install. |
 | P1 / T29u | Complete genuine repair→validation→policy qualification→native approval→authorized protected merge, then browser confirmation. Existing connected negative path passes; unqualified merge correctly returns409. No model weights currently installed; previous local Ollama attempts produced no valid repair. Bounded prerequisites investigation active; paid APIs and synthetic success prohibited. [Reviewer journey](t28a-reviewer-journey-review.md). |
 | T28a / T29 | Complete full production-browser gate; fix actual failures through workers. Review current captures and reconcile opt-in skips. Human visual approval remains separate. |
 | T28c / T30 | Review current image/install results. Historical Alpine source inputs, reproducibility, arm64 and legal disposition remain open. [Inventory](t28c-inventory.md), [provenance](t28c-alpine-provenance-review.md). |

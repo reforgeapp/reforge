@@ -1,5 +1,12 @@
 # Implementation progress
 
+## Acceptance review checkpoint — 2026-09-24
+
+Production browser at18c8045:192 passed/15 opt-in skipped/0 failed. Root inspected policy, connection, identity and audit captures; T29x records missing policy budget units and stale Policies/Usage team-cache prefixes. One narrow capture caught a resize transition; worker retaking settled frames. Current images built; frontend and notice byte comparisons pass. Clean-install first attempt hit PostgreSQL temporary-server readiness race; adjusted-copy retry passed all recovery checks, tracked correction/verification now T28d.
+
+Completed protected-merge investigation quota reading2026-09-23T14:37:03.227Z: **53% weekly remaining**. Cached weights discovered in `/tmp/reforge-ollama/models`; previous no-weights assessment superseded. One genuine cached qwen3:4b run allocated, unchanged frozen fixture/protection, private guarded test DB; no download or paid API. Demo8084, docs8082.
+
+
 ## Source freeze and quota checkpoint — 2026-09-24
 
 Product source frozen at `18c8045`. Identity OpenAPI/schema/admin guide reviewed and integrated; existing API paths/schemas unchanged. T29v strict-CSP new-member onboarding locally complete; hosted IdP certification remains open. Active bounded workers: production browser acceptance, current Docker image/install verification, and read-only positive protected-merge prerequisites. No source mutations allocated during these checks.
