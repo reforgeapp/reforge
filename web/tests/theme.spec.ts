@@ -24,6 +24,16 @@ async function signIn(page: Page) {
   await expect(page).toHaveURL(/\/org\/[^/]+\/overview/)
 }
 
+async function repositoryFixture(page: Page) {
+  const org = '00000000-0000-4000-8000-000000000001'
+  await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
+  await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
+  await page.route(`**/api/v1/orgs/${org}/overview`, route => route.fulfill({ json: { counts: { needs_decision: 0, running: 0, ready_for_review: 0, blocked: 0, verified_deployments: 0, accessible_repositories: 1, stale_repositories: 0, queued_jobs: 0 }, attention: [], portfolio: [], capacity: { queued_jobs: 0, running_jobs: 0, active_pools: 0, active_runners: 0, reserved_micro_usd: 0 } } }))
+  await page.route(`**/api/v1/orgs/${org}/repositories?**`, route => route.fulfill({ json: { items: [{ id: 'repo-1', org_id: org, connection_id: 'forge-1', native_id: '1', name: 'payments', url: 'https://github.example/payments', provider: 'github', default_branch: 'main', archived: false, paused: false, accessible: true, team_ids: [], last_synced_at: '2026-09-22T00:00:00Z', version: 1 }], complete: true } }))
+  await page.route(`**/api/v1/orgs/${org}/teams?**`, route => route.fulfill({ json: { items: [], complete: true } }))
+  await page.goto(`/org/${org}/overview`)
+}
+
 function themeToggle(page: Page) {
   return page.getByRole('button', { name: /^Switch to (light|dark) theme$/ })
 }
@@ -73,7 +83,7 @@ test.describe('T29m dark theme', () => {
   })
 
   test('covers tables, forms and dialogs with readable contrast in dark', async ({ page }) => {
-    await signIn(page)
+    await repositoryFixture(page)
     await themeToggle(page).click()
     await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
     const orgID = new URL(page.url()).pathname.split('/')[2]
@@ -91,7 +101,7 @@ test.describe('T29m dark theme', () => {
   })
 
   test('has no detectable accessibility violations in dark', async ({ page }) => {
-    await signIn(page)
+    await repositoryFixture(page)
     await themeToggle(page).click()
     const orgID = new URL(page.url()).pathname.split('/')[2]
     await page.goto(`/org/${orgID}/repositories`)
@@ -108,6 +118,7 @@ test.describe('T29m dark theme', () => {
     await page.setViewportSize({ width: 390, height: 844 })
     for (const route of routes) {
       await page.goto(`/org/${orgID}/${route}`)
+      await expect(page.locator('h1')).toHaveCount(1)
       const results = await new AxeBuilder({ page }).analyze()
       expect(results.violations, `${route} dark accessibility violations`).toEqual([])
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth + 1), `${route} dark horizontal overflow`).toBe(true)

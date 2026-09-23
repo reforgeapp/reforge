@@ -2,6 +2,14 @@ import { test, expect, type Page } from '@playwright/test'
 import AxeBuilder from '@axe-core/playwright'
 
 const developmentOrganisation = '00000000-0000-4000-8000-000000000001'
+const secondOrganisation = '00000000-0000-4000-8000-000000000002'
+
+async function twoOrganisationFixture(page: Page) {
+  const organisations = [{ id: developmentOrganisation, name: 'Development', version: 1, paused: false }, { id: secondOrganisation, name: 'Second', version: 1, paused: false }]
+  await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations, memberships: organisations.map(item => ({ org_id: item.id, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true })), csrf_token: 'csrf-1' } }))
+  await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
+  await page.route('**/api/v1/orgs/*/overview', route => route.fulfill({ json: { counts: { needs_decision: 0, running: 0, ready_for_review: 0, blocked: 0, verified_deployments: 0, accessible_repositories: 0, stale_repositories: 0, queued_jobs: 0 }, attention: [], portfolio: [], capacity: { queued_jobs: 0, running_jobs: 0, active_pools: 0, active_runners: 0, reserved_micro_usd: 0 } } }))
+}
 
 test.describe('T04 application shell', () => {
   async function signIn(page: Page) {
@@ -75,14 +83,23 @@ test.describe('T04 application shell', () => {
     await expect(page).toHaveURL(/\/repositories$/)
   })
 
+  test('keeps the navigation off-canvas after resizing from desktop to mobile', async ({ page }) => {
+    await signIn(page)
+    await page.setViewportSize({ width: 390, height: 844 })
+    const sidebar = page.locator('#primary-navigation')
+    await expect.poll(() => sidebar.evaluate(element => element.getBoundingClientRect().right <= 0)).toBe(true)
+    await expect(page.locator('.nav-backdrop')).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Menu' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
   test('purges scoped data after a fixture session revocation', async ({ page }) => {
     let revoked = false
     let repositoryRequests = 0
     await page.route('**/api/v1/session', route => revoked
       ? route.fulfill({ status: 401, contentType: 'application/json', body: JSON.stringify({ code: 'unauthenticated', message: 'Authentication required', request_id: 'fixture-revoked', retryable: false }) })
       : route.continue())
+    page.on('requestfinished', request => { if (/\/api\/v1\/orgs\/[^/]+\/repositories$/.test(new URL(request.url()).pathname)) repositoryRequests += 1 })
     await page.route('**/api/v1/orgs/**/repositories*', route => {
-      repositoryRequests += 1
       return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ items: [{ id: 'fixture-sensitive-repository', org_id: developmentOrganisation, connection_id: 'fixture', native_id: 'fixture', name: 'sensitive-fixture-repository', url: 'https://example.invalid/fixture', provider: 'github', default_branch: 'main', archived: false, paused: false, accessible: true, team_ids: [], last_synced_at: null, version: 1 }], complete: true }) })
     })
     await page.clock.install()
@@ -182,7 +199,7 @@ test.describe('T04 application shell', () => {
   })
 
   test('dismisses quick switch from button child and restores focus after manage', async ({ page }) => {
-    await signIn(page)
+    await twoOrganisationFixture(page)
     await page.goto(`/org/${developmentOrganisation}/overview`)
     const button = page.getByRole('button', { name: 'Switch organisation' })
     await button.click()
@@ -191,11 +208,13 @@ test.describe('T04 application shell', () => {
     await expect(page.getByRole('menu', { name: 'Quick switch organisation' })).toBeHidden()
     await button.click()
     const menuItems = page.getByRole('menuitem')
-    expect(await menuItems.count()).toBeGreaterThan(1)
+    await expect(menuItems).toHaveText(['Development✓', 'Second', 'More…'])
     await menuItems.first().press('ArrowDown')
     await expect(menuItems.nth(1)).toBeFocused()
     await menuItems.nth(1).press('Enter')
     await expect(page.getByRole('menu', { name: 'Quick switch organisation' })).toBeHidden()
+    await expect(page).toHaveURL(`/org/${secondOrganisation}/overview`)
+    await expect(button).toContainText('Second')
     await button.click()
     await menuItems.first().press('Tab')
     await expect(page.getByLabel('Search repositories')).toBeFocused()
