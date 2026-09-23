@@ -25,7 +25,7 @@ test('repository to organisation keeps warmed team cache usable', async ({ page 
   await page.goto(`/org/${org}/repositories`)
   await expect(page.getByLabel('Team')).toContainText('Platform')
   await page.getByRole('link', { name: 'Organisation', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Teams', selected: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: `Team name ${team}` })).toHaveValue('Platform')
   await page.getByRole('link', { name: 'Repositories', exact: true }).click()
   await expect(page.getByRole('button', { name: 'payments' })).toBeVisible()
@@ -43,8 +43,8 @@ test('organisation team mutation refreshes repository team options', async ({ pa
   const update = page.waitForRequest(request => request.method() === 'PUT' && request.url().includes(`/api/v1/orgs/${org}/teams/${team}`))
   const refresh = page.waitForResponse(response => response.request().method() === 'GET' && response.url().includes(`/api/v1/orgs/${org}/teams`))
   await name.fill('Core Platform')
-  await name.blur()
-  await update
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  expect((await update).headers()['if-match']).toBe('"1"')
   await refresh
   await expect(name).toHaveValue('Core Platform')
   await page.getByRole('link', { name: 'Repositories', exact: true }).click()

@@ -278,7 +278,7 @@ function TeamsSection({ orgID }: { orgID: string }) {
     setError('')
   }, [selected?.id, selected?.version])
 
-  const refreshTeams = () => client.invalidateQueries({ queryKey: ['org', orgID, 'teams', 'list'] })
+  const refreshTeams = () => client.invalidateQueries({ queryKey: ['org', orgID, 'teams'] })
   const save = async (event: FormEvent) => {
     event.preventDefault()
     if (!selected || !name.trim()) return
