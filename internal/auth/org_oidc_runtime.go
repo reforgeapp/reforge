@@ -22,6 +22,8 @@ type oidcLoginAttempt struct {
 	ConfigVersion  int64
 	Issuer         string
 	ClientID       string
+	InvitationID   string
+	InvitationHash string
 	SecretVersion  int64
 	SecretEnvelope []byte
 }
@@ -82,7 +84,7 @@ func (s *Service) orgOIDCLoginConfig(ctx context.Context, orgID string) (orgOIDC
 func (s *Service) consumeOIDCLogin(ctx context.Context, state, browser string) (oidcLoginAttempt, error) {
 	var attempt oidcLoginAttempt
 	err := s.identity(ctx, "", map[string]string{"reforge.login_hash": digest(state)}, func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `DELETE FROM oidc_logins WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,coalesce(org_id::text,''),coalesce(config_id::text,''),coalesce(config_version,0),coalesce(issuer,''),coalesce(client_id,'')`, digest(state), digest(browser)).Scan(&attempt.Nonce, &attempt.Verifier, &attempt.OrgID, &attempt.ConfigID, &attempt.ConfigVersion, &attempt.Issuer, &attempt.ClientID)
+		err := tx.QueryRow(ctx, `DELETE FROM oidc_logins WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier,coalesce(org_id::text,''),coalesce(config_id::text,''),coalesce(config_version,0),coalesce(issuer,''),coalesce(client_id,''),coalesce(invitation_id::text,''),coalesce(invitation_hash,'')`, digest(state), digest(browser)).Scan(&attempt.Nonce, &attempt.Verifier, &attempt.OrgID, &attempt.ConfigID, &attempt.ConfigVersion, &attempt.Issuer, &attempt.ClientID, &attempt.InvitationID, &attempt.InvitationHash)
 		if err != nil || attempt.OrgID == "" {
 			return err
 		}
@@ -172,6 +174,22 @@ func (s *Service) completeOrgOIDCCallback(ctx context.Context, w http.ResponseWr
 	id, err := verifier.Verify(oidc.ClientContext(ctx, runtime.client), raw)
 	if err != nil || id.Issuer != attempt.Issuer || !equal(id.Nonce, attempt.Nonce) || id.Subject == "" {
 		return ErrUnauthenticated
+	}
+	if attempt.InvitationID != "" {
+		var claims struct {
+			Email         string `json:"email"`
+			EmailVerified bool   `json:"email_verified"`
+			Name          string `json:"name"`
+		}
+		if id.Claims(&claims) != nil || !claims.EmailVerified {
+			return ErrUnauthenticated
+		}
+		session, err := s.completeOrgOIDCInvitation(ctx, attempt, id.Subject, claims.Email, claims.Name)
+		if err != nil {
+			return ErrUnauthenticated
+		}
+		s.SetSession(w, session)
+		return nil
 	}
 	session, err := s.createOrgOIDCSession(ctx, attempt, id.Subject)
 	if err != nil {

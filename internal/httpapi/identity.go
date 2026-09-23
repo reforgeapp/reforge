@@ -15,6 +15,7 @@ import (
 func (s *Server) RegisterIdentity(service *auth.Service) {
 	s.Auth = service
 	s.RegisterOrgOIDC()
+	s.RegisterOrgInvitations(service)
 	s.Router.GET("/auth/login", func(c *gin.Context) {
 		if err := service.CheckRequest(c.Request, ""); err != nil {
 			IdentityFailure(c, err)
