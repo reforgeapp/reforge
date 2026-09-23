@@ -181,6 +181,31 @@ func (e ChangeState) Valid() bool {
 }
 
 const (
+	CreatedOrgOIDCInvitationRoleAdmin      CreatedOrgOIDCInvitationRole = "admin"
+	CreatedOrgOIDCInvitationRoleMaintainer CreatedOrgOIDCInvitationRole = "maintainer"
+	CreatedOrgOIDCInvitationRoleOwner      CreatedOrgOIDCInvitationRole = "owner"
+	CreatedOrgOIDCInvitationRoleReviewer   CreatedOrgOIDCInvitationRole = "reviewer"
+	CreatedOrgOIDCInvitationRoleViewer     CreatedOrgOIDCInvitationRole = "viewer"
+)
+
+func (e CreatedOrgOIDCInvitationRole) Valid() bool {
+	switch e {
+	case CreatedOrgOIDCInvitationRoleAdmin:
+		return true
+	case CreatedOrgOIDCInvitationRoleMaintainer:
+		return true
+	case CreatedOrgOIDCInvitationRoleOwner:
+		return true
+	case CreatedOrgOIDCInvitationRoleReviewer:
+		return true
+	case CreatedOrgOIDCInvitationRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	DecisionOutcomeAllow   DecisionOutcome = "allow"
 	DecisionOutcomeDeny    DecisionOutcome = "deny"
 	DecisionOutcomeUnknown DecisionOutcome = "unknown"
@@ -516,6 +541,81 @@ func (e MetaEdition) Valid() bool {
 }
 
 const (
+	OrgOIDCInvitationRoleAdmin      OrgOIDCInvitationRole = "admin"
+	OrgOIDCInvitationRoleMaintainer OrgOIDCInvitationRole = "maintainer"
+	OrgOIDCInvitationRoleOwner      OrgOIDCInvitationRole = "owner"
+	OrgOIDCInvitationRoleReviewer   OrgOIDCInvitationRole = "reviewer"
+	OrgOIDCInvitationRoleViewer     OrgOIDCInvitationRole = "viewer"
+)
+
+func (e OrgOIDCInvitationRole) Valid() bool {
+	switch e {
+	case OrgOIDCInvitationRoleAdmin:
+		return true
+	case OrgOIDCInvitationRoleMaintainer:
+		return true
+	case OrgOIDCInvitationRoleOwner:
+		return true
+	case OrgOIDCInvitationRoleReviewer:
+		return true
+	case OrgOIDCInvitationRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	OrgOIDCInvitationInputRoleAdmin      OrgOIDCInvitationInputRole = "admin"
+	OrgOIDCInvitationInputRoleMaintainer OrgOIDCInvitationInputRole = "maintainer"
+	OrgOIDCInvitationInputRoleOwner      OrgOIDCInvitationInputRole = "owner"
+	OrgOIDCInvitationInputRoleReviewer   OrgOIDCInvitationInputRole = "reviewer"
+	OrgOIDCInvitationInputRoleViewer     OrgOIDCInvitationInputRole = "viewer"
+)
+
+func (e OrgOIDCInvitationInputRole) Valid() bool {
+	switch e {
+	case OrgOIDCInvitationInputRoleAdmin:
+		return true
+	case OrgOIDCInvitationInputRoleMaintainer:
+		return true
+	case OrgOIDCInvitationInputRoleOwner:
+		return true
+	case OrgOIDCInvitationInputRoleReviewer:
+		return true
+	case OrgOIDCInvitationInputRoleViewer:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	OrgOIDCSettingsStatusActive        OrgOIDCSettingsStatus = "active"
+	OrgOIDCSettingsStatusDisabled      OrgOIDCSettingsStatus = "disabled"
+	OrgOIDCSettingsStatusDraft         OrgOIDCSettingsStatus = "draft"
+	OrgOIDCSettingsStatusProbeVerified OrgOIDCSettingsStatus = "probe_verified"
+	OrgOIDCSettingsStatusUnconfigured  OrgOIDCSettingsStatus = "unconfigured"
+)
+
+func (e OrgOIDCSettingsStatus) Valid() bool {
+	switch e {
+	case OrgOIDCSettingsStatusActive:
+		return true
+	case OrgOIDCSettingsStatusDisabled:
+		return true
+	case OrgOIDCSettingsStatusDraft:
+		return true
+	case OrgOIDCSettingsStatusProbeVerified:
+		return true
+	case OrgOIDCSettingsStatusUnconfigured:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Maintenancev1 PolicyDocumentSchema = "maintenance/v1"
 )
 
@@ -648,24 +748,24 @@ func (e RepositoryProvider) Valid() bool {
 }
 
 const (
-	Admin      Role = "admin"
-	Maintainer Role = "maintainer"
-	Owner      Role = "owner"
-	Reviewer   Role = "reviewer"
-	Viewer     Role = "viewer"
+	RoleAdmin      Role = "admin"
+	RoleMaintainer Role = "maintainer"
+	RoleOwner      Role = "owner"
+	RoleReviewer   Role = "reviewer"
+	RoleViewer     Role = "viewer"
 )
 
 func (e Role) Valid() bool {
 	switch e {
-	case Admin:
+	case RoleAdmin:
 		return true
-	case Maintainer:
+	case RoleMaintainer:
 		return true
-	case Owner:
+	case RoleOwner:
 		return true
-	case Reviewer:
+	case RoleReviewer:
 		return true
-	case Viewer:
+	case RoleViewer:
 		return true
 	default:
 		return false
@@ -1167,6 +1267,16 @@ type ConnectionSettings struct {
 	Profile        *string   `json:"profile,omitempty"`
 	RuntimeVersion *string   `json:"runtime_version,omitempty"`
 }
+type CreatedOrgOIDCInvitation struct {
+	CreatedAt     time.Time                    `json:"created_at"`
+	Email         string                       `json:"email"`
+	ExpiresAt     time.Time                    `json:"expires_at"`
+	Id            string                       `json:"id"`
+	Redeemed      bool                         `json:"redeemed"`
+	RedemptionUrl string                       `json:"redemption_url"`
+	Role          CreatedOrgOIDCInvitationRole `json:"role"`
+}
+type CreatedOrgOIDCInvitationRole string
 type CredentialRotation struct {
 	Secret *string `json:"secret,omitempty"`
 }
@@ -1674,6 +1784,9 @@ type InventoryWebhook struct {
 	Revoked      bool   `json:"revoked"`
 	Version      int64  `json:"version"`
 }
+type InvitationAuthorization struct {
+	AuthorizationUrl string `json:"authorization_url"`
+}
 type IssuedInventoryWebhook struct {
 	ConnectionId string `json:"connection_id"`
 	Id           string `json:"id"`
@@ -1933,6 +2046,44 @@ type NativeDeploymentStatus struct {
 	WorkflowPath   string    `json:"workflow_path"`
 	WorkflowSha    string    `json:"workflow_sha"`
 }
+type OrgOIDCInput struct {
+	ClientId     string  `json:"client_id"`
+	ClientSecret *string `json:"client_secret,omitempty"`
+	Issuer       string  `json:"issuer"`
+}
+type OrgOIDCInvitation struct {
+	CreatedAt time.Time             `json:"created_at"`
+	Email     string                `json:"email"`
+	ExpiresAt time.Time             `json:"expires_at"`
+	Id        string                `json:"id"`
+	Redeemed  bool                  `json:"redeemed"`
+	Role      OrgOIDCInvitationRole `json:"role"`
+}
+type OrgOIDCInvitationRole string
+type OrgOIDCInvitationInput struct {
+	Email     string                     `json:"email"`
+	ExpiresAt time.Time                  `json:"expires_at"`
+	Role      OrgOIDCInvitationInputRole `json:"role"`
+}
+type OrgOIDCInvitationInputRole string
+type OrgOIDCInvitationPage struct {
+	Complete   bool                `json:"complete"`
+	Items      []OrgOIDCInvitation `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
+}
+type OrgOIDCSettings struct {
+	ActivationAvailable bool                  `json:"activation_available"`
+	ActivationBlocked   *string               `json:"activation_blocked,omitempty"`
+	ClientId            *string               `json:"client_id,omitempty"`
+	Configured          bool                  `json:"configured"`
+	Issuer              *string               `json:"issuer,omitempty"`
+	SecretPresent       bool                  `json:"secret_present"`
+	Status              OrgOIDCSettingsStatus `json:"status"`
+	Verified            bool                  `json:"verified"`
+	VerifiedAt          *time.Time            `json:"verified_at,omitempty"`
+	Version             int64                 `json:"version"`
+}
+type OrgOIDCSettingsStatus string
 type Organisation struct {
 	Id      string `json:"id"`
 	Name    string `json:"name"`
@@ -2714,6 +2865,38 @@ type PreviewGitOpsMergeParams struct {
 type ObserveGitOpsPromotionParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type PutOrgOIDCParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
+type ActivateOrgOIDCParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
+type DisableOrgOIDCParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
+type ListOrgOIDCInvitationsParams struct {
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+type CreateOrgOIDCInvitationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
+type RevokeOrgOIDCInvitationParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
+type ProbeOrgOIDCParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+	Origin     string `json:"Origin"`
+}
 type ListInventoryJobsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -2904,6 +3087,12 @@ type OidcCallbackParams struct {
 	State string `form:"state" json:"state"`
 	Code  string `form:"code" json:"code"`
 }
+type RedeemOrgOIDCInvitationFormdataBody struct {
+	Token string `form:"token" json:"token"`
+}
+type RedeemOrgOIDCInvitationParams struct {
+	Origin string `json:"Origin"`
+}
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
@@ -2958,6 +3147,8 @@ type PreviewGitOpsPromotionJSONRequestBody = GitOpsPreviewInput
 type RequestGitOpsPromotionJSONRequestBody = DeploymentRequestInput
 type RequestGitOpsMergeJSONRequestBody = MergeRequestInput
 type PreviewGitOpsMergeJSONRequestBody = MergePreviewRequest
+type PutOrgOIDCJSONRequestBody = OrgOIDCInput
+type CreateOrgOIDCInvitationJSONRequestBody = OrgOIDCInvitationInput
 type StartInventorySyncJSONRequestBody = InventorySyncInput
 type ImportInventoryCandidatesJSONRequestBody = InventoryImportInput
 type PutMembershipJSONRequestBody = MembershipInput
@@ -2976,6 +3167,7 @@ type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest
+type RedeemOrgOIDCInvitationFormdataRequestBody RedeemOrgOIDCInvitationFormdataBody
 type ReceiveForgeWebhookJSONRequestBody ReceiveForgeWebhookJSONBody
 type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
 type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody

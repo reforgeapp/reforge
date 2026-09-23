@@ -8563,20 +8563,26 @@
       "get": {
         "operationId": "getAgentQualification",
         "security": [
-          { "sessionCookie": [] }
+          {
+            "sessionCookie": []
+          }
         ],
         "parameters": [
           {
             "name": "orgID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "connectionID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
@@ -8584,7 +8590,9 @@
             "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AgentQualificationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQualificationResponse"
+                }
               }
             }
           },
@@ -8592,7 +8600,9 @@
             "description": "Structured failure",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/APIError" }
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
               }
             }
           }
@@ -8601,27 +8611,35 @@
       "put": {
         "operationId": "putAgentQualification",
         "security": [
-          { "sessionCookie": [] }
+          {
+            "sessionCookie": []
+          }
         ],
         "parameters": [
           {
             "name": "orgID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "connectionID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
-              "schema": { "$ref": "#/components/schemas/AgentQualificationInput" }
+              "schema": {
+                "$ref": "#/components/schemas/AgentQualificationInput"
+              }
             }
           }
         },
@@ -8630,7 +8648,9 @@
             "description": "Success",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/AgentQualificationResponse" }
+                "schema": {
+                  "$ref": "#/components/schemas/AgentQualificationResponse"
+                }
               }
             }
           },
@@ -8638,7 +8658,9 @@
             "description": "Structured failure",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/APIError" }
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
               }
             }
           }
@@ -8647,29 +8669,39 @@
       "delete": {
         "operationId": "deleteAgentQualification",
         "security": [
-          { "sessionCookie": [] }
+          {
+            "sessionCookie": []
+          }
         ],
         "parameters": [
           {
             "name": "orgID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           },
           {
             "name": "connectionID",
             "in": "path",
             "required": true,
-            "schema": { "type": "string" }
+            "schema": {
+              "type": "string"
+            }
           }
         ],
         "responses": {
-          "204": { "description": "Cleared" },
+          "204": {
+            "description": "Cleared"
+          },
           "default": {
             "description": "Structured failure",
             "content": {
               "application/json": {
-                "schema": { "$ref": "#/components/schemas/APIError" }
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
               }
             }
           }
@@ -9596,6 +9628,1008 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc": {
+      "get": {
+        "operationId": "getOrgOIDC",
+        "description": "Owner-only organisation identity configuration. Secret is never returned.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgOIDCSettings"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putOrgOIDC",
+        "description": "Create or replace a configuration draft. Empty client_secret preserves existing secret. Successful update increments version and clears prior verification. Requests require exact configured Origin and session X-CSRF-Token.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current numeric configuration version; use \"0\" when creating."
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrgOIDCInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgOIDCSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid issuer or request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Configuration version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc/probe": {
+      "post": {
+        "operationId": "probeOrgOIDC",
+        "description": "Probe metadata for current version. Success verifies discovery metadata only; it does not validate credentials or user login. Requests require exact configured Origin and session X-CSRF-Token.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current numeric configuration version; use \"0\" when creating."
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgOIDCSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Issuer metadata could not be verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Probe cooldown or capacity limit; Retry-After is returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc/activate": {
+      "post": {
+        "operationId": "activateOrgOIDC",
+        "description": "Activate only current verified version. Requests require exact configured Origin and session X-CSRF-Token.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current numeric configuration version; use \"0\" when creating."
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Configuration activated"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict or current version is not verified",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc/disable": {
+      "post": {
+        "operationId": "disableOrgOIDC",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Quoted current numeric configuration version; use \"0\" when creating."
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgOIDCSettings"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Version conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "If-Match is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requests require exact configured Origin and session X-CSRF-Token."
+      }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc/invitations": {
+      "get": {
+        "operationId": "listOrgOIDCInvitations",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200,
+              "default": 50
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OrgOIDCInvitationPage"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid limit or cursor",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requests require exact configured Origin and session X-CSRF-Token."
+      },
+      "post": {
+        "operationId": "createOrgOIDCInvitation",
+        "description": "Create invitation for active verified provider. Expiry must be 1 hour to 30 days. Token appears only in one-time redemption_url response. Requests require exact configured Origin and session X-CSRF-Token.",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/OrgOIDCInvitationInput"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Invitation created; redemption URL disclosed once.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreatedOrgOIDCInvitation"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid email, role, expiry or request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Organisation login is not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/identity/oidc/invitations/{invitationID}": {
+      "delete": {
+        "operationId": "revokeOrgOIDCInvitation",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "invitationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Required for same-origin session mutations."
+          },
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "description": "Must exactly match configured public origin.",
+            "schema": {
+              "type": "string",
+              "format": "uri"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Invitation revoked"
+          },
+          "400": {
+            "description": "Invalid request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Owner role required or invitation unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "description": "Requests require exact configured Origin and session X-CSRF-Token."
+      }
+    },
+    "/auth/invitations/redeem": {
+      "post": {
+        "operationId": "redeemOrgOIDCInvitation",
+        "description": "Public endpoint; no session required. Rejects query strings and tokens in URL. Browser removes /invite#token=... fragment before same-origin form POST. Request body limited to 8 KiB. Responses set Referrer-Policy: no-referrer and Cache-Control: no-store.",
+        "parameters": [
+          {
+            "name": "Origin",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "Must exactly match configured public origin. Cross-site requests are rejected."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/x-www-form-urlencoded": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "token"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "minLength": 43,
+                    "maxLength": 43
+                  }
+                },
+                "additionalProperties": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Authorization URL for configured organisation provider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/InvitationAuthorization"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid content type, query, form or token",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Invitation invalid, expired, revoked or already used",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Origin is not allowed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Identity provider capacity is busy; Retry-After is returned",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal request failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Identity provider unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "security": []
+      }
     }
   },
   "components": {
@@ -9631,22 +10665,57 @@
       "CustomProfile": {
         "type": "object",
         "properties": {
-          "id": { "type": "string" },
-          "name": { "type": "string" },
-          "version": { "type": "integer" },
-          "image_digest": { "type": "string" },
-          "executable": { "type": "string" },
-          "argv": { "type": "array", "items": { "type": "string" } },
-          "protocol_version": { "type": "integer" },
-          "max_wall_seconds": { "type": "integer" },
-          "max_output_bytes": { "type": "integer" },
-          "max_turns": { "type": "integer" },
-          "concurrency": { "type": "integer" },
-          "approval_evidence": { "type": "string" },
-          "approved_by": { "type": "string" },
-          "approved_at": { "type": "string" },
-          "revoked_at": { "type": "string" },
-          "created_at": { "type": "string" }
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "version": {
+            "type": "integer"
+          },
+          "image_digest": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "string"
+          },
+          "argv": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protocol_version": {
+            "type": "integer"
+          },
+          "max_wall_seconds": {
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "type": "integer"
+          },
+          "max_turns": {
+            "type": "integer"
+          },
+          "concurrency": {
+            "type": "integer"
+          },
+          "approval_evidence": {
+            "type": "string"
+          },
+          "approved_by": {
+            "type": "string"
+          },
+          "approved_at": {
+            "type": "string"
+          },
+          "revoked_at": {
+            "type": "string"
+          },
+          "created_at": {
+            "type": "string"
+          }
         },
         "required": [
           "id",
@@ -9668,15 +10737,36 @@
       "CustomProfileInput": {
         "type": "object",
         "properties": {
-          "name": { "type": "string" },
-          "image_digest": { "type": "string" },
-          "executable": { "type": "string" },
-          "argv": { "type": "array", "items": { "type": "string" } },
-          "protocol_version": { "type": "integer" },
-          "max_wall_seconds": { "type": "integer" },
-          "max_output_bytes": { "type": "integer" },
-          "max_turns": { "type": "integer" },
-          "concurrency": { "type": "integer" }
+          "name": {
+            "type": "string"
+          },
+          "image_digest": {
+            "type": "string"
+          },
+          "executable": {
+            "type": "string"
+          },
+          "argv": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "protocol_version": {
+            "type": "integer"
+          },
+          "max_wall_seconds": {
+            "type": "integer"
+          },
+          "max_output_bytes": {
+            "type": "integer"
+          },
+          "max_turns": {
+            "type": "integer"
+          },
+          "concurrency": {
+            "type": "integer"
+          }
         },
         "required": [
           "name",
@@ -9694,79 +10784,196 @@
       "CustomProfilePage": {
         "type": "object",
         "properties": {
-          "items": { "type": "array", "items": { "$ref": "#/components/schemas/CustomProfile" } },
-          "next_cursor": { "type": "string" },
-          "complete": { "type": "boolean" }
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CustomProfile"
+            }
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          }
         },
-        "required": ["items", "complete"],
+        "required": [
+          "items",
+          "complete"
+        ],
         "additionalProperties": false
       },
       "CustomProfileApproval": {
         "type": "object",
         "properties": {
-          "evidence": { "type": "string" }
+          "evidence": {
+            "type": "string"
+          }
         },
-        "required": ["evidence"],
+        "required": [
+          "evidence"
+        ],
         "additionalProperties": false
       },
       "AgentQualification": {
         "type": "object",
         "properties": {
-          "binding": { "$ref": "#/components/schemas/AgentBinding" },
-          "evidence_id": { "type": "string" },
-          "checked_at": { "type": "string" },
-          "expires_at": { "type": "string" },
-          "auth_custody": { "type": "boolean" },
-          "native_tool_containment": { "type": "boolean" },
-          "terms": { "type": "boolean" },
-          "topology": { "type": "boolean" },
-          "entitlement": { "type": "boolean" },
-          "quota": { "type": "boolean" },
-          "no_paid_overage": { "type": "boolean" }
+          "binding": {
+            "$ref": "#/components/schemas/AgentBinding"
+          },
+          "evidence_id": {
+            "type": "string"
+          },
+          "checked_at": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "auth_custody": {
+            "type": "boolean"
+          },
+          "native_tool_containment": {
+            "type": "boolean"
+          },
+          "terms": {
+            "type": "boolean"
+          },
+          "topology": {
+            "type": "boolean"
+          },
+          "entitlement": {
+            "type": "boolean"
+          },
+          "quota": {
+            "type": "boolean"
+          },
+          "no_paid_overage": {
+            "type": "boolean"
+          }
         },
-        "required": ["binding","evidence_id","checked_at","expires_at","auth_custody","native_tool_containment","terms","topology","entitlement","quota","no_paid_overage"],
+        "required": [
+          "binding",
+          "evidence_id",
+          "checked_at",
+          "expires_at",
+          "auth_custody",
+          "native_tool_containment",
+          "terms",
+          "topology",
+          "entitlement",
+          "quota",
+          "no_paid_overage"
+        ],
         "additionalProperties": false
       },
       "AgentBinding": {
         "type": "object",
         "properties": {
-          "org_id": { "type": "string" },
-          "connection_id": { "type": "string" },
-          "runner_id": { "type": "string" },
-          "connection_version": { "type": "integer" },
-          "credential_version": { "type": "integer" },
-          "account_id": { "type": "string" },
-          "model": { "type": "string" },
-          "runtime_digest": { "type": "string" },
-          "deployment": { "type": "string" }
+          "org_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "runner_id": {
+            "type": "string"
+          },
+          "connection_version": {
+            "type": "integer"
+          },
+          "credential_version": {
+            "type": "integer"
+          },
+          "account_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "runtime_digest": {
+            "type": "string"
+          },
+          "deployment": {
+            "type": "string"
+          }
         },
-        "required": ["org_id","connection_id","connection_version","credential_version","account_id","model","runtime_digest","deployment"],
+        "required": [
+          "org_id",
+          "connection_id",
+          "connection_version",
+          "credential_version",
+          "account_id",
+          "model",
+          "runtime_digest",
+          "deployment"
+        ],
         "additionalProperties": false
       },
       "AgentQualificationInput": {
         "type": "object",
         "properties": {
-          "evidence_id": { "type": "string" },
-          "checked_at": { "type": "string" },
-          "expires_at": { "type": "string" },
-          "auth_custody": { "type": "boolean" },
-          "native_tool_containment": { "type": "boolean" },
-          "terms": { "type": "boolean" },
-          "topology": { "type": "boolean" },
-          "entitlement": { "type": "boolean" },
-          "quota": { "type": "boolean" },
-          "no_paid_overage": { "type": "boolean" }
+          "evidence_id": {
+            "type": "string"
+          },
+          "checked_at": {
+            "type": "string"
+          },
+          "expires_at": {
+            "type": "string"
+          },
+          "auth_custody": {
+            "type": "boolean"
+          },
+          "native_tool_containment": {
+            "type": "boolean"
+          },
+          "terms": {
+            "type": "boolean"
+          },
+          "topology": {
+            "type": "boolean"
+          },
+          "entitlement": {
+            "type": "boolean"
+          },
+          "quota": {
+            "type": "boolean"
+          },
+          "no_paid_overage": {
+            "type": "boolean"
+          }
         },
-        "required": ["evidence_id","checked_at","expires_at","auth_custody","native_tool_containment","terms","topology","entitlement","quota","no_paid_overage"],
+        "required": [
+          "evidence_id",
+          "checked_at",
+          "expires_at",
+          "auth_custody",
+          "native_tool_containment",
+          "terms",
+          "topology",
+          "entitlement",
+          "quota",
+          "no_paid_overage"
+        ],
         "additionalProperties": false
       },
       "AgentQualificationResponse": {
         "type": "object",
         "properties": {
-          "qualification": { "$ref": "#/components/schemas/AgentQualification" },
-          "capabilities": { "type": "object", "additionalProperties": { "$ref": "#/components/schemas/Capability" } }
+          "qualification": {
+            "$ref": "#/components/schemas/AgentQualification"
+          },
+          "capabilities": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Capability"
+            }
+          }
         },
-        "required": ["capabilities"],
+        "required": [
+          "capabilities"
+        ],
         "additionalProperties": false
       },
       "Overview": {
@@ -9802,29 +11009,72 @@
       "OverviewPortfolioRow": {
         "type": "object",
         "properties": {
-          "repository_id": { "type": "string" },
-          "repository_name": { "type": "string" },
-          "provider": { "type": "string" },
-          "accessible": { "type": "boolean" },
-          "open_findings": { "type": "integer" },
-          "open_changes": { "type": "integer" },
-          "blocked": { "type": "integer" },
-          "last_synced_at": { "type": "string" },
-          "blocker": { "type": "string" }
+          "repository_id": {
+            "type": "string"
+          },
+          "repository_name": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "accessible": {
+            "type": "boolean"
+          },
+          "open_findings": {
+            "type": "integer"
+          },
+          "open_changes": {
+            "type": "integer"
+          },
+          "blocked": {
+            "type": "integer"
+          },
+          "last_synced_at": {
+            "type": "string"
+          },
+          "blocker": {
+            "type": "string"
+          }
         },
-        "required": ["repository_id","repository_name","provider","accessible","open_findings","open_changes","blocked","last_synced_at"],
+        "required": [
+          "repository_id",
+          "repository_name",
+          "provider",
+          "accessible",
+          "open_findings",
+          "open_changes",
+          "blocked",
+          "last_synced_at"
+        ],
         "additionalProperties": false
       },
       "OverviewCapacity": {
         "type": "object",
         "properties": {
-          "queued_jobs": { "type": "integer" },
-          "running_jobs": { "type": "integer" },
-          "active_pools": { "type": "integer" },
-          "active_runners": { "type": "integer" },
-          "reserved_micro_usd": { "type": "integer" }
+          "queued_jobs": {
+            "type": "integer"
+          },
+          "running_jobs": {
+            "type": "integer"
+          },
+          "active_pools": {
+            "type": "integer"
+          },
+          "active_runners": {
+            "type": "integer"
+          },
+          "reserved_micro_usd": {
+            "type": "integer"
+          }
         },
-        "required": ["queued_jobs","running_jobs","active_pools","active_runners","reserved_micro_usd"],
+        "required": [
+          "queued_jobs",
+          "running_jobs",
+          "active_pools",
+          "active_runners",
+          "reserved_micro_usd"
+        ],
         "additionalProperties": false
       },
       "OverviewCounts": {
@@ -16754,6 +18004,237 @@
             "x-go-type": "string"
           }
         }
+      },
+      "OrgOIDCSettings": {
+        "type": "object",
+        "properties": {
+          "configured": {
+            "type": "boolean"
+          },
+          "secret_present": {
+            "type": "boolean"
+          },
+          "issuer": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "unconfigured",
+              "draft",
+              "probe_verified",
+              "active",
+              "disabled"
+            ]
+          },
+          "version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "verified_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "verified": {
+            "type": "boolean"
+          },
+          "activation_available": {
+            "type": "boolean"
+          },
+          "activation_blocked": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "configured",
+          "secret_present",
+          "status",
+          "version",
+          "verified",
+          "activation_available"
+        ],
+        "additionalProperties": false
+      },
+      "OrgOIDCInput": {
+        "type": "object",
+        "properties": {
+          "issuer": {
+            "type": "string"
+          },
+          "client_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 512
+          },
+          "client_secret": {
+            "type": "string",
+            "maxLength": 65536
+          }
+        },
+        "required": [
+          "issuer",
+          "client_id"
+        ],
+        "additionalProperties": false
+      },
+      "OrgOIDCInvitationInput": {
+        "type": "object",
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 320
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "maintainer",
+              "reviewer",
+              "viewer"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time",
+            "description": "Must be between 1 hour and 30 days from creation."
+          }
+        },
+        "required": [
+          "email",
+          "role",
+          "expires_at"
+        ],
+        "additionalProperties": false
+      },
+      "OrgOIDCInvitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "maintainer",
+              "reviewer",
+              "viewer"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "redeemed": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "expires_at",
+          "created_at",
+          "redeemed"
+        ],
+        "additionalProperties": false
+      },
+      "CreatedOrgOIDCInvitation": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "email": {
+            "type": "string"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "owner",
+              "admin",
+              "maintainer",
+              "reviewer",
+              "viewer"
+            ]
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "redeemed": {
+            "type": "boolean"
+          },
+          "redemption_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "email",
+          "role",
+          "expires_at",
+          "created_at",
+          "redeemed",
+          "redemption_url"
+        ],
+        "additionalProperties": false
+      },
+      "OrgOIDCInvitationPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OrgOIDCInvitation"
+            }
+          },
+          "next_cursor": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "complete": {
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "items",
+          "complete"
+        ],
+        "additionalProperties": false
+      },
+      "InvitationAuthorization": {
+        "type": "object",
+        "properties": {
+          "authorization_url": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "authorization_url"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {
