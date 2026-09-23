@@ -9,7 +9,7 @@ ticket-table sections below, which remain historical evidence.
 T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass with zero
 input/button offset, overflow or axe violations; four existing Organisation regressions pass.
 [Layout evidence](organisation-layout-review-2026-09-23.md). T31a custom-command terminal-result validation is locally complete; external runtime qualification remains open. See [review](t31a-review-2026-09-23.md).
-T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md).
+T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md). T28b browser slice is locally verified; 100 executing runs and broader qualification remain open ([review](t28b-browser-review.md)).
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
 run/browser load, T28c dependency/notice review. T27 enforced hosted isolation and external
@@ -30,6 +30,12 @@ progress-only as unknown and error-only as failed
 input/output, unknown usage, malformed event, nonzero exit, timeout, cancellation and secret
 isolation (`.local/t31a-acceptance/container-test.log`). The probe is classification-only;
 no live provider or hosted runtime qualification is claimed. G5 remains open.
+
+## T28b browser load slice — 2026-09-23
+
+50 independent Chromium contexts authenticated with distinct development-fixture session cookies, opened the real portfolio page and rendered 25 persisted rows. With all sessions open, five rounds each issued 50 list and 50 detail reads: 250 successes per endpoint. List p95 109.90 ms; detail p95 110.27 ms; zero errors/retries. Full request samples, served asset hashes and machine limits: [review](t28b-browser-review.md) and `.local/t28b-2026-09-23/2026-09-23T02-40-51-491Z/report.json`.
+
+This covers only the browser/API slice. 100 concurrently executing runs, broader scale, fairness, cancellation, restart and T27 isolation remain open. No G5 claim.
 
 ## T29s repository scope status — 2026-09-23
 

@@ -53,10 +53,10 @@ certification remain required; G5 has not passed.
 
 ### T28b — Real execution and browser load
 
-- Status: **open**. Child of T28; T07/T25/T26/T27 and adequate isolated runner/browser
-  resources required for execution. Luna harness, Astra isolation/budget review.
-- Accept: 100 concurrent executing runs and 50 real browser sessions under documented
-  latency/fairness/recovery criteria. Claims and HTTP sessions do not substitute.
+- Status: **open; browser slice locally verified, 2026-09-23**. Child of T28; 100-run and broader scale work require adequate isolated runner resources. Luna harness, Astra isolation/budget review.
+- Browser evidence: 50 real Chromium contexts reached 25 persisted portfolio rows each. Five rounds produced 250 list and 250 detail samples; p95 109.90 ms and 110.27 ms, zero errors. [Review and artifact](t28b-browser-review.md).
+- Remaining: 100 concurrently executing runs, broader scale, fairness, cancellation, restart and resource evidence.
+- Accept: 100 concurrent executing runs and 50 real browser sessions under documented latency/fairness/recovery criteria. Claims and HTTP sessions do not substitute.
 
 ### T28c — Finish dependency and distribution inventory
 

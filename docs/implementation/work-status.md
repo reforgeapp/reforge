@@ -34,14 +34,13 @@ T31a before/after launcher probes are `.local/organisation-layout-2026-09-23/pro
 | Ticket | Next action | Required evidence / dependency |
 | --- | --- | --- |
 | T28a | Complete release acceptance evidence map | Map V01–V29 and J01–J10 to exact builds, scenarios and artifacts; identify untested requirements. Recheck T31 extraction/validation and container-only clean install/upgrade/restart/restore. Signed local OIDC harness uses host Go and alone cannot establish the no-host-toolchain installation requirement |
-| T28b | Execute actual scale target | 100 simultaneously executing runs plus 50 real browser sessions; latency, fairness, cancellation, restart and resource evidence. Existing 100 claims / 50 HTTP sessions are insufficient |
+| T28b | Complete execution and broader scale qualification | Browser slice complete: 50 real Chromium sessions on 25 persisted rows; five rounds, 250 successful list and 250 successful detail requests, both p95 about 110 ms. Still needs 100 concurrently executing runs plus scale, fairness, cancellation and restart evidence. [Review](t28b-browser-review.md) |
 | T28c | Finish release dependency/notice review | Resolve each `review required` entry in `dependencies.md`, reconcile shipped images/packages and notices, rerun inventory for release build |
 | T27 | Qualify hostile execution with enforced resource limits | Working cgroup-delegated runner host; run hostile/cross-tenant/budget/recovery corpus. Development rootless sandbox evidence does not certify hosted untrusted execution |
 
 T28a–c are bounded children of T28; parent dependencies still apply. T28a can reconcile
 evidence before external environments arrive, but cannot close missing external scenarios.
-T28b/T27 require adequate local or authorised disposable infrastructure. No credentials
-needed to fix T31a or review dependency/evidence records.
+T28b browser slice is locally verified; its 100-run and broader scale/fairness/recovery work, and T27 isolation qualification, require adequate local or authorised disposable infrastructure. No external credentials are needed for remaining local evidence and dependency review.
 
 ## External certification actions
 
@@ -63,7 +62,7 @@ needed to fix T31a or review dependency/evidence records.
 | T08–T15 | Local adapters implemented; external/version certification limited as above |
 | T16/T17 | Backend-connected implementation present; qualification acceptance incomplete |
 | T18–T25 | Locally complete; live/native-provider release evidence incomplete |
-| T26/T27/T28 | Partial; local and external work listed above |
+| T26/T27/T28 | Partial; T28b browser slice verified, execution and broader qualification remain open |
 | T29 | Rebuild and T29a–s locally complete; G5 and external qualification remain open |
 | T30 | Docs engine/help locally verified; support-matrix corrections made; final release content follows T28a |
 | T31 | Runtime/dispatch/extraction implemented; T31a locally complete; official runtime and hosted qualification open |
