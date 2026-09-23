@@ -23,10 +23,10 @@ All six live GUI scenarios passed across five repository specs: connected accept
 
 Review captures: `.local/opus-resume/optin-browser/run-current-20260924/artifacts/captures/` contains closed/open 390px sidebar screenshots for light and dark themes, measured shadow state, and findings empty-reason screenshots at 390px/1440px. Closed sidebar computed shadow was `none`; open sidebar had shadow in both themes.
 
-Original unmodified failures and diagnostic results are preserved in [baseline review](t28a-optin-baseline-review.md). The first narrow Findings capture caught a sidebar transition; settled recapture is pending and it is not accepted visual evidence.
+Original unmodified failures and diagnostic results are preserved in [baseline review](t28a-optin-baseline-review.md). The first 390px Findings capture caught a sidebar transition and is preserved as `.local/opus-resume/final-gui-92e1d03/artifacts/findings-unassign-empty-reason-390-rejected.png`. Settled recapture passed after checking drawer edge ≤1px, no Close navigation/backdrop, main column inert=false, and full Unassign button in viewport; accepted screenshot is `.local/opus-resume/final-gui-92e1d03/artifacts/findings-unassign-empty-reason-390-settled.png`.
 
 ## Scope and limits
 
 Product changes limited to moving mobile sidebar shadow onto `.sidebar.sidebar-open` and removing the unused reason requirement from Unassign. Busy and CSRF guards remain; snooze/dismiss/reopen still require reasons. Spec edits update UI selectors, explicit campaign step assertions, and evidence output paths; no scope, version, tenant, or authorization checks were weakened. Product diff is available for coordinator review.
 
-Fixture auth and SQL-seeded repositories/orgs do not certify production identity or provider imports. Gitea records used `.invalid` endpoints; campaigns had no dispatch authority. Do not infer the unrun 193-test suite from these opt-ins.
+Fixture auth and SQL-seeded repositories/orgs do not certify production identity or provider imports. Gitea records used `.invalid` endpoints; campaigns had no dispatch authority. A fresh defaults suite on integrated commit `92e1d03` is recorded in [final GUI review](t28a-final-gui-review.md). Neither report certifies a live provider, human approval path, or G5.
