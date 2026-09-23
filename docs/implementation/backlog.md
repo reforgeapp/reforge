@@ -1,20 +1,10 @@
 # Implementation backlog
 
-## Active resume override — 2026-09-23
+## Current execution — 2026-09-24
 
-Owner authorizes Opus 5.5 CLI implementation first, GPT-6 Luna/DeepSeek 4.1-Flash fallback, maximum three workers across providers with exclusive ownership and no nested workers. Coordinator reviews all changes. Older Luna-only allocation below is historical.
+[Work status](work-status.md) is authoritative. Source frozen `18c8045`: T29v first-user invitation onboarding locally complete with strict-CSP signed local IdP acceptance; API/admin docs integrated. Lifecycle/shared-focus fixes reviewed; focused45/45 passed. Current production full-browser and exact-source Docker/install checks are running. Earlier full-browser result153/27/15 remains unresolved at the full-gate level until rerun. T29u positive protected merge, hosted isolation, external certification, legal/human review and G5 remain open.
 
-T28a/T29 current browser baseline `35b7545`: **153 passed / 27 failed / 15 skipped**, recorded at `cd2b94a`; earlier 154/14 summaries below are superseded. Audit/Policies regression slice reviewed and committed `8846d9d` (36 focused tests; eight theme/viewport probes). Remaining failures assigned to lifecycle/shared-focus workers. T29v invitations backend `20582c1` and GUI are under integration; real-browser CSP blocked the original form redirect. Approved correction: same-origin bounded redemption POST returns authorization URL JSON, followed by top-level navigation; keep all CSP/Origin/tenant/PKCE/token controls. Positive connected acceptance required without CSP bypass. User-visible errors, copy/revoke and new-member persistence are acceptance criteria. See [work status](work-status.md) and [current browser report](t28a-current-browser-review.md).
-
-Coordinator fresh restricted-role PostgreSQL full integration/race and auth/HTTP suites passed. Exact-current full browser/image gates and external certification remain open. No G5 claim.
-
-
-## Current open work — 2026-09-23
-
-[Current work status](work-status.md) is the authoritative open-defect and acceptance index.
-Current review baseline: HEAD `35b7545` (2026-09-23), including reviewer acceptance `7175484`, connected Identity GUI `35b7545`, OIDC runtime `08669b4`, and Alpine provenance review `af230bd`. Latest guarded Go/PostgreSQL integration passed; full GUI suite at `cce6879` is 154 passed/14 opt-in skips and predates current GUI commits. Focused Policies, Audit, Connections, Organisation Teams/Members, Repository Sync picker and Overview sync-attention checks are recorded. Connected T29u reviewer journey passed native negative path at `af230bd`: reload and separate fresh-page pickers showed the latest healthy connection; import, tenant denial, stale-head exact 409, reviewer request, current-head approval and unqualified merge exact 409. Positive authorized merge remains open. Existing-member Organisation OIDC save/probe/activate/reload/sign-in/disable GUI journey passed against runtime `08669b4`; verified first-user invitation/onboarding remains in progress. Alpine provenance review at `af230bd` documents selected local images but does not close exact-current image/source/legal review. Exact-current image, legal review, hosted qualification and G5 remain open. See [work status](work-status.md) for evidence and next actions; no G5 claim.
-The dated sections below preserve prior evidence; they do not override newer findings.
-T29r, T29s, T29t and T31a are locally complete. T29u connected native negative-path acceptance is complete; positive authorized merge remains open. T29v runtime and existing-member GUI journey are verified; first-user onboarding remains in progress; T29w is locally complete. T28a–c, hosted isolation and external certification remain required; G5 has not passed.
+Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maximum3 exclusive workers, no nested delegation, coordinator review. On each completion check weekly Codex quota: below40% wrap/checkpoint/demo; below25% hard-stop work. Earlier execution allocations and dated evidence below are historical.
 
 ### T29r — Align Organisation team creation
 
@@ -52,9 +42,10 @@ T29r, T29s, T29t and T31a are locally complete. T29u connected native negative-p
 
 ### T29v — Finish organisation identity administration and login
 
-- Status: **in progress; OIDC runtime and existing-member connected GUI acceptance complete; first-user onboarding in progress**. Commits `d2c6175`, `0d4fa8b`, `08669b4`, `35b7545`. Depends T02,T03,T29. Contract: [Identity design](t29-identity-contract.md); [runtime review](t29-identity-runtime-review.md).
-- Tenant OIDC configuration, probe/activation endpoints, org-bound login/callback and config-version-bound sessions are implemented. Connected save/probe/activate/reload/sign-in/disable passed against runtime `08669b4`; see [live GUI evidence](t29-identity-active-gui-review.md). Restricted-role PostgreSQL/race checks were reported passed, but no retained run log exists. Existing member assignment requires an account ID; verified invitation/onboarding for first-time IdP users remains in progress. Customer IdP interoperability remains external.
-- Accepted locally: connected GUI/backend test covers owner-only versioned config, encrypted write-only secret, safe issuer probe, audit/CSRF, tenant RLS, activation, org-bound login/callback/session, disable and reload. Runtime tests cover roles, stale writes, tenant separation, state/nonce/PKCE, expiry, restart and recovery (worker reports PG/race pass; retained run log unavailable). In progress: verified invitation/onboarding for first-time IdP users. Customer IdP certification remains external. Activation remains limited to current probe-verified config; no email-only linking.
+- Status: **local complete,2026-09-24; customer IdP certification open**. Depends T02,T03,T29.
+- Existing-member settings/probe/activation/login/disable flow passed. First-user invitation create/copy/redeem/replay/revoke/reload passed against restricted PostgreSQL and signed local issuer with normal CSP; exactly one membership/session created. Secret/token custody, tenant binding, PKCE and native approvals remain enforced.
+- Source `22cea8a`; API/admin documentation `18c8045`. [GUI review](t29-identity-invitation-gui-review.md), [contract review](t29-identity-api-docs-review.md). Fresh restricted-role auth/HTTP race logs retained in `.local/opus-resume/integration/`.
+- Remaining certification: authorized customer provider/topology, recovery and release acceptance; local fixture does not certify hosted identity.
 
 ### T29w — Make Overview sync attention actionable
 

@@ -1,5 +1,31 @@
 # Implementation progress
 
+## Source freeze and quota checkpoint — 2026-09-24
+
+Product source frozen at `18c8045`. Identity OpenAPI/schema/admin guide reviewed and integrated; existing API paths/schemas unchanged. T29v strict-CSP new-member onboarding locally complete; hosted IdP certification remains open. Active bounded workers: production browser acceptance, current Docker image/install verification, and read-only positive protected-merge prerequisites. No source mutations allocated during these checks.
+
+Worker-completion quota reading2026-09-23T14:19:40.115Z:46% used / **54% weekly remaining**. Neither threshold triggered. Latest work index rewritten around current evidence in work-status.md; earlier snapshots below are historical.
+
+
+## Usage checkpoint — 2026-09-24
+
+New owner rule: quota check on every worker completion; below40% weekly remaining starts wrap-up/demo, below25% hard-stops work jobs. Latest root-session Codex telemetry at2026-09-23T14:14:06.656Z: 10080-minute window,45% used / **55% remaining**. Adjacent worker telemetry at14:14:42.982Z agrees. No threshold triggered. Image worker follow-up ended with model-capacity error (not evidence of quota exhaustion); current sourcefreeze ready once contract review is integrated. Rule also persisted in agents.md.
+
+
+## Integrated local fixes — 2026-09-24
+
+Reviewed and committed: `22cea8a` invitation onboarding with CSP-preserving JSON redemption and signed local issuer acceptance; `e01287c` shared close/focus behavior; `8cb2cac` team mutation invalidation across distinct cache shapes; `dc9242b` pending merge keyboard focus; `cd1f1c5` deterministic lifecycle fixtures. Focused lifecycle45/45 and invitations/organisation20/20 passed. Full production-origin suite awaits API/docs sourcefreeze; current OpenAPI response composition review findings are being fixed. G5 remains open.
+
+Docsworker owns OpenAPI/generated types/admin guide. Browserworker finished and awaits productionURL for fullsuite. Imageworker finished bounded preflight and waits frozencommit; recovered ≈1GiB only from six old disposable install gomod/gocache pairs, preserving reports/logs/source/backups/DBs. Opus quota still exhausted (reported reset04:00 Sydney); Luna fallback continues under max3worker rule.
+
+
+## Worker fallback checkpoint — 2026-09-23
+
+All three Opus CLI jobs stopped with the account session-limit message (reset reported 04:00 Australia/Sydney). User's authorized fallback is active; three GPT-6 Luna workers now own: (1) invitation GUI/CSP-safe redemption completion and connected verification; (2) shared focus + lifecycle regression finish; (3) missing OIDC/invitation OpenAPI and administrator documentation. No nested workers. Opus working changes preserved; no completion inferred from partial logs. Coordinator remains reviewer/integrator. Remaining source changes require review before commits. Current full GUI/image gates and G5 remain open.
+
+Temporary Vite5173 proxy now preserves Host to backend8080; previously rewritten Host caused correct403 rejections. Login now302. Final GUI acceptance will use the built app directly. Reported Opus shared probe covered52 route/theme/viewport states with0axe/overflow, pending retained-log review.
+
+
 ## Resumed coordinator checkpoint — 2026-09-23
 
 User resumed implementation after reboot and authorized Opus-first CLI workers, falling back to lighter models when the Claude usage window is exhausted. Maximum three workers total; exclusive file ownership; no nested workers. Coordinator owns review/integration, not product implementation. Claude auth reports first-party `claude.ai` Pro subscription with no ANTHROPIC_API_KEY; all three initial workers resolved `opus` to `claude-opus-5-5`. No Reforge paid provider certification is authorized by worker-model access.

@@ -4,6 +4,10 @@ Status: owner resumed GUI review/implementation, 2026-09-23. Read [PLAN.md](../.
 
 Current allocation override (owner, 2026-09-23): root/Astra owns architecture and final review. Prefer Claude CLI Opus 5.5 for bounded implementation, including sensitive work under coordinator review, until its usage window is exhausted; then use GPT-6 Luna or OpenCode DeepSeek 4.1-Flash for suitable slices. Maximum three workers total across providers, exclusive file ownership, no nested workers. CLI sessions use existing authorized account routes, not Reforge paid certification budgets. Older Luna-only allocation below is historical. Completion notifications or process completion preferred; avoid repeated model-driven status polling.
 
+## Weekly usage stop rule
+
+Owner instruction, 2026-09-24: after every worker completion (including failure), coordinator checks its current Codex weekly quota telemetry. Use the reported 10080-minute window; remaining percent is 100 minus used_percent. Below 40% remaining: stop expanding implementation scope, checkpoint, finish safe bounded wrap-up and bring up the local demo for review. Below 25% remaining: hard-stop active work jobs and preserve handoff; do not start replacement jobs. Do not infer remaining quota from token counts or model capacity errors. Record telemetry timestamp and remaining percentage. If unavailable/stale, report uncertainty and obtain a current reading before further dispatch.
+
 ## Initial invocation
 
 Use this as the next implementation instruction after owner resumes work and reconciles `progress.md`:
