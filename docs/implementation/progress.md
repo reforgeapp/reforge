@@ -1,5 +1,16 @@
 # Implementation progress
 
+## Opus limit and Luna handoff — 2026-09-24
+
+Opus workers hit session quota; reported reset13:10 Australia/Sydney. Completion checks22:48:47.074Z,22:50:40.217Z and failed initial Luna-access check22:52:16.186Z all show **44% Codex weekly remaining**. No owner threshold triggered. Three Luna workers now own bounded completion: T29y/T29z/T28e product fixes and actual opt-in checks; fresh-helper cgroup enforcement/crash evidence; positive protected-merge GUI test. No scope expansion during handoff.
+
+Root reviewed pending two surgical product changes and five tracked spec corrections; not committed pending actual checks. Opus original opt-in review remains untracked and under owner-worker update. Source-build baseline675b0fd/demo remains unchanged until integration.
+
+First positive GUI run never queued repair or invoked model: obsolete exported spec omitted Repair tab. Root verified exact owned Playwright process and sent SIGINT after11.8min to avoid waiting15min; harness exit130. Page-bound cleanup reported `Test ended` errors; transfer explicitly requires guarded cleanup before rerun. Updated root spec includes tab; require bounded UI action waits and preserve interruption evidence. This is not a failed model attempt or positive GUI pass. Original genuine service protected-merge pass remains valid.
+
+Cgroup enforcement Opus partials under `.local/opus-resume/cgroup-enforcement/`: current helper/probe binaries and local harness source; no running `reforge-*` cgroups at handoff. No enforcement pass inferred. First Luna GUI attempt failed default bubblewrap before touching files; coordinator supplied known-working `sandbox_permissions=require_escalated` invocation. Worker failure counted for quota rule.
+
+
 ## Opt-in defects and host feasibility — 2026-09-24
 
 Browser worker completed; quota2026-09-23T22:44:50.977Z **45% weekly remaining**. Enabled11 previouslyskipped scenarios:6 original passes and5 stale-spec failures; diagnostic copies pass, including repeated isolated checks. Two real GUI defects identified: closed mobile sidebar shadow and unused Unassign reason gate. T29y/T29z/T28e allocated to Opus after root review; source changes require new bundle verification. Original675b0fd default193/15 baseline remains historical, not a current opt-in pass.
