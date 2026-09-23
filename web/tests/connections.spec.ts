@@ -20,7 +20,8 @@ test.describe('connections and runners administration', () => {
     await page.getByRole('button', { name: 'Add connection' }).click()
     await expect(page.getByRole('dialog', { name: 'Add connection' })).toBeVisible()
     await expect(page.getByLabel('Secret')).toHaveAttribute('type', 'password')
-    await expect(page.getByText(/credentials are write-only/i).first()).toBeVisible()
+    await expect(page.getByText(/credentials are write-only|capability state comes from the server probe/i)).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Refresh connections' })).toBeVisible()
   })
 
   test('persists connection tab and filters in the URL', async ({ page }) => {
@@ -49,6 +50,122 @@ test.describe('connections and runners administration', () => {
     await expect(page.getByRole('row', { name: /private model/ })).toBeVisible()
     await expect(page.getByRole('row', { name: /public model/ })).toBeVisible()
     await expect(page).toHaveURL(/connection_tab=models/)
+  })
+
+  test('loads model and agent rows after forge pagination boundaries', async ({ page }) => {
+    await signIn(page)
+    const forgeRows = Array.from({ length: 101 }, (_, index) => ({
+      id: `forge-${String(index).padStart(3, '0')}`,
+      org_id: organisation,
+      kind: 'forge',
+      provider: 'gitea',
+      name: `forge-${index}`,
+      endpoint: 'https://example.invalid',
+      state: 'healthy',
+      reason: '',
+      version: 1,
+      credential_version: 1,
+      settings: {},
+      capabilities: {},
+      verified_at: null,
+    }))
+    const modelRow = { id: 'model-after-forges', org_id: organisation, kind: 'model', provider: 'openai', name: 'model after forges', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }
+    const agentRow = { ...modelRow, id: 'agent-after-forges', kind: 'agent', provider: 'codex', name: 'agent after forges' }
+    const requestedKinds = new Set<string>()
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      const kind = new URL(route.request().url()).searchParams.get('kind')
+      if (kind) requestedKinds.add(kind)
+      if (!kind || kind === 'forge') return route.fulfill({ json: { items: forgeRows.slice(0, 100), complete: false, next_cursor: forgeRows[99].id } })
+      if (kind === 'model') return route.fulfill({ json: { items: [modelRow], complete: true } })
+      if (kind === 'agent') return route.fulfill({ json: { items: [agentRow], complete: true } })
+      return route.fulfill({ json: { items: [], complete: true } })
+    })
+    await page.goto(`/org/${organisation}/connections`)
+    await page.getByRole('button', { name: 'Models & agents' }).click()
+    await expect(page.getByRole('row', { name: /model after forges/ })).toBeVisible()
+    await expect(page.getByRole('row', { name: /agent after forges/ })).toBeVisible()
+    expect([...requestedKinds].sort()).toEqual(['agent', 'forge', 'model'])
+  })
+
+  test('connection revoke requires explicit confirmation and preserves version and CSRF', async ({ page }) => {
+    await signIn(page)
+    const connection = { id: 'connection-revoke', org_id: organisation, kind: 'forge', provider: 'gitea', name: 'staging forge', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 7, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }
+    let deleteCount = 0
+    let deleteHeaders: Record<string, string> = {}
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, async route => {
+      if (route.request().url().endsWith('/connection-revoke') && route.request().method() === 'DELETE') {
+        deleteCount++
+        deleteHeaders = route.request().headers()
+        return route.fulfill({ json: { ...connection, state: 'revoked', version: 8 } })
+      }
+      if (route.request().url().endsWith('/connection-revoke')) return route.fulfill({ json: connection })
+      return route.fulfill({ json: { items: [connection], complete: true } })
+    })
+    await page.goto(`/org/${organisation}/connections`)
+    const row = page.getByRole('row', { name: /staging forge/ })
+    await row.getByRole('button', { name: 'Open' }).click()
+    await page.getByRole('button', { name: 'Revoke', exact: true }).click()
+    const dialog = page.getByRole('dialog', { name: 'Revoke connection' })
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText(/Revoke staging forge\?/)).toBeVisible()
+    expect(deleteCount).toBe(0)
+    await dialog.getByRole('button', { name: 'Cancel' }).click()
+    await expect(dialog).toBeHidden()
+    expect(deleteCount).toBe(0)
+    await page.getByRole('button', { name: 'Revoke', exact: true }).click()
+    await page.getByRole('dialog', { name: 'Revoke connection' }).getByRole('button', { name: 'Revoke connection' }).click()
+    await expect.poll(() => deleteCount).toBe(1)
+    expect(deleteHeaders['if-match']).toBe('"7"')
+    expect(deleteHeaders['x-csrf-token']).toBeTruthy()
+  })
+
+  test('empty local filters among loaded pages keep Load more available', async ({ page }) => {
+    await signIn(page)
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      const url = new URL(route.request().url())
+      const kind = url.searchParams.get('kind')
+      const cursor = url.searchParams.get('cursor')
+      if (kind === 'model' && cursor === 'next') return route.fulfill({ json: { items: [{ id: 'model-after-filter', org_id: organisation, kind: 'model', provider: 'openai', name: 'not loaded model', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }], complete: true } })
+      if (kind === 'model') return route.fulfill({ json: { items: [{ id: 'first-model', org_id: organisation, kind: 'model', provider: 'openai', name: 'first model', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }], complete: false, next_cursor: 'next' } })
+      if (kind === 'agent') return route.fulfill({ json: { items: [], complete: true } })
+      return route.fulfill({ json: { items: [], complete: true } })
+    })
+    await page.goto(`/org/${organisation}/connections`)
+    await page.getByRole('button', { name: 'Models & agents' }).click()
+    await page.getByLabel('Search', { exact: true }).fill('not loaded')
+    await expect(page.getByText('No matches in loaded results; more may be available.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Load more' })).toBeVisible()
+    await page.getByRole('button', { name: 'Load more' }).click()
+    await expect(page.getByRole('row', { name: /not loaded model/ })).toBeVisible()
+    await expect(page.getByText('No matches in loaded results; more may be available.')).toHaveCount(0)
+  })
+
+  test('closes connection details with the top-right control or Escape', async ({ page }) => {
+    await signIn(page)
+    const connection = { id: 'connection-close', org_id: organisation, kind: 'forge', provider: 'gitea', name: 'close control fixture with a deliberately long integration name for narrow layouts', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: { billing_route: 'forge' }, capabilities: {}, verified_at: null }
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      if (new URL(route.request().url()).pathname.endsWith('/connection-close')) return route.fulfill({ json: connection })
+      return route.fulfill({ json: { items: [connection], complete: true } })
+    })
+    await page.goto(`/org/${organisation}/connections`)
+    await page.getByRole('row', { name: /close control fixture/ }).getByRole('button', { name: 'Open' }).click()
+    await expect(page.getByRole('button', { name: 'Close connection details' })).toBeVisible()
+    await expect(page.getByText('Back to list')).toHaveCount(0)
+    await page.setViewportSize({ width: 390, height: 844 })
+    const title = page.locator('.detail-panel > header > div:first-child')
+    const actions = page.locator('.detail-panel .detail-actions')
+    const titleBox = await title.boundingBox()
+    const actionsBox = await actions.boundingBox()
+    expect(titleBox).not.toBeNull()
+    expect(actionsBox).not.toBeNull()
+    expect(actionsBox!.y).toBeGreaterThanOrEqual(titleBox!.y + titleBox!.height - 1)
+    expect(titleBox!.x + titleBox!.width).toBeLessThanOrEqual(390)
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+    const closeBox = await page.getByRole('button', { name: 'Close connection details' }).boundingBox()
+    expect(closeBox!.x + closeBox!.width).toBeLessThanOrEqual(390)
+    await page.keyboard.press('Escape')
+    await expect(page.getByRole('button', { name: 'Close connection details' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Open' })).toBeFocused()
   })
 
   test('shows runner pool controls without inventing enrolled runners', async ({ page }) => {

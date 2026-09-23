@@ -1,0 +1,53 @@
+.connections-page { gap: 0; }
+.connections-inventory { min-width: 0; }
+.connections-list-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 2px 0 12px; }
+.connections-list-head h2 { color: var(--text-muted); font-size: 12px; font-weight: 600; }
+.connections-list-actions { display: flex; align-items: center; gap: 8px; }
+.connections-refresh { display: inline-grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface); }
+.connections-refresh:hover { color: var(--text); background: var(--surface-3); }
+.connections-categories { display: flex; gap: 2px; padding: 0 0 10px; border-bottom: 1px solid var(--border); overflow-x: auto; }
+.connections-categories .button { min-height: 32px; padding: 5px 12px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; }
+.connections-categories .button:hover { color: var(--text); background: var(--surface-3); }
+.connections-categories .button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); }
+.connections-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 210px); gap: 12px; align-items: end; max-width: 620px; padding: 14px 0; }
+.connections-filters label { display: grid; gap: 4px; color: var(--text-subtle); font-size: 11px; }
+.connections-filters input, .connections-filters select { height: 36px; }
+.connections-inventory .table-card { border-top: 1px solid var(--border); }
+.connections-inventory .table-wrap { overflow-x: auto; }
+.connections-inventory .connections-table { width: 100%; min-width: 570px; table-layout: fixed; }
+.connections-inventory .connections-table th:first-child, .connections-inventory .connections-table td:first-child { width: 34%; }
+.connections-inventory .connections-table th:nth-child(2), .connections-inventory .connections-table td:nth-child(2) { width: 19%; }
+.connections-inventory .connections-table th:nth-child(3), .connections-inventory .connections-table td:nth-child(3) { width: 17%; }
+.connections-inventory .connections-table th:nth-child(4), .connections-inventory .connections-table td:nth-child(4) { width: 18%; }
+.connections-inventory .connections-table th:last-child, .connections-inventory .connections-table td:last-child { width: 12%; text-align: right; }
+.connections-inventory .connections-table td { overflow-wrap: anywhere; }
+.connections-page .split-view { margin-top: 0; }
+.connections-page .split-detail { min-width: 0; }
+@media (max-width: 720px) {
+  .connections-list-head { padding-bottom: 10px; }
+  .connections-filters { grid-template-columns: minmax(0, 1fr) minmax(122px, .65fr); gap: 9px; padding: 12px 0; }
+  .connections-filters label { min-width: 0; }
+}
+@media (max-width: 720px) {
+  .connections-page .connections-inventory .connections-table { min-width: 0; table-layout: auto; }
+  .connections-page .connections-inventory .connections-table thead { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; }
+  .connections-page .connections-inventory .connections-table tbody { display: grid; gap: 6px; padding-top: 7px; }
+  .connections-page .connections-inventory .connections-table tr { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "name state" "provider open" "version open"; align-items: center; gap: 2px 10px; padding: 8px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+  .connections-page .connections-inventory .connections-table tr:hover { background: var(--surface-2); }
+  .connections-page .connections-inventory .connections-table td { min-width: 0; padding: 0; border: 0; }
+  .connections-page .connections-inventory .connections-table td:first-child { grid-area: name; width: auto; }
+  .connections-page .connections-inventory .connections-table td:nth-child(2) { grid-area: provider; width: auto; color: var(--text-muted); }
+  .connections-page .connections-inventory .connections-table td:nth-child(3) { grid-area: state; width: auto; justify-self: end; }
+  .connections-page .connections-inventory .connections-table td:nth-child(4) { grid-area: version; width: auto; color: var(--text-subtle); font-size: 11px; }
+  .connections-page .connections-inventory .connections-table td:last-child { grid-area: open; width: auto; align-self: center; text-align: right; }
+}
+.connection-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
+
+@media (max-width: 720px) {
+  .connections-page .detail-panel > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 36px; }
+  .connections-page .detail-panel > header > div:first-child { min-width: 0; }
+  .connections-page .detail-panel > header h2 { max-width: 100%; overflow-wrap: anywhere; line-height: 1.25; }
+  .connections-page .detail-panel > header > div:first-child > p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
+  .connections-page .detail-panel > header .table-meta { min-width: 0; overflow-wrap: anywhere; }
+  .connections-page .detail-panel > header .detail-actions { grid-row: 2; justify-content: flex-start; }
+}
