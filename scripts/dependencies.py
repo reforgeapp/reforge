@@ -1,8 +1,23 @@
+import hashlib
 import json
 import pathlib
 import subprocess
 
 root = pathlib.Path(__file__).resolve().parents[1]
+notice_manifest = root / 'docs/implementation/notice-sources/manifest.json'
+manifest = json.loads(notice_manifest.read_text())
+lock_hash = hashlib.sha256((root / 'deploy/docs/requirements.lock').read_bytes()).hexdigest()
+if lock_hash != manifest['docs_requirements_lock_sha256']:
+    raise ValueError('docs requirements lock hash mismatch')
+notice_source_root = (root / 'docs/implementation/notice-sources').resolve()
+notice_sources = []
+for record in manifest['records']:
+    notice_path = (root / record['notice']).resolve()
+    try:
+        notice_path.relative_to(notice_source_root)
+    except ValueError as error:
+        raise ValueError(f"notice path escapes source root: {record['notice']}") from error
+    notice_sources.append((record, notice_path))
 
 def modules_from(command):
     raw = subprocess.check_output(command, cwd=root, text=True)
@@ -113,6 +128,18 @@ for name, version, item, directory, metadata, repository_url, repository_dir, ev
     for file in evidence:
         text = '\n'.join(line.rstrip() for line in file.read_text(errors='replace').splitlines()).rstrip()
         notices.append(f'{name} {version} / {file.name}\n{text}')
+
+for record, notice_path in notice_sources:
+    notice_bytes = notice_path.read_bytes()
+    digest = hashlib.sha256(notice_bytes).hexdigest()
+    if digest != record['notice_sha256']:
+        raise ValueError(f"notice hash mismatch: {record['notice']}")
+    text = '\n'.join(line.rstrip() for line in notice_bytes.decode('utf-8').splitlines()).rstrip()
+    notices.append(
+        f"{record['dependency']} {record['version']} / {notice_path.name}\n"
+        f"Source: {record['source']}\n"
+        f"SHA-256: {digest}\n{text}"
+    )
 
 inventory = [
     '# Dependency inventory',

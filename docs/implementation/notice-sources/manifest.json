@@ -1,0 +1,408 @@
+{
+  "docs_requirements_lock_sha256": "68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137",
+  "records": [
+    {
+      "dependency": "nginx",
+      "notice": "docs/implementation/notice-sources/docs-image/nginx-image-COPYRIGHT",
+      "notice_sha256": "4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a",
+      "scope": "docs-image",
+      "source": "final docs image sha256:d1ee1b08837c5f9e8e6ded7a66f5b9aa34d54d7c37dbcd9ee1e414d899660d6f; /usr/share/licenses/nginx/COPYRIGHT",
+      "version": "1.27.5-r1"
+    },
+    {
+      "dependency": "nginx-module-geoip",
+      "notice": "docs/implementation/notice-sources/docs-image/nginx-module-geoip-image-COPYRIGHT",
+      "notice_sha256": "4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a",
+      "scope": "docs-image",
+      "source": "final docs image sha256:d1ee1b08837c5f9e8e6ded7a66f5b9aa34d54d7c37dbcd9ee1e414d899660d6f; /usr/share/licenses/nginx-module-geoip/COPYRIGHT",
+      "version": "1.27.5-r1"
+    },
+    {
+      "dependency": "nginx-module-image-filter",
+      "notice": "docs/implementation/notice-sources/docs-image/nginx-module-image-filter-image-COPYRIGHT",
+      "notice_sha256": "4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a",
+      "scope": "docs-image",
+      "source": "final docs image sha256:d1ee1b08837c5f9e8e6ded7a66f5b9aa34d54d7c37dbcd9ee1e414d899660d6f; /usr/share/licenses/nginx-module-image-filter/COPYRIGHT",
+      "version": "1.27.5-r1"
+    },
+    {
+      "dependency": "nginx-module-njs",
+      "notice": "docs/implementation/notice-sources/docs-image/nginx-module-njs-image-COPYRIGHT",
+      "notice_sha256": "bf0746e75035cc2b9c3346feb08fd7aa414c088719c00e76734c6d7fe9c0647d",
+      "scope": "docs-image",
+      "source": "final docs image sha256:d1ee1b08837c5f9e8e6ded7a66f5b9aa34d54d7c37dbcd9ee1e414d899660d6f; /usr/share/licenses/nginx-module-njs/COPYRIGHT",
+      "version": "1.27.5.0.8.10-r1"
+    },
+    {
+      "dependency": "nginx-module-xslt",
+      "notice": "docs/implementation/notice-sources/docs-image/nginx-module-xslt-image-COPYRIGHT",
+      "notice_sha256": "4f72e2bccf0bcd839dd447ab6f359336f428caa1987a9afec2bc9ade5711658a",
+      "scope": "docs-image",
+      "source": "final docs image sha256:d1ee1b08837c5f9e8e6ded7a66f5b9aa34d54d7c37dbcd9ee1e414d899660d6f; /usr/share/licenses/nginx-module-xslt/COPYRIGHT",
+      "version": "1.27.5-r1"
+    },
+    {
+      "dependency": "Material Icons",
+      "notice": "docs/implementation/notice-sources/docs-material/Material_Icons-9.7.0-LICENSE",
+      "notice_sha256": "3bae6305bcaa6d10219b999f65c342034c2d40b1c0e8567fa08605e73ccba829",
+      "scope": "docs-material",
+      "source": "mkdocs-material 9.7.0 source distribution mkdocs_material-9.7.0.tar.gz",
+      "source_sha256": "602b359844e906ee402b7ed9640340cf8a474420d02d8891451733b6b02314ec",
+      "version": "9.7.0"
+    },
+    {
+      "dependency": "MkDocs Material",
+      "notice": "docs/implementation/notice-sources/docs-material/MkDocs_Material-9.7.0-LICENSE",
+      "notice_sha256": "e1150f26b4c0f872627b39fda49ae3bd850304f2f7f3171ae0531c1f8f4dd078",
+      "scope": "docs-material",
+      "source": "mkdocs-material 9.7.0 source distribution mkdocs_material-9.7.0.tar.gz",
+      "source_sha256": "602b359844e906ee402b7ed9640340cf8a474420d02d8891451733b6b02314ec",
+      "version": "9.7.0"
+    },
+    {
+      "dependency": "clipboard",
+      "notice": "docs/implementation/notice-sources/npm-embedded/clipboard-2.0.11-clipboard-2.0.11-LICENSE",
+      "notice_sha256": "a798e7b5fa604117d52d607e05f1cbac3b2fa5da087837f412a1a3c866b4b748",
+      "scope": "npm-embedded",
+      "source": "npm tarball clipboard-2.0.11.tgz (sha512-C+0bbOqkezLIsmWSvlsXS0Q0bmkugu7jcfMIACB+RDEntIzQIkdr148we28AfSloQLRdZlYL/QYyrq05j/3Faw==)",
+      "source_integrity": "sha512-C+0bbOqkezLIsmWSvlsXS0Q0bmkugu7jcfMIACB+RDEntIzQIkdr148we28AfSloQLRdZlYL/QYyrq05j/3Faw==",
+      "source_sha256": "735f1b1e9ac7266401ed5f72728738007599ce6e1f3b14e490dab8b0fd1b653f",
+      "version": "2.0.11"
+    },
+    {
+      "dependency": "escape-html",
+      "notice": "docs/implementation/notice-sources/npm-embedded/escape-html-1.0.3-escape-html-1.0.3-LICENSE",
+      "notice_sha256": "255aa557a1f55224ce522f311629c0bf20854740a67955cefd798fbd1d3d1ded",
+      "scope": "npm-embedded",
+      "source": "npm tarball escape-html-1.0.3.tgz (sha1-Aljq5NPQwJdN4cFpGI7wBR0dGYg=)",
+      "source_integrity": "sha1-Aljq5NPQwJdN4cFpGI7wBR0dGYg=",
+      "source_sha256": "a101155c3cbdfb1e4f98f2f83c8b5e392db6accfa606df0eba8b87a5762b0366",
+      "version": "1.0.3"
+    },
+    {
+      "dependency": "focus-visible",
+      "notice": "docs/implementation/notice-sources/npm-embedded/focus-visible-5.2.1-focus-visible-5.2.1-LICENSE.md",
+      "notice_sha256": "7aeb3acf108717fd0f68ada2eebeaaec46dcdd239b4c5e7b4b8e6ea8861acfdd",
+      "scope": "npm-embedded",
+      "source": "npm tarball focus-visible-5.2.1.tgz (sha512-8Bx950VD1bWTQJEH/AM6SpEk+SU55aVnp4Ujhuuxy3eMEBCRwBnTBnVXr9YAPvZL3/CNjCa8u4IWfNmEO53whA==)",
+      "source_integrity": "sha512-8Bx950VD1bWTQJEH/AM6SpEk+SU55aVnp4Ujhuuxy3eMEBCRwBnTBnVXr9YAPvZL3/CNjCa8u4IWfNmEO53whA==",
+      "source_sha256": "c13af10425e111b5e9d8bfdd55fd2a0007f589f17ca6b7e38aaa1921c42d0297",
+      "version": "5.2.1"
+    },
+    {
+      "dependency": "lunr",
+      "notice": "docs/implementation/notice-sources/npm-embedded/lunr-2.3.9-lunr-2.3.9-LICENSE",
+      "notice_sha256": "ae33f5a0d538cd93de1136a052ffa734b59d6b28e7cfc19e03de1d8b5d9f40ea",
+      "scope": "npm-embedded",
+      "source": "npm tarball lunr-2.3.9.tgz (sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==)",
+      "source_integrity": "sha512-zTU3DaZaF3Rt9rhN3uBMGQD3dD2/vFQqnvZCDv4dl5iOzq2IZQqTxu90r4E5J+nP70J3ilqVCrbho2eWaeW8Ow==",
+      "source_sha256": "d886e7dc4339a7ede2e5e7fe0e07e6a6feeb1b3bcca0adea836cf53c62699030",
+      "version": "2.3.9"
+    },
+    {
+      "dependency": "material-design-color",
+      "notice": "docs/implementation/notice-sources/npm-embedded/material-design-color-2.3.2-material-design-color-2.3.2-LICENSE",
+      "notice_sha256": "9363d160bf41d46d83901a5d24fc3fe2094c2afc17b4a2378914b273977ee2de",
+      "scope": "npm-embedded",
+      "source": "npm tarball material-design-color-2.3.2.tgz (sha1-6K+VjYUqh0e/shHkjOEoK9qRiBU=)",
+      "source_integrity": "sha1-6K+VjYUqh0e/shHkjOEoK9qRiBU=",
+      "source_sha256": "2aaf81c9404f322e0105b29dad80fcd0d93cc980f83e035cf144321770eab0fb",
+      "version": "2.3.2"
+    },
+    {
+      "dependency": "rxjs",
+      "notice": "docs/implementation/notice-sources/npm-embedded/rxjs-7.8.2-rxjs-7.8.2-LICENSE.txt",
+      "notice_sha256": "81c407ac717813b0e3795402960e04003c7bba8ba59b621624707028531c9ade",
+      "scope": "npm-embedded",
+      "source": "npm tarball rxjs-7.8.2.tgz (sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==)",
+      "source_integrity": "sha512-dhKf903U/PQZY6boNNtAGdWbG85WAbjT/1xYoZIC7FAY0yWapOBQVsVrDl58W86//e1VpMNBtRV4MaXfdMySFA==",
+      "source_sha256": "2312f8ffd9726ffd7bd53ea12c5f13663d09a3dc3326f448c70b88f5ef6fac82",
+      "version": "7.8.2"
+    },
+    {
+      "dependency": "tslib",
+      "notice": "docs/implementation/notice-sources/npm-embedded/tslib-2.7.0-tslib-2.7.0-CopyrightNotice.txt",
+      "notice_sha256": "da16ddb65f8ca390998fb99223d0112498b56b45784d00afd77ff8ce1ac4de8b",
+      "scope": "npm-embedded",
+      "source": "npm tarball tslib-2.7.0.tgz (sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==)",
+      "source_integrity": "sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==",
+      "source_sha256": "70d057c311c797b234d8868f33330af39a977da94e92264257736b0b88d57e4c",
+      "version": "2.7.0"
+    },
+    {
+      "dependency": "tslib",
+      "notice": "docs/implementation/notice-sources/npm-embedded/tslib-2.7.0-tslib-2.7.0-LICENSE.txt",
+      "notice_sha256": "210b19e543130388c68654b7497e967119ce17145f66ab7d85688fbd70f08751",
+      "scope": "npm-embedded",
+      "source": "npm tarball tslib-2.7.0.tgz (sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==)",
+      "source_integrity": "sha512-gLXCKdN1/j47AiHiOkJN69hJmcbGTHI0ImLmbYLHykhgeN0jVGola9yVjFgzCUklsZQMW55o+dW7IXv3RCXDzA==",
+      "source_sha256": "70d057c311c797b234d8868f33330af39a977da94e92264257736b0b88d57e4c",
+      "version": "2.7.0"
+    },
+    {
+      "dependency": "babel",
+      "notice": "docs/implementation/notice-sources/python-docs/babel-2.18.0-LICENSE",
+      "notice_sha256": "86bad5758c7859ba06251f8f12eee885eca31369923dfb2b87a7c13c3634d870",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed babel-2.18.0.dist-info/licenses/LICENSE",
+      "version": "2.18.0"
+    },
+    {
+      "dependency": "backrefs",
+      "notice": "docs/implementation/notice-sources/python-docs/backrefs-8.0-LICENSE.md",
+      "notice_sha256": "c1127b4363b735b7898a7127396ff7e4faa48e58d221c5d9dc616533f811a25c",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed backrefs-8.0.dist-info/licenses/LICENSE.md",
+      "version": "8.0"
+    },
+    {
+      "dependency": "certifi",
+      "notice": "docs/implementation/notice-sources/python-docs/certifi-2026.7.22-LICENSE",
+      "notice_sha256": "e93716da6b9c0d5a4a1df60fe695b370f0695603d21f6f83f053e42cfc10caf7",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed certifi-2026.7.22.dist-info/licenses/LICENSE",
+      "version": "2026.7.22"
+    },
+    {
+      "dependency": "charset-normalizer",
+      "notice": "docs/implementation/notice-sources/python-docs/charset-normalizer-3.5.1-LICENSE",
+      "notice_sha256": "6d0d41bfe170ac6c7dc248c9a63e254d0fb45a60d50a8257d0af92c6e249b887",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed charset_normalizer-3.5.1.dist-info/licenses/LICENSE",
+      "version": "3.5.1"
+    },
+    {
+      "dependency": "click",
+      "notice": "docs/implementation/notice-sources/python-docs/click-8.5.0-LICENSE.txt",
+      "notice_sha256": "9a8ad106a394e853bfe21f42f4e72d592819a22805d991b5f3275029292b658d",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed click-8.5.0.dist-info/licenses/LICENSE.txt",
+      "version": "8.5.0"
+    },
+    {
+      "dependency": "colorama",
+      "notice": "docs/implementation/notice-sources/python-docs/colorama-0.4.6-LICENSE.txt",
+      "notice_sha256": "cac35c02686e5d04a5a7140bfb3b36e73aed496656e891102e428886d7930318",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed colorama-0.4.6.dist-info/licenses/LICENSE.txt",
+      "version": "0.4.6"
+    },
+    {
+      "dependency": "ghp-import",
+      "notice": "docs/implementation/notice-sources/python-docs/ghp-import-2.1.0-LICENSE",
+      "notice_sha256": "0bc8ffb45f26edd1cd0de4f50425ae2cb46c58c6d8ac113984d4120be355afa9",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed ghp_import-2.1.0.dist-info/LICENSE",
+      "version": "2.1.0"
+    },
+    {
+      "dependency": "idna",
+      "notice": "docs/implementation/notice-sources/python-docs/idna-3.20-LICENSE.md",
+      "notice_sha256": "1a9a4f0e3d479a27240ddd59a9137a66ab4a0f9dfdc8ca6188cc0bfd85187f04",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed idna-3.20.dist-info/licenses/LICENSE.md",
+      "version": "3.20"
+    },
+    {
+      "dependency": "Jinja2",
+      "notice": "docs/implementation/notice-sources/python-docs/Jinja2-3.1.6-LICENSE.txt",
+      "notice_sha256": "3b49dcee4105eb37bac10faf1be260408fe85d252b8e9df2e0979fc1e094437b",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed jinja2-3.1.6.dist-info/licenses/LICENSE.txt",
+      "version": "3.1.6"
+    },
+    {
+      "dependency": "Markdown",
+      "notice": "docs/implementation/notice-sources/python-docs/Markdown-3.10.3-LICENSE.md",
+      "notice_sha256": "7ba4eb6d10b32b2d11dce13821340351cdbbb30ba8ccc67841db2ffd86e79aca",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed markdown-3.10.3.dist-info/licenses/LICENSE.md",
+      "version": "3.10.3"
+    },
+    {
+      "dependency": "MarkupSafe",
+      "notice": "docs/implementation/notice-sources/python-docs/MarkupSafe-3.0.3-LICENSE.txt",
+      "notice_sha256": "489a8e1108509ed98a37bb983e11e0f7e1d31f0bd8f99a79c8448e7ff37d07ea",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed markupsafe-3.0.3.dist-info/licenses/LICENSE.txt",
+      "version": "3.0.3"
+    },
+    {
+      "dependency": "mergedeep",
+      "notice": "docs/implementation/notice-sources/python-docs/mergedeep-1.3.4-LICENSE",
+      "notice_sha256": "11592bd9d56693c987da849c075d636690916d01a47ca234a14bbcf0fe176b37",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed mergedeep-1.3.4.dist-info/LICENSE",
+      "version": "1.3.4"
+    },
+    {
+      "dependency": "mkdocs",
+      "notice": "docs/implementation/notice-sources/python-docs/mkdocs-1.6.1-LICENSE",
+      "notice_sha256": "26041bd625fc39411dc4b32748216236931c904adb90c2b3e0ba697090a5d54e",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed mkdocs-1.6.1.dist-info/licenses/LICENSE",
+      "version": "1.6.1"
+    },
+    {
+      "dependency": "mkdocs-get-deps",
+      "notice": "docs/implementation/notice-sources/python-docs/mkdocs-get-deps-0.2.2-LICENSE.md",
+      "notice_sha256": "e5024bae9b4ecadda35184e20282a81cb25164620d2ffb0261e6da3249aab7b2",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed mkdocs_get_deps-0.2.2.dist-info/licenses/LICENSE.md",
+      "version": "0.2.2"
+    },
+    {
+      "dependency": "mkdocs-material",
+      "notice": "docs/implementation/notice-sources/python-docs/mkdocs-material-9.7.0-LICENSE",
+      "notice_sha256": "e1150f26b4c0f872627b39fda49ae3bd850304f2f7f3171ae0531c1f8f4dd078",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed mkdocs_material-9.7.0.dist-info/licenses/LICENSE",
+      "version": "9.7.0"
+    },
+    {
+      "dependency": "mkdocs-material-extensions",
+      "notice": "docs/implementation/notice-sources/python-docs/mkdocs-material-extensions-1.3.1-LICENSE.md",
+      "notice_sha256": "b3cc149031d83ec272ace499e62217c5066e0200a5560d818d90cdc7bc05403c",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed mkdocs_material_extensions-1.3.1.dist-info/licenses/LICENSE.md",
+      "version": "1.3.1"
+    },
+    {
+      "dependency": "packaging",
+      "notice": "docs/implementation/notice-sources/python-docs/packaging-26.3-LICENSE",
+      "notice_sha256": "cad1ef5bd340d73e074ba614d26f7deaca5c7940c3d8c34852e65c4909686c48",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed packaging-26.3.dist-info/licenses/LICENSE",
+      "version": "26.3"
+    },
+    {
+      "dependency": "packaging",
+      "notice": "docs/implementation/notice-sources/python-docs/packaging-26.3-LICENSE.APACHE",
+      "notice_sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+      "version": "26.3"
+    },
+    {
+      "dependency": "packaging",
+      "notice": "docs/implementation/notice-sources/python-docs/packaging-26.3-LICENSE.BSD",
+      "notice_sha256": "b70e7e9b742f1cc6f948b34c16aa39ffece94196364bc88ff0d2180f0028fac5",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed packaging-26.3.dist-info/licenses/LICENSE.BSD",
+      "version": "26.3"
+    },
+    {
+      "dependency": "paginate",
+      "notice": "docs/implementation/notice-sources/python-docs/paginate-0.5.7-LICENSE",
+      "notice_sha256": "352e5b276922f2e362931bbed2dcd2e94331a45b6a41a1b465a8300addcc1553",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed paginate-0.5.7.dist-info/LICENSE",
+      "version": "0.5.7"
+    },
+    {
+      "dependency": "pathspec",
+      "notice": "docs/implementation/notice-sources/python-docs/pathspec-1.1.1-LICENSE",
+      "notice_sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed pathspec-1.1.1.dist-info/licenses/LICENSE",
+      "version": "1.1.1"
+    },
+    {
+      "dependency": "platformdirs",
+      "notice": "docs/implementation/notice-sources/python-docs/platformdirs-4.11.12-LICENSE",
+      "notice_sha256": "29e0fd62e929850e86eb28c3fdccf0cefdf4fa94879011cffb3d0d4bed6d4db6",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed platformdirs-4.11.12.dist-info/licenses/LICENSE",
+      "version": "4.11.12"
+    },
+    {
+      "dependency": "Pygments",
+      "notice": "docs/implementation/notice-sources/python-docs/Pygments-2.21.0-LICENSE",
+      "notice_sha256": "a9d66f1d526df02e29dce73436d34e56e8632f46c275bbdffc70569e882f9f17",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed pygments-2.21.0.dist-info/licenses/LICENSE",
+      "version": "2.21.0"
+    },
+    {
+      "dependency": "pymdown-extensions",
+      "notice": "docs/implementation/notice-sources/python-docs/pymdown-extensions-12.1-LICENSE.md",
+      "notice_sha256": "e6645f914fbae5bc557419fcafbeab9e375897e8274c54e2b177953e9354f93e",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed pymdown_extensions-12.1.dist-info/licenses/LICENSE.md",
+      "version": "12.1"
+    },
+    {
+      "dependency": "python-dateutil",
+      "notice": "docs/implementation/notice-sources/python-docs/python-dateutil-2.9.0.post0-LICENSE",
+      "notice_sha256": "ba00f51a0d92823b5a1cde27d8b5b9d2321e67ed8da9bc163eff96d5e17e577e",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed python_dateutil-2.9.0.post0.dist-info/LICENSE",
+      "version": "2.9.0.post0"
+    },
+    {
+      "dependency": "PyYAML",
+      "notice": "docs/implementation/notice-sources/python-docs/PyYAML-6.0.3-LICENSE",
+      "notice_sha256": "8d3928f9dc4490fd635707cb88eb26bd764102a7282954307d3e5167a577e8a4",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed pyyaml-6.0.3.dist-info/licenses/LICENSE",
+      "version": "6.0.3"
+    },
+    {
+      "dependency": "pyyaml_env_tag",
+      "notice": "docs/implementation/notice-sources/python-docs/pyyaml_env_tag-1.1-LICENSE",
+      "notice_sha256": "75a5994afa284b67e6e66d7f83d2d39e729736511491b3d309ea7a064cbde3ce",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed pyyaml_env_tag-1.1.dist-info/licenses/LICENSE",
+      "version": "1.1"
+    },
+    {
+      "dependency": "requests",
+      "notice": "docs/implementation/notice-sources/python-docs/requests-2.34.2-LICENSE",
+      "notice_sha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed requests-2.34.2.dist-info/licenses/LICENSE",
+      "version": "2.34.2"
+    },
+    {
+      "dependency": "requests",
+      "notice": "docs/implementation/notice-sources/python-docs/requests-2.34.2-NOTICE",
+      "notice_sha256": "f5110972dedad2b4e9d314518daf3b7d72d6e02e499acd802181de6f74571dcc",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed requests-2.34.2.dist-info/licenses/NOTICE",
+      "version": "2.34.2"
+    },
+    {
+      "dependency": "six",
+      "notice": "docs/implementation/notice-sources/python-docs/six-1.17.0-LICENSE",
+      "notice_sha256": "4375ba20e2b9c6c4e7cad2940a628fd90e95cc3d50ee92aae755715d8ba1fbd0",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed six-1.17.0.dist-info/LICENSE",
+      "version": "1.17.0"
+    },
+    {
+      "dependency": "urllib3",
+      "notice": "docs/implementation/notice-sources/python-docs/urllib3-2.8.0-LICENSE.txt",
+      "notice_sha256": "130e3a64d5fdd5d096a752694634a7d9df284469de86e5732100268041e3d686",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed urllib3-2.8.0.dist-info/licenses/LICENSE.txt",
+      "version": "2.8.0"
+    },
+    {
+      "dependency": "watchdog",
+      "notice": "docs/implementation/notice-sources/python-docs/watchdog-6.0.0-COPYING",
+      "notice_sha256": "39f081828db6f94c70123fa4fb30c1bce3e215a8fdece53a49991fe076a69c08",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed watchdog-6.0.0.dist-info/COPYING",
+      "version": "6.0.0"
+    },
+    {
+      "dependency": "watchdog",
+      "notice": "docs/implementation/notice-sources/python-docs/watchdog-6.0.0-LICENSE",
+      "notice_sha256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+      "scope": "python-docs",
+      "source": "builder image sha256:c0b19514dda3599b7d85136373cb498398d8a0feda716de45a70b039bc281b61; requirements.lock sha256:68426162a84903217ba12250e3b8a267c9798e4408fbf0c9dc9a444616756137; installed watchdog-6.0.0.dist-info/LICENSE",
+      "version": "6.0.0"
+    }
+  ],
+  "schema": 1
+}
