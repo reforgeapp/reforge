@@ -1,0 +1,20 @@
+# T28a production browser review
+
+Built web assets and Go server from frozen source `18c8045d2b0751aaf8488132c93cc7525bb5032b` in detached worktree `/tmp/reforge-production-browser-18c8045`. `npm run build` and `go build -trimpath ./cmd/server` succeeded. Server binary SHA-256: `132406aa61ba683437bc4f2e28dd4ebfd3b44bae1cb323db7c9621630258043f`.
+
+The direct Go server uses the production web bundle, normal CSP, fixture authentication, and disposable local PostgreSQL. It serves at `http://127.0.0.1:8084` (PID `125266`). `/readyz` returned ready; `/api/v1/meta` reported `fixture_auth: true` and the configured docs root `http://127.0.0.1:8082/docs/`. The Policies Help dialog produced `http://127.0.0.1:8082/docs/policies/`, which returned HTTP 200. CSP on `/invite` was `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'`.
+
+Full Playwright run against the direct Go origin, one worker: **192 passed, 15 skipped, 0 failed** (207 total, 1.7 minutes). Full log: `.local/opus-resume/production-browser/full-suite.log`; Playwright last-run result: `.local/opus-resume/production-browser/playwright-results/.last-run.json` (`status: passed`, no failed tests). Trace mode was retain-on-failure; all tests passed, so no failure traces were generated.
+
+The 15 skips require external or explicit opt-in environments: `install-oidc.spec.ts` (non-development issuer); `repair-live.spec.ts` (Gitea, Ollama, runner, gVisor); `visual-states.spec.ts` (2) and `visual.spec.ts` (1) (`REFORGE_VISUAL=1`); `insights-live.spec.ts` and `campaigns-live.spec.ts` (disposable local DB opt-ins); `connected-admin-acceptance.spec.ts` (2, isolated backend 8091); `findings.spec.ts` and `connections.spec.ts` (imported repository / disposable Gitea); `connections-mobile.spec.ts` (isolated fixture app); `connected-acceptance.spec.ts` (2, isolated backend 8090); and `connected-reviewer.spec.ts` (isolated backend 8091 plus disposable Gitea). None was skipped due to a test failure.
+
+Sixteen Chromium screenshots cover Policies populated with an unsaved draft, Connections inventory and open controls, a DB-backed Audit event detail, and Organisation Identity invitations, each at 1440×900 and 390×844 viewports in light and dark themes. See `.local/opus-resume/production-browser/captures/metadata.json`. The auth session and Audit rows came from the disposable PostgreSQL fixture. Policies, connection inventory, OIDC settings, and invitation rows came from screenshot-only GET route fixtures; the capture script issued no POST, PUT, or DELETE requests. Longer screens were captured full-page.
+
+The demo remains running for owner review. Start it after stopping the existing instance with `python3 .local/opus-resume/production-browser/start-server.py`; stop it with `kill "$(cat .local/opus-resume/production-browser/server.pid)"`. Its docs service is the separate local `reforge-t28c-current-docs-serve` container at port 8082.
+
+
+## Follow-up after full suite
+
+After the 192-pass production run, Policies and Usage team pickers moved under the shared `['org', orgID, 'teams']` invalidation prefix with distinct infinite-query suffixes. Policy editor, effective summary, and simulation now label raw limits as micro-USD; values and API payload contract remain unchanged. The rename regression keeps one SPA session alive while moving Policies → Usage → Organisation → Policies → Usage; it failed with the old isolated keys and passed with the shared prefix.
+
+Verification on the updated workspace: `npm run typecheck` passed; focused Playwright run passed all 14 policy-editor and team-cache tests; `npm run build` passed. Full browser suite was not repeated after these narrow frontend changes. Demo at port 8084 now serves that rebuilt frontend on the same frozen Go binary and docs URL above. Screenshot set was refreshed from this bundle. Each narrow capture waited until sidebar geometry was off-canvas (`right <= 1px`) with no backdrop; long views use full-page images. Capture log is `.local/opus-resume/production-browser/captures.log`.
