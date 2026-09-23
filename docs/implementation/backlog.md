@@ -1,5 +1,14 @@
 # Implementation backlog
 
+## Active resume override — 2026-09-23
+
+Owner authorizes Opus 5.5 CLI implementation first, GPT-6 Luna/DeepSeek 4.1-Flash fallback, maximum three workers across providers with exclusive ownership and no nested workers. Coordinator reviews all changes. Older Luna-only allocation below is historical.
+
+T28a/T29 current browser baseline `35b7545`: **153 passed / 27 failed / 15 skipped**, recorded at `cd2b94a`; earlier 154/14 summaries below are superseded. Audit/Policies regression slice reviewed and committed `8846d9d` (36 focused tests; eight theme/viewport probes). Remaining failures assigned to lifecycle/shared-focus workers. T29v invitations backend `20582c1` and GUI are under integration; real-browser CSP blocked the original form redirect. Approved correction: same-origin bounded redemption POST returns authorization URL JSON, followed by top-level navigation; keep all CSP/Origin/tenant/PKCE/token controls. Positive connected acceptance required without CSP bypass. User-visible errors, copy/revoke and new-member persistence are acceptance criteria. See [work status](work-status.md) and [current browser report](t28a-current-browser-review.md).
+
+Coordinator fresh restricted-role PostgreSQL full integration/race and auth/HTTP suites passed. Exact-current full browser/image gates and external certification remain open. No G5 claim.
+
+
 ## Current open work — 2026-09-23
 
 [Current work status](work-status.md) is the authoritative open-defect and acceptance index.

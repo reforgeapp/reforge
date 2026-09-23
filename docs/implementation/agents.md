@@ -2,7 +2,7 @@
 
 Status: owner resumed GUI review/implementation, 2026-09-23. Read [PLAN.md](../../PLAN.md), [product-rebuild.md](product-rebuild.md) and [backlog.md](backlog.md). Earlier planning/usage pauses are superseded.
 
-Current allocation override: root/Astra owns architecture and final review; Luna owns bounded implementation slices including sensitive work under Astra review. Root allocates exclusive ownership for shared files/contracts/migrations; workers cannot self-expand ownership. Maximum three Luna workers. Completion notifications preferred; avoid repeated polling.
+Current allocation override (owner, 2026-09-23): root/Astra owns architecture and final review. Prefer Claude CLI Opus 5.5 for bounded implementation, including sensitive work under coordinator review, until its usage window is exhausted; then use GPT-6 Luna or OpenCode DeepSeek 4.1-Flash for suitable slices. Maximum three workers total across providers, exclusive file ownership, no nested workers. CLI sessions use existing authorized account routes, not Reforge paid certification budgets. Older Luna-only allocation below is historical. Completion notifications or process completion preferred; avoid repeated model-driven status polling.
 
 ## Initial invocation
 

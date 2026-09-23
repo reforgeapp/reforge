@@ -1,8 +1,33 @@
 # Implementation progress
 
+## Resumed coordinator checkpoint — 2026-09-23
+
+User resumed implementation after reboot and authorized Opus-first CLI workers, falling back to lighter models when the Claude usage window is exhausted. Maximum three workers total; exclusive file ownership; no nested workers. Coordinator owns review/integration, not product implementation. Claude auth reports first-party `claude.ai` Pro subscription with no ANTHROPIC_API_KEY; all three initial workers resolved `opus` to `claude-opus-5-5`. No Reforge paid provider certification is authorized by worker-model access.
+
+Baseline HEAD `cd2b94a`. Latest full browser evidence is **153 passed, 27 failed, 15 skipped** at source `35b7545`, superseding earlier passing-suite summaries below. See [current browser report](t28a-current-browser-review.md). Invitation backend committed `20582c1`; pending GUI and Audit/test changes survived reboot and remain under review. Preserve unrelated `copilot-handoff-2026-09-22.md` edits. G5 remains open.
+
+| Worker | Exclusive scope | State / next check |
+| --- | --- | --- |
+| Opus identity | Organisation invitation GUI/API, invite landing, route registration; AppShell invitation bypass only; associated styles/tests | Finish signed local IdP new-member callback, replay/revoke and responsive GUI verification |
+| Opus audit_policy | Audit/Policies page components and route styles; insights, policy-impact and Audit close-panel test | Review pending fixes, reproduce failures, focused tests and accessible light/dark desktop/mobile captures |
+| Opus lifecycle | Connections/Changes components and route styles; lifecycle/team-cache/shell/theme/workspace/changes tests | Separate real data/focus bugs from stale fixtures; fix with meaningful regression checks |
+
+Worker briefs/session logs: `/tmp/reforge-opus-resume/`; durable acceptance artifacts belong under `.local/opus-resume/`. Shared fixture browser server: `127.0.0.1:5173`. Docker init script failed with ulimit error; directly launched local dockerd and verified daemon responds. Worker-owned disposable services may now be recreated; prior process IDs are not reused. Persistent goal tool still reports paused and exposes no resume operation; user resume authorization is recorded here while implementation proceeds.
+
+Reviewed integration: `8846d9d` closes the Audit/Policies regression slice (36 focused checks; 8 light/dark desktop/mobile accessibility probes). The second Opus worker now owns only `Workspace.tsx`, `styles/app.css` and a targeted shared-focus test. Invitation worker additionally owns redemption HTTP handler/tests and its contract to fix CSP-safe JSON authorization navigation; global CSP remains unchanged. Lifecycle worker scope unchanged.
+
+Coordinator restricted-role auth/HTTP race tests passed against a fresh migrated database. The earlier run on the integration-populated database failed its single-fixture-organisation assumption; both logs retained under `.local/opus-resume/integration/`. This does not turn the failing reused-fixture run into a pass.
+
+Remaining after this batch: review/integrate each diff, run exact-current browser/Go integration gates, resolve any remaining local failures, current container/source/notice checks, positive protected-merge acceptance if local prerequisites can be provided, and external certification inventory. Existing cgroup/hosted/provider/legal/human acceptance gaps are not waived.
+
+
 ## Current status index — 2026-09-23
 
 Current baseline: HEAD `35b7545` (2026-09-23), including reviewer acceptance `7175484`, connected Identity GUI `35b7545`, OIDC runtime `08669b4`, and [Alpine provenance review](t28c-alpine-provenance-review.md) (`af230bd`). Latest guarded Go/PostgreSQL integration passed (`.local/t28a-final-integration.log`, 183.115s); earlier ENOSPC is superseded. Full GUI run at `cce6879` is 154 passed/14 opt-in skips, before later GUI commits. Focused current GUI checks include Policies, Audit, Connections, Organisation Teams/Members, picker regression (4/4), and Overview sync attention (5/5); connected PG-backed team/member and policy persistence passed. Connected T29u journey passes native negative-path review using server binary built from working tree at `af230bd` on disposable Gitea/PostgreSQL: reload and distinct fresh-page picker both show new healthy connection; stale gate returns 409, reviewer request persists, current-head approval appears after reload, and unqualified merge returns exact 409. Positive authorized merge remains open. Organisation OIDC runtime/session binding is committed at `08669b4`; connected save/probe/activate/reload/sign-in/disable passed against it ([live GUI evidence](t29-identity-active-gui-review.md)). First-user invitation/onboarding remains in progress; customer IdP certification remains external. Restricted-role PG/race checks were reported passed by worker, without retained output. Overview warning has build/typecheck and 1440/390 light/dark captures; API data was fixture-intercepted. Clean amd64 image build/notice checks are at `cce6879`, not exact current `35b7545`. Alpine provenance review at `af230bd` checks package evidence for selected existing local images; source/archive coverage and legal review remain incomplete. Local DB credentials rotated. T27 cgroup/hostile qualification, external provider/runtime/tenant certification and G5 remain open. Use [work status](work-status.md), [backlog](backlog.md), [T28a reconciliation](t28a-reconciliation-review.md) and [evidence matrix](t28a-evidence-matrix.md).
+
+## Resumed verification — 2026-09-23
+
+Coordinator `go test -race ./internal/...` passed (database-dependent tests without configured URLs may skip). Guarded `scripts/test-integration.sh` passed against new disposable PostgreSQL18.6 on55437 with migration036 and restricted `reforge_runtime` (76.774s). Logs: `.local/opus-resume/integration/go-integration-race.log`; runtime credentials mode0600, not committed. Separate `reforge_dev` fixture database serves backend8080 for browser acceptance via Vite5173. Neither result closes the failing GUI gate or external certification.
 
 ## T28a connected native reviewer journey — 2026-09-23
 

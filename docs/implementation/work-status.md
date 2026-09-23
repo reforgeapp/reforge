@@ -1,5 +1,26 @@
 # Current work and review status
 
+## Resumed coordinator checkpoint — 2026-09-23
+
+User resumed implementation after reboot and authorized Opus-first CLI workers, falling back to lighter models when the Claude usage window is exhausted. Maximum three workers total; exclusive file ownership; no nested workers. Coordinator owns review/integration, not product implementation. Claude auth reports first-party `claude.ai` Pro subscription with no ANTHROPIC_API_KEY; all three initial workers resolved `opus` to `claude-opus-5-5`. No Reforge paid provider certification is authorized by worker-model access.
+
+Baseline HEAD `cd2b94a`. Latest full browser evidence is **153 passed, 27 failed, 15 skipped** at source `35b7545`, superseding earlier passing-suite summaries below. See [current browser report](t28a-current-browser-review.md). Invitation backend committed `20582c1`; pending GUI and Audit/test changes survived reboot and remain under review. Preserve unrelated `copilot-handoff-2026-09-22.md` edits. G5 remains open.
+
+| Worker | Exclusive scope | State / next check |
+| --- | --- | --- |
+| Opus identity | Organisation invitation GUI/API, invite landing, route registration; AppShell invitation bypass only; associated styles/tests | Finish signed local IdP new-member callback, replay/revoke and responsive GUI verification |
+| Opus audit_policy | Audit/Policies page components and route styles; insights, policy-impact and Audit close-panel test | Review pending fixes, reproduce failures, focused tests and accessible light/dark desktop/mobile captures |
+| Opus lifecycle | Connections/Changes components and route styles; lifecycle/team-cache/shell/theme/workspace/changes tests | Separate real data/focus bugs from stale fixtures; fix with meaningful regression checks |
+
+Worker briefs/session logs: `/tmp/reforge-opus-resume/`; durable acceptance artifacts belong under `.local/opus-resume/`. Shared fixture browser server: `127.0.0.1:5173`. Docker init script failed with ulimit error; directly launched local dockerd and verified daemon responds. Worker-owned disposable services may now be recreated; prior process IDs are not reused. Persistent goal tool still reports paused and exposes no resume operation; user resume authorization is recorded here while implementation proceeds.
+
+Reviewed integration: `8846d9d` closes the Audit/Policies regression slice (36 focused checks; 8 light/dark desktop/mobile accessibility probes). The second Opus worker now owns only `Workspace.tsx`, `styles/app.css` and a targeted shared-focus test. Invitation worker additionally owns redemption HTTP handler/tests and its contract to fix CSP-safe JSON authorization navigation; global CSP remains unchanged. Lifecycle worker scope unchanged.
+
+Coordinator restricted-role auth/HTTP race tests passed against a fresh migrated database. The earlier run on the integration-populated database failed its single-fixture-organisation assumption; both logs retained under `.local/opus-resume/integration/`. This does not turn the failing reused-fixture run into a pass.
+
+Remaining after this batch: review/integrate each diff, run exact-current browser/Go integration gates, resolve any remaining local failures, current container/source/notice checks, positive protected-merge acceptance if local prerequisites can be provided, and external certification inventory. Existing cgroup/hosted/provider/legal/human acceptance gaps are not waived.
+
+
 Updated 2026-09-23 against HEAD `35b7545`, including reviewer acceptance `7175484`, connected Identity GUI `35b7545`, OIDC runtime `08669b4`, and Alpine provenance review `af230bd`. Existing-member OIDC flow is locally verified; first-user onboarding remains in progress; positive protected merge, current full suite/image and external certification remain open. This index separates local verification from remaining local acceptance and external certification. The latest full browser suite predates current GUI commits.
 G5 is **open**. Application is locally runnable; it is not release-certified.
 
