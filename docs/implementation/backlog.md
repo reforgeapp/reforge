@@ -1,5 +1,12 @@
 # Implementation backlog
 
+### T29aa — Open numeric native-change deep links
+
+- Status: **investigating,2026-09-24**. Child T29u; Luna owns bounded route/Changes regression, Astra review.
+- Evidence: genuine Go repair and GUI inventory sync exposed native PR1 through API, but Changes URL did not open its Merge review. Installed router parses raw `change=1` as number; inventory IDs are strings. Exact UI cause requires reproduction.
+- Accept: reproduce with numeric native IDs using existing browser fixture; open correct requested item, preserve reload and organisation boundaries, retain missing-item state. No model retry or relaxed merge gates substitutes for this regression.
+- Full positive protected-merge GUI journey remains separately unpassed in [journey review](t29u-positive-gui-review.md).
+
 ### T29y — Remove closed mobile drawer shadow
 
 - Status: **implemented `c4fe426`,2026-09-24; final image gate pending**. Existing focused checks passed; Astra reviewed.
