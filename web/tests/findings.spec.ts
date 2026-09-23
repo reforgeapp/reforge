@@ -68,9 +68,12 @@ test('triages a real imported repository finding through versioned actions', asy
   const persisted = async (state: string, version: number) => { await expect.poll(async () => { const body = await findingAPI(); return body.items[0] }).toMatchObject({ state, version }); return (await findingAPI()).items[0] }
   let current = (await findingAPI()).items[0]
   expect(current?.state).toBe('open')
+  await details.getByRole('tab', { name: 'Repair' }).click()
   await details.getByRole('button', { name: 'Assign to me' }).click()
   current = await persisted('open', current.version + 1)
   expect(current.assigned_to).toBeTruthy()
+  await expect(details.getByLabel('Action reason')).toHaveValue('')
+  await expect(details.getByRole('button', { name: 'Dismiss', exact: true })).toBeDisabled()
   await expect(details.getByRole('button', { name: 'Unassign', exact: true })).toBeEnabled()
   await details.getByRole('button', { name: 'Unassign', exact: true }).click()
   current = await persisted('open', current.version + 1)
