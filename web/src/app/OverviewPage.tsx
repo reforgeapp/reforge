@@ -6,6 +6,7 @@ import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { overviewAPI } from '../overview-api'
 import { Tabs } from '../components/Workspace'
+import '../styles/overview.css'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
 const age = (seconds: number) => seconds < 3600 ? `${Math.max(1, Math.round(seconds / 60))}m` : seconds < 86400 ? `${Math.round(seconds / 3600)}h` : `${Math.round(seconds / 86400)}d`
@@ -29,7 +30,15 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/changes?state=blocked`}><span className="metric-label">Blocked</span><strong>{c.blocked}</strong><span className="metric-muted">Needs review</span></a>
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/deployments`}><span className="metric-label">Verified deployments</span><strong>{c.verified_deployments}</strong><span className="metric-muted">Health confirmed</span></a>
       </div>
-      {stale && <p className="table-meta" role="status"><a href={`/org/${encodeURIComponent(orgID)}/repositories?status=stale`}>{c.stale_repositories} {c.stale_repositories === 1 ? 'repository needs' : 'repositories need'} sync</a></p>}
+      {stale && <div className="overview-sync-attention" role="status">
+        <a className="overview-sync-link" href={`/org/${encodeURIComponent(orgID)}/repositories?status=stale`}>
+          <span className="overview-sync-mark" aria-hidden="true">!</span>
+          <span className="overview-sync-copy">
+            <strong>{c.stale_repositories} {c.stale_repositories === 1 ? 'repository needs' : 'repositories need'} sync</strong>
+            <span>Review stale repositories <span aria-hidden="true">→</span></span>
+          </span>
+        </a>
+      </div>}
       <dl className="capacity-strip" aria-label="Capacity and spend">
         <div><dt>Queued jobs</dt><dd>{value.capacity.queued_jobs}</dd></div>
         <div><dt>Running jobs</dt><dd>{value.capacity.running_jobs}</dd></div>
