@@ -94,8 +94,11 @@ services:
       context: ../docs
       dockerfile: Dockerfile
     restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,nodev,size=64m,mode=1777
     ports:
-      - "${REFORGE_DOCS_BIND:-127.0.0.1:8082}:80"
+      - "${REFORGE_DOCS_BIND:-127.0.0.1:8082}:8080"
     environment:
       DOCS_VERSION: ${REFORGE_VERSION:-dev}
 

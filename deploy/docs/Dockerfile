@@ -11,9 +11,10 @@ RUN case "$(uname -m)" in x86_64|aarch64) ;; *) printf "unsupported docs build a
 
 FROM nginx:1.27-alpine@sha256:65645c7bb6a0661892a8b03b89d0743208a18dd2f3f17a54ef4b76fb8e2f2a10
 COPY --from=build /site /opt/docs-site
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf /etc/nginx/nginx.conf
 COPY entrypoint.sh /entrypoint.sh
-RUN chmod 0755 /entrypoint.sh
+RUN rm /etc/nginx/conf.d/default.conf && chmod 0755 /entrypoint.sh
 ENV DOCS_VERSION=dev
-EXPOSE 80
+EXPOSE 8080
+USER 101:101
 ENTRYPOINT ["/entrypoint.sh"]
