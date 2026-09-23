@@ -41,9 +41,17 @@ test('actual campaign API persists a future scheduled lifecycle', async ({ page 
   try {
     await page.setViewportSize({ width: 390, height: 844 })
     await page.goto(`/org/${org}/campaigns`)
+    await page.getByRole('button', { name: 'Plan campaign' }).click()
+    const currentStep = page.getByRole('navigation', { name: 'Campaign steps' }).locator('[aria-current="step"]')
+    await expect(currentStep).toHaveText('1 Members')
     await page.getByRole('combobox', { name: 'Kind', exact: true }).selectOption('gitops')
     await page.getByLabel('Name', { exact: true }).fill('Future GUI acceptance')
+    await page.getByText('Advanced member JSON import').click()
     await page.getByLabel('Advanced member JSON').fill(JSON.stringify([member]))
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(currentStep).toHaveText('2 Execution')
+    await page.getByRole('button', { name: 'Next', exact: true }).click()
+    await expect(currentStep).toHaveText('3 Rollout')
     const nextDay = new Date(Date.now() + 86400000).toISOString().slice(0, 16)
     await page.getByLabel('Not before (UTC)').fill(nextDay)
     const previewResponse = page.waitForResponse(response => response.url().endsWith('/campaign-previews') && response.request().method() === 'POST')
@@ -65,7 +73,8 @@ test('actual campaign API persists a future scheduled lifecycle', async ({ page 
       await expect(detail).toContainText(state)
     }
     await page.reload()
-    await page.getByRole('button', { name: 'Future GUI acceptance', exact: true }).click()
+    await expect(page).toHaveURL(new RegExp(`[?&]campaign=${campaignID}(&|$)`))
+    await expect(detail).toBeVisible()
     await expect(detail).toContainText('cancelled')
     const members = await page.request.get(`${root}/campaigns/${campaignID}/members`).then(response => response.json())
     expect(members.items.every((item: { action_id?: string; state: string }) => !item.action_id && item.state === 'cancelled')).toBe(true)
@@ -73,7 +82,7 @@ test('actual campaign API persists a future scheduled lifecycle', async ({ page 
     await detail.getByRole('link', { name: 'Open campaign budget' }).focus()
     await page.keyboard.press('Enter')
     await expect(page.getByRole('combobox', { name: 'Scope', exact: true })).toHaveValue('campaign')
-    await expect(page.getByLabel('Scope ID', { exact: true })).toHaveValue(campaignID)
+    await expect(page.getByRole('combobox', { name: 'Named scope', exact: true })).toHaveValue(campaignID)
     await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
   } finally {
     if (campaignID) {

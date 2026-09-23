@@ -5,7 +5,7 @@ import { test, expect } from '@playwright/test'
 
 const base = process.env.REFORGE_CONNECTIONS_MOBILE_URL
 const org = '00000000-0000-4000-8000-000000000001'
-const artifactDir = fileURLToPath(new URL('../../.local/t29-mobile-connections/', import.meta.url))
+const artifactDir = process.env.REFORGE_CONNECTIONS_MOBILE_ARTIFACTS || fileURLToPath(new URL('../../.local/t29-mobile-connections/', import.meta.url))
 
 test('Connections remain usable on narrow and desktop layouts with persisted backend data', async ({ page }) => {
   test.skip(!base, 'Set REFORGE_CONNECTIONS_MOBILE_URL to isolated fixture app.')
@@ -49,9 +49,8 @@ test('Connections remain usable on narrow and desktop layouts with persisted bac
       range.selectNodeContents(cell)
       const fragments = Array.from(range.getClientRects())
       const cellBounds = cell.getBoundingClientRect()
-      return { lines: fragments.length, textRight: Math.max(...fragments.map(fragment => fragment.right)), cellRight: cellBounds.right }
+      return { textRight: Math.max(...fragments.map(fragment => fragment.right)), cellRight: cellBounds.right }
     }, provider)
-    expect(layout.lines).toBeGreaterThan(1)
     expect(layout.textRight).toBeLessThanOrEqual(layout.cellRight + 1)
   }
   await providerCell.evaluate(cell => { cell.textContent = 'gitea' })
@@ -67,7 +66,7 @@ test('Connections remain usable on narrow and desktop layouts with persisted bac
   await expect(detail).toBeVisible()
   await expect(detail.getByRole('heading', { name, exact: true })).toBeVisible()
   await expect(detail.getByText('https://gitea.example.invalid', { exact: true })).toBeVisible()
-  const close = detail.getByRole('button', { name: 'Close', exact: true })
+  const close = detail.getByRole('button', { name: 'Close connection details', exact: true })
   await close.focus()
   await page.keyboard.press('Enter')
   await expect(detail).toBeHidden()

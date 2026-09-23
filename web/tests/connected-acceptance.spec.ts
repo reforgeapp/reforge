@@ -29,6 +29,7 @@ async function switchOrganisation(page: Page, name: string) {
 
 test('real fixture-auth journey persists org-scoped GUI changes and blocks unqualified Codex', async ({ page }) => {
   test.skip(!acceptanceEnabled, 'requires explicitly selected isolated backend at 127.0.0.1:8090')
+  await mkdir(artifactDir, { recursive: true })
   const requests: string[] = []
   page.on('request', request => {
     if (request.url().includes('/api/v1/')) requests.push(`${request.method()} ${new URL(request.url()).pathname}`)
@@ -36,21 +37,23 @@ test('real fixture-auth journey persists org-scoped GUI changes and blocks unqua
   await signIn(page)
   await switchOrganisation(page, 'Acceptance')
   await page.getByRole('link', { name: 'Organisation', exact: true }).click()
-  await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Teams', exact: true })).toHaveAttribute('aria-selected', 'true')
 
   const teamName = `connected-${Date.now()}`
   const created = page.waitForResponse(response => response.request().method() === 'PUT' && response.url().includes(`/api/v1/orgs/${acceptanceOrg}/teams/`))
-  await page.getByLabel('New team name').fill(teamName)
   await page.getByRole('button', { name: 'Create team' }).click()
+  const teamDialog = page.getByRole('dialog', { name: 'Create team' })
+  await teamDialog.getByLabel('Team name').fill(teamName)
+  await teamDialog.getByRole('button', { name: 'Create team' }).click()
   expect((await created).ok()).toBeTruthy()
-  await expect(page.getByRole('row', { name: new RegExp(teamName) })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Teams' }).getByRole('button', { name: new RegExp(teamName) })).toBeVisible()
 
   await page.getByRole('link', { name: 'Repositories', exact: true }).click()
   await expect(page.getByRole('heading', { name: 'Repositories', exact: true })).toBeVisible()
   await page.getByRole('link', { name: 'Organisation', exact: true }).click()
-  await expect(page.getByRole('row', { name: new RegExp(teamName) })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Teams' }).getByRole('button', { name: new RegExp(teamName) })).toBeVisible()
   await page.reload()
-  await expect(page.getByRole('row', { name: new RegExp(teamName) })).toBeVisible()
+  await expect(page.getByRole('navigation', { name: 'Teams' }).getByRole('button', { name: new RegExp(teamName) })).toBeVisible()
   const persisted = await page.request.get(`/api/v1/orgs/${acceptanceOrg}/teams?limit=100`)
   expect(persisted.ok()).toBeTruthy()
   expect((await persisted.json()).items.map((team: { name: string }) => team.name)).toContain(teamName)
@@ -76,7 +79,7 @@ test('real fixture-auth journey persists org-scoped GUI changes and blocks unqua
 
   await switchOrganisation(page, 'Development')
   await page.getByRole('link', { name: 'Organisation', exact: true }).click()
-  await expect(page.getByRole('row', { name: new RegExp(teamName) })).toHaveCount(0)
+  await expect(page.getByRole('navigation', { name: 'Teams' }).getByRole('button', { name: new RegExp(teamName) })).toHaveCount(0)
   expect(requests.some(item => item.startsWith(`PUT /api/v1/orgs/${acceptanceOrg}/teams/`))).toBe(true)
   expect(requests.some(item => item.startsWith(`GET /api/v1/orgs/${developmentOrg}/teams`))).toBe(true)
   await writeFile(resolve(artifactDir, 'backend-requests.json'), JSON.stringify(requests, null, 2))
