@@ -1,17 +1,18 @@
 # Install
 
-Reforge ships as containers. A clean install does not require Go, Node or Python on the
-host, and it does not depend on repository-specific `/tmp` paths.
+Reforge ships as containers. A clean install needs Compose and a container runtime on the
+host; Go, Node, Python, database clients and repository-specific `/tmp` paths are not
+required.
 
 ## Host prerequisites
 
-- A container runtime with Compose (Podman or Docker).
-- Two CPU cores and 4 GB RAM for a small evaluation; production sizing depends on
-  repository count and concurrent runs.
-- A PostgreSQL 18 database reachable from the control-plane container.
-- An encryption key for credentials, base64-encoded, generated on the host and stored
-  outside the image. The KMS backend is used when configured; otherwise envelope
-  encryption uses this key.
+- Docker Compose or compatible Compose implementation.
+- Two CPU cores and 4 GB RAM for a small evaluation; size production from repository count
+  and concurrent runs.
+- HTTPS reverse proxy and DNS name for the browser-visible origin.
+- PostgreSQL 18 container storage with backups for the `pgdata` volume.
+- Secret storage for database credentials, the OIDC client secret and the base64-encoded
+  credential encryption key.
 
 !!! warning "Containers are not tenant isolation"
     Running Reforge in containers does not by itself isolate hostile repository code.
@@ -21,75 +22,82 @@ host, and it does not depend on repository-specific `/tmp` paths.
 
 ## Compose
 
-1. Copy `deploy/compose/.env.example` to `.env` and set at minimum:
-   - `REFORGE_DATABASE_URL` — runtime database role, not the migration owner.
-   - `REFORGE_MIGRATION_DATABASE_URL` — schema owner, used only by the migrator.
-   - `REFORGE_ENCRYPTION_KEY` — base64 key material.
-   - `REFORGE_PUBLIC_URL` — the browser-visible origin.
-2. Run the migrator once, then start the stack:
+1. Copy `deploy/compose/.env.example` to `.env`. Replace every `REPLACE_` value. Generate
+   URL-safe database secrets with `openssl rand -hex 32`; copy each migration/runtime
+   password into its matching database URL. `POSTGRES_PASSWORD` is the PostgreSQL
+   bootstrap/admin credential; the Reforge server does not use it. Keep `.env` outside
+   source control. Generate the credential key with
+   `openssl rand -base64 32` and store it outside the image.
+2. Set `REFORGE_PUBLIC_URL` to the HTTPS origin used by the browser. Configure the reverse
+   proxy certificate and route application paths to `REFORGE_BIND` (default
+   `127.0.0.1:8080`). Route `/docs/` and its assets, search and version paths to
+   `REFORGE_DOCS_BIND` (default `127.0.0.1:8082`); keep `REFORGE_DOCS_URL=/docs/`.
+   Configure the OIDC application with redirect URI
+   `${REFORGE_PUBLIC_URL}/auth/callback`; set the issuer URL, client ID and client
+   secret in `.env`.
+3. Start the stack:
 
    ```sh
-   docker compose --env-file .env -f deploy/compose/compose.yaml run --rm migrator
-   docker compose --env-file .env -f deploy/compose/compose.yaml up -d
+   docker compose --env-file .env -f deploy/compose/compose.yaml up --build -d
    ```
 
-3. Open `REFORGE_PUBLIC_URL`. In development fixture mode the sign-in button creates a
-   local owner. In every other mode you must complete OIDC or the self-hosted one-time
-   bootstrap described below.
+   Compose creates or updates the non-superuser migration and runtime roles, runs schema
+   migrations, applies runtime grants, then starts the server. Both role passwords must be
+   non-empty and match their URLs. The database service account is used only by the one-shot
+   role bootstrap; Reforge server connects as `reforge_runtime`.
+4. Open `REFORGE_PUBLIC_URL`, sign in through OIDC and use the self-hosted one-time
+   bootstrap form to create the first organisation and owner membership.
+
+On an existing volume, the bootstrap preserves database contents and never revokes role
+memberships; configured role passwords are reconciled from `.env`. It refuses to continue
+if either Reforge role is a member of another role, so review and remove such memberships
+explicitly before startup. It transfers database ownership only when the database is
+currently owned by `POSTGRES_USER` or `reforge_migrator`. For a custom-owned database,
+arrange ownership for `reforge_migrator` before starting Compose; the bootstrap stops
+without changing ownership otherwise. PostgreSQL does not apply
+`POSTGRES_PASSWORD` changes to an existing volume. Back up the database and encryption key
+before upgrades. Do not remove the `pgdata` volume as an upgrade step.
 
 ## First administrator
 
-Self-hosted installs create the first organisation through the one-time bootstrap:
-
-1. The operator sets `REFORGE_BOOTSTRAP_TOKEN` and `REFORGE_BOOTSTRAP_EXPIRES_AT` for the
-   first start.
-2. Sign in through the configured identity provider. A signed-in user with no organisation
-   sees the bootstrap form and enters the organisation name and the one-time token to
-   create the initial organisation and owner membership.
-3. The token is single-use. Remove it from the environment and restart after use.
-
-The host OIDC issuer, client ID and client secret are configured by the operator; the
-browser cannot create or change infrastructure authentication.
+Set a random `REFORGE_BOOTSTRAP_TOKEN` of at least 32 characters and an
+`REFORGE_BOOTSTRAP_EXPIRES_AT` timestamp in RFC3339 format before the first sign-in. A
+signed-in user without an organisation enters the token and organisation name to create the
+initial organisation and owner membership. Token is single-use; remove it from `.env` and
+restart after use.
 
 ## Editions and configuration
 
 `REFORGE_EDITION` is `self-hosted` or `hosted`. Both use the same schema and interface.
-
 Development fixture authentication requires explicit development mode and a loopback
-listen and public address, so it only works when the process runs directly on the host
-loopback; it is not usable through container port mapping. A container deployment
-therefore needs an HTTPS `REFORGE_PUBLIC_URL`, OIDC, or the one-time self-hosted
-bootstrap token described above. The Compose file passes `REFORGE_MODE` and
-`REFORGE_FIXTURE_AUTH` through only for host-loopback development.
+listen and public address. It is not usable through container port mapping. Production
+Compose therefore requires HTTPS `REFORGE_PUBLIC_URL` and configured OIDC for sign-in;
+the one-time bootstrap token creates the first organisation after authentication and does
+not replace OIDC.
 
-See [Security model](security.md) for credential custody, egress rules and the runner
-trust boundary, and [Support matrix and limitations](support-matrix.md) for what is
-certified in this build.
+See [Security model](security.md) for credential custody, egress rules and the runner trust
+boundary, and [Support matrix and limitations](support-matrix.md) for certification state.
 
 ## Local non-development verification
 
-`make install-check` (`scripts/install-check.sh`) runs the real non-development
-configuration without fixture authentication against a disposable local OIDC issuer and a
-local CA/TLS proxy. It creates and migrates a scratch database, starts the control plane
-with an HTTPS public origin, verifies `/readyz`, the production `/api/v1/meta`, the OIDC
-redirect, the full authorization-code login and the resulting session, then optionally
-repeats the login in a browser. It needs a superuser maintenance URL, migration and
-runtime URLs for the scratch database, the operator encryption key and PostgreSQL client
-binaries. This is a verification harness that uses host Go; the supported install remains
-the container build. It proves local production-mode startup and OIDC login, not customer
-OIDC or hosted cluster certification.
+`make install-check` (`scripts/install-check.sh`) runs non-development mode against a local
+OIDC issuer and CA/TLS proxy. It creates and migrates a scratch database, checks readiness,
+production metadata, OIDC redirect and authorization-code login, then optionally repeats
+the login in a browser. It needs a maintenance database URL, migration and runtime URLs,
+the operator encryption key and PostgreSQL client binaries. This verification harness uses
+host Go; supported installation uses containers. It proves local production-mode startup
+and OIDC login, not customer OIDC or hosted cluster certification.
 
 ## Hosted GitOps reference
 
 `deploy/gitops` is a versioned reference for deploying the control plane from a GitOps
-repository rather than mutating a cluster directly. The base renders a namespace, a
-migration Job, the control-plane Deployment and Service, and a placeholder Secret. The
-`overlays/example` overlay pins the published image. Replace the Secret placeholders from
-your secret manager, keep the migration Job before the Deployment, and let your existing
-reconciler apply the rendered output.
+repository rather than mutating a cluster directly. The base renders a namespace, migration
+Job, control-plane Deployment and Service, and placeholder Secret. The `overlays/example`
+overlay pins the published image. Replace Secret placeholders from your secret manager,
+keep the migration Job before the Deployment, and let your existing reconciler apply the
+rendered output.
 
 The reference does not run Reforge itself as a reconciler and does not certify a hosted
-cluster: you still need a PostgreSQL instance, an OIDC issuer, an HTTPS origin, a
-customer-owned runner host and the sandbox prerequisites described in
-[Security model](security.md). No API or task container receives a Docker socket and no
-credentials are baked into images.
+cluster: you still need PostgreSQL, an OIDC issuer, HTTPS origin, customer-owned runner host
+and sandbox prerequisites described in [Security model](security.md). No API or task
+container receives a Docker socket and no credentials are baked into images.
