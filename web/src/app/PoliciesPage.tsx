@@ -44,7 +44,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
   const role = membership?.role
   const membershipFingerprint = JSON.stringify(membership ?? null)
   const repositories = useInfiniteQuery({ queryKey: ['org', orgID, 'policy-repositories'], queryFn: ({ pageParam, signal }) => api.getRepositories(orgID, { cursor: pageParam, limit: 50, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
-  const teams = useInfiniteQuery({ queryKey: ['org', orgID, 'policy-teams'], queryFn: ({ pageParam, signal }) => policyAPI.teams(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const teams = useInfiniteQuery({ queryKey: ['org', orgID, 'teams', 'policy-picker'], queryFn: ({ pageParam, signal }) => policyAPI.teams(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
   const teamItems = teams.data?.pages.flatMap(page => page.items) ?? []
   const repos = repositories.data?.pages.flatMap(page => page.items) ?? []
   const [repositoryID, setRepositoryID] = useState('')

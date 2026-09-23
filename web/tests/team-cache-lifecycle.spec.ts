@@ -50,3 +50,26 @@ test('organisation team mutation refreshes repository team options', async ({ pa
   await page.getByRole('link', { name: 'Repositories', exact: true }).click()
   await expect(page.getByLabel('Team')).toContainText('Core Platform')
 })
+
+test('organisation team rename refreshes policy and usage team pickers', async ({ page }) => {
+  await fixture(page)
+  await page.goto(`/org/${org}/policies`)
+  await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('team')
+  await expect(page.getByLabel('Policy team')).toContainText('Platform')
+  await page.getByRole('link', { name: 'Usage', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: 'Team', exact: true })).toContainText('Platform')
+
+  await page.getByRole('link', { name: 'Organisation', exact: true }).click()
+  const name = page.getByRole('textbox', { name: `Team name ${team}` })
+  await expect(name).toHaveValue('Platform')
+  const refresh = page.waitForResponse(response => response.request().method() === 'GET' && response.url().includes(`/api/v1/orgs/${org}/teams`))
+  await name.fill('Core Platform')
+  await page.getByRole('button', { name: 'Save changes' }).click()
+  await refresh
+
+  await page.getByRole('link', { name: 'Policies', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('team')
+  await expect(page.getByLabel('Policy team')).toContainText('Core Platform')
+  await page.getByRole('link', { name: 'Usage', exact: true }).click()
+  await expect(page.getByRole('combobox', { name: 'Team', exact: true })).toContainText('Core Platform')
+})
