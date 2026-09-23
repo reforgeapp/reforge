@@ -9,6 +9,7 @@ const version = { id: 'version-impact', scope: { kind: 'organisation', id: org }
 
 async function fixture(page: Page, options: { paginated?: boolean; repeated?: boolean; missingCursor?: boolean; sourceFailure?: string; effectiveFailure?: string; emptySource?: string; noRepositories?: boolean } = {}) {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture' }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
+  await page.route('**/api/v1/meta', route => route.fulfill({ json: { development: true, fixture_auth: true } }))
   await page.route(`**${base}/repositories**`, route => {
     const pathname = new URL(route.request().url()).pathname
     if (pathname.endsWith(`/repositories/${repoA}`)) return route.fulfill({ json: { id: repoA, name: 'payments' } })
@@ -26,6 +27,7 @@ async function fixture(page: Page, options: { paginated?: boolean; repeated?: bo
   await page.goto(`/org/${org}/policies`)
   if (!options.noRepositories) await page.getByLabel('Policy repository').selectOption(repoA)
   await page.getByRole('button', { name: version.id }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByRole('button', { name: 'Open simulation' }).click()
 }
 

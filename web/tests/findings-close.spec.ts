@@ -44,9 +44,13 @@ test('findings close control is usable at a narrow width', async ({ page }) => {
 test('other routes keep the back-to-list control', async ({ page }) => {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
-  await page.route(`**/api/v1/orgs/${org}/audit-events**`, route => route.fulfill({ json: { items: [{ id: 'event-1', actor_id: 'user-1', action: 'finding.dismiss', object_id: 'finding-1', request_id: 'request-1', repository_id: 'repo-1', created_at: '2026-09-22T00:00:00Z', data: {} }], complete: true } }))
+  const task = { id: 'task-1', org_id: org, repository_id: 'repo-1', operation_id: 'op-1', recipe: 'go', recipe_version: '1', target_branch: 'main', model_route: '', policy_hash: 'policy', starting_policy_hash: 'policy', state: 'queued', reason: '', version: 1, cancel_version: 1, max_attempts: 1, created_at: '2026-09-22T00:00:00Z' }
+  await page.route(`**/api/v1/orgs/${org}/tasks**`, route => route.fulfill({ json: { items: [task], complete: true } }))
+  await page.route(`**/api/v1/orgs/${org}/tasks/task-1`, route => route.fulfill({ json: task }))
+  await page.route(`**/api/v1/orgs/${org}/repair-runs/task-1`, route => route.fulfill({ status: 404, json: { error: 'not found' } }))
+  await page.route(`**/api/v1/orgs/${org}/events**`, route => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ': keepalive\n\n' }))
   await page.route(`**/api/v1/orgs/${org}/repositories**`, route => route.fulfill({ json: { items: [{ id: 'repo-1', name: 'payments' }], complete: true } }))
-  await page.goto(`/org/${org}/audit`)
-  await page.getByRole('row', { name: /finding\.dismiss/ }).getByRole('button').click()
+  await page.goto(`/org/${org}/runs`)
+  await page.getByRole('row', { name: /task-1/ }).getByRole('button').first().click()
   await expect(page.getByRole('button', { name: 'Back to list' })).toBeVisible()
 })

@@ -51,13 +51,13 @@ test('audit filters submit by keyboard, render escaped JSON, and export exact lo
   await page.getByLabel('Action filter').press('Enter')
   await expect(page).toHaveURL(/\/audit(?:\?.*)?$/)
   await page.getByRole('button', { name: 'Load more events' }).click()
-  await page.getByRole('row').filter({ hasText: 'policy.activate' }).getByRole('button').click()
-  await page.getByText('Evidence payload', { exact: true }).click()
-  await expect(page.locator('pre').filter({ hasText: '<script>alert(1)</script>' })).toBeVisible()
   await page.getByLabel('Audit export page').selectOption('1')
   await page.getByRole('button', { name: 'Export server page' }).click()
   await expect.poll(() => exportURL).toContain('cursor=cursor-2')
-  await expect(page.getByText(/^Server page 2 exported/)).toContainText('Server page 2')
+  await expect(page.getByText(/^Page 2 exported/)).toContainText('Page 2')
+  await page.getByRole('row').filter({ hasText: 'Policy Activate' }).getByRole('button').click()
+  await page.getByText('Event data', { exact: true }).click()
+  await expect(page.locator('pre').filter({ hasText: '<script>alert(1)</script>' })).toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
@@ -111,11 +111,14 @@ async function policyFixture(page: Page, role = 'owner') {
 
 test('policy dirty draft blocks simulation, then save/simulate/activate uses hash and CAS zero', async ({ page }) => {
   await policyFixture(page)
-  await page.getByText('Advanced policy JSON import/export').click()
+  await page.getByText('Advanced policy JSON', { exact: true }).click()
   await page.getByLabel('Raw policy JSON').fill(JSON.stringify({ ...policy, paused: true }))
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByRole('button', { name: 'Open simulation' }).click()
   await expect(page.getByRole('button', { name: 'Simulate candidate rollout' })).toBeDisabled()
+  await page.getByRole('tab', { name: 'Scope' }).click()
   await page.getByLabel('Raw policy JSON').fill('')
+  await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByLabel('Reason').fill('updated')
   let saved = false
   await page.route(`**${base}/policies/versions`, async route => { saved = true; await route.fulfill({ json: { ...version, id: 'version-2', hash: 'hash-2', reason: 'updated' } }) })
@@ -138,6 +141,7 @@ test('organisation policy simulation excludes the repository primary team', asyn
   await page.route(`**${base}/policies/effective**`, route => route.fulfill({ json: { hash: 'effective-1', layers: [], primary_team_id: team, repository_id: repo, paused: false, scope_paused: false, policy } }))
   await page.reload()
   await page.getByRole('button', { name: version.id }).click()
+  await page.getByRole('tab', { name: 'Review' }).click()
   let primary: string | undefined
   await page.route(`**${base}/policies/versions/${version.id}/simulate`, async route => {
     primary = (await route.request().postDataJSON()).primary_team_id
@@ -147,5 +151,6 @@ test('organisation policy simulation excludes the repository primary team', asyn
   await page.getByRole('button', { name: 'Simulate candidate rollout' }).click()
   await expect.poll(() => primary).toBe('')
   await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('repository')
+  await page.getByRole('tab', { name: 'Scope' }).click()
   await expect(page.getByRole('combobox', { name: 'Primary team' })).toHaveValue(team)
 })

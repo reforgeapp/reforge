@@ -219,6 +219,13 @@
   max-width: 100%;
 }
 
+.policy-editor details > summary {
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .policy-editor :is(code, dd, li) {
   overflow-wrap: anywhere;
 }

@@ -143,7 +143,7 @@ export function AuditPage({ orgID }: { orgID: string }) {
   </>
 
   return <div className="audit-page">
-    <SplitView listLabel="Audit events" list={list} selected={!!selected} onBack={() => setSelectedID(undefined)} hideBack closeControl={{ label: 'Close event details', onClose: () => setSelectedID(undefined) }} detail={selected ? <AuditDetails event={selected} repositoryName={repositoryName(selected.repository_id)} /> : null} />
+    <SplitView listLabel="Audit results and filters" list={list} selected={!!selected} onBack={() => setSelectedID(undefined)} hideBack closeControl={{ label: 'Close event details', onClose: () => setSelectedID(undefined) }} detail={selected ? <AuditDetails event={selected} repositoryName={repositoryName(selected.repository_id)} /> : null} />
   </div>
 }
 
