@@ -43,6 +43,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
   const kinds = tabs.find(item => item.id === tab)?.kinds ?? []
   const loaded = [...new Map(activeResults.flatMap(result => result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
   const error = activeResults.find(result => result.error)?.error
+  const hasData = activeResults.some(result => result.data !== undefined)
   const loading = activeResults.some(result => result.isLoading) && !loaded.length
   const refreshing = activeResults.some(result => result.isFetching)
   const hasMore = activeResults.some(result => result.hasNextPage)
@@ -69,6 +70,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
     state={state}
     loading={loading}
     error={error}
+    hasData={hasData}
     refreshing={refreshing}
     hasMore={hasMore}
     loadingMore={loadingMore}
@@ -114,6 +116,7 @@ type ConnectionListProps = {
   state: string
   loading: boolean
   error: unknown
+  hasData: boolean
   refreshing: boolean
   hasMore: boolean
   loadingMore: boolean
@@ -131,13 +134,14 @@ function ConnectionList(props: ConnectionListProps) {
     return <StatePanel kind="loading" title="Loading connections" detail="Loading connections…" />
   }
 
-  if (props.error) {
+  if (props.error && !props.hasData) {
     return <StatePanel kind="error" title="Connections unavailable" detail={message(props.error)} action={<Button onClick={props.onRetry}>Retry</Button>} />
   }
 
   const category = tabs.find(item => item.id === props.tab)?.label ?? 'Connections'
 
   return <div className="connections-inventory">
+    {props.error ? <p className="connections-load-error" role="alert">Could not load all connection results. {message(props.error)} <Button onClick={props.onRetry}>Retry</Button></p> : null}
     <header className="connections-list-head">
       <h2>{props.rows.length} {props.hasMore ? 'shown' : props.rows.length === 1 ? 'connection' : 'connections'}</h2>
       <div className="connections-list-actions">

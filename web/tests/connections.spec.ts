@@ -87,6 +87,40 @@ test.describe('connections and runners administration', () => {
     expect([...requestedKinds].sort()).toEqual(['agent', 'forge', 'model'])
   })
 
+  test('keeps loaded rows and filters visible after refresh failure', async ({ page }) => {
+    await signIn(page)
+    const connection = { id: 'refresh-stale-connection', org_id: organisation, kind: 'forge', provider: 'gitea', name: 'cached forge', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }
+    let fail = false
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => fail
+      ? route.fulfill({ status: 503, json: { error: 'temporary outage' } })
+      : route.fulfill({ json: { items: [connection], complete: true } }))
+    await page.goto(`/org/${organisation}/connections`)
+    const row = page.getByRole('row', { name: /cached forge/ })
+    await expect(row).toBeVisible()
+    fail = true
+    await page.getByRole('button', { name: 'Refresh connections' }).click()
+    await expect(page.getByRole('alert')).toContainText('Could not load all connection results')
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+    await expect(row).toBeVisible()
+    await expect(page.getByLabel('Search', { exact: true })).toBeVisible()
+  })
+
+  test('keeps model rows when agent stream fails', async ({ page }) => {
+    await signIn(page)
+    const model = { id: 'working-model', org_id: organisation, kind: 'model', provider: 'openai', name: 'available model', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      const kind = new URL(route.request().url()).searchParams.get('kind')
+      if (kind === 'model') return route.fulfill({ json: { items: [model], complete: true } })
+      if (kind === 'agent') return route.fulfill({ status: 503, json: { error: 'agent stream unavailable' } })
+      return route.fulfill({ json: { items: [], complete: true } })
+    })
+    await page.goto(`/org/${organisation}/connections`)
+    await page.getByRole('button', { name: 'Models & agents' }).click()
+    await expect(page.getByRole('row', { name: /available model/ })).toBeVisible()
+    await expect(page.getByRole('alert')).toContainText('Could not load all connection results')
+    await expect(page.getByRole('button', { name: 'Retry' })).toBeVisible()
+  })
+
   test('connection revoke requires explicit confirmation and preserves version and CSRF', async ({ page }) => {
     await signIn(page)
     const connection = { id: 'connection-revoke', org_id: organisation, kind: 'forge', provider: 'gitea', name: 'staging forge', endpoint: 'https://example.invalid', state: 'healthy', reason: '', version: 7, credential_version: 1, settings: {}, capabilities: {}, verified_at: null }

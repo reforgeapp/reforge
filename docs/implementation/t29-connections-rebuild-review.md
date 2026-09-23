@@ -11,7 +11,7 @@ Create, test, rotate, credential versions, private runner routes, model/agent qu
 ## Checks
 
 - `npm run typecheck` and `npm run build` passed. Build has the existing large-chunk warning.
-- Three focused browser checks passed: explicit revoke confirmation with Cancel/no DELETE plus version/CSRF assertions; loaded-filter pagination; and detail close/Escape focus restoration. Existing Connections browser checks previously covered route persistence, model/agent pagination, and the narrow keyboard dialog.
+- Five focused browser checks passed: stale rows remain visible after refresh failure, models remain visible when the agent stream fails, explicit revoke confirmation preserves version/CSRF, loaded-filter pagination, and detail close/Escape focus restoration. Existing Connections browser checks previously covered route persistence, model/agent pagination, and the narrow keyboard dialog.
 - Against a separate disposable database/server, created and opened a Gitea connection through the GUI, then exercised the Test capability API against a reserved `.invalid` endpoint. It returned the expected degraded state. The server/database were removed afterward.
 - Fresh viewport-sized browser captures cover dark Add and loaded Detail at 1440×900 and 390×844. Detail capture waited for the named heading, matched the detail response ID to the URL, rejected the loading state, and asserted no page errors. All captures asserted the DOM theme is dark; mobile captures additionally assert the navigation drawer is offscreen, `aria-expanded=false`, document width stays within 390px, and title/status precede the action row. Older dark captures were not trusted.
 - Screenshots: `.local/t29-connections-rebuild/{detail,add}-dark-{1440,390}.jpg`.
