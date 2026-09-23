@@ -272,7 +272,7 @@ function EffectivePolicy({ value }: { value: {
   const layers = value.layers ?? []
   const issues = [...(value.missing_defaults ?? []), ...(value.problems ?? [])]
   const caps = [
-    ['Budget', policy.limits.budget],
+    ['Budget (micro-USD)', policy.limits.budget],
     ['Concurrency', policy.limits.concurrency],
     ['Attempts', policy.limits.attempts],
     ['Changed files', policy.limits.changed_files],
@@ -603,7 +603,7 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
             <input value={policy.defaults.route ?? ''} disabled={!canWrite || busy} onChange={event => update({ ...policy, defaults: { ...policy.defaults, route: event.target.value } })} />
           </label>
           <label>
-            Budget
+            Budget (micro-USD)
             <input type="number" min="0" value={policy.limits.budget ?? ''} disabled={!canWrite || busy} onChange={event => update({ ...policy, limits: { ...policy.limits, budget: numberValue(event.target.value) } })} />
           </label>
           <label>
@@ -658,7 +658,7 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
                     <label>Environment<input value={environment} onChange={event => { setEnvironment(event.target.value); setSimulation(undefined) }} /></label>
                     <label>Workflow<input value={workflow} onChange={event => { setWorkflow(event.target.value); setSimulation(undefined) }} /></label>
                     <label className="wide">Changed paths<input value={paths} onChange={event => { setPaths(event.target.value); setSimulation(undefined) }} /></label>
-                    <label>Budget cap<input type="number" min="0" value={usage.budget ?? ''} onChange={event => { setUsage({ ...usage, budget: numberValue(event.target.value) }); setSimulation(undefined) }} /></label>
+                    <label>Budget cap (micro-USD)<input type="number" min="0" value={usage.budget ?? ''} onChange={event => { setUsage({ ...usage, budget: numberValue(event.target.value) }); setSimulation(undefined) }} /></label>
                     <label>Concurrency cap<input type="number" min="0" value={usage.concurrency ?? ''} onChange={event => { setUsage({ ...usage, concurrency: numberValue(event.target.value) }); setSimulation(undefined) }} /></label>
                     <label>Attempt cap<input type="number" min="0" value={usage.attempts ?? ''} onChange={event => { setUsage({ ...usage, attempts: numberValue(event.target.value) }); setSimulation(undefined) }} /></label>
                     <label>Changed-file cap<input type="number" min="0" value={usage.changed_files ?? ''} onChange={event => { setUsage({ ...usage, changed_files: numberValue(event.target.value) }); setSimulation(undefined) }} /></label>

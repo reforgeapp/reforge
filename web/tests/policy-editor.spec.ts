@@ -25,7 +25,7 @@ test('policy tabs show only selected editor section', async ({ page }) => {
   await expect(page.getByRole('tabpanel', { name: 'Scope' })).toBeVisible()
   await page.getByRole('tab', { name: 'Models & spend' }).click()
   await expect(page.getByRole('tabpanel', { name: 'Models & spend' })).toBeVisible()
-  await expect(page.getByLabel('Budget', { exact: true })).toBeVisible()
+  await expect(page.getByLabel('Budget (micro-USD)', { exact: true })).toBeVisible()
   await expect(page.getByLabel('Schema')).toBeHidden()
 })
 
@@ -47,7 +47,7 @@ test('zero policy limits survive save payload', async ({ page }) => {
   await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByLabel('Reason').fill('zero caps')
   await page.getByRole('tab', { name: 'Models & spend' }).click()
-  await expect(page.getByLabel('Budget', { exact: true })).toHaveValue('0')
+  await expect(page.getByLabel('Budget (micro-USD)', { exact: true })).toHaveValue('0')
   await page.getByRole('tab', { name: 'Review' }).click()
   await page.getByRole('button', { name: 'Save immutable version' }).click()
   await expect.poll(() => payload?.policy?.limits).toEqual({ budget: 0, concurrency: 0 })
