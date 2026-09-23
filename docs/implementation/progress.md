@@ -1,5 +1,12 @@
 # Implementation progress
 
+## Genuine current-fixture repair pass — 2026-09-24
+
+Opus repair worker completed; quota2026-09-23T22:29:15.442Z **47% weekly remaining**. `TestRepairLiveProtectedMerge` passed81.74s, first qwen2.5:7b attempt, unchanged source-only fixture/output caps/protection. Native canonical merge SHA `67955e97975e38b1bb431b155e7d01fdf6f7e2b2`; stale-gate rejection, missing-approval denial, replay/result-loss recovery and cross-tenant denial asserted. Root reviewed retained log and assertions; integrated `6337a2b`. Positive GUI remains separate and allocated to same Opus worker, with new opt-in test ownership only. Model cache swap removed only preserved-metadata qwen3:8b; 1.7b/4b retained, >=3GiB post-pull. No paid integration API.
+
+Additional isolated browser opt-ins found stale route selectors outside default suite. Original failures and diagnostic-copy reruns retained under `.local/opus-resume/optin-browser/`; no product changes or unchanged-test pass inferred. Docs-image exact historical package retrieval continues independently.
+
+
 ## Exact source inputs reviewed — 2026-09-24
 
 Opus provenance worker completed; mandatory weekly quota2026-09-23T22:22:55.693Z **48% remaining**. Twenty upstream archives and139 exact-commit Alpine files matched159/159 declared SHA512 values; root independently recomputed every retained payload hash and checked declaration presence. Integrated `c6603a9`; no product/notice changes or legal clearance. Thirty-eight archive license files retained for later mapping. Source-to-binary reproducibility remains unproven. Worker now owns only exact docs-image historical input investigation. Repair/browser workers continue separately; max3 maintained.
