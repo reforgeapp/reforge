@@ -171,6 +171,7 @@ export function AppShell() {
     try { await api.logout(session.data.csrf_token) } finally { clearOrganisationQueries(queryClient); queryClient.removeQueries({ queryKey: ['session'] }); await queryClient.invalidateQueries({ queryKey: ['session'] }) }
   }
 
+  if (window.location.pathname === '/invite') return <Outlet />
   if (session.isLoading || metaLoading) return <main className="centered-page"><StatePanel kind="loading" title="Opening Reforge" detail="Checking your session and application status." /></main>
   if (session.error instanceof ReforgeAPIError && session.error.status === 401) return <SignInPage />
   if (session.error) return <main className="centered-page"><StatePanel kind="error" title="Session unavailable" detail={session.error.message} action={<Button onClick={() => session.refetch()}>Retry</Button>} /></main>

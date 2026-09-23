@@ -1,0 +1,10 @@
+.invite-page { display: grid; min-height: 100dvh; place-items: center; padding: 24px; background: var(--surface-2); color: var(--text); }
+.invite-card { display: grid; gap: 18px; width: min(100%, 420px); padding: 28px; border: 1px solid var(--border); background: var(--surface); box-shadow: var(--shadow-sm); }
+.invite-card h1 { margin: 0; font-size: 22px; }
+.invite-card p { margin: 0; color: var(--text-muted); }
+.invite-card form { display: grid; gap: 12px; }
+.invite-card .invite-error { color: var(--red); }
+.invite-card .button { width: 100%; min-height: 42px; }
+.invite-brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); font-weight: 700; text-decoration: none; }
+.invite-brand .brand-mark { display: grid; width: 24px; height: 24px; place-items: center; color: var(--on-primary); background: var(--primary); }
+@media (max-width: 480px) { .invite-page { padding: 16px; } .invite-card { padding: 22px; } }

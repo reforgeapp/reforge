@@ -56,8 +56,28 @@
 .identity-settings input[type="password"] { letter-spacing: 0.03em; }
 .identity-settings .organisation-form-actions { justify-content: flex-end; }
 
+.identity-invitations { display: grid; gap: 12px; max-width: 900px; padding-top: 14px; border-top: 1px solid var(--border); }
+.identity-invitations > p { margin: 0; color: var(--text-muted); font-size: 12px; }
+.identity-invitations-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.identity-invitations-heading h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.identity-invitations-heading > span { color: var(--text-muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.identity-invitation-form { display: grid; grid-template-columns: minmax(190px, 1.5fr) minmax(120px, .7fr) minmax(120px, .7fr) auto; align-items: end; gap: 10px; }
+.identity-invitation-form .organisation-field { width: 100%; }
+.identity-invitation-form .button { min-height: 38px; }
+.identity-invitation-list { display: grid; }
+.identity-invitation-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px 0; border-top: 1px solid var(--border); }
+.identity-invitation-main { display: grid; gap: 3px; min-width: 0; }
+.identity-invitation-main strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 600; }
+.identity-invitation-main span, .identity-invitation-empty { color: var(--text-muted); font-size: 12px; }
+.identity-invitation-created { display: grid; gap: 14px; min-width: min(440px, calc(100vw - 48px)); }
+.identity-invitation-created p { margin: 0; color: var(--text-muted); font-size: 12px; }
+.identity-invitation-created .organisation-form-actions { justify-content: flex-end; }
+
 @media (max-width: 720px) {
   .identity-actions { align-items: stretch; flex-direction: column; }
   .identity-operations > * { width: 100%; }
   .identity-operations > button.button-danger { width: fit-content; align-self: flex-start; }
+  .identity-invitation-form { grid-template-columns: minmax(0, 1fr); }
+  .identity-invitation-form .button { width: 100%; }
+  .identity-invitation-created { min-width: min(100%, calc(100vw - 48px)); }
 }

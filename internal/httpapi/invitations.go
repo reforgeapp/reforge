@@ -71,6 +71,6 @@ func (s *Server) RegisterOrgInvitations(service *auth.Service) {
 			loginFailure(c, true, err)
 			return
 		}
-		c.Redirect(http.StatusFound, location)
+		c.JSON(http.StatusOK, gin.H{"authorization_url": location})
 	})
 }

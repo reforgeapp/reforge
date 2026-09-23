@@ -4,7 +4,7 @@ import { Button, Dialog } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { api, ReforgeAPIError } from '../api/client'
-import { organisationAPI, type Membership, type OrgOIDCSettings } from '../organisation-api'
+import { organisationAPI, type Membership, type OrgOIDCSettings, type OrgOIDCInvitation, type CreatedOrgOIDCInvitation } from '../organisation-api'
 import '../styles/organisation.css'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
@@ -150,10 +150,100 @@ function IdentitySettings({ orgID }: { orgID: string }) {
       {settings?.configured && <Button type="button" disabled={busy || !csrf || settings.status === 'disabled' || dirty || query.isFetching} onClick={() => void probe()}>{busy ? 'Working…' : 'Probe issuer metadata'}</Button>}
       {settings?.status === 'probe_verified' && settings.activation_available && !dirty && <Button type="button" disabled={busy || !csrf} onClick={() => void activate()}>Activate login</Button>}
       {settings?.status === 'active' && !dirty && <a className="button button-primary" href={`/auth/login?org_id=${encodeURIComponent(orgID)}`} target="_blank" rel="noreferrer">Open organisation sign-in</a>}
-      {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
+      {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
     </div>
-    <Dialog open={confirmDisable} title="Disable organisation login" onClose={() => setConfirmDisable(false)}><p>Disable this identity configuration?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDisable(false)}>Cancel</Button><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => void disable()}>{busy ? 'Disabling…' : 'Disable'}</Button></div></Dialog>
+    {settings?.status === 'active' ? <InvitationsSection orgID={orgID} csrf={csrf} /> : <section className="identity-invitations"><h2>Invitations</h2><p>Activate organisation login to invite people.</p></section>}
+    <Dialog open={confirmDisable} title="Disable organisation login" onClose={() => setConfirmDisable(false)}><p>Disable this identity configuration?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDisable(false)}>Cancel</Button><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => void disable()}>{busy ? 'Disabling…' : 'Disable'}</Button></div></Dialog>
   </div>
+}
+
+function InvitationsSection({ orgID, csrf }: { orgID: string; csrf: string }) {
+  const client = useQueryClient()
+  const queryKey = ['org', orgID, 'identity', 'oidc', 'invitations']
+  const invitations = useInfiniteQuery({ queryKey, queryFn: ({ pageParam, signal }) => organisationAPI.invitations(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const items = invitations.data?.pages.flatMap(page => page.items) ?? []
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Membership['role']>('viewer')
+  const [expiryDays, setExpiryDays] = useState('7')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [created, setCreated] = useState<CreatedOrgOIDCInvitation | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [copyError, setCopyError] = useState('')
+  const [revoking, setRevoking] = useState('')
+  const [revokeTarget, setRevokeTarget] = useState<OrgOIDCInvitation | null>(null)
+  const [revokeError, setRevokeError] = useState('')
+
+  const create = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      const result = await organisationAPI.createInvitation(orgID, { email: email.trim(), role, expires_at: new Date(Date.now() + Number(expiryDays) * 86400000 - 60_000).toISOString() }, csrf)
+      setEmail('')
+      setCreated(result)
+      setCopied(false)
+      setCopyError('')
+      await client.invalidateQueries({ queryKey })
+    } catch (reason) {
+      setError(errorText(reason))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const revoke = async (item: OrgOIDCInvitation) => {
+    setRevoking(item.id)
+    setRevokeError('')
+    try {
+      await organisationAPI.revokeInvitation(orgID, item.id, csrf)
+      setRevokeTarget(null)
+      await client.invalidateQueries({ queryKey })
+    } catch (reason) {
+      setRevokeError(errorText(reason))
+    } finally {
+      setRevoking('')
+    }
+  }
+
+  const copy = async () => {
+    if (!created) return
+    setCopyError('')
+    try {
+      await navigator.clipboard.writeText(created.redemption_url)
+      setCopied(true)
+    } catch {
+      setCopyError('Clipboard unavailable. Select and copy the link.')
+    }
+  }
+
+  const closeCreated = () => { setCreated(null); setCopied(false); setCopyError('') }
+
+  return <section className="identity-invitations" aria-labelledby="identity-invitations-heading">
+    <header className="identity-invitations-heading"><h2 id="identity-invitations-heading">Invitations</h2><span>{items.length}</span></header>
+    {error && <p className="organisation-error" role="alert">{error}</p>}
+    <form className="identity-invitation-form" onSubmit={create}>
+      <label className="organisation-field">Email<input type="email" name="invitation_email" autoComplete="email" maxLength={320} value={email} onChange={event => setEmail(event.target.value)} required disabled={busy} /></label>
+      <label className="organisation-field">Role<select value={role} onChange={event => setRole(event.target.value as Membership['role'])} disabled={busy}>{roles.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+      <label className="organisation-field">Expires<select value={expiryDays} onChange={event => setExpiryDays(event.target.value)} disabled={busy}><option value="1">1 day</option><option value="7">7 days</option><option value="30">30 days</option></select></label>
+      <Button className="button button-primary" type="submit" disabled={busy || !csrf || !email.trim()}>{busy ? 'Creating…' : 'Create invitation'}</Button>
+    </form>
+    {invitations.error && <p className="organisation-error" role="alert">{invitations.isFetchNextPageError ? 'More invitations unavailable' : 'Invitations unavailable'}: {errorText(invitations.error)} <Button disabled={invitations.isFetching} onClick={() => void (invitations.isFetchNextPageError ? invitations.fetchNextPage() : invitations.refetch())}>Retry</Button></p>}
+    {invitations.isPending ? <p className="organisation-state" role="status">Loading invitations…</p> : !invitations.data ? null : items.length === 0 ? <p className="identity-invitation-empty">No invitations</p> : <div className="identity-invitation-list" aria-label="Invitations">
+      {items.map(item => {
+        const expired = Date.parse(item.expires_at) <= Date.now()
+        const state = item.redeemed ? 'Accepted' : expired ? 'Expired' : 'Pending'
+        return <div className="identity-invitation-row" key={item.id}><div className="identity-invitation-main"><strong>{item.email}</strong><span>{item.role} · {state} · expires {new Date(item.expires_at).toLocaleDateString()}</span></div>{!item.redeemed && !expired && <Button className="button button-sm" disabled={revoking === item.id || !csrf} onClick={() => setRevokeTarget(item)}>{revoking === item.id ? 'Revoking…' : 'Revoke'}</Button>}</div>
+      })}
+      {invitations.hasNextPage && !invitations.isFetchNextPageError && <Button disabled={invitations.isFetchingNextPage} onClick={() => void invitations.fetchNextPage()}>{invitations.isFetchingNextPage ? 'Loading…' : 'Load more'}</Button>}
+    </div>}
+    <Dialog open={!!created} title="Invitation created" onClose={closeCreated}>
+      <div className="identity-invitation-created"><label className="organisation-field">Invitation link<input readOnly autoFocus value={created?.redemption_url ?? ''} onFocus={event => event.currentTarget.select()} /></label><p>Copy this link now. It is shown once.</p>{copyError && <p className="organisation-error" role="alert">{copyError}</p>}<div className="organisation-form-actions"><Button type="button" onClick={closeCreated}>Done</Button><Button className="button button-primary" type="button" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy link'}</Button></div></div>
+    </Dialog>
+    <Dialog open={!!revokeTarget} title="Revoke invitation" onClose={() => { setRevokeTarget(null); setRevokeError('') }}>
+      <div className="organisation-create-form"><p>Revoke {revokeTarget?.email}?</p>{revokeError && <p className="organisation-error" role="alert">{revokeError}</p>}<div className="organisation-form-actions"><Button type="button" disabled={!!revoking} onClick={() => { setRevokeTarget(null); setRevokeError('') }}>Cancel</Button><Button type="button" className="button button-danger" disabled={!!revoking || !csrf} onClick={() => revokeTarget && void revoke(revokeTarget)}>{revoking ? 'Revoking…' : 'Revoke'}</Button></div></div>
+    </Dialog>
+  </section>
 }
 
 function TeamsSection({ orgID }: { orgID: string }) {
@@ -249,7 +339,7 @@ function TeamsSection({ orgID }: { orgID: string }) {
         {query.hasNextPage && <Button disabled={query.isFetchingNextPage} onClick={() => void query.fetchNextPage()}>{query.isFetchingNextPage ? 'Loading…' : 'Load more teams'}</Button>}
       </nav>
       {selected && <form className="organisation-detail" onSubmit={save}>
-        <div className="organisation-detail-head"><h2>{selected.name}</h2><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => setConfirmDelete(true)}>Delete</Button></div>
+        <div className="organisation-detail-head"><h2>{selected.name}</h2><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => setConfirmDelete(true)}>Delete</Button></div>
         <label className="organisation-field">Team name<input aria-label={`Team name ${selected.id}`} value={name} maxLength={160} onChange={event => setName(event.target.value)} disabled={busy} required /></label>
         <section className="organisation-scope" aria-labelledby="team-scope-heading">
           <div className="organisation-subhead"><h3 id="team-scope-heading">Repository access</h3><span><StatusBadge label={repositoryStatus} tone={repositoryTone} /></span></div>
@@ -261,7 +351,7 @@ function TeamsSection({ orgID }: { orgID: string }) {
       </form>}
     </div>}
     <Dialog open={createOpen} title="Create team" onClose={() => setCreateOpen(false)}><form className="organisation-create-form" onSubmit={create}><label className="organisation-field">Team name<input autoFocus value={newName} maxLength={160} onChange={event => setNewName(event.target.value)} required /></label><div className="organisation-form-actions"><Button type="button" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={busy || !csrf || !newName.trim()}>{busy ? 'Creating…' : 'Create team'}</Button></div></form></Dialog>
-    <Dialog open={confirmDelete} title="Delete team" onClose={() => setConfirmDelete(false)}><p>Delete {selected?.name}? Members lose access granted by this team.</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDelete(false)}>Cancel</Button><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete team'}</Button></div></Dialog>
+    <Dialog open={confirmDelete} title="Delete team" onClose={() => setConfirmDelete(false)}><p>Delete {selected?.name}? Members lose access granted by this team.</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDelete(false)}>Cancel</Button><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete team'}</Button></div></Dialog>
   </div>
 }
 
@@ -349,7 +439,7 @@ function MembersSection({ orgID }: { orgID: string }) {
         {members.hasNextPage && <Button disabled={members.isFetchingNextPage} onClick={() => void members.fetchNextPage()}>{members.isFetchingNextPage ? 'Loading…' : 'Load more members'}</Button>}
       </nav>
       {selected && <form className="organisation-detail" onSubmit={save}>
-        <div className="organisation-detail-head"><h2>{displayName(selected)}</h2><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => setConfirmRemove(true)}>Remove member</Button></div>
+        <div className="organisation-detail-head"><h2>{displayName(selected)}</h2><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => setConfirmRemove(true)}>Remove member</Button></div>
         <p className="organisation-member-id">Account ID <code>{selected.user_id}</code></p>
         <label className="organisation-field">Role<select aria-label={`Role for ${selected.user_id}`} value={role} onChange={event => setRole(event.target.value as Membership['role'])} disabled={busy}>{roles.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
         <fieldset className="organisation-access"><legend>Repository access</legend>
@@ -364,7 +454,7 @@ function MembersSection({ orgID }: { orgID: string }) {
         <footer className="organisation-form-actions"><span>{dirty ? 'Unsaved changes' : `Version ${selected.version ?? 0}`}</span><Button type="submit" disabled={busy || !csrf || !dirty}>{busy ? 'Saving…' : 'Save changes'}</Button></footer>
       </form>}
     </div>}
-    <Dialog open={confirmRemove} title="Remove member" onClose={() => setConfirmRemove(false)}><p>Remove {selected ? displayName(selected) : 'member'} from this organisation?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmRemove(false)}>Cancel</Button><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => void remove()}>{busy ? 'Removing…' : 'Remove member'}</Button></div></Dialog>
+    <Dialog open={confirmRemove} title="Remove member" onClose={() => setConfirmRemove(false)}><p>Remove {selected ? displayName(selected) : 'member'} from this organisation?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmRemove(false)}>Cancel</Button><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => void remove()}>{busy ? 'Removing…' : 'Remove member'}</Button></div></Dialog>
   </div>
 }
 

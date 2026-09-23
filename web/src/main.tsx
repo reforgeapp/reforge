@@ -5,6 +5,7 @@ import { RouterProvider, createRootRoute, createRoute, createRouter, redirect } 
 import { AppShell } from './app/AppShell'
 import { SectionPage } from './app/SectionPage'
 import { SignInPage } from './app/SignInPage'
+import { InviteLandingPage } from './app/InviteLandingPage'
 import { sessionQuery } from './app/query'
 import './styles/tokens.css'
 import './styles/app.css'
@@ -33,12 +34,13 @@ const indexRoute = createRoute({
   component: () => null,
 })
 const signInRoute = createRoute({ getParentRoute: () => rootRoute, path: '/sign-in', component: SignInPage })
+const inviteRoute = createRoute({ getParentRoute: () => rootRoute, path: '/invite', component: InviteLandingPage })
 const sectionRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/org/$orgID/$section',
   component: SectionPage,
 })
-const routeTree = rootRoute.addChildren([indexRoute, signInRoute, sectionRoute])
+const routeTree = rootRoute.addChildren([indexRoute, signInRoute, inviteRoute, sectionRoute])
 const router = createRouter({ routeTree })
 
 declare module '@tanstack/react-router' { interface Register { router: typeof router } }

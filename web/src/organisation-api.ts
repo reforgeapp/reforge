@@ -8,6 +8,17 @@ export type TeamPage = components['schemas']['TeamPage']
 export type MembershipInput = components['schemas']['MembershipInput']
 export type TeamInput = components['schemas']['TeamInput']
 
+export type OrgOIDCInvitation = {
+  id: string
+  email: string
+  role: Membership['role']
+  expires_at: string
+  created_at: string
+  redeemed: boolean
+}
+export type OrgOIDCInvitationPage = { items: OrgOIDCInvitation[]; next_cursor?: string; complete: boolean }
+export type CreatedOrgOIDCInvitation = OrgOIDCInvitation & { redemption_url: string }
+
 export type OrgOIDCSettings = {
   configured: boolean
   secret_present: boolean
@@ -36,4 +47,8 @@ export const organisationAPI = {
   probeOIDC: (orgID: string, version: number, csrf: string) => apiRequest<OrgOIDCSettings>(`${base(orgID)}/identity/oidc/probe`, { method: 'POST', headers: { 'If-Match': versionTag(version) } }, csrf),
   activateOIDC: (orgID: string, version: number, csrf: string) => apiRequest<void>(`${base(orgID)}/identity/oidc/activate`, { method: 'POST', headers: { 'If-Match': versionTag(version) } }, csrf),
   disableOIDC: (orgID: string, version: number, csrf: string) => apiRequest<OrgOIDCSettings>(`${base(orgID)}/identity/oidc/disable`, { method: 'POST', headers: { 'If-Match': versionTag(version) } }, csrf),
+  invitations: (orgID: string, cursor?: string, signal?: AbortSignal) => apiRequest<OrgOIDCInvitationPage>(`${base(orgID)}/identity/oidc/invitations?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { signal }),
+  createInvitation: (orgID: string, input: { email: string; role: Membership['role']; expires_at: string }, csrf: string) => apiRequest<CreatedOrgOIDCInvitation>(`${base(orgID)}/identity/oidc/invitations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
+  redeemInvitation: (token: string) => apiRequest<{ authorization_url: string }>('/auth/invitations/redeem', { method: 'POST', body: new URLSearchParams({ token }) }),
+  revokeInvitation: (orgID: string, invitationID: string, csrf: string) => apiRequest<void>(`${base(orgID)}/identity/oidc/invitations/${encodeURIComponent(invitationID)}`, { method: 'DELETE' }, csrf),
 }
