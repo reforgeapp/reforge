@@ -58,10 +58,10 @@ docker info >/dev/null
 dc build --pull=false migrator server >"$run_dir/build.log" 2>&1 || { tail -100 "$run_dir/build.log" >&2; fail 'control image build'; }
 control_image="$(docker image inspect "$project-server:latest" --format '{{.Id}}' 2>/dev/null || true)"
 [[ -n "$control_image" ]] || fail 'control image identity unavailable'
-dc up -d postgres >"$run_dir/postgres-up.log" 2>&1
+dc up -d --wait postgres >"$run_dir/postgres-up.log" 2>&1
 state=''
 for _ in $(seq 1 90); do
-  state="$(dc exec -T postgres pg_isready -U reforge -d reforge 2>/dev/null || true)"
+  state="$(dc exec -T postgres pg_isready -h 127.0.0.1 -p 5432 -U reforge -d reforge 2>/dev/null || true)"
   [[ "$state" == *'accepting connections'* ]] && break
   sleep 1
 done
