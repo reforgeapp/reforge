@@ -10,7 +10,7 @@ test.describe('workspace navigation', () => {
 
   test('search submits to repositories and keeps URL state', async ({ page }) => {
     await page.goto(`/org/${org}/repositories?provider=github&status=monitored&finding=selected`)
-    const search = page.getByRole('search').getByRole('textbox', { name: 'Search repositories' })
+    const search = page.getByRole('searchbox', { name: 'Search repositories' })
     await search.fill('payments')
     await search.press('Enter')
     await expect(page).toHaveURL(/\/repositories\?/)

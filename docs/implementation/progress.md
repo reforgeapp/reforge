@@ -1,5 +1,19 @@
 # Implementation progress
 
+## Shared controls and surfaces — 2026-09-23
+
+T29p locally complete. Two Luna slices implemented; Astra reviewed/integrated. Shared groups
+use spacing/dividers; editable controls retain boundaries. Search has one focus boundary,
+explicit submit, autocomplete suppression and a full-width mobile row. Tenant/query behavior
+and status/security notices remain intact. Permanent design rules added to the GUI specification.
+
+Verification: 52 route/theme/viewport cases and eight connected search/header cases passed,
+including 320px. Full browser run: 136 passed, one stale search-role locator failed, six opt-ins
+skipped. Locator corrected; navigation suite 3/3 passed, resolving the only failure (137 unique
+tests passed across runs). Production build/container checks passed; packaged/served assets match.
+[Review and artifacts](shared-controls-review-2026-09-23.md). No remaining T29p implementation
+blocker. Broader release/certification work below remains open; owner handoff edit preserved.
+
 ## Organisation switcher follow-up — 2026-09-23
 
 T29j follow-up locally complete after owner screenshots reopened visual acceptance.

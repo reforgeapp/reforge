@@ -173,7 +173,7 @@ export function AppShell() {
       </div>
       <div className="topbar-actions">
         <span className={`connection-dot ${meta?.development ? 'fixture' : ''}`} title={meta?.development ? 'Development server' : 'Connected'} />
-        <form className="search-box" role="search" onSubmit={submitSearch}><label className="sr-only" htmlFor="global-search">Search repositories</label><Icon name="search" size={15} /><input id="global-search" value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /></form>
+        <form className="search-box" role="search" autoComplete="off" onSubmit={submitSearch}><label className="sr-only" htmlFor="global-search">Search repositories</label><input id="global-search" type="search" autoComplete="off" autoCorrect="off" spellCheck={false} value={search} onChange={event => updateSearch(event.target.value)} placeholder="Search repositories" /><button className="search-submit" type="submit" aria-label="Submit repository search"><Icon name="search" size={15} /></button></form>
         <button className="icon-button theme-toggle" aria-label={theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme'} onClick={toggleTheme}>{theme === 'dark' ? '☀' : '◐'}</button><div className="masthead-user"><span className="user-avatar" aria-hidden="true">{session.data.user.name.slice(0, 1).toUpperCase()}</span><span className="masthead-user-name">{session.data.user.name}</span><button className="icon-button" aria-label="Sign out" onClick={signOut}><Icon name="signout" /></button></div>
       </div>
     </header>

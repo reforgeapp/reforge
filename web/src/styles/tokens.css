@@ -5,6 +5,7 @@
   --surface-2: #f8f9f8;
   --surface-3: #eef0ef;
   --surface-inset: #e8ebea;
+  --surface-hover: #f1f3f2;
   --border: #d6dbd9;
   --border-strong: #aeb7b3;
   --text: #202525;
@@ -79,6 +80,7 @@
   --surface-2: #242627;
   --surface-3: #2c2f30;
   --surface-inset: #141617;
+  --surface-hover: #303435;
   --border: #3b3f40;
   --border-strong: #5d6364;
   --text: #f0f2f1;

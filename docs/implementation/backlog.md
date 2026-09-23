@@ -4,6 +4,13 @@
 
 Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, repair Findings/theme issues, rebuild Policies, then finish outstanding GUI acceptance. Astra coordinates/reviews; Luna implements. See current `progress.md`; earlier checks remain historical.
 
+### T29p — Shared controls, surfaces and search
+
+- Status: **local complete, 2026-09-23**. [Review and evidence](shared-controls-review-2026-09-23.md). Depends T29b/d/j/o; no new backend contract.
+- Own: Luna CSS/tokens slice and separate Luna AppShell/search-tests slice; Astra reviews/integrates.
+- Build: replace redundant nested panel frames with spacing, quiet surfaces and meaningful dividers; consistent inputs/selects/buttons; one focus indicator per compound control. Keep labelled fields and meaningful status/security boundaries. Search uses existing scoped repository API flow, proper submit control and disabled native form-history suggestions; no fake autocomplete. Mobile search remains usable without compressing input beside every header action.
+- Accept: before/after actual route review in both themes; focused/open/error/blocked states; keyboard and tenant-scoped search, submit/clear, URL filters/back; responsive header/menu geometry at 320/390px; no new accessibility/overflow defects; matching served/container assets and truthful evidence.
+
 ### T29j follow-up — Integrated organisation switcher
 
 - Status: **local complete, 2026-09-23** after owner screenshot feedback. [Follow-up review](organisation-switcher-review-2026-09-23.md): 17 passing shell/theme tests and actual open-menu checks in both themes at desktop/390px.
