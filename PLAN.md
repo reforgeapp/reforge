@@ -1,6 +1,6 @@
 # Reforge — implementation plan
 
-Status: current source `18c8045` under production-browser and image acceptance. T29 invitation/lifecycle fixes locally verified; remaining release/provider qualification stays open. Historical planning pauses below are superseded by current work status.
+Status: frozen source `675b0fd` passed production-browser193/15 and local amd64 image/install/recovery acceptance. T29 invitation/lifecycle fixes locally verified; remaining release/provider qualification stays open. Historical planning pauses below are superseded by current work status.
 Current open defects and acceptance actions: [work status](docs/implementation/work-status.md).
 T31a protocol handling and T29s repository-scope status are locally complete. Positive protected-merge acceptance, hosted isolation and external certification remain open; G5 is not passed.
 Updated: 2026-09-24. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.

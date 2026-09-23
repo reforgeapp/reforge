@@ -1,5 +1,14 @@
 # Implementation progress
 
+## Resumed remaining acceptance — 2026-09-24
+
+Persistent goal verified active. Final product source remains `675b0fd`; later commits are documentation only. Production browser gate **193 passed / 15 opt-in skipped / 0 failed**. Clean final amd64 control/runner/docs images and original tracked install script passed: migrations, rollback/retry, local OIDC, restart and encrypted restore. Exact frontend/notice bytes match. Reports: [browser](t28a-production-browser-review.md), [images](t28c-current-images-review.md). No G5 pass or external certification inferred.
+
+Mandatory quota reading2026-09-23T22:16:35.823Z: **48% weekly remaining**. Previous workers/processes no longer active; Docker restored and demo/docs returned HTTP200 at8084/8082. Start/stop scripts under `.local/opus-resume/demo/`; fixture auth and real disposable PostgreSQL retained. Opus reset window passed; three new CLI workers confirmed `claude-opus-5-5`. Exclusive allocations: T29u single genuine qwen2.5:7b attempt with unchanged guards; T28c exact source archive/patch checks; T28a remaining isolated opt-in browser checks. Briefs/logs `/tmp/reforge-opus-sep24/`; durable evidence under `.local/opus-resume/`. Root owns review/status integration, no product implementation.
+
+Control/runner provenance now verifies28 exact APKs/signatures/index checksums and21 exact-commit APKBUILD declarations; source archive/patch payloads, legal disposition, docs-image historical gaps and reproducibility remain open. Positive protected merge/GUI, container active-job recovery, applicable opt-ins, arm64, delegated cgroup load/isolation and external certifications remain tracked. Prior quota/verification entries below are historical checkpoints.
+
+
 ## Final verification freeze — 2026-09-24
 
 Product source frozen `675b0fd`. Reviewed integrations: TCP PostgreSQL readiness `9ebf273`; shared Policies/Usage team invalidation `d23be04` (old-prefix regression failed, corrected SPA navigation passed); explicit budget units `74957e4`. Focused14/14, typecheck/build passed. Final full-browser and original unmodified-path install script checks allocated on clean source. Current images at18c8045 already pass frontend/notice/nonroot/docs checks; final frontend image rebuild underway.

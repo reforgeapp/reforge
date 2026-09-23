@@ -2,20 +2,20 @@
 
 ## Current execution — 2026-09-24
 
-[Work status](work-status.md) is authoritative. Source frozen `18c8045`: T29v first-user invitation onboarding locally complete with strict-CSP signed local IdP acceptance; API/admin docs integrated. Lifecycle/shared-focus fixes reviewed; focused45/45 passed. Current production full-browser and exact-source Docker/install checks are running. Earlier full-browser result153/27/15 remains unresolved at the full-gate level until rerun. T29u positive protected merge, hosted isolation, external certification, legal/human review and G5 remain open.
+[Work status](work-status.md) is authoritative. Final frozen product `675b0fd`: browser193 passed/15 opt-in skipped/0 failed; exact-source amd64 control/runner/docs builds and direct clean install/recovery passed. T29v onboarding, T29x picker/budget corrections and T28d readiness fix locally complete. T29u positive merge, hosted isolation, provider certification, provenance/legal/human review and G5 remain open.
 
 Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maximum3 exclusive workers, no nested delegation, coordinator review. On each completion check weekly Codex quota: below40% wrap/checkpoint/demo; below25% hard-stop work. Earlier execution allocations and dated evidence below are historical.
 
 ### T29x — Complete team-cache invalidation and policy budget units
 
-- Status: **in progress,2026-09-24**. Coordinator visual/source review after production suite passed192/15.
+- Status: **local complete,2026-09-24**. Fixes `d23be04`/`74957e4`; old-key SPA regression fails, corrected regression passes. Focused14/14 and final193/15 production suite passed.
 - Policies and Usage team queries use unrelated cache prefixes, so a warmed picker retains a renamed team for the30-second freshness window. Move both paginated queries beneath the shared organisation team prefix without colliding with finite repository-picker data. Verify rename across all three consumers.
 - Policy effective summary, budget editor and simulation expose raw micro-USD without units. Label units explicitly without changing stored values or introducing silent conversion/rounding.
 - Acceptance: meaningful navigation/mutation regression, policy value preservation, typecheck, focused browser checks; current production bundle refreshed after review.
 
 ### T28d — Exclude temporary PostgreSQL startup from readiness
 
-- Status: **in progress,2026-09-24**. Clean-install harness accepted initdb's temporary Unix-socket server, then role creation failed during its shutdown. Original failure retained under `.local/opus-resume/current-images/artifacts/install-run.log`.
+- Status: **local complete,2026-09-24**. Fix `9ebf273`; original tracked install harness passed directly from clean `675b0fd`, including migrations/restart/restore. Original temporary-server failure retained under `.local/opus-resume/current-images/artifacts/install-run.log`.
 - Confirm pinned image startup behavior; use TCP readiness in Compose and install harness so only the final server qualifies. Keep least-privilege bootstrap and cleanup intact.
 - Acceptance: fresh tracked-harness install, rollback/retry, restart and encrypted restore. Adjusted-copy pass is retained separately and does not substitute for the final tracked-script run.
 
@@ -86,7 +86,7 @@ Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maxi
 
 ### T28a — Reconcile release acceptance evidence
 
-- Status: **in progress**. Matrix baseline is HEAD `35b7545` (2026-09-23); guarded full Go/PostgreSQL integration passed at 16:19 AEST (`.local/t28a-final-integration.log`). Clean images/notices are verified at `cce6879`, not current HEAD. Full browser suite 154/14 is also at `cce6879`; later GUI work has focused evidence only. T29u positive authorized-merge evidence, T29v invitation/onboarding and external certification remain open; T29w warning is locally verified. Astra reviews; Luna owns evidence/packaging slices.
+- Status: **in progress; local current-build gates passed**. Frozen `675b0fd`: browser193/15, direct clean install/recovery, amd64 images/assets/notices, strict docs passed. T29v first-user onboarding and retained restricted-role race evidence complete. T29u positive merge, hosted/100-run, provider/legal/human certification remain open. [Work status](work-status.md) and dated reviews define evidence boundaries.
 - Map V01–V29/J01–J10/R01–R13 to implementation and exact observed builds/artifacts.
   Explicitly mark not run, inherited evidence, fixture-only and externally certified.
 - Reconcile T31 extraction/validation evidence; local container-only clean install, migration recovery, process restart and encrypted restore are recorded. Still verify current integrated clean image, published/historical upgrade, active workload across container/runner restart and final recovery acceptance without host language toolchains or `/tmp` tools.
@@ -103,9 +103,9 @@ Opus CLI first until account window exhausted, then Luna/DeepSeek fallback; maxi
 
 ### T28c — Finish dependency and distribution inventory
 
-- Status: **in progress**. Clean amd64 Docker-only image review at `cce6879` passed bounded build/asset/docs smoke; control/runner/docs notice files match canonical source. This image is not built from current `35b7545` source. Alpine provenance review at `af230bd` examined selected local image packages, but historical inputs/source texts, complete attribution, reproducibility, arm64 and legal review remain open. Child of T28.
+- Status: **in progress**. Clean amd64 Docker-only builds at `675b0fd` passed frontend/notice/nonroot/docs checks and direct install/recovery. Exact control/runner APKs28/28 and APKBUILD refs21/21 verified; source payload checks underway; historical source texts, complete attribution, arm64, broader reproducibility and legal review remain open. Child of T28.
 - Evidence: 153 hydrated Go module sources, with 66 runtime and 87 graph/build-only; 98 npm packages, 15 production and 83 development/test; six verified multi-architecture OCI pins. Strict hash-locked docs build passed amd64. Exact embedded docs npm, Material, locked Python, nginx image and 18 setuptools/wheel archive notice records are retained. Clean image review at `9a39e87` verified amd64 control/runner/docs builds and exact control-bundle/source match.
-- Remaining: build/review exact current source; preserve historical Alpine indexes/archives/source texts, add a delivered-image notice path, verify platform-specific Python wheel identity, publish nothing, and obtain legal/owner review. The 28 package-root gaps are dev-only and not by themselves runtime-image gaps; reassess if builder/cache is distributed. See [T28c inventory](t28c-inventory.md), [Alpine provenance](t28c-alpine-provenance-review.md), [notice closure](t28c-notice-closure-review.md), [build-tool audit](t28c-build-tools-notice-review.md).
+- Remaining: preserve/verify exact source archives and patches, close historical docs-image provenance, verify platform-specific Python wheel identity, arm64 and reproducibility, and obtain legal/owner review. Current amd64 images/install and delivered-image notice bytes are verified; publish nothing. The 28 package-root gaps are dev-only and not by themselves runtime-image gaps; reassess if builder/cache is distributed. See [T28c inventory](t28c-inventory.md), [Alpine provenance](t28c-alpine-provenance-review.md), [notice closure](t28c-notice-closure-review.md), [build-tool audit](t28c-build-tools-notice-review.md).
 - Accept: reproducible release inventory, required notices and explicit decisions; separate publication authorisation remains necessary.
 
 ## Owner resumed GUI work — 2026-09-23
@@ -192,7 +192,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T02 — Organisation identity and scoped authorisation
 
-- Current status: existing installation-wide auth and tenant-scoping evidence is retained. Organisation OIDC config, probe/activation routes and org-bound login/callback/session binding are implemented in `d2c6175`, `0d4fa8b`, `08669b4`; see T29v and [runtime review](t29-identity-runtime-review.md). Restricted-role PostgreSQL/race checks were reported passed, but no retained output is available for independent review. Connected existing-member GUI acceptance is complete; verified first-user invitation/onboarding remains in progress. Customer IdP interoperability remains external.
+- Current status: installation and organisation OIDC, tenant sessions, first-user invitations, replay/revoke and recovery controls locally verified. T29v `22cea8a`/`18c8045`; fresh restricted-role auth/HTTP race logs retained in `.local/opus-resume/integration/`. Customer identity-provider interoperability remains external.
 - Owner: Astra. Dependencies: T01. Own: `internal/auth`, tenancy queries/migrations, membership endpoints.
 - Build: OIDC sessions, logout/revocation, organisation/team/repository roles, self-hosted bootstrap, server-side scoped lookups, CSRF and secure cookies, audit actor context.
 - Accept: cross-tenant and cross-team scope-resolver/API contract tests cover enumeration, details, artifacts and SSE; pooled DB connections cannot retain another tenant's context; runtime role cannot bypass RLS. Exercise actual artifact endpoints and SSE session revocation when those transports land in T05/T07, with integrated regression in T27.
@@ -365,7 +365,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Status: T29a–t implementation and scoped connected/local GUI checks are recorded. Full browser suite is 154/14 at `cce6879`, before later GUI commits. T29u negative-path connected reviewer journey passes with app binary built from `af230bd`; reload and separate fresh-page picker checks pass, and unqualified merge must return exact 409. Positive authorized merge remains open. T29v runtime and existing-member connected GUI journey complete; first-user onboarding in progress; T29w Overview sync attention is locally complete. Human baseline review and complete business journeys remain open. See [work status](work-status.md), [visual review](t29-visual-comparison-review.md), [connected reviews](t28a-connected-gui-review.md) and [admin](t28a-connected-admin-review.md). G5/provider/release qualification remains separate.
+- Status: local GUI slices through T29x recorded. Frozen `675b0fd` full suite193/15;16 current light/dark desktop/narrow captures. T29v first-user onboarding and T29w warning locally verified; T29u connected negative path passes, positive merge remains open after genuine qwen3:4b output-limit failure. Human visual approval and full live business journey remain open. See [work status](work-status.md). G5/provider certification remains separate.
 - Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
 - Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
 - T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.
