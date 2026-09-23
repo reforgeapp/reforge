@@ -1,4 +1,7 @@
 import { test, expect, type Page } from '@playwright/test'
+import type { OrgOIDCSettings } from '../src/organisation-api'
+import { mkdir } from 'node:fs/promises'
+import { resolve } from 'node:path'
 
 const org = '00000000-0000-4000-8000-000000000001'
 const user = '00000000-0000-4000-8000-0000000000aa'
@@ -132,15 +135,157 @@ test('empty team state offers one create action', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Create team' })).toHaveCount(1)
 })
 
-test('viewer sees an actionable permission state, identity avoids a fake configuration form, and mobile layout fits', async ({ page }) => {
+test('viewer is restricted and administrators do not see owner-only settings', async ({ page }) => {
   await mock(page, 'viewer')
   await expect(page.getByRole('heading', { name: 'Organisation access restricted' })).toBeVisible()
   await expect(page.getByText(/Ask an organisation owner or administrator/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Teams', exact: true })).toHaveCount(0)
+  await mock(page, 'admin')
+  await expect(page.getByRole('tab', { name: 'Teams' })).toBeVisible()
+  await expect(page.getByRole('tab', { name: 'Members' })).toHaveCount(0)
+  await expect(page.getByRole('tab', { name: 'Identity' })).toHaveCount(0)
+})
+
+test('identity read failure keeps a retry path', async ({ page }) => {
+  let available = false
+  const settings: OrgOIDCSettings = { configured: true, secret_present: true, issuer: 'https://idp.example.test', client_id: 'reforge', status: 'draft', version: 1, verified: false, activation_available: false }
   await mock(page, 'owner')
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc`, async route => {
+    if (!available) return route.fulfill({ status: 503, json: { code: 'secret_storage_unavailable', message: 'Identity settings unavailable', request_id: 'identity-test', retryable: true } })
+    return route.fulfill({ json: settings })
+  })
   await page.getByRole('tab', { name: 'Identity' }).click()
-  await expect(page.getByText('Identity settings are not available yet.')).toBeVisible()
-  await expect(page.getByText(/OIDC issuer, session lifetime and audit retention/)).toHaveCount(0)
+  await expect(page.getByText(/Identity settings unavailable/)).toBeVisible()
+  available = true
+  await page.getByRole('button', { name: 'Retry' }).click()
+  await expect(page.getByLabel('Issuer URL')).toHaveValue('https://idp.example.test')
+})
+
+test('same-version status refresh preserves unsaved identity edits', async ({ page }) => {
+  let reads = 0
+  const draft: OrgOIDCSettings = { configured: true, secret_present: true, issuer: 'https://idp.example.test', client_id: 'reforge', status: 'draft', version: 3, verified: false, activation_available: false }
+  await mock(page, 'owner')
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc`, route => {
+    reads += 1
+    return route.fulfill({ json: reads === 1 ? draft : { ...draft, status: 'probe_verified', verified: true, verified_at: '2026-09-23T02:00:00Z' } })
+  })
+  await page.getByRole('tab', { name: 'Identity' }).click()
+  await expect(page.getByLabel('Issuer URL')).toHaveValue('https://idp.example.test')
+  await page.getByLabel('Issuer URL').fill('https://edited.example.test')
+  await page.getByRole('button', { name: 'Refresh', exact: true }).click()
+  await expect.poll(() => reads).toBeGreaterThan(1)
+  await expect(page.locator('.identity-status').getByText('Unsaved changes')).toBeVisible()
+  await expect(page.locator('.identity-status').getByText('Metadata verified')).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Probe issuer metadata' })).toBeDisabled()
+  await expect(page.getByLabel('Issuer URL')).toHaveValue('https://edited.example.test')
+})
+
+test('failed metadata probe remains visibly unverified', async ({ page }) => {
+  let settings: OrgOIDCSettings = { configured: true, secret_present: true, issuer: 'https://idp.example.test', client_id: 'reforge', status: 'probe_verified', version: 4, verified: true, verified_at: '2026-09-22T00:00:00Z', activation_available: false }
+  let failRefresh = false
+  await mock(page, 'owner')
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc`, route => failRefresh
+    ? route.fulfill({ status: 503, json: { code: 'secret_storage_unavailable', message: 'Identity settings unavailable', request_id: 'refresh-test', retryable: true } })
+    : route.fulfill({ json: settings }))
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc/probe`, route => {
+    failRefresh = true
+    settings = { ...settings, status: 'draft', verified: false, verified_at: undefined }
+    return route.fulfill({ status: 422, json: { code: 'issuer_unverified', message: 'Issuer metadata could not be verified', request_id: 'probe-test', retryable: false } })
+  })
+  await page.getByRole('tab', { name: 'Identity' }).click()
+  await expect(page.locator('.identity-status').getByText('Metadata verified')).toBeVisible()
+  const failedProbe = page.waitForResponse(response => response.url().endsWith('/identity/oidc/probe'))
+  await page.getByRole('button', { name: 'Probe issuer metadata' }).click()
+  const probeResponse = await failedProbe
+  expect(probeResponse.status()).toBe(422)
+  await expect(page.getByRole('alert').getByText('Issuer metadata could not be verified')).toBeVisible()
+  await expect(page.getByText('Refresh failed: Identity settings unavailable')).toBeVisible()
+  await expect(page.locator('.identity-status').getByText('Draft')).toBeVisible()
+  await expect(page.locator('.identity-status').getByText('Metadata verified')).toHaveCount(0)
+})
+
+test('owner saves, probes, reloads and disables OIDC configuration without exposing the secret', async ({ page }) => {
+  let settings: OrgOIDCSettings = { configured: false, secret_present: false, status: 'unconfigured', version: 0, verified: false, activation_available: false, activation_blocked: 'Organisation login is not available until org-aware login support is implemented' }
+  let put: { body: { issuer: string; client_id: string; client_secret: string }; ifMatch: string; csrf: string } | undefined
+  let probe: { ifMatch: string; csrf: string } | undefined
+  let disabled: { ifMatch: string; csrf: string } | undefined
+  await mock(page, 'owner')
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc`, async route => {
+    if (route.request().method() === 'GET') return route.fulfill({ json: settings })
+    const body = route.request().postDataJSON() as { issuer: string; client_id: string; client_secret: string }
+    put = { body, ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
+    settings = { ...settings, configured: true, secret_present: true, issuer: body.issuer, client_id: body.client_id, status: 'draft', version: 1 }
+    return route.fulfill({ json: settings })
+  })
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc/probe`, async route => {
+    probe = { ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
+    settings = { ...settings, status: 'probe_verified', verified: true, verified_at: '2026-09-23T02:00:00Z' }
+    return route.fulfill({ json: settings })
+  })
+  await page.route(`**/api/v1/orgs/${org}/identity/oidc/disable`, async route => {
+    disabled = { ifMatch: route.request().headers()['if-match'] ?? '', csrf: route.request().headers()['x-csrf-token'] ?? '' }
+    settings = { ...settings, status: 'disabled', version: 2, verified: false, verified_at: undefined }
+    return route.fulfill({ json: settings })
+  })
+
+  await page.getByRole('tab', { name: 'Teams' }).focus()
+  await page.getByRole('tab', { name: 'Teams' }).press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Members' })).toHaveAttribute('aria-selected', 'true')
+  await page.getByRole('tab', { name: 'Members' }).press('ArrowRight')
+  await expect(page.getByRole('tab', { name: 'Identity' })).toHaveAttribute('aria-selected', 'true')
+  await expect(page.getByLabel('Issuer URL')).toBeVisible()
+  await page.getByLabel('Issuer URL').fill('https://idp.example.test')
+  await page.getByLabel('Client ID').fill('reforge')
+  await page.getByLabel('Client secret').fill('never-render-this-secret')
+  await page.getByRole('button', { name: 'Save draft' }).click()
+  await expect.poll(() => put?.body.client_id).toBe('reforge')
+  expect(put?.body.client_secret).toBe('never-render-this-secret')
+  expect(put?.ifMatch).toBe('"0"')
+  expect(put?.csrf).toBe('csrf-1')
+  await expect(page.getByLabel('Client secret')).toHaveValue('')
+  await expect(page.locator('.identity-status').getByText('Draft')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Activate login' })).toBeDisabled()
+  await expect(page.getByRole('button', { name: 'Probe issuer metadata' })).toBeEnabled()
+  await expect(page.getByText('never-render-this-secret')).toHaveCount(0)
+
+  await page.getByRole('button', { name: 'Probe issuer metadata' }).click()
+  await expect.poll(() => probe?.ifMatch).toBe('"1"')
+  expect(probe?.csrf).toBe('csrf-1')
+  await expect(page.locator('.identity-status').getByText('Metadata verified')).toBeVisible()
+
+  const captures = resolve(process.cwd(), '../.local/t29-identity-gui')
+  await mkdir(captures, { recursive: true })
+  await page.setViewportSize({ width: 1440, height: 900 })
+  await page.screenshot({ path: resolve(captures, 'identity-light-1440.png'), fullPage: true })
+  await page.getByRole('button', { name: 'Switch to dark theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark')
+  await page.screenshot({ path: resolve(captures, 'identity-dark-1440.png'), fullPage: true })
+  await page.setViewportSize({ width: 390, height: 844 })
+  const menu = page.getByRole('button', { name: 'Menu' })
+  await expect(menu).toHaveAttribute('aria-expanded', 'false')
+  await expect.poll(() => page.locator('.sidebar').evaluate(element => element.getBoundingClientRect().right)).toBeLessThanOrEqual(0)
+  await page.screenshot({ path: resolve(captures, 'identity-dark-390.png'), fullPage: true })
+  expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390)
+  await page.getByRole('button', { name: 'Switch to light theme' }).click()
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light')
+  await page.screenshot({ path: resolve(captures, 'identity-light-390.png'), fullPage: true })
+
+  await page.reload()
+  await page.getByRole('tab', { name: 'Identity' }).click()
+  await expect(page.getByLabel('Issuer URL')).toHaveValue('https://idp.example.test')
+  await expect(page.getByLabel('Client ID')).toHaveValue('reforge')
+  await expect(page.getByLabel('Client secret')).toHaveValue('')
+  await expect(page.getByRole('button', { name: 'Activate login' })).toBeDisabled()
+  await page.getByRole('button', { name: 'Disable', exact: true }).click()
+  await expect(page.getByRole('dialog', { name: 'Disable organisation login' })).toBeVisible()
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
+  expect(disabled).toBeUndefined()
+  await page.getByRole('button', { name: 'Disable', exact: true }).click()
+  await page.getByRole('dialog').getByRole('button', { name: 'Disable', exact: true }).click()
+  await expect.poll(() => disabled?.ifMatch).toBe('"1"')
+  expect(disabled?.csrf).toBe('csrf-1')
+  await expect(page.locator('.identity-status').getByText('Disabled')).toBeVisible()
+
   await page.setViewportSize({ width: 390, height: 844 })
   const width = await page.evaluate(() => document.documentElement.scrollWidth)
   expect(width).toBeLessThanOrEqual(390)

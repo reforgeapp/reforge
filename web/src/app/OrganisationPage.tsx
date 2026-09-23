@@ -1,10 +1,10 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { useInfiniteQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button, Dialog } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
-import { api } from '../api/client'
-import { organisationAPI, type Membership } from '../organisation-api'
+import { api, ReforgeAPIError } from '../api/client'
+import { organisationAPI, type Membership, type OrgOIDCSettings } from '../organisation-api'
 import '../styles/organisation.css'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
@@ -22,11 +22,136 @@ export function OrganisationPage({ orgID }: { orgID: string }) {
   if (!session.data && session.error) return <StatePanel kind="error" title="Organisation access unavailable" detail={errorText(session.error)} action={<Button onClick={() => void session.refetch()}>Retry</Button>} />
   if (role !== 'owner' && role !== 'admin') return <StatePanel kind="blocked" title="Organisation access restricted" detail="Ask an organisation owner or administrator to manage this organisation." />
 
+  const items = [{ id: 'teams', label: 'Teams' }, ...(role === 'owner' ? [{ id: 'members', label: 'Members' }, { id: 'identity', label: 'Identity' }] : [])]
+  const activeTab = items.some(item => item.id === tab) ? tab : 'teams'
+
   return <div className="organisation-page">
-    <Tabs id="organisation-workspace" label="Organisation sections" items={[{ id: 'teams', label: 'Teams' }, { id: 'members', label: 'Members' }, { id: 'identity', label: 'Identity' }]} value={tab} onChange={value => setTab(value as typeof tab)} />
-    {tab === 'teams' && <section id="organisation-workspace-panel-teams"><TeamsSection orgID={orgID} /></section>}
-    {tab === 'members' && <section id="organisation-workspace-panel-members">{role === 'owner' ? <MembersSection orgID={orgID} /> : <StatePanel kind="blocked" title="Owner access required" detail="Ask an organisation owner to manage membership." />}</section>}
-    {tab === 'identity' && <section id="organisation-workspace-panel-identity"><p className="organisation-pending" role="status">Identity settings are not available yet.</p></section>}
+    <Tabs id="organisation-workspace" label="Organisation sections" items={items} value={activeTab} onChange={value => setTab(value as typeof tab)} />
+    {activeTab === 'teams' && <section id="organisation-workspace-panel-teams"><TeamsSection orgID={orgID} /></section>}
+    {activeTab === 'members' && <section id="organisation-workspace-panel-members"><MembersSection orgID={orgID} /></section>}
+    {activeTab === 'identity' && <section id="organisation-workspace-panel-identity"><IdentitySettings orgID={orgID} /></section>}
+  </div>
+}
+
+
+function IdentitySettings({ orgID }: { orgID: string }) {
+  const session = useSession()
+  const client = useQueryClient()
+  const csrf = session.data?.csrf_token ?? ''
+  const queryKey = ['org', orgID, 'identity', 'oidc']
+  const query = useQuery({ queryKey, queryFn: ({ signal }) => organisationAPI.oidc(orgID, signal), staleTime: 0, refetchOnMount: 'always', refetchOnWindowFocus: true })
+  const [issuer, setIssuer] = useState('')
+  const [clientID, setClientID] = useState('')
+  const [clientSecret, setClientSecret] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [confirmDisable, setConfirmDisable] = useState(false)
+  const settings = query.data
+  const dirty = !!settings && (issuer !== (settings.issuer ?? '') || clientID !== (settings.client_id ?? '') || !!clientSecret)
+  const status = dirty ? 'Unsaved changes' : settings?.status === 'probe_verified' ? 'Metadata verified' : settings?.status === 'disabled' ? 'Disabled' : settings?.configured ? 'Draft' : 'Not configured'
+
+  useEffect(() => {
+    if (!settings) return
+    setIssuer(settings.issuer ?? '')
+    setClientID(settings.client_id ?? '')
+    setClientSecret('')
+  }, [settings?.version])
+
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    if (!settings || !issuer.trim() || !clientID.trim() || (!settings.secret_present && !clientSecret)) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const updated = await organisationAPI.putOIDC(orgID, settings.version, { issuer: issuer.trim(), client_id: clientID.trim(), client_secret: clientSecret }, csrf)
+      client.setQueryData(queryKey, updated)
+      setClientSecret('')
+      setNotice('Draft saved')
+    } catch (reason) {
+      setError(errorText(reason))
+      void query.refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const probe = async () => {
+    if (!settings || dirty) return
+    setBusy(true)
+    setError('')
+    setNotice('')
+    try {
+      const updated = await organisationAPI.probeOIDC(orgID, settings.version, csrf)
+      client.setQueryData(queryKey, updated)
+      setNotice('')
+    } catch (reason) {
+      if (reason instanceof ReforgeAPIError && reason.code === 'issuer_unverified') {
+        const current = client.getQueryData<OrgOIDCSettings>(queryKey)
+        if (current) client.setQueryData(queryKey, { ...current, status: 'draft', verified: false, verified_at: undefined })
+      }
+      setError(errorText(reason))
+      void query.refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const activate = async () => {
+    if (!settings?.activation_available) return
+    setBusy(true)
+    setError('')
+    try {
+      await organisationAPI.activateOIDC(orgID, settings.version, csrf)
+      await query.refetch()
+    } catch (reason) {
+      setError(errorText(reason))
+      void query.refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const disable = async () => {
+    if (!settings) return
+    setBusy(true)
+    setError('')
+    try {
+      const updated = await organisationAPI.disableOIDC(orgID, settings.version, csrf)
+      client.setQueryData(queryKey, updated)
+      setConfirmDisable(false)
+      setNotice('Configuration disabled')
+    } catch (reason) {
+      setError(errorText(reason))
+      void query.refetch()
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (query.isPending) return <p className="organisation-state" role="status">Loading identity settings…</p>
+  if (query.error && !settings) return <div className="organisation-state" role="alert"><span>Identity settings unavailable: {errorText(query.error)}</span><Button onClick={() => void query.refetch()}>Retry</Button></div>
+
+  return <div className="identity-settings">
+    {query.error && <p className="organisation-error" role="alert">Refresh failed: {errorText(query.error)} <Button onClick={() => void query.refetch()}>Retry</Button></p>}
+    {error && <p className="organisation-error" role="alert">{error}</p>}
+    <form className="identity-form" onSubmit={save}>
+      <div className="identity-status"><span className="identity-badges"><StatusBadge label={status} tone={!dirty && settings?.verified ? 'green' : !dirty && settings?.status === 'disabled' ? 'neutral' : 'amber'} />{settings?.secret_present && <StatusBadge label="Secret saved" tone="green" />}</span><Button type="button" className="identity-refresh" disabled={busy || query.isFetching} onClick={() => void query.refetch()}>Refresh</Button></div>
+      <label className="organisation-field">Issuer URL<input name="issuer" type="url" autoComplete="url" value={issuer} onChange={event => setIssuer(event.target.value)} maxLength={2048} required disabled={busy} /></label>
+      <label className="organisation-field">Client ID<input name="client_id" autoComplete="off" value={clientID} onChange={event => setClientID(event.target.value)} maxLength={512} required disabled={busy} /></label>
+      <label className="organisation-field">Client secret<input name="client_secret" type="password" autoComplete="new-password" value={clientSecret} onChange={event => setClientSecret(event.target.value)} placeholder={settings?.secret_present ? 'Leave blank to keep current' : ''} required={!settings?.secret_present} disabled={busy} /></label>
+      <footer className="identity-actions">
+        <span>{notice || (settings?.verified_at ? `Metadata checked ${new Date(settings.verified_at).toLocaleString()}` : '')}</span>
+        <Button type="submit" disabled={busy || !csrf || !dirty || !issuer.trim() || !clientID.trim() || (!settings?.secret_present && !clientSecret)}>{busy ? 'Saving…' : 'Save draft'}</Button>
+      </footer>
+    </form>
+    <div className="identity-actions identity-operations">
+      {settings?.configured && <Button type="button" disabled={busy || !csrf || settings.status === 'disabled' || dirty || query.isFetching} onClick={() => void probe()}>{busy ? 'Working…' : 'Probe issuer metadata'}</Button>}
+      {settings?.configured && <div className="identity-activation"><Button type="button" disabled={busy || !csrf || !settings?.activation_available} onClick={() => void activate()}>Activate login</Button><StatusBadge label={settings?.activation_available ? 'Ready' : 'Login unavailable'} tone={settings?.activation_available ? 'green' : 'amber'} />{!settings?.activation_available && <span className="identity-help" tabIndex={0} aria-label="Why is login unavailable?" title={settings?.activation_blocked ?? 'Organisation login is unavailable.'}>?</span>}</div>}
+      {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
+    </div>
+    <Dialog open={confirmDisable} title="Disable organisation login" onClose={() => setConfirmDisable(false)}><p>Disable this identity configuration?</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDisable(false)}>Cancel</Button><Button className="button-danger" type="button" disabled={busy || !csrf} onClick={() => void disable()}>{busy ? 'Disabling…' : 'Disable'}</Button></div></Dialog>
   </div>
 }
 
