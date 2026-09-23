@@ -47,4 +47,57 @@ test.describe('repository inventory', () => {
     await expect(page.getByLabel('Search', { exact: true })).toHaveValue('deep-link')
   })
 
+
+  test('refreshes forge picker and follows pagination through new connections after reload', async ({ page }) => {
+    let includeNewest = false
+    const pageRequests: string[] = []
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, async route => {
+      const url = new URL(route.request().url())
+      const cursor = url.searchParams.get('cursor') ?? ''
+      pageRequests.push(cursor)
+      if (includeNewest && cursor === 'after-100') {
+        await route.fulfill({ json: { items: [{ id: 'new-gitea', name: 'Newest Gitea', provider: 'gitea', kind: 'forge', endpoint: 'https://gitea.example.test', state: 'healthy', version: 1 }], complete: true } })
+        return
+      }
+      const items = Array.from({ length: includeNewest ? 100 : 1 }, (_, index) => ({
+        id: `old-${index}`,
+        name: `Older forge ${index}`,
+        provider: 'gitea',
+        kind: 'forge',
+        endpoint: 'https://gitea.example.test',
+        state: 'healthy',
+        version: 1,
+      }))
+      await route.fulfill({ json: { items, ...(includeNewest ? { next_cursor: 'after-100' } : {}), complete: !includeNewest } })
+    })
+
+    await signIn(page)
+    await page.goto(`/org/${organisation}/repositories`)
+    await page.getByRole('button', { name: 'Sync inventory' }).click()
+    const dialog = page.getByRole('dialog', { name: 'Sync forge inventory' })
+    await expect(dialog.getByRole('option', { name: /Older forge 0/ })).toBeAttached()
+    await dialog.getByRole('button', { name: 'Close dialog' }).click()
+
+    includeNewest = true
+    await page.getByRole('button', { name: 'Sync inventory' }).click()
+    await expect(dialog.getByRole('option', { name: 'Newest Gitea · gitea' })).toBeAttached()
+    expect(pageRequests.slice(-2)).toEqual(['', 'after-100'])
+    await dialog.getByLabel('Forge connection').selectOption('new-gitea')
+    const startPreview = dialog.getByRole('button', { name: 'Start preview' })
+    await expect(startPreview).toBeEnabled()
+    includeNewest = false
+    await page.evaluate(() => window.dispatchEvent(new Event('offline')))
+    await page.evaluate(() => window.dispatchEvent(new Event('online')))
+    await expect(dialog.getByRole('option', { name: /Older forge 0/ })).toBeAttached()
+    await expect(dialog.getByRole('option', { name: 'Newest Gitea · gitea' })).toHaveCount(0)
+    await expect(startPreview).toBeDisabled()
+    await dialog.getByRole('button', { name: 'Close dialog' }).click()
+
+    includeNewest = true
+    await page.reload()
+    await page.getByRole('button', { name: 'Sync inventory' }).click()
+    await expect(dialog.getByRole('option', { name: 'Newest Gitea · gitea' })).toBeAttached()
+    expect(pageRequests.slice(-2)).toEqual(['', 'after-100'])
+  })
+
 })
