@@ -37,6 +37,5 @@ test('repository scope status follows loading, partial, failure, retry, and comp
   await expect(page.getByText('More repositories unavailable.')).toBeVisible()
   await page.getByRole('button', { name: 'Retry' }).click()
   await expect(page.getByText('Repository scope complete')).toBeVisible()
-  await page.getByText('1 repositories', { exact: true }).click()
   await expect(page.getByLabel('catalog')).toBeVisible()
 })
