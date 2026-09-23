@@ -1,10 +1,10 @@
 # Current work and review status
 
-Updated 2026-09-24. Product verification frozen at `18c8045d2b0751aaf8488132c93cc7525bb5032b`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
+Updated 2026-09-24. Final product verification frozen at `675b0fdc0bb315c44506dc417cfa1f686d116a4a`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
 
 ## Current batch
 
-Opus CLI workers exhausted their session window; reported reset04:00 Sydney. Luna fallback active, maximum three workers, exclusive ownership. Coordinator reviews and integrates. Every worker completion triggers a fresh Codex weekly-quota check: below40% remaining starts checkpoint/demo wrap-up; below25% stops work jobs. Latest reading2026-09-23T14:19:40.115Z: **54% remaining**.
+Opus CLI workers exhausted their session window; reported reset04:00 Sydney. Luna fallback active, maximum three workers, exclusive ownership. Coordinator reviews and integrates. Every worker completion triggers a fresh Codex weekly-quota check: below40% remaining starts checkpoint/demo wrap-up; below25% stops work jobs. Latest completion reading2026-09-23T14:56:04.313Z: **51% remaining**.
 
 | Work | Status / evidence |
 | --- | --- |
@@ -20,9 +20,9 @@ Opus CLI workers exhausted their session window; reported reset04:00 Sydney. Lun
 
 | Priority / ticket | Remaining action |
 | --- | --- |
-| P2 / T29x | In progress: Policies/Usage team pickers miss shared rename invalidation; policy budget controls omit micro-USD units. Found in coordinator source/visual review after the production suite passed. |
-| P2 / T28d | In progress: PostgreSQL temporary init server can satisfy socket readiness then shut down before role bootstrap. Fix tracked Compose/harness readiness; repeat clean install. |
-| P1 / T29u | Complete genuine repair→validation→policy qualification→native approval→authorized protected merge, then browser confirmation. Existing connected negative path passes; unqualified merge correctly returns409. No model weights currently installed; previous local Ollama attempts produced no valid repair. Bounded prerequisites investigation active; paid APIs and synthetic success prohibited. [Reviewer journey](t28a-reviewer-journey-review.md). |
+| P2 / T29x | Locally fixed `d23be04`/`74957e4`: all team pickers share invalidation; budget units explicit. Regression proved failure before fix and passes afterward;14 focused tests/typecheck/build pass. Final full suite running. |
+| P2 / T28d | Fixed `9ebf273`: TCP readiness excludes temporary initialization server. Corrected logic passed full install/recovery in a path-adjusted copy; original tracked script direct run underway on final freeze. |
+| P1 / T29u | Complete genuine repair→validation→policy qualification→native approval→authorized protected merge, then browser confirmation. Existing connected negative path passes; unqualified merge correctly returns409. Cached qwen3:4b attempted genuinely and stopped at turn1 on existing output limit, no tools/candidate. See [current model review](t29u-current-model-review.md). Needs a model/profile producing a valid repair within authorized bounds; paid APIs and synthetic success prohibited. [Reviewer journey](t28a-reviewer-journey-review.md). |
 | T28a / T29 | Complete full production-browser gate; fix actual failures through workers. Review current captures and reconcile opt-in skips. Human visual approval remains separate. |
 | T28c / T30 | Review current image/install results. Historical Alpine source inputs, reproducibility, arm64 and legal disposition remain open. [Inventory](t28c-inventory.md), [provenance](t28c-alpine-provenance-review.md). |
 | T27 / T28b | Host blocked:100 actual concurrent runs and hostile tenant/resource corpus need delegated writable cgroup v2. Current WSL/nested Docker boundary cannot provide it.10k repository/10tenant and50browser-session fixture checks passed; these do not substitute for execution isolation. |
@@ -47,6 +47,6 @@ T26 earlier Compose bootstrap/install/migration/restart/encrypted-restore eviden
 
 ## Review artifacts and launch
 
-Current batch artifacts: `.local/opus-resume/`; source and evidence remain local. Production demo URL and exact start/stop instructions will be recorded after current build is verified. Existing development service is `http://127.0.0.1:5173` with explicit fixture authentication; it is not the production-image acceptance target.
+Current batch artifacts: `.local/opus-resume/`; source and evidence remain local. Demo: `http://127.0.0.1:8084`; docs: `http://127.0.0.1:8082/docs/`. Explicit fixture authentication, real local PostgreSQL, production web bundle. Final freeze refresh underway; [browser review](t28a-production-browser-review.md) records source, start/stop commands and screenshot provenance. Superseded development services will stop after verification.
 
 Self-hosted launch: follow [Install](../../deploy/docs/content/install.md), configure `deploy/compose/.env.example`, then `docker compose --env-file .env -f deploy/compose/compose.yaml up --build -d`. Use configured HTTPS origin and `/docs/`; keep database and runner ports private. No external deployment/publication authorized.

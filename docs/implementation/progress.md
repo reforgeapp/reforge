@@ -1,5 +1,12 @@
 # Implementation progress
 
+## Final verification freeze — 2026-09-24
+
+Product source frozen `675b0fd`. Reviewed integrations: TCP PostgreSQL readiness `9ebf273`; shared Policies/Usage team invalidation `d23be04` (old-prefix regression failed, corrected SPA navigation passed); explicit budget units `74957e4`. Focused14/14, typecheck/build passed. Final full-browser and original unmodified-path install script checks allocated on clean source. Current images at18c8045 already pass frontend/notice/nonroot/docs checks; final frontend image rebuild underway.
+
+Completion-time quota at2026-09-23T14:56:04.313Z: **51% weekly remaining**. Real qwen3:4b attempt returned no tools and hit authorized output limit at turn1; no candidate/PR/merge. First invocation interrupted for disk headroom, separately recorded. No repeated model attempts or weakened guards. [Model review](t29u-current-model-review.md). T29u remains open. Two unused Reforge model caches removed through Ollama after retaining manifests; qwen3:1.7b/4b/8b preserved. Local Ollama/Gitea stopped; demo8084/docs8082/PG remain. Bounded exact control/runner Alpine input retrieval allocated independently; no legal clearance claimed.
+
+
 ## Acceptance review checkpoint — 2026-09-24
 
 Production browser at18c8045:192 passed/15 opt-in skipped/0 failed. Root inspected policy, connection, identity and audit captures; T29x records missing policy budget units and stale Policies/Usage team-cache prefixes. One narrow capture caught a resize transition; worker retaking settled frames. Current images built; frontend and notice byte comparisons pass. Clean-install first attempt hit PostgreSQL temporary-server readiness race; adjusted-copy retry passed all recovery checks, tracked correction/verification now T28d.
