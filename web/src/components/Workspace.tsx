@@ -22,17 +22,17 @@ export function SplitView({ listLabel, list, detail, selected, onBack, hideBack,
   const detailRef = useRef<HTMLElement>(null)
   const closeRef = useRef<HTMLButtonElement>(null)
   const originRef = useRef<HTMLElement | null>(null)
-  const mountedRef = useRef(false)
+  const wasSelectedRef = useRef(selected)
   const [listFocusNonce, setListFocusNonce] = useState(0)
 
   useEffect(() => {
-    const firstRender = !mountedRef.current
-    mountedRef.current = true
+    const closed = wasSelectedRef.current && !selected
+    wasSelectedRef.current = selected
     const active = document.activeElement
     const fromDetail = active instanceof HTMLElement && !!detailRef.current?.contains(active)
     const noMeaningfulFocus = !active || active === document.body || active === document.documentElement
     if (!selected) {
-      if (!firstRender && (fromDetail || noMeaningfulFocus)) {
+      if (closed && (fromDetail || noMeaningfulFocus)) {
         if (originRef.current?.isConnected) originRef.current.focus()
         else listRef.current?.focus()
       }
