@@ -12,7 +12,11 @@ input/button offset, overflow or axe violations; four existing Organisation regr
 T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md). T28b browser slice is locally verified; 100 executing runs and broader qualification remain open ([review](t28b-browser-review.md)).
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
-run/browser load, T28c dependency/notice review. T27 enforced hosted isolation and external
+run/browser load, T28c dependency/notice review. T28c local slice now records 153 hydrated
+Go modules (66 runtime, 87 graph/build-only), 15 npm production packages eligible for bundle, 83 dev/test packages,
+28 dev-only package-root notice gaps, six verified multi-arch image pins, and three local
+image builds with narrow smoke checks. OCI/OS/Python notices and legal sign-off remain open;
+see [T28c inventory](t28c-inventory.md). T27 enforced hosted isolation and external
 provider/agent/identity/delivery certification remain open. Full fresh release audit has
 not been completed; prior GUI checks do not establish it. No G5 claim.
 

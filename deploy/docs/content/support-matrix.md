@@ -92,13 +92,12 @@ under `deploy/gitops` renders manifests but does not certify a hosted cluster.
 
 ## Licences
 
-Reforge is Apache-2.0. The runtime dependency set has no GPL/AGPL/LGPL module; the only
-weak-copyleft licences are MPL-2.0 build/test dependencies (`axe-core`, `lightningcss`),
-which are compatible with an Apache-2.0 distribution when their notices are retained. The
-generated inventory at `docs/implementation/dependencies.md` and collected notices at
-`docs/implementation/third-party-notices.txt` mark transitive modules without a detected
-licence file as `review required`; confirm those before a public release. No dependency
-adds telemetry or phones home.
+Reforge is Apache-2.0. The generated source inventory still has 28 development-only
+package-root notice gaps. OCI image, OS-package, and Python runtime notices remain open. See
+`docs/implementation/t28c-inventory.md`; T28c remains open until those gaps and notices are
+resolved. Do not infer blanket GPL/AGPL/LGPL absence or Apache/MPL compatibility from the
+current inventory. Generated records are evidence inputs, not a completed legal review;
+confirm required notices before public release.
 
 ## Known limitations
 

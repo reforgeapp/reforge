@@ -1,11 +1,11 @@
-FROM node:26-bookworm AS web
+FROM node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 AS web
 WORKDIR /src/web
 COPY web/package.json web/package-lock.json ./
 RUN npm ci
 COPY web ./
 RUN npm run build
 
-FROM golang:1.27-bookworm AS gobuild
+FROM golang:1.27-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195 AS gobuild
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
@@ -14,7 +14,7 @@ RUN CGO_ENABLED=0 go build -trimpath -o /out/reforge ./cmd/server \
  && CGO_ENABLED=0 go build -trimpath -o /out/reforge-migrate ./cmd/migrate \
  && CGO_ENABLED=0 go build -trimpath -o /out/reforge-evidence ./cmd/evidence
 
-FROM alpine:3.21
+FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
 RUN apk add --no-cache ca-certificates \
  && adduser -D -u 10001 reforge \
  && mkdir -p /app/var/artifacts \

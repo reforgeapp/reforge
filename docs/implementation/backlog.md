@@ -60,11 +60,10 @@ certification remain required; G5 has not passed.
 
 ### T28c — Finish dependency and distribution inventory
 
-- Status: **open**. Child of T28. Luna inventory, Astra release review.
-- Resolve `review required` dependency entries against actual shipped versions; include
-  container/runtime assets and required notices. Record evidence, not inferred licence labels.
-- Accept: reproducible release inventory, notices and explicit decisions; separate
-  publication authorisation remains necessary.
+- Status: **open; local inventory and image-pin slice complete, 2026-09-23**. Child of T28. Luna inventory, Astra release review.
+- Evidence: 153 hydrated Go module sources, with 66 in shipped binaries and 87 module-graph/build downloads only; 98 npm packages, 15 production packages eligible for the web bundle and 83 development/test-only. Twenty-eight development-only packages still lack package-root notice text. Six base/Compose image refs use verified multi-architecture OCI digests; three local images built and passed narrow smoke checks.
+- Remaining: resolve the 28 package-root notice gaps; collect OCI base, OS-package, and docs Python dependency notices; rerun inventory for release inputs and obtain legal/owner review. See [T28c inventory](t28c-inventory.md).
+- Accept: reproducible release inventory, required notices and explicit decisions; separate publication authorisation remains necessary.
 
 ## Owner resumed GUI work — 2026-09-23
 
