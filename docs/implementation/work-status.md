@@ -4,7 +4,7 @@ Updated 2026-09-24. Product `92e1d03` passed fresh193/15 default-browser gate an
 
 ## Current batch
 
-Opus session quota exhausted; reported reset13:10 Sydney. Luna packages verified numeric change deep-link fix into final demo; maximum three workers, exclusive ownership. Coordinator reviews every change. Weekly completion check2026-09-23T23:32:38.847Z: **40% remaining**. Below40% starts checkpoint/demo wrap-up; below25% stops jobs. Persistent goal active.
+Owner quota wrap-up triggered2026-09-23T23:47:43.290Z: **39% Codex weekly remaining**. No new implementation dispatch. One Luna worker finishes already-authorized4e679e5 production check/demo handover; all others finished. Demo8084/docs8082 available. Below25% would hard-stop active work jobs; not reached. Persistent goal remains incomplete; remaining local/external work below.
 
 | Work | Status / evidence |
 | --- | --- |

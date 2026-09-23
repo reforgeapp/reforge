@@ -1,5 +1,13 @@
 # Implementation progress
 
+## Weekly quota wrap-up — 2026-09-24
+
+Reported Codex weekly remaining39% at2026-09-23T23:47:43.290Z. Owner below40% rule triggered: no new implementation jobs, finish existing bounded final demo delivery and checkpoint. Below25% hard-stop threshold not reached.
+
+T29aa fixed `4e679e5`: root independently checked router numeric parsing, Luna reproduced failed deep-link test then fixed native-ID comparison.13 Changes scenarios passed before final assertion cleanup; final focused regression and typecheck passed. New image built; final focused production verification/demo switch pending. Full positive genuine merge GUI has not been rerun; original model/service and attempted GUI evidence remain separate.
+
+Only exact Reforge-generated `/tmp/reforge-go-cache` cleared for disk recovery after scoped authorization; no module cache/source/evidence/database/global Docker prune. Other workers finished; no new model calls planned.
+
 ## Final demo delivery and numeric change follow-up — 2026-09-24
 
 `92e1d03` production control image passed one fresh default suite:193 passed/15 skipped, normal CSP. Root reviewed settled390px Findings capture; rejected transition capture preserved. Demo8084 now serves exact accepted assets; auth, unchanged encrypted environment, persisted Audit event and docs8082 Help200 verified. Delivery report committed `ce3b12d`. Test-only later94e6bbc adds opt-in positive journey; it was not part of the frozen208-test suite.
