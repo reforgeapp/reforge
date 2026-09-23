@@ -91,7 +91,7 @@ func containerProfile(digest string) Profile {
 	p := approvedProfile()
 	p.ImageDigest = digest
 	p.Executable = "/bin/busybox"
-	p.Argv = []string{"echo", "{\"type\":\"result\",\"message\":\"ok\"}"}
+	p.Argv = []string{"echo", "{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}"}
 	return p
 }
 

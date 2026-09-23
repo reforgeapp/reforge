@@ -4,8 +4,8 @@
 
 [Current work status](work-status.md) is the authoritative open-defect and acceptance index.
 The dated sections below preserve prior evidence; they do not override newer findings.
-T29r and T29s are locally complete. T31a remains open. T28a–c, hosted isolation
-and external certification remain required; G5 has not passed.
+T29r, T29s and T31a are locally complete. T28a–c, hosted isolation and external
+certification remain required; G5 has not passed.
 
 ### T29r — Align Organisation team creation
 
@@ -24,17 +24,21 @@ and external certification remain required; G5 has not passed.
 
 ### T31a — Validate custom-command terminal results
 
-- Status: **open, P1; locally reproduced**. Depends T31. Astra protocol design/review,
-  Luna implementation with explicit ownership of executor and affected processor tests.
-- Cause: `Executor.classify` accepts empty, progress-only and error-only exit-zero streams
-  as `completed_unverified`, contrary to the required typed terminal result.
-- Fix: specify/enforce terminal outcome and ordering; reject missing/duplicate/conflicting
-  results and error outcomes before advancing extraction/validation. Preserve independent
-  frozen validation, usage accounting, cancellation, fencing and publication authority.
-- Accept: valid success advances only to validation; missing/malformed/error/nonzero/
-  truncated/timeout/cancelled outcomes cannot advance. Processor regression plus existing
-  real-container protocol and patch validation checks. No live API budget needed.
-- Evidence: `.local/organisation-layout-2026-09-23/protocol-probe.jsonl`.
+- Status: **local complete, 2026-09-23; external runtime qualification open**. Depends T31.
+  Astra protocol review; Luna implemented in the executor and affected customcmd fixtures.
+- Cause: empty, progress-only and error-only exit-zero streams were incorrectly accepted as
+  completed_unverified.
+- Fix: accept only exactly one final result event with object data.outcome: "success"; error
+  events block completion. Typed failed/failure/error outcomes fail; absent, malformed or
+  unknown outcomes, duplicate/misordered results and nonzero/truncated/timeout/cancelled runs
+  cannot advance extraction. Existing message: "ok" output is no longer valid; custom
+  profiles/producers must emit the typed shape. Frozen validation and publication authority
+  remain unchanged.
+- Evidence: [T31a review](t31a-review-2026-09-23.md), before/after probes in
+  `.local/organisation-layout-2026-09-23/protocol-probe.jsonl` and
+  `.local/t31a-acceptance/protocol-probe-after.jsonl`, plus real container test log
+  `.local/t31a-acceptance/container-test.log`. Local Go package and race checks pass; no live
+  provider/account or hosted runtime certification is claimed.
 
 ### T28a — Reconcile release acceptance evidence
 
@@ -42,8 +46,8 @@ and external certification remain required; G5 has not passed.
   owns bounded evidence/packaging slices. Independent evidence audit can begin now.
 - Map V01–V29/J01–J10/R01–R13 to implementation and exact observed builds/artifacts.
   Explicitly mark not run, inherited evidence, fixture-only and externally certified.
-- Verify T31 extraction/validation after T31a and a fresh container-only clean install,
-  upgrade, restart and encrypted restore without host language toolchains or `/tmp` tools.
+- Reconcile T31 extraction/validation evidence after T31a and verify a fresh container-only
+  clean install, upgrade, restart and encrypted restore without host language toolchains or `/tmp` tools.
 - Accept: every requirement has proof or a specific owning open task; no stale completion
   claims; no G5 claim while mandatory evidence is absent.
 

@@ -64,13 +64,14 @@ agent connection and quota budget route; the controller revalidates the task fen
 policy, approval/version/digest and concurrency, commits a durable reservation and run
 record, and the runner executes the profile in its sandbox. The version 1 protocol is a
 single bounded process invocation. `max_turns` counts reported turn events and rejects
-output above the declared limit; it does not run a turn loop. A clean exit currently may
-produce `completed_unverified` for empty, progress-only or error-only output when the
-stream lacks a typed terminal result; T31a terminal-result validation remains open. The
-processor can then extract changed source, run frozen baseline/candidate/target
-validation, and stage and publish only after that validation succeeds. Exit 0 alone never
-validates a repair. Outcomes classified as unknown, failed or cancelled stop before
-extraction; independent validation and normal publication authority remain required.
+output above the declared limit; it does not run a turn loop. Exit-zero output advances to `completed_unverified` only with exactly one final `result`
+event containing `data.outcome: "success"`; message-only results such as `message: "ok"`
+must be updated. Missing, malformed, unknown, duplicate, misplaced and failed outcomes, or
+any `error` event, stop before extraction. The processor then extracts changed source, runs
+frozen baseline/candidate/target validation, and stages and publishes only after validation
+succeeds. Exit 0 alone never validates a repair. Independent validation and normal publication
+authority remain required. T31a is locally complete; external runtime/account/topology
+qualification remains open.
 Revocation fences later dispatches.
 
 ## Verification identity

@@ -8,14 +8,28 @@ ticket-table sections below, which remain historical evidence.
 
 T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass with zero
 input/button offset, overflow or axe violations; four existing Organisation regressions pass.
-[Layout evidence](organisation-layout-review-2026-09-23.md). Current review also identified
-**T31a (P1, reproduced)** missing custom-command terminal-result validation; it remains open.
+[Layout evidence](organisation-layout-review-2026-09-23.md). T31a custom-command terminal-result validation is locally complete; external runtime qualification remains open. See [review](t31a-review-2026-09-23.md).
 T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md).
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
 run/browser load, T28c dependency/notice review. T27 enforced hosted isolation and external
 provider/agent/identity/delivery certification remain open. Full fresh release audit has
 not been completed; prior GUI checks do not establish it. No G5 claim.
+
+## T31a protocol validation — 2026-09-23
+
+T31a locally complete. Exit-zero output advances only with exactly one final result event
+whose object data.outcome is "success". A message-only result (including message "ok") is
+invalid. Missing, malformed, unknown, duplicate, misplaced or failed results and any error
+event stop extraction; frozen validation and publication authority remain unchanged.
+
+Verification: `go test ./internal/customcmd ./internal/runnerclient` and
+`go test -race ./internal/customcmd` pass. Root's isolated after-fix probe records empty and
+progress-only as unknown and error-only as failed
+(`.local/t31a-acceptance/protocol-probe-after.jsonl`). The real Docker protocol suite passes
+input/output, unknown usage, malformed event, nonzero exit, timeout, cancellation and secret
+isolation (`.local/t31a-acceptance/container-test.log`). The probe is classification-only;
+no live provider or hosted runtime qualification is claimed. G5 remains open.
 
 ## T29s repository scope status — 2026-09-23
 

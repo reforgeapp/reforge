@@ -94,7 +94,13 @@ func (e *Executor) classify(raw sandbox.CommandResult, profile Profile) (Result,
 		return out, nil
 	}
 	turns := 0
-	for _, event := range events {
+	resultCount := 0
+	resultIndex := -1
+	resultSuccess := false
+	resultFailed := false
+	resultMalformed := false
+	hasError := false
+	for index, event := range events {
 		switch event.Type {
 		case "usage":
 			if err := json.Unmarshal(event.Data, &out.Usage); err != nil {
@@ -104,6 +110,12 @@ func (e *Executor) classify(raw sandbox.CommandResult, profile Profile) (Result,
 			}
 		case "turn":
 			turns++
+		case "error":
+			hasError = true
+		case "result":
+			resultCount++
+			resultIndex = index
+			resultSuccess, resultFailed, resultMalformed = parseResultOutcome(event)
 		}
 	}
 	if profile.MaxTurns > 0 && turns > profile.MaxTurns {
@@ -117,9 +129,49 @@ func (e *Executor) classify(raw sandbox.CommandResult, profile Profile) (Result,
 		out.Reason = "Profile output exceeded its byte budget"
 		return out, nil
 	}
+	if hasError {
+		out.State = "failed"
+		out.Reason = "Profile emitted an error event"
+		return out, nil
+	}
+	if resultCount != 1 || resultIndex != len(events)-1 {
+		out.State = "unknown"
+		out.Reason = "Profile must emit exactly one terminal result as its final event"
+		return out, ErrProtocol
+	}
+	if resultMalformed {
+		out.State = "unknown"
+		out.Reason = "Profile terminal result is malformed"
+		return out, ErrProtocol
+	}
+	if resultFailed || !resultSuccess {
+		out.State = "failed"
+		out.Reason = "Profile terminal result did not report success"
+		return out, nil
+	}
 	out.State = "completed_unverified"
 	out.Reason = "Exit 0 is not a validated repair; apply the declared validation before any publication"
 	return out, nil
+}
+
+func parseResultOutcome(event Event) (bool, bool, bool) {
+	if len(event.Data) == 0 {
+		return false, false, true
+	}
+	var result struct {
+		Outcome string `json:"outcome"`
+	}
+	if err := json.Unmarshal(event.Data, &result); err != nil || result.Outcome == "" {
+		return false, false, true
+	}
+	switch result.Outcome {
+	case "success":
+		return true, false, false
+	case "failed", "failure", "error":
+		return false, true, false
+	default:
+		return false, false, true
+	}
 }
 
 func hasKnownUsage(u Usage) bool {

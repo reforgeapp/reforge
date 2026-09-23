@@ -1,10 +1,11 @@
 # T31 custom command runtime contract
 
-Open follow-up, 2026-09-23: **T31a terminal-result validation**. The executor currently
-classifies empty, progress-only and error-only exit-zero output as `completed_unverified`.
-The required typed terminal-result semantics below are not fully enforced. Independent
-repair validation and publication authority still apply. See [current work](work-status.md)
-and [ticket acceptance](backlog.md#t31a--validate-custom-command-terminal-results).
+T31a local implementation complete, 2026-09-23; official runtime/account/topology
+qualification remains open. The executor accepts only exactly one final `result` event with
+object `data.outcome: "success"`; a message-only result such as `message: "ok"` is no longer
+valid. Error events and failed outcomes cannot advance extraction. Independent repair
+validation and publication authority still apply. See [current work](work-status.md) and
+[ticket acceptance](backlog.md#t31a--validate-custom-command-terminal-results).
 
 Status: implemented. Profiles, approval/revocation, protocol executor, HTTP, GUI, a real
 Docker container test, controller-to-runner dispatch and end-to-end maintenance validation
@@ -47,7 +48,11 @@ only the approved image and profile.
   Allowed types are `progress`, `log`, `turn`, `usage`, `result` and `error`. A `turn`
   event counts against `max_turns`; exceeding the declared turn budget marks the result
   `unknown` rather than accepting it.
-- Output: a final `result` event with a typed outcome.
+- Output: exactly one final `result` event with object `data.outcome`. Only `"success"`
+  is accepted for `completed_unverified`; `"failed"`, `"failure"` and `"error"` are failures.
+  Missing, malformed or unknown outcomes, duplicate results, any event after result, or any
+  `error` event reject completion. Existing message-only result output must be updated to
+  `{"type":"result","data":{"outcome":"success"}}`.
 - Cancel: a native cancellation signal; only the runtime's confirmed termination counts
   as cancelled.
 - Exit: nonzero exit is a failure. **Exit 0 never means a validated repair.**
@@ -84,8 +89,10 @@ reason.
 
 1. Migration `030_custom_profiles.sql` with RLS and approval/revocation columns. Done.
 2. `internal/customcmd` domain, validation, executor over `sandbox.SandboxRuntime` and
-   protocol parser, with race tests for malformed/unknown/timeout/cancel paths. Done; a
-   real Docker container test covers the protocol and secret isolation.
+   protocol parser. T31a enforces typed terminal results and final-event ordering;
+   `go test ./internal/customcmd ./internal/runnerclient` and
+   `go test -race ./internal/customcmd` pass. A real Docker container test covers protocol,
+   timeout, cancellation and secret isolation.
 3. HTTP create/list/approve/revoke under `/api/v1/orgs/{orgID}/custom-profiles` and
    OpenAPI schemas. Done.
 4. Connections GUI panel showing capability state, approval, digest and disabled reason.

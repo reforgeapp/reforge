@@ -23,21 +23,16 @@ G5 is **open**. The application is locally runnable; it is not release-certified
 
 | Priority / ticket | State | Finding and completion criterion |
 | --- | --- | --- |
-| P1 / T31a | Open; reproduced locally | Custom-command executor accepts empty, progress-only and error-only exit-zero output as `completed_unverified`. Require a valid typed terminal result and reject missing, contradictory or failed protocol outcomes before extraction/validation. Independent frozen validation and publication authority still run; no protection bypass demonstrated. |
+| P1 / T31a | Locally fixed; runtime qualification open | Exit-zero custom-command output advances only with exactly one final `result` carrying `data.outcome: "success"`; missing, malformed, unknown, duplicate, misplaced, failed and error-event outcomes cannot advance extraction. External runtime/account/topology qualification remains open. |
 | P2 / T29r | Fixed; browser-verified | Team creation button was centred against the label plus input. Input/button now align on desktop and narrow layouts. [Layout evidence](organisation-layout-review-2026-09-23.md). |
 | P1 / T29q | Fixed; browser/backend-verified | Refresh/cached navigation emptied lists; incompatible team cache shapes crashed Organisation; filter loading stole focus. See linked lifecycle report. |
 
-T31a proof: `.local/organisation-layout-2026-09-23/protocol-probe.jsonl`; isolated launcher
-output probe, no real command/provider execution. Source: `internal/customcmd/executor.go`
-and `internal/runnerclient/processor.go`. T29s locally completed with focused evidence
-in [its review](t29s-review-2026-09-23.md). Newly discovered issues belong here and
-in backlog with reproduction, priority, owning ticket and closure evidence.
+T31a before/after launcher probes are `.local/organisation-layout-2026-09-23/protocol-probe.jsonl` and `.local/t31a-acceptance/protocol-probe-after.jsonl`; they exercise classification only. The real container protocol test passed (`.local/t31a-acceptance/container-test.log`). Implementation and exact local evidence: [T31a review](t31a-review-2026-09-23.md). T29s locally completed with focused evidence in [its review](t29s-review-2026-09-23.md). Newly found issues belong here and in backlog with reproduction, priority, owner and closure evidence.
 
 ## Remaining local work
 
 | Ticket | Next action | Required evidence / dependency |
 | --- | --- | --- |
-| T31a | Harden terminal-result protocol handling | Missing/duplicate/conflicting/error/malformed result, nonzero exit, timeout, cancellation and valid result regressions; verify processor does not advance rejected output |
 | T28a | Complete release acceptance evidence map | Map V01–V29 and J01–J10 to exact builds, scenarios and artifacts; identify untested requirements. Recheck T31 extraction/validation and container-only clean install/upgrade/restart/restore. Signed local OIDC harness uses host Go and alone cannot establish the no-host-toolchain installation requirement |
 | T28b | Execute actual scale target | 100 simultaneously executing runs plus 50 real browser sessions; latency, fairness, cancellation, restart and resource evidence. Existing 100 claims / 50 HTTP sessions are insufficient |
 | T28c | Finish release dependency/notice review | Resolve each `review required` entry in `dependencies.md`, reconcile shipped images/packages and notices, rerun inventory for release build |
@@ -71,7 +66,7 @@ needed to fix T31a or review dependency/evidence records.
 | T26/T27/T28 | Partial; local and external work listed above |
 | T29 | Rebuild and T29a–s locally complete; G5 and external qualification remain open |
 | T30 | Docs engine/help locally verified; support-matrix corrections made; final release content follows T28a |
-| T31 | Runtime/dispatch/extraction implemented; T31a defect open and release regression evidence pending |
+| T31 | Runtime/dispatch/extraction implemented; T31a locally complete; official runtime and hosted qualification open |
 
 Launch: existing app `http://127.0.0.1:8080`, docs `http://127.0.0.1:8082/docs/`.
 Use [backlog](backlog.md) for acceptance/ownership, [validation](validation.md) for required

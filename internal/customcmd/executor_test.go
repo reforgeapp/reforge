@@ -48,8 +48,8 @@ func workspace() sandbox.Workspace {
 	return sandbox.Workspace{ID: "rf-test", Root: "/workspace", Image: "reviewer"}
 }
 
-func TestExitZeroIsNotVerified(t *testing.T) {
-	fake := &fakeLauncher{res: sandbox.CommandResult{ExitCode: 0, Output: []byte("{\"type\":\"result\",\"message\":\"ok\"}\n")}}
+func TestTypedSuccessfulResultIsNotVerified(t *testing.T) {
+	fake := &fakeLauncher{res: sandbox.CommandResult{ExitCode: 0, Output: []byte("{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n")}}
 	out, err := NewExecutor(fake).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -68,19 +68,65 @@ func TestExitZeroIsNotVerified(t *testing.T) {
 func TestTurnBudgetIsEnforced(t *testing.T) {
 	p := approvedProfile()
 	p.MaxTurns = 2
-	output := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\",\"message\":\"ok\"}\n")
+	output := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n")
 	if out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: output}}).Run(context.Background(), p, Input{Workspace: workspace(), Request: []byte("{}")}); err != nil || out.State != "completed_unverified" {
 		t.Fatalf("within-budget turns rejected: state=%q err=%v", out.State, err)
 	}
-	over := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\"}\n")
+	over := []byte("{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"turn\"}\n{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n")
 	out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: over}}).Run(context.Background(), p, Input{Workspace: workspace(), Request: []byte("{}")})
 	if !errors.Is(err, ErrProtocol) || out.State != "unknown" {
 		t.Fatalf("over-budget turns accepted: state=%q err=%v", out.State, err)
 	}
 }
 
+func TestTerminalResultRequiredExactlyOnceAndLast(t *testing.T) {
+	cases := map[string]string{
+		"empty":              "",
+		"progress only":      "{\"type\":\"progress\"}\n",
+		"missing outcome":    "{\"type\":\"result\"}\n",
+		"duplicate result":   "{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n",
+		"event after result": "{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n{\"type\":\"progress\"}\n",
+	}
+	for name, payload := range cases {
+		t.Run(name, func(t *testing.T) {
+			out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: []byte(payload)}}).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})
+			if !errors.Is(err, ErrProtocol) || out.State != "unknown" {
+				t.Fatalf("expected protocol uncertainty, got state=%q err=%v", out.State, err)
+			}
+		})
+	}
+	out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"error\"}\n")}}).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})
+	if err != nil || out.State != "failed" {
+		t.Fatalf("error-only stream must fail, got state=%q err=%v", out.State, err)
+	}
+}
+
+func TestTerminalResultMustReportSuccessWithoutErrorEvent(t *testing.T) {
+	cases := map[string]string{
+		"failed outcome":     "{\"type\":\"result\",\"data\":{\"outcome\":\"failed\"}}\n",
+		"unknown outcome":    "{\"type\":\"result\",\"data\":{\"outcome\":\"maybe\"}}\n",
+		"malformed outcome":  "{\"type\":\"result\",\"data\":[] }\n",
+		"error after result": "{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n{\"type\":\"error\"}\n",
+	}
+	for name, payload := range cases {
+		t.Run(name, func(t *testing.T) {
+			out, err := NewExecutor(&fakeLauncher{res: sandbox.CommandResult{Output: []byte(payload)}}).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})
+			if out.State == "completed_unverified" {
+				t.Fatalf("rejected terminal outcome advanced: %+v", out)
+			}
+			if name == "unknown outcome" || name == "malformed outcome" {
+				if !errors.Is(err, ErrProtocol) || out.State != "unknown" {
+					t.Fatalf("expected malformed protocol outcome, got state=%q err=%v", out.State, err)
+				}
+			} else if out.State != "failed" {
+				t.Fatalf("expected failed, got state=%q err=%v", out.State, err)
+			}
+		})
+	}
+}
+
 func TestKnownUsageIsRecorded(t *testing.T) {
-	fake := &fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"usage\",\"data\":{\"tokens\":120,\"milliseconds\":40}}\n")}}
+	fake := &fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"usage\",\"data\":{\"tokens\":120,\"milliseconds\":40}}\n{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n")}}
 	out, err := NewExecutor(fake).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{}")})
 	if err != nil {
 		t.Fatal(err)
@@ -171,7 +217,7 @@ func TestValidationRejectsUnsafeProfiles(t *testing.T) {
 }
 
 func TestLauncherReceivesTypedArgvWithoutShell(t *testing.T) {
-	fake := &fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"result\"}\n")}}
+	fake := &fakeLauncher{res: sandbox.CommandResult{Output: []byte("{\"type\":\"result\",\"data\":{\"outcome\":\"success\"}}\n")}}
 	if _, err := NewExecutor(fake).Run(context.Background(), approvedProfile(), Input{Workspace: workspace(), Request: []byte("{\"prompt\":\"x\"}")}); err != nil {
 		t.Fatal(err)
 	}
