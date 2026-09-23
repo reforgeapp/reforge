@@ -1,5 +1,10 @@
 # Implementation progress
 
+## Exact source inputs reviewed — 2026-09-24
+
+Opus provenance worker completed; mandatory weekly quota2026-09-23T22:22:55.693Z **48% remaining**. Twenty upstream archives and139 exact-commit Alpine files matched159/159 declared SHA512 values; root independently recomputed every retained payload hash and checked declaration presence. Integrated `c6603a9`; no product/notice changes or legal clearance. Thirty-eight archive license files retained for later mapping. Source-to-binary reproducibility remains unproven. Worker now owns only exact docs-image historical input investigation. Repair/browser workers continue separately; max3 maintained.
+
+
 ## Resumed remaining acceptance — 2026-09-24
 
 Persistent goal verified active. Final product source remains `675b0fd`; later commits are documentation only. Production browser gate **193 passed / 15 opt-in skipped / 0 failed**. Clean final amd64 control/runner/docs images and original tracked install script passed: migrations, rollback/retry, local OIDC, restart and encrypted restore. Exact frontend/notice bytes match. Reports: [browser](t28a-production-browser-review.md), [images](t28c-current-images-review.md). No G5 pass or external certification inferred.
