@@ -1,5 +1,8 @@
 # T28a release acceptance evidence map
 
+Current reconciliation,2026-09-24: product source frozen `18c8045`; invitation onboarding locally complete under normal CSP against a signed local issuer and restricted PostgreSQL. Fresh auth/HTTP and full integration race logs retained in `.local/opus-resume/integration/`. Focused lifecycle45/45, invitations/Organisation20/20 and Audit/Policies36/36 passed; current production full-browser and exact-source image gates running. Latest completed full-browser baseline is153 passed/27 failed/15 skipped at `35b7545`, superseding the older154/14 result below. T29u positive protected merge, cgroup load/isolation, provider/legal/human qualification and G5 remain open. [Work status](work-status.md) tracks current gates. The dated matrix below records historical per-scenario evidence until current-gate reconciliation.
+
+
 Observed 2026-09-23; reconciliation baseline is HEAD `35b7545`, including reviewer acceptance `7175484`, connected Identity GUI `35b7545`, OIDC runtime `08669b4`, and Alpine provenance review `af230bd`. Existing-member OIDC GUI journey passed; first-user invitation/onboarding remains in progress. G5 remains open. This map distinguishes source presence from acceptance proof. Historical progress entries are retained evidence, not a claim that every result was rerun against current tree.
 
 ## Evidence identity
