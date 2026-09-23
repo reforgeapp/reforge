@@ -1,5 +1,11 @@
 # Implementation progress
 
+## Final quota handover — 2026-09-24
+
+Demo8084 now serves clean product4e679e5 after13/13 focused production Changes checks, including numeric native-ID URL/reload and cross-org UI selection. Checks intercept backend fixture responses; they do not certify backend tenant isolation or complete the real protected merge journey. Earlier92e1d03 full default suite remains193passed/15skipped; not repeated for this one-page fix.
+
+Final image preserves runtime environment, artifact mount, hardening and existing PostgreSQL. Auth/readiness, exact served frontend hashes, unchanged persisted Audit event, CSP and docs8082 Help200 verified. Test containers removed; leave only demo/docs/mainPG for owner review. Final report t29aa-deep-link-review.md. No new work after39% wrap threshold. Remaining backlog remains in work-status.md; G5 not passed.
+
 ## Weekly quota wrap-up — 2026-09-24
 
 Reported Codex weekly remaining39% at2026-09-23T23:47:43.290Z. Owner below40% rule triggered: no new implementation jobs, finish existing bounded final demo delivery and checkpoint. Below25% hard-stop threshold not reached.

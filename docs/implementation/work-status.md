@@ -1,10 +1,10 @@
 # Current work and review status
 
-Updated 2026-09-24. Product `92e1d03` passed fresh193/15 default-browser gate and is serving in demo. T29aa fixed in `4e679e5`; production demo refresh pending. Earlier image/install verification remains attributed to `675b0fd`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
+Updated 2026-09-24. Demo serves product `4e679e5`; focused production Changes13/13 passed. Earlier `92e1d03` full default193/15 gate remains separately attributed. Earlier image/install verification remains attributed to `675b0fd`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
 
 ## Current batch
 
-Owner quota wrap-up triggered2026-09-23T23:47:43.290Z: **39% Codex weekly remaining**. No new implementation dispatch. One Luna worker finishes already-authorized4e679e5 production check/demo handover; all others finished. Demo8084/docs8082 available. Below25% would hard-stop active work jobs; not reached. Persistent goal remains incomplete; remaining local/external work below.
+Owner quota wrap-up triggered2026-09-23T23:47:43.290Z: **39% Codex weekly remaining**. No new implementation dispatch. Final4e679e5 production13/13 check and demo refresh passed; worker finishes report/cleanup. Demo8084/docs8082 available. Below25% would hard-stop active work jobs; not reached. Persistent goal remains incomplete; remaining local/external work below.
 
 | Work | Status / evidence |
 | --- | --- |
@@ -20,7 +20,7 @@ Owner quota wrap-up triggered2026-09-23T23:47:43.290Z: **39% Codex weekly remain
 
 | Priority / ticket | Remaining action |
 | --- | --- |
-| P1 / T29aa | Fixed `4e679e5`: normalize parsed change ID before strict native-ID comparison. Regression proved red/green, reload and tenant switch;13 Changes tests passed, final focused assertion and typecheck passed. Final production-image/demo confirmation pending. |
+| P1 / T29aa | Fixed `4e679e5`: normalize parsed change ID before strict native-ID comparison. Regression proved red/green, reload and tenant switch;13 Changes tests passed, final focused assertion and typecheck passed. Production-image13/13 check and persistent demo refresh passed. [Review](t29aa-deep-link-review.md). |
 | P2 / T29y,T29z,T28e | Integrated `c4fe426`, `ba5e45b`, `92e1d03`: closed sidebar shadow, unused Unassign reason, five stale opt-in specs. Six backend-connected scenarios passed;12 focused smoke passed/1 skipped. Final193/15 suite and demo refresh passed. [Opt-in review](t28a-optin-browser-review.md). |
 | P2 / T29x | Locally fixed `d23be04`/`74957e4`: all team pickers share invalidation; budget units explicit. Regression proved failure before fix and passes afterward;14 focused tests/typecheck/build pass. Final193/15 suite passed. |
 | P2 / T28d | Fixed `9ebf273`: TCP readiness excludes temporary initialization server. Original tracked script passed directly from clean final freeze, including install and recovery. |
@@ -49,6 +49,6 @@ T26 earlier Compose bootstrap/install/migration/restart/encrypted-restore eviden
 
 ## Review artifacts and launch
 
-Current batch artifacts: `.local/opus-resume/`; source and evidence remain local. Demo: `http://127.0.0.1:8084`; docs: `http://127.0.0.1:8082/docs/`. Explicit fixture authentication, real local PostgreSQL, production web bundle. Final freeze serving in Docker; restart with `sh .local/opus-resume/demo/start.sh`, stop app with `sh .local/opus-resume/demo/stop.sh` (Docker required, DB/docs retained); [browser review](t28a-production-browser-review.md) records source, start/stop commands and screenshot provenance. Superseded Vite5173/5174 and backend8080 stopped.
+Current batch artifacts: `.local/opus-resume/`; source and evidence remain local. Demo: `http://127.0.0.1:8084`; docs: `http://127.0.0.1:8082/docs/`. Explicit fixture authentication, real local PostgreSQL, production web bundle. Product4e679e5 serving in Docker; restart with `sh .local/opus-resume/demo/start.sh`, stop app with `sh .local/opus-resume/demo/stop.sh` (Docker required, DB/docs retained); [browser review](t28a-production-browser-review.md) records source, start/stop commands and screenshot provenance. Superseded Vite5173/5174 and backend8080 stopped.
 
 Self-hosted launch: follow [Install](../../deploy/docs/content/install.md), configure `deploy/compose/.env.example`, then `docker compose --env-file .env -f deploy/compose/compose.yaml up --build -d`. Use configured HTTPS origin and `/docs/`; keep database and runner ports private. No external deployment/publication authorized.

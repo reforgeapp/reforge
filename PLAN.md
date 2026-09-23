@@ -1,6 +1,6 @@
 # Reforge — implementation plan
 
-Status: product `92e1d03` passed fresh production-browser193/15 and serves in local demo. Earlier `675b0fd` amd64 image/install/recovery evidence remains valid for unchanged backend. T29 invitation/lifecycle fixes locally verified; remaining release/provider qualification stays open. Historical planning pauses below are superseded by current work status.
+Status: demo serves `4e679e5` with production Changes13/13; earlier `92e1d03` passed fresh full production-browser193/15. Earlier `675b0fd` amd64 image/install/recovery evidence remains valid for unchanged backend. T29 invitation/lifecycle fixes locally verified; remaining release/provider qualification stays open. Historical planning pauses below are superseded by current work status.
 Current open defects and acceptance actions: [work status](docs/implementation/work-status.md).
 T31a protocol handling and T29s repository-scope status are locally complete. Positive protected-merge acceptance, hosted isolation and external certification remain open; G5 is not passed.
 Updated: 2026-09-24. Product: Reforge. Directory: `/home/mnorris/repos/reforge`.
