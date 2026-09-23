@@ -158,6 +158,6 @@ inventory.extend(
     for row in rows
 )
 (root / 'docs/implementation/dependencies.md').write_text('\n'.join(inventory) + '\n')
-(root / 'docs/implementation/third-party-notices.txt').write_text(
-    '\n\n'.join(notices).rstrip() + '\n'
-)
+notice_output = '\n\n'.join(notices).rstrip() + '\n'
+(root / 'docs/implementation/third-party-notices.txt').write_text(notice_output)
+(root / 'deploy/docs/content/third-party-notices.txt').write_text(notice_output)

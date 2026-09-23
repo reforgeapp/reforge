@@ -24,6 +24,7 @@ WORKDIR /app
 COPY --from=gobuild /out/reforge /out/reforge-migrate /out/reforge-evidence /app/
 COPY --from=web /src/web/dist /app/web/dist
 COPY internal/store/migrations /app/internal/store/migrations
+COPY docs/implementation/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
 USER reforge
 ENV REFORGE_WEB_DIR=/app/web/dist \
     REFORGE_MIGRATION_DIR=/app/internal/store/migrations \

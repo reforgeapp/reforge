@@ -10,5 +10,6 @@ RUN apk add --no-cache ca-certificates git \
  && adduser -D -u 10002 runner
 WORKDIR /app
 COPY --from=build /out/reforge-runner /app/reforge-runner
+COPY docs/implementation/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
 USER runner
 ENTRYPOINT ["/app/reforge-runner"]
