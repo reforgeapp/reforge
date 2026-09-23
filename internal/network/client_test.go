@@ -334,3 +334,16 @@ func TestTurnTimeoutRetainsDestinationBoundary(t *testing.T) {
 		t.Fatal("original transport changed")
 	}
 }
+
+func TestIsPublicIPRejectsPlatformMetadataAndReservedRanges(t *testing.T) {
+	for _, raw := range []string{"168.63.129.16", "fd00:ec2::254", "169.254.169.254", "100.64.0.1", "100.100.100.200", "192.0.2.1", "192.88.99.1", "198.18.0.1", "2001:db8::1", "2002:a00:1::", "64:ff9b::a00:1", "::ffff:127.0.0.1", "127.0.0.1", "10.0.0.1"} {
+		if IsPublicIP(netip.MustParseAddr(raw)) {
+			t.Errorf("non-public address admitted: %s", raw)
+		}
+	}
+	for _, raw := range []string{"8.8.8.8", "2606:4700:4700::1111"} {
+		if !IsPublicIP(netip.MustParseAddr(raw)) {
+			t.Errorf("public address rejected: %s", raw)
+		}
+	}
+}

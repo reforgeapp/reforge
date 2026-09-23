@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/oauth2"
 	"reforge/internal/domain"
+	"reforge/internal/secrets"
 	"reforge/internal/store"
 )
 
@@ -44,12 +45,13 @@ type Config struct {
 }
 
 type Service struct {
-	db         *store.Store
-	cfg        Config
-	origin     *url.URL
-	verifier   *oidc.IDTokenVerifier
-	oauth      oauth2.Config
-	httpClient *http.Client
+	db           *store.Store
+	cfg          Config
+	origin       *url.URL
+	verifier     *oidc.IDTokenVerifier
+	oauth        oauth2.Config
+	httpClient   *http.Client
+	orgOIDCVault *secrets.Vault
 }
 
 type User struct {

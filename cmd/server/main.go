@@ -71,7 +71,6 @@ func run() error {
 	if err != nil {
 		return err
 	}
-	app.RegisterIdentity(identity)
 	var vault *secrets.Vault
 	if cfg.Edition == "hosted" {
 		kmsContext, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -83,6 +82,8 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	identity.SetOrgOIDCVault(vault)
+	app.RegisterIdentity(identity)
 	connectionService := connections.New(db, identity, vault, cfg.Development)
 	providers.Factory{Development: cfg.Development}.Register(connectionService)
 	app.RegisterConnections(connectionService)
