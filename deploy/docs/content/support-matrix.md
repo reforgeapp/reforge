@@ -63,9 +63,15 @@ protocol version and declared limits. A repair selects it through a `custom_comm
 agent connection and quota budget route; the controller revalidates the task fence,
 policy, approval/version/digest and concurrency, commits a durable reservation and run
 record, and the runner executes the profile in its sandbox. The version 1 protocol is a
-single bounded invocation: `max_turns` is declared and validated but not looped, and a
-profile run records `handoff`, never a validated repair. Revocation fences later
-dispatches.
+single bounded process invocation. `max_turns` counts reported turn events and rejects
+output above the declared limit; it does not run a turn loop. A clean exit currently may
+produce `completed_unverified` for empty, progress-only or error-only output when the
+stream lacks a typed terminal result; T31a terminal-result validation remains open. The
+processor can then extract changed source, run frozen baseline/candidate/target
+validation, and stage and publish only after that validation succeeds. Exit 0 alone never
+validates a repair. Outcomes classified as unknown, failed or cancelled stop before
+extraction; independent validation and normal publication authority remain required.
+Revocation fences later dispatches.
 
 ## Verification identity
 
@@ -105,7 +111,12 @@ adds telemetry or phones home.
   [Backup and restore](backup-restore.md).
 - The interface does not perform infrastructure installation, Kubernetes changes, or
   provider-native login and approval. Those use documented handoffs.
-- A 10,000-repository, 100-concurrent-run load gate and the non-development Compose
-  install (which needs an OIDC issuer and HTTPS origin) are not yet recorded.
+- Local evidence records a 10,000-repository inventory import, 50 authenticated HTTP
+  sessions and 100 queued task claims. This does not prove 100 fully executing runs or
+  50 real browser sessions; those release gates remain open.
+- A non-development local install check records production-mode startup and signed OIDC
+  login through a disposable issuer and local TLS proxy. It does not certify a customer
+  OIDC issuer, hosted cluster or hosted isolation, and the check harness uses host Go;
+  the supported install remains the container build.
 - Live forge, paid model and official-agent account certification remain outstanding; the
   affected routes stay disabled or uncertified rather than silently falling back.

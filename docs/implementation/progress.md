@@ -1,5 +1,22 @@
 # Implementation progress
 
+## Current status index — 2026-09-23
+
+Use [current work and review status](work-status.md) for open bugs, ticket status and exact
+remaining local/external actions. This supersedes all older “current”, “authoritative” and
+ticket-table sections below, which remain historical evidence.
+
+T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass with zero
+input/button offset, overflow or axe violations; four existing Organisation regressions pass.
+[Layout evidence](organisation-layout-review-2026-09-23.md). Current review also identified
+**T31a (P1, reproduced)** missing custom-command terminal-result validation and **T29s
+(P2, source-reviewed)** premature repository-scope success status. Both remain open.
+
+Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
+run/browser load, T28c dependency/notice review. T27 enforced hosted isolation and external
+provider/agent/identity/delivery certification remain open. Full fresh release audit has
+not been completed; prior GUI checks do not establish it. No G5 claim.
+
 ## Data lifecycle review — 2026-09-23
 
 T29q locally complete. Three Luna slices implemented; Astra reproduced/reviewed/integrated.
@@ -89,7 +106,7 @@ Owner requested workers finish quickly and remaining work move to tickets. No fu
 
 Closing checks: build passed; Organisation regression 2/2; policy presets 8/8; root real-browser smoke passed Organisation tabs, cached inventory, theme persistence and quick-switch modal. All workers stopped. T29k/T29l remain unimplemented; T29j/T29m need complete browser acceptance; T29g is parked. Preserve uncommitted shell/theme changes. Evidence and exact Copilot ownership are in the linked handoff.
 
-## Current authoritative review — 2026-09-22
+## Historical authoritative review — 2026-09-22 (superseded)
 
 GUI rebuild locally verified after the full GUI review. T29 acceptance remains open for documented policy workflow gaps: automatic stored-evidence/portfolio simulation. The delivered direction is a restrained operator console: white workspace, light slate navigation, blue controls, 14px body text, flat inventory surfaces, real tabs/workspaces and persisted records. See [GUI policy requirements](../design/gui.md) for the pending acceptance reference.
 
@@ -125,7 +142,7 @@ Status reconciliation: T31 patch integration is reported, but root has not re-te
 - Follow actual dependency edges; local completion unlocks implementation, external certification separately gates release.
 - All commits use real current metadata. No README edits or source comments.
 
-## Tickets
+## Historical ticket table — initial implementation checkpoint
 
 | Ticket | Status | Owner | Files / dependencies | Evidence / remaining |
 | --- | --- | --- | --- | --- |

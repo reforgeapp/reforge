@@ -1,5 +1,68 @@
 # Implementation backlog
 
+## Current open work — 2026-09-23
+
+[Current work status](work-status.md) is the authoritative open-defect and acceptance index.
+The dated sections below preserve prior evidence; they do not override newer findings.
+T29r is fixed. T31a and T29s are open. T28a–c, hosted isolation and external certification
+remain required; G5 has not passed.
+
+### T29r — Align Organisation team creation
+
+- Status: **local complete, 2026-09-23**. Depends T29q; scoped GUI change only.
+- Own: Luna `OrganisationPage.tsx` and scoped `app.css`; Astra review.
+- Accept: label/input and Create team button align without desktop wrapping; keyboard
+  and 1440/390/320px in both themes pass, existing team/membership regressions retained.
+- Evidence: [layout review](organisation-layout-review-2026-09-23.md).
+
+### T29s — Truthful repository scope status
+
+- Status: **open, P2**. Depends T29q. Source-reviewed in Organisation `TeamsSection`.
+- Own: Luna `OrganisationPage.tsx`, focused Organisation browser scenario; Astra review.
+- Fix: absent `repos.error` cannot imply complete scope while loading or more pages remain.
+- Accept: pending, partial, complete, refresh/error and retry states never show false
+  success; repository assignments, pagination and tenant boundaries remain intact.
+
+### T31a — Validate custom-command terminal results
+
+- Status: **open, P1; locally reproduced**. Depends T31. Astra protocol design/review,
+  Luna implementation with explicit ownership of executor and affected processor tests.
+- Cause: `Executor.classify` accepts empty, progress-only and error-only exit-zero streams
+  as `completed_unverified`, contrary to the required typed terminal result.
+- Fix: specify/enforce terminal outcome and ordering; reject missing/duplicate/conflicting
+  results and error outcomes before advancing extraction/validation. Preserve independent
+  frozen validation, usage accounting, cancellation, fencing and publication authority.
+- Accept: valid success advances only to validation; missing/malformed/error/nonzero/
+  truncated/timeout/cancelled outcomes cannot advance. Processor regression plus existing
+  real-container protocol and patch validation checks. No live API budget needed.
+- Evidence: `.local/organisation-layout-2026-09-23/protocol-probe.jsonl`.
+
+### T28a — Reconcile release acceptance evidence
+
+- Status: **open**. Child of T28; retain its full dependency graph. Astra reviews, Luna
+  owns bounded evidence/packaging slices. Independent evidence audit can begin now.
+- Map V01–V29/J01–J10/R01–R13 to implementation and exact observed builds/artifacts.
+  Explicitly mark not run, inherited evidence, fixture-only and externally certified.
+- Verify T31 extraction/validation after T31a and a fresh container-only clean install,
+  upgrade, restart and encrypted restore without host language toolchains or `/tmp` tools.
+- Accept: every requirement has proof or a specific owning open task; no stale completion
+  claims; no G5 claim while mandatory evidence is absent.
+
+### T28b — Real execution and browser load
+
+- Status: **open**. Child of T28; T07/T25/T26/T27 and adequate isolated runner/browser
+  resources required for execution. Luna harness, Astra isolation/budget review.
+- Accept: 100 concurrent executing runs and 50 real browser sessions under documented
+  latency/fairness/recovery criteria. Claims and HTTP sessions do not substitute.
+
+### T28c — Finish dependency and distribution inventory
+
+- Status: **open**. Child of T28. Luna inventory, Astra release review.
+- Resolve `review required` dependency entries against actual shipped versions; include
+  container/runtime assets and required notices. Record evidence, not inferred licence labels.
+- Accept: reproducible release inventory, notices and explicit decisions; separate
+  publication authorisation remains necessary.
+
 ## Owner resumed GUI work — 2026-09-23
 
 Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, repair Findings/theme issues, rebuild Policies, then finish outstanding GUI acceptance. Astra coordinates/reviews; Luna implements. See current `progress.md`; earlier checks remain historical.
@@ -37,7 +100,7 @@ Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, r
 
 Stop further implementation after the closing worker batch. Outstanding T29g–n tickets, exclusive file ownership, acceptance checks and Copilot/Luna suitability are in [the Copilot handoff](copilot-handoff-2026-09-22.md). Current pause overrides earlier autonomous continuation instructions. Broader release tickets remain open.
 
-## Current review authority — 2026-09-22
+## Historical review authority — 2026-09-22 (superseded)
 
 GUI rebuild locally verified. T29 acceptance remains open for documented policy workflow gaps: automatic stored-evidence/portfolio simulation. The delivered GUI is a restrained operator console with a white workspace, light slate navigation, blue 14px controls, flat inventory surfaces and functioning tabs/workspaces. See [GUI policy requirements](../design/gui.md). Historical “complete” rows remain evidence history. No G5, human approval or external certification is implied.
 
@@ -250,7 +313,7 @@ Waves describe coordination, not permission to ignore exact dependencies below. 
 
 ### T29 — Full GUI rebuild and visual regression
 
-- Status: **locally complete, agent-reviewed 2026-09-23**. T29a–f checkpoint retained; T29g–o feedback integrated and verified. See [current review](gui-feedback-review-2026-09-23.md) for 133 passing browser tests, loaded route/theme captures and limits. Human feedback and G5/provider/release qualification remain separate.
+- Status: **rebuild locally verified; T29s follow-up open, 2026-09-23**. T29a–r baseline retained. Latest full-suite evidence is [T29q](data-lifecycle-review-2026-09-23.md), with focused [T29r](organisation-layout-review-2026-09-23.md) afterward. See [current work](work-status.md); G5/provider/release qualification remains separate.
 - Owner: Luna; Astra owns architecture and authorisation review. Dependencies: T04,T16,T17,T20,T24,T25,T31. T29 does not depend on T26,T28 or T30; T28 checks integrated docs/help links. Parent dependency list remains explicit and acyclic.
 - Build: structural operator-console rebuild across shell/navigation/design system/forms/tables/work surfaces and every route. Preserve Go/React APIs, security and existing backend gains. Use Rundeck/AWX as interaction references only. No framework rewrite or line-count quota.
 - T29a — IA and wireframes: depends T04. Record route hierarchy, connected list/detail interaction, Runners and Connections pilots, responsive states and qualitative acceptance against Rundeck/AWX research. No user approval gate.

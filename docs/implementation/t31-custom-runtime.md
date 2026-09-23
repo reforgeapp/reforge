@@ -1,5 +1,11 @@
 # T31 custom command runtime contract
 
+Open follow-up, 2026-09-23: **T31a terminal-result validation**. The executor currently
+classifies empty, progress-only and error-only exit-zero output as `completed_unverified`.
+The required typed terminal-result semantics below are not fully enforced. Independent
+repair validation and publication authority still apply. See [current work](work-status.md)
+and [ticket acceptance](backlog.md#t31a--validate-custom-command-terminal-results).
+
 Status: implemented. Profiles, approval/revocation, protocol executor, HTTP, GUI, a real
 Docker container test, controller-to-runner dispatch and end-to-end maintenance validation
 are in place (`internal/customcmd`, `internal/runnerclient/processor.go`, migrations
