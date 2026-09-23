@@ -21,7 +21,11 @@ const companionState = (state: string) => state === 'merged' ? 'merged' : state 
 
 export function ChangesPage({ orgID }: { orgID: string }) {
   const [showSettings, setShowSettings] = useState(false)
-  const search = useSearch({ strict: false }) as Record<string, string | undefined>
+  const parsedSearch = useSearch({ strict: false }) as Record<string, unknown>
+  const search = {
+    repository: typeof parsedSearch.repository === 'string' ? parsedSearch.repository : undefined,
+    change: parsedSearch.change == null ? undefined : String(parsedSearch.change),
+  }
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
   const session = useSession()
   const [repositoryID, setRepositoryID] = useState(search.repository ?? '')

@@ -24,6 +24,22 @@ async function fixture(page: Page, outcome = 'allow', expiresAt = Date.now() + 6
 }
 
 test('scopes changes and shows H T C gate evidence', async ({ page }) => { await session(page); await fixture(page); await page.goto(`/org/${org}/changes`); await expect(page.getByRole('heading', { name: 'Changes', exact: true })).toBeVisible(); await page.getByRole('button', { name: 'Repair dependency' }).click(); await page.getByRole('button', { name: 'Preview merge gate' }).click(); await expect(page.getByText('H head')).toBeVisible(); await expect(page.getByText('T target')).toBeVisible(); await expect(page.getByText('Checked revision')).toBeVisible(); await expect(page.getByRole('link', { name: 'Open native change' })).toHaveAttribute('href', changeBody.url); await page.getByRole('button', { name: 'Request protected merge' }).click(); await expect(page.getByText('queued')).toBeVisible() })
+test('deep link selects numeric native change ID after reload', async ({ page }) => {
+  const nativeChange = { ...changeBody, id: '1', title: 'Native pull request 1' }
+  await session(page, 'maintainer', [{ id: org, name: 'Fixture', version: 1, paused: false }, { id: otherOrg, name: 'Other', version: 1, paused: false }])
+  await fixture(page)
+  await page.route(`**${base}/repositories/${repo}/changes?**`, route => route.fulfill({ json: { items: [nativeChange], complete: true, snapshot_state: 'fresh', connection_version: 1 } }))
+  const otherRepo = '22222222-2222-4222-8222-222222222222'
+  await page.route(`**/api/v1/orgs/${otherOrg}/repositories?**`, route => route.fulfill({ json: { items: [{ id: otherRepo, name: 'other/repo', provider: 'gitea', team_ids: [], accessible: true }], complete: true } }))
+  await page.route(`**/api/v1/orgs/${otherOrg}/repositories/${otherRepo}/changes?**`, route => route.fulfill({ json: { items: [{ ...nativeChange, id: '2', title: 'Other tenant change' }], complete: true } }))
+  await page.goto(`/org/${org}/changes?repository=${repo}&change=1`)
+  await expect(page.getByRole('button', { name: 'Preview merge gate' })).toBeVisible()
+  await page.reload()
+  await expect(page.getByRole('button', { name: 'Preview merge gate' })).toBeVisible()
+  await page.goto(`/org/${otherOrg}/changes?repository=${otherRepo}&change=1`)
+  await expect(page.getByText('Requested change is not in the loaded pages. The requested change was not found.')).toBeVisible()
+  await expect(page.getByRole('button', { name: 'Preview merge gate' })).toHaveCount(0)
+})
 test('keeps blocked preview and hostile native URL safe', async ({ page }) => { await session(page); await fixture(page, 'blocked'); await page.route(`**${base}/repositories/${repo}/changes?**`, route => route.fulfill({ json: { items: [{ ...changeBody, url: 'javascript:alert(1)' }], complete: true, snapshot_state: 'fresh', connection_version: 1 } })); await page.goto(`/org/${org}/changes`); await page.getByRole('button', { name: 'Repair dependency' }).click(); await page.getByRole('button', { name: 'Preview merge gate' }).click(); await expect(page.getByText(/Blocked: native gate blocked/)).toBeVisible(); await expect(page.getByRole('button', { name: 'Request protected merge' })).toBeDisabled(); await expect(page.getByText('Native change link unavailable')).toBeVisible() })
 
 test('disables expired gate without dispatch', async ({ page }) => { await session(page); await fixture(page, 'allow', Date.now() - 1000); await page.goto(`/org/${org}/changes`); await page.getByRole('button', { name: 'Repair dependency' }).click(); await page.getByRole('button', { name: 'Preview merge gate' }).click(); await expect(page.getByText('Preview expired; run a new preview.')).toBeVisible(); await expect(page.getByRole('button', { name: 'Request protected merge' })).toBeDisabled() })
