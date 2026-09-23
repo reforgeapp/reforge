@@ -7,3 +7,9 @@ web/dist
 web/test-results
 web/playwright-report
 deploy/docs/site
+**/.env
+**/.env.*
+!**/.env.example
+deploy/compose/runner
+**/credentials
+**/credentials/**
