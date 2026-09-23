@@ -7,8 +7,9 @@ G5 is **open**. The application is locally runnable; it is not release-certified
 ## Review coverage
 
 - GUI: all 13 main routes reviewed for cold/warm navigation and reload in two persisted
-  organisations (86 states). Latest full browser run: 152 passed, six integration opt-ins
-  skipped. [Data lifecycle report](data-lifecycle-review-2026-09-23.md).
+  organisations (86 states). Latest full Playwright run after T29t: 154 passed, 9 opt-in
+  checks skipped, 0 failed/flaky. [Full-suite report](../../.local/t29t/full-suite.json);
+  earlier route lifecycle evidence: [data lifecycle review](data-lifecycle-review-2026-09-23.md).
 - Visuals: earlier desktop/narrow and light/dark route review; subsequent shared-controls,
   switcher and Organisation corrections have their own dated evidence. Counts and axe
   results do not establish visual approval or complete every workflow.
@@ -25,9 +26,10 @@ G5 is **open**. The application is locally runnable; it is not release-certified
 | --- | --- | --- |
 | P1 / T31a | Locally fixed; runtime qualification open | Exit-zero custom-command output advances only with exactly one final `result` carrying `data.outcome: "success"`; missing, malformed, unknown, duplicate, misplaced, failed and error-event outcomes cannot advance extraction. External runtime/account/topology qualification remains open. |
 | P2 / T29r | Fixed; browser-verified | Team creation button was centred against the label plus input. Input/button now align on desktop and narrow layouts. [Layout evidence](organisation-layout-review-2026-09-23.md). |
+| P2 / T29t | Locally fixed; browser-verified | At 390px, open navigation had no scrim/outside dismissal and Tab reached controls behind it. Drawer now traps focus, inerts background, closes on scrim/Escape/route selection and restores focus. [Review](t29t-mobile-navigation-review.md). |
 | P1 / T29q | Fixed; browser/backend-verified | Refresh/cached navigation emptied lists; incompatible team cache shapes crashed Organisation; filter loading stole focus. See linked lifecycle report. |
 
-T31a before/after launcher probes are `.local/organisation-layout-2026-09-23/protocol-probe.jsonl` and `.local/t31a-acceptance/protocol-probe-after.jsonl`; they exercise classification only. The real container protocol test passed (`.local/t31a-acceptance/container-test.log`). Implementation and exact local evidence: [T31a review](t31a-review-2026-09-23.md). T29s locally completed with focused evidence in [its review](t29s-review-2026-09-23.md). Newly found issues belong here and in backlog with reproduction, priority, owner and closure evidence.
+T31a before/after launcher probes are `.local/organisation-layout-2026-09-23/protocol-probe.jsonl` and `.local/t31a-acceptance/protocol-probe-after.jsonl`; they exercise classification only. The real container protocol test passed (`.local/t31a-acceptance/container-test.log`). Implementation and exact local evidence: [T31a review](t31a-review-2026-09-23.md). T29s locally completed with focused evidence in [its review](t29s-review-2026-09-23.md). T29t focused keyboard/outside/route/theme checks and full-suite evidence are in [its review](t29t-mobile-navigation-review.md) and `.local/t29t/`. Nine full-suite skips are opt-in scenarios needing disposable integration services, credentials or visual capture; no G5 claim follows. Newly found issues belong here and in backlog with reproduction, priority, owner and closure evidence.
 
 ## Remaining local work
 
@@ -63,7 +65,7 @@ T28b browser slice is locally verified; its 100-run and broader scale/fairness/r
 | T16/T17 | Backend-connected implementation present; qualification acceptance incomplete |
 | T18–T25 | Locally complete; live/native-provider release evidence incomplete |
 | T26/T27/T28 | Partial; T28b browser slice verified, execution and broader qualification remain open |
-| T29 | Rebuild and T29a–s locally complete; G5 and external qualification remain open |
+| T29 | Rebuild and T29a–t locally complete; G5 and external qualification remain open |
 | T30 | Docs engine/help locally verified; support-matrix corrections made; final release content follows T28a |
 | T31 | Runtime/dispatch/extraction implemented; T31a locally complete; official runtime and hosted qualification open |
 

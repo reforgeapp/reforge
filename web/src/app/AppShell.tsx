@@ -34,6 +34,8 @@ export function AppShell() {
   const orgMenuRef = useRef<HTMLDivElement>(null)
   const orgMenuRestoreRef = useRef<HTMLElement | null>(null)
   const sidebarRef = useRef<HTMLElement>(null)
+  const topbarRef = useRef<HTMLElement>(null)
+  const mainColumnRef = useRef<HTMLDivElement>(null)
   const navWasOpenRef = useRef(false)
   const org = session.data?.organisations.find(item => item.id === params.orgID)
   const orgs = session.data?.organisations ?? []
@@ -41,6 +43,8 @@ export function AppShell() {
     sidebarRef.current = element
     if (element) element.inert = window.matchMedia('(max-width: 720px)').matches && !navOpen
   }, [navOpen])
+
+  const closeMobileNav = () => setNavOpen(false)
 
   useEffect(() => setSearch(routeSearch.q ?? ''), [routeSearch.q])
 
@@ -56,9 +60,16 @@ export function AppShell() {
 
   useEffect(() => {
     const syncSidebar = () => {
-      if (sidebarRef.current) sidebarRef.current.inert = window.matchMedia('(max-width: 720px)').matches && !navOpen
+      const mobile = window.matchMedia('(max-width: 720px)').matches
+      if (!mobile && navOpen) setNavOpen(false)
+      if (sidebarRef.current) sidebarRef.current.inert = mobile && !navOpen
+      if (topbarRef.current) topbarRef.current.inert = mobile && navOpen
+      if (mainColumnRef.current) mainColumnRef.current.inert = mobile && navOpen
     }
     syncSidebar()
+    if (!navWasOpenRef.current && navOpen && window.matchMedia('(max-width: 720px)').matches) {
+      requestAnimationFrame(() => sidebarRef.current?.querySelector<HTMLAnchorElement>('.nav-link')?.focus())
+    }
     if (navWasOpenRef.current && !navOpen && window.matchMedia('(max-width: 720px)').matches) menuRef.current?.focus()
     navWasOpenRef.current = navOpen
     window.addEventListener('resize', syncSidebar)
@@ -84,13 +95,25 @@ export function AppShell() {
     return () => document.removeEventListener('mousedown', closeOnOutside)
   }, [orgMenuOpen])
 
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && navOpen) { setNavOpen(false); menuRef.current?.focus() }
+  const handleNavigationKeyDown = (event: ReactKeyboardEvent<HTMLElement>) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      closeMobileNav()
+      return
     }
-    window.addEventListener('keydown', closeOnEscape)
-    return () => window.removeEventListener('keydown', closeOnEscape)
-  }, [navOpen])
+    if (event.key !== 'Tab' || !window.matchMedia('(max-width: 720px)').matches) return
+    const links = Array.from(sidebarRef.current?.querySelectorAll<HTMLAnchorElement>('.nav-link') ?? [])
+    if (!links.length) return
+    const first = links[0]
+    const last = links[links.length - 1]
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault()
+      last.focus()
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault()
+      first.focus()
+    }
+  }
 
   useEffect(() => {
     if (session.error instanceof ReforgeAPIError && session.error.status === 401) {
@@ -160,7 +183,7 @@ export function AppShell() {
 
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
-    <header className="topbar">
+    <header ref={topbarRef} className="topbar">
       <div className="masthead-brand"><button ref={menuRef} className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button><div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></div></div>
       <div className="org-switcher">
         <button ref={orgButtonRef} className="org-button" onClick={() => setOrgMenuOpen(open => !open)} aria-haspopup="menu" aria-expanded={orgMenuOpen} aria-controls="organisation-menu" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></button>
@@ -178,15 +201,16 @@ export function AppShell() {
       </div>
     </header>
     <div className="app-body">
-      <aside ref={setSidebarRef} id="primary-navigation" className={`sidebar ${navOpen ? 'sidebar-open' : ''}`} aria-label="Primary navigation">
-        <nav className="nav-list">
+      {navOpen && <button className="nav-backdrop" type="button" tabIndex={-1} aria-label="Close navigation" onClick={() => closeMobileNav()} />}
+      <aside ref={setSidebarRef} id="primary-navigation" className={`sidebar ${navOpen ? 'sidebar-open' : ''}`} role={navOpen && window.matchMedia('(max-width: 720px)').matches ? 'dialog' : undefined} aria-modal={navOpen && window.matchMedia('(max-width: 720px)').matches ? true : undefined} aria-label="Primary navigation" onKeyDown={handleNavigationKeyDown}>
+        <nav className="nav-list" aria-label="Sections">
           <p className="nav-label">Workspace</p>
-          {group('workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
+          {group('workspace').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => closeMobileNav()}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
           <p className="nav-label nav-label-admin">Administration</p>
-          {group('admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => setNavOpen(false)}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
+          {group('admin').map(section => <Link key={section.id} className="nav-link" activeProps={{ className: 'nav-link active' }} to="/org/$orgID/$section" params={{ orgID: org.id, section: section.id }} search={{ q: undefined, provider: undefined, team_id: undefined, status: undefined, repository: undefined }} onClick={() => closeMobileNav()}><span className="nav-icon"><Icon name={section.id} /></span>{section.label}</Link>)}
         </nav>
       </aside>
-      <div className="main-column">
+      <div ref={mainColumnRef} className="main-column">
       {meta?.development && <div className="fixture-banner" role="status"><Icon name="warning" size={15} /><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
       {org.paused && <div className="pause-banner" role="status"><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}
       <main id="main-content" className="content"><Outlet key={`${session.data.user.id}:${org.id}`} /></main>

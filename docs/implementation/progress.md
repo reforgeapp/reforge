@@ -10,6 +10,7 @@ T29r alignment fixed by Luna, reviewed by Astra: six theme/viewport checks pass 
 input/button offset, overflow or axe violations; four existing Organisation regressions pass.
 [Layout evidence](organisation-layout-review-2026-09-23.md). T31a custom-command terminal-result validation is locally complete; external runtime qualification remains open. See [review](t31a-review-2026-09-23.md).
 T29s repository-scope status is locally complete; see [review](t29s-review-2026-09-23.md). T28b browser slice is locally verified; 100 executing runs and broader qualification remain open ([review](t28b-browser-review.md)).
+T29t mobile navigation is locally complete; the focused 4-test check and latest full Playwright run (154 passed, 9 skipped, no failures) are recorded below and in [review](t29t-mobile-navigation-review.md). G5 remains open.
 
 Release follow-up split into T28a acceptance/evidence reconciliation, T28b actual executing
 run/browser load, T28c dependency/notice review. T28c local slice now records 153 hydrated
@@ -40,6 +41,23 @@ no live provider or hosted runtime qualification is claimed. G5 remains open.
 50 independent Chromium contexts authenticated with distinct development-fixture session cookies, opened the real portfolio page and rendered 25 persisted rows. With all sessions open, five rounds each issued 50 list and 50 detail reads: 250 successes per endpoint. List p95 109.90 ms; detail p95 110.27 ms; zero errors/retries. Full request samples, served asset hashes and machine limits: [review](t28b-browser-review.md) and `.local/t28b-2026-09-23/2026-09-23T02-40-51-491Z/report.json`.
 
 This covers only the browser/API slice. 100 concurrently executing runs, broader scale, fairness, cancellation, restart and T27 isolation remain open. No G5 claim.
+
+## T29t mobile navigation — 2026-09-23
+
+The reproduced P2 was the 390px open sidebar lacking outside dismissal and allowing Tab into
+main-page controls. The mobile drawer now settles as a scrim-backed modal, closes on outside
+click, Escape or route selection, starts focus on the first link, wraps Tab within navigation,
+and makes header/page content inert. Closing restores focus to Menu. Crossing to desktop closes
+the drawer; desktop navigation remains persistent.
+
+`npm run build` passed. Focused browser check: 4 passed, 0 skipped/failing. Tests wait for drawer
+geometry x=0/width=245px and assert labels fit their boxes; fresh light/dark captures are in
+`.local/t29t/navigation-light-390.png` and `.local/t29t/navigation-dark-390.png`.
+Full Playwright suite ran against Go app `127.0.0.1:8080`, whose served JS asset
+`/assets/index-Crtub4So.js` matched `web/dist`: 163 discovered, 154 passed, 9 skipped, 0 failed,
+0 flaky (`.local/t29t/full-suite.json`). Skips require optional campaign DB, Gitea/runner,
+persisted finding, controls DB, OIDC issuer, repair/Gitea/Ollama/gVisor or opt-in visual capture.
+No G5 or external certification claim.
 
 ## T29s repository scope status — 2026-09-23
 

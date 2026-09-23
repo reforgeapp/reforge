@@ -4,7 +4,7 @@
 
 [Current work status](work-status.md) is the authoritative open-defect and acceptance index.
 The dated sections below preserve prior evidence; they do not override newer findings.
-T29r, T29s and T31a are locally complete. T28a–c, hosted isolation and external
+T29r, T29s, T29t and T31a are locally complete. T28a–c, hosted isolation and external
 certification remain required; G5 has not passed.
 
 ### T29r — Align Organisation team creation
@@ -21,6 +21,17 @@ certification remain required; G5 has not passed.
 - Result: pending, partial, refreshing, complete and unavailable states reflect repository
   query state; failed pagination exposes retry while retaining loaded assignment controls.
 - Evidence: [T29s review](t29s-review-2026-09-23.md).
+
+### T29t — Accessible mobile navigation drawer
+
+- Status: **local complete, 2026-09-23**. P2 reproduced in the T28a GUI review.
+- Fix: mobile drawer has a scrim, closes on outside click, Escape and route selection, traps
+  keyboard focus, makes the header/page inert and restores focus to Menu. Desktop sidebar remains
+  persistent; viewport changes close the mobile drawer.
+- Accept: settle at 390px in light/dark themes; verify no clipped labels, keyboard/outside/Escape
+  behavior, route closure, focus isolation/restoration and desktop behavior.
+- Evidence: [T29t review](t29t-mobile-navigation-review.md); focused and full-suite results in
+  `.local/t29t/`.
 
 ### T31a — Validate custom-command terminal results
 
