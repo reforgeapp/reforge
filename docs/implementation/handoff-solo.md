@@ -2,7 +2,9 @@
 
 ## Current GUI handoff — 2026-09-23
 
-Latest follow-up: T29p shared surfaces/search locally complete. See [shared-controls review](shared-controls-review-2026-09-23.md) for current assets, container and verification. Prior switcher evidence below is historical; its behavior remains covered.
+Latest follow-up: T29q list data lifecycle locally complete. See [data lifecycle review](data-lifecycle-review-2026-09-23.md) for current assets/container and 152 passing browser tests. Refresh, cached navigation, Organisation cache shapes and sequential typing repaired; 86 connected route states verified. No persisted data reset.
+
+Previous follow-up: T29p shared surfaces/search locally complete. See [shared-controls review](shared-controls-review-2026-09-23.md) for that checkpoint. Earlier switcher evidence below is historical; its behavior remains covered.
 
 Previous follow-up: T29j organisation switcher reworked after owner screenshots; 17 shell/theme checks passed at that checkpoint. See [switcher review](organisation-switcher-review-2026-09-23.md) for menu-specific evidence.
 

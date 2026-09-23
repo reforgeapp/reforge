@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -38,16 +38,18 @@ function MembersSection({ orgID }: { orgID: string }) {
 
 function TeamsSection({ orgID }: { orgID: string }) {
   const session = useSession()
+  const queryClient = useQueryClient()
   const csrf = session.data?.csrf_token ?? ''
-  const teams = useInfiniteQuery({ queryKey: ['org', orgID, 'teams'], queryFn: ({ pageParam, signal }) => organisationAPI.teams(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
-  const repos = useInfiniteQuery({ queryKey: ['org', orgID, 'repositories', { query: '' }], queryFn: ({ pageParam, signal }) => api.getRepositories(orgID, { limit: 100, cursor: pageParam, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const teams = useInfiniteQuery({ queryKey: ['org', orgID, 'teams', 'list'], queryFn: ({ pageParam, signal }) => organisationAPI.teams(orgID, pageParam, signal), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const repos = useInfiniteQuery({ queryKey: ['org', orgID, 'repositories', 'list'], queryFn: ({ pageParam, signal }) => api.getRepositories(orgID, { limit: 100, cursor: pageParam, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const [newName, setNewName] = useState('')
   const repositories = repos.data?.pages.flatMap(page => page.items) ?? []
-  const save = async (team: Team, patch: Partial<Team>) => { setBusy(team.id); setError(''); try { await organisationAPI.putTeam(orgID, team.id, team.version, { name: patch.name ?? team.name, repository_ids: patch.repository_ids ?? team.repository_ids }, csrf); await teams.refetch() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
-  const create = async (event: FormEvent) => { event.preventDefault(); if (!newName.trim()) return; setBusy('new'); setError(''); try { await organisationAPI.putTeam(orgID, crypto.randomUUID(), 0, { name: newName.trim(), repository_ids: [] }, csrf); setNewName(''); await teams.refetch() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
-  const remove = async (team: Team) => { if (!window.confirm(`Delete team ${team.name}? Repository assignments will be removed.`)) return; setBusy(team.id); setError(''); try { await organisationAPI.deleteTeam(orgID, team.id, team.version, csrf); await teams.refetch() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
+  const refreshTeams = () => queryClient.invalidateQueries({ queryKey: ['org', orgID, 'teams'] })
+  const save = async (team: Team, patch: Partial<Team>) => { setBusy(team.id); setError(''); try { await organisationAPI.putTeam(orgID, team.id, team.version, { name: patch.name ?? team.name, repository_ids: patch.repository_ids ?? team.repository_ids }, csrf); await refreshTeams() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
+  const create = async (event: FormEvent) => { event.preventDefault(); if (!newName.trim()) return; setBusy('new'); setError(''); try { await organisationAPI.putTeam(orgID, crypto.randomUUID(), 0, { name: newName.trim(), repository_ids: [] }, csrf); setNewName(''); await refreshTeams() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
+  const remove = async (team: Team) => { if (!window.confirm(`Delete team ${team.name}? Repository assignments will be removed.`)) return; setBusy(team.id); setError(''); try { await organisationAPI.deleteTeam(orgID, team.id, team.version, csrf); await refreshTeams() } catch (reason) { setError(errorText(reason)) } finally { setBusy('') } }
   if (teams.isLoading) return <section className="state-card"><h2>Teams</h2><p className="table-meta">Loading teams…</p></section>
   if (teams.error) return <section className="state-card"><h2>Teams</h2><p className="error-text" role="alert">Teams unavailable: {errorText(teams.error)} <Button onClick={() => void teams.refetch()}>Retry</Button></p></section>
   const items = teams.data?.pages.flatMap(page => page.items) ?? []

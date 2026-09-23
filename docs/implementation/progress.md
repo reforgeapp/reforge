@@ -1,5 +1,26 @@
 # Implementation progress
 
+## Data lifecycle review — 2026-09-23
+
+T29q locally complete. Three Luna slices implemented; Astra reproduced/reviewed/integrated.
+Five lists (Connections, Runners, Repositories, Findings, Runs) now derive paginated rows
+from queries. Organisation finite/infinite cache collisions fixed; team changes invalidate
+both consumers. Filters stay mounted during loading/errors, preserving sequential typing.
+Broad descendant invalidation, deduplication, cursor traversal and tenant cancellation retained.
+
+Connected proof: Development's 33 connections and Demo Operations' one connection remain
+visible after Refresh, same-tab selection, cached-tab return and reload. Before repair both
+lists dropped to zero despite successful API responses. Repository → Organisation navigation
+previously crashed; now passes. Runner typing previously retained only `d` from `demo` and
+lost focus; desktop/390px now retain the complete value and focus.
+
+Final verification: **152 browser tests passed, zero failed, six integration opt-ins skipped**;
+86 connected route/navigation/reload states across both organisations passed. Corrected
+baseline regressions recorded six failures before repair; two typing tests separately failed
+before their fix. Production build and non-root container smoke passed with matching assets.
+[Review and artifacts](data-lifecycle-review-2026-09-23.md). No remaining T29q implementation
+blocker. Existing demo/data retained, owner handoff edit excluded; broader release gates remain open.
+
 ## Shared controls and surfaces — 2026-09-23
 
 T29p locally complete. Two Luna slices implemented; Astra reviewed/integrated. Shared groups

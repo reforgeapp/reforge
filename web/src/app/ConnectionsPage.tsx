@@ -4,7 +4,7 @@ import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-quer
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { api, ReforgeAPIError, type Connection, type ConnectionCreate } from '../api/client'
 import { inventoryAPI } from '../api/inventory'
-import { connectionQuery, connectionsQuery, useSession } from './query'
+import { connectionQuery, connectionsListQuery, useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -26,49 +26,35 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
   const client = useQueryClient()
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
-  const [tab, setTab] = useState(() => tabValue(search.connection_tab))
-  const [q, setQ] = useState(search.q ?? '')
-  const [state, setState] = useState(search.state ?? '')
-  const [cursor, setCursor] = useState<string>()
-  const [loaded, setLoaded] = useState<Connection[]>([])
   const [formOpen, setFormOpen] = useState(false)
   const selectedID = search.connection ?? ''
   const csrf = session.data?.csrf_token ?? ''
 
-  useEffect(() => {
-    setTab(tabValue(search.connection_tab))
-    setQ(search.q ?? '')
-    setState(search.state ?? '')
-  }, [search.q, search.state])
-  useEffect(() => {
-    setTab(tabValue(search.connection_tab))
-    setCursor(undefined)
-    setLoaded([])
-  }, [orgID, search.connection_tab])
+  const tab = tabValue(search.connection_tab)
+  const q = search.q ?? ''
+  const state = search.state ?? ''
   const kinds = tabs.find(item => item.id === tab)?.kinds ?? []
-  const result = useQuery(connectionsQuery(orgID, kinds.length === 1 ? kinds[0] : undefined, cursor))
-  useEffect(() => { if (result.data) setLoaded(previous => [...new Map((cursor ? [...previous, ...result.data.items] : result.data.items).map(item => [item.id, item])).values()]) }, [cursor, result.data])
+  const result = useInfiniteQuery(connectionsListQuery(orgID, kinds.length === 1 ? kinds[0] : undefined))
+  const loaded = [...new Map((result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
+  const lastPage = result.data?.pages.at(-1)
 
-  const refresh = () => { setCursor(undefined); setLoaded([]); void client.invalidateQueries({ queryKey: ['org', orgID, 'connections'] }) }
+  const refresh = () => { void client.invalidateQueries({ queryKey: ['org', orgID, 'connections'] }) }
   const select = (id: string) => { void navigate({ search: previous => ({ ...previous, connection: id }) }) }
   const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.connection; return next } }) }
   const setFilter = (key: 'q' | 'state', value: string) => { void navigate({ search: previous => ({ ...previous, [key]: value || undefined }) }) }
 
   const rows = loaded.filter(item => kinds.includes(item.kind as never)).filter(item => !q.trim() || item.name.toLowerCase().includes(q.trim().toLowerCase())).filter(item => !state || item.state === state)
-  if (result.isLoading && !loaded.length) return <StatePanel kind="loading" title="Loading connections" detail="Fetching persisted integrations for this organisation." />
-  if (result.error) return <StatePanel kind="error" title="Connections could not be loaded" detail={message(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} />
-
-  const list = <DataTable caption={`${tabs.find(item => item.id === tab)?.label} connections`}><table><thead><tr><th>Name</th><th>Provider</th><th>State</th><th>Credential</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{rows.map(connection => <tr key={connection.id}><td><button className="link-button" onClick={() => select(connection.id)}>{connection.name}</button></td><td>{connection.provider}</td><td><StatusBadge label={connection.state} tone={connection.state === 'healthy' ? 'green' : connection.state === 'revoked' ? 'red' : 'amber'} /></td><td>Version {connection.credential_version}</td><td><Button className="button button-sm" onClick={() => select(connection.id)}>Open</Button></td></tr>)}</tbody></table>{!rows.length && <EmptyTable label={`No ${tabs.find(item => item.id === tab)?.label.toLowerCase()} match these filters.`} />}{!result.data?.complete && <div className="table-note"><Button disabled={result.isFetching} onClick={() => setCursor(result.data?.next_cursor)}>{result.isFetching ? 'Loading…' : 'Load more connections'}</Button></div>}</DataTable>
+  const list = result.isLoading && !loaded.length ? <StatePanel kind="loading" title="Loading connections" detail="Fetching persisted integrations for this organisation." /> : result.error ? <StatePanel kind="error" title="Connections could not be loaded" detail={message(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} /> : <DataTable caption={`${tabs.find(item => item.id === tab)?.label} connections`}><table><thead><tr><th>Name</th><th>Provider</th><th>State</th><th>Credential</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{rows.map(connection => <tr key={connection.id}><td><button className="link-button" onClick={() => select(connection.id)}>{connection.name}</button></td><td>{connection.provider}</td><td><StatusBadge label={connection.state} tone={connection.state === 'healthy' ? 'green' : connection.state === 'revoked' ? 'red' : 'amber'} /></td><td>Version {connection.credential_version}</td><td><Button className="button button-sm" onClick={() => select(connection.id)}>Open</Button></td></tr>)}</tbody></table>{!rows.length && <EmptyTable label={`No ${tabs.find(item => item.id === tab)?.label.toLowerCase()} match these filters.`} />}{lastPage && !lastPage.complete && <div className="table-note"><Button disabled={result.isFetching} onClick={() => void result.fetchNextPage()}>{result.isFetchingNextPage ? 'Loading…' : 'Load more connections'}</Button></div>}</DataTable>
 
   return <div className="stack">
     <Toolbar label="Connection filters">
       <label>Search<input value={q} onChange={event => setFilter('q', event.target.value)} placeholder="Connection name" /></label>
-      <label>State<select value={state} onChange={event => setFilter('state', event.target.value)}><option value="">All states</option><option value="healthy">Healthy</option><option value="unverified">Unverified</option><option value="disabled">Disabled</option><option value="revoked">Revoked</option></select></label>
+      <label>State<select value={state} onChange={event => setFilter('state', event.target.value)}><option value="">All states</option><option value="healthy">Healthy</option><option value="unverified">Unverified</option><option value="degraded">Degraded</option><option value="disabled">Disabled</option><option value="revoked">Revoked</option></select></label>
       <Button onClick={refresh}>Refresh</Button>
       <Button className="button button-primary" onClick={() => setFormOpen(true)}>Add connection</Button>
     </Toolbar>
     <div className="row-actions" role="group" aria-label="Connection kind">
-      {tabs.map(item => <Button key={item.id} aria-pressed={tab === item.id} onClick={() => { setTab(item.id); void navigate({ search: previous => ({ ...previous, connection_tab: item.id, connection: undefined }) }) }}>{item.label}</Button>)}
+      {tabs.map(item => <Button key={item.id} aria-pressed={tab === item.id} onClick={() => { void navigate({ search: previous => ({ ...previous, connection_tab: item.id, connection: undefined }) }) }}>{item.label}</Button>)}
       <span className="toolbar-meta">Credentials are write-only. Capability state comes from the server probe.</span>
     </div>
     <SplitView listLabel="Connections" selected={!!selectedID} onBack={clear} list={list} detail={selectedID ? <ConnectionDetail connectionID={selectedID} orgID={orgID} csrf={csrf} onClose={clear} onRefresh={refresh} /> : <SplitPlaceholder label="Select a connection to view capability, billing route and actions." />} />

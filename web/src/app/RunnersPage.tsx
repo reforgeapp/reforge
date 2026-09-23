@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { api, type Runner, type RunnerPool, type RunnerPoolInput } from '../api/client'
-import { runnerPoolsQuery, useSession } from './query'
+import { runnerPoolsListQuery, useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -19,10 +19,6 @@ export function RunnersPage({ orgID }: { orgID: string }) {
   const client = useQueryClient()
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
-  const [q, setQ] = useState(search.q ?? '')
-  const [state, setState] = useState(search.state ?? '')
-  const [cursor, setCursor] = useState<string>()
-  const [loaded, setLoaded] = useState<RunnerPool[]>([])
   const selectedID = search.pool ?? ''
   const [detailTab, setDetailTab] = useState<'overview' | 'runners' | 'repositories'>('overview')
   const [newPool, setNewPool] = useState(false)
@@ -32,10 +28,12 @@ export function RunnersPage({ orgID }: { orgID: string }) {
   const [actionError, setActionError] = useState('')
   const csrf = session.data?.csrf_token ?? ''
 
-  useEffect(() => { setQ(search.q ?? ''); setState(search.state ?? ''); setCursor(undefined); setLoaded([]) }, [search.q, search.state])
+  const q = search.q ?? ''
+  const state = search.state ?? ''
   useEffect(() => { setDetailTab('overview') }, [selectedID])
-  const pools = useQuery(runnerPoolsQuery(orgID, { q: q || undefined, state: state || undefined }, cursor))
-  useEffect(() => { if (pools.data) setLoaded(previous => [...new Map((cursor ? [...previous, ...pools.data.items] : pools.data.items).map(item => [item.id, item])).values()]) }, [cursor, pools.data])
+  const pools = useInfiniteQuery(runnerPoolsListQuery(orgID, { q: q || undefined, state: state || undefined }))
+  const loaded = [...new Map((pools.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
+  const lastPage = pools.data?.pages.at(-1)
 
   const detail = useQuery({ queryKey: ['org', orgID, 'runner-pool', selectedID], queryFn: ({ signal }) => api.getRunnerPool(orgID, selectedID, signal), enabled: !!selectedID })
   const runners = useInfiniteQuery({ queryKey: ['org', orgID, 'runner-pools', selectedID, 'runners'], queryFn: ({ pageParam, signal }) => api.getRunners(orgID, selectedID, { cursor: pageParam, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor, enabled: !!selectedID })
@@ -44,17 +42,14 @@ export function RunnersPage({ orgID }: { orgID: string }) {
   const repositoryItems = repositories.data?.pages.flatMap(page => page.items) ?? []
   const repositoryName = (id: string) => repositoryItems.find(item => item.id === id)?.name ?? `Repository unavailable (${id})`
 
-  const refresh = () => { setCursor(undefined); setLoaded([]); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pools'] }); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pool'] }) }
+  const refresh = () => { void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pools'] }); void client.invalidateQueries({ queryKey: ['org', orgID, 'runner-pool'] }) }
   const select = (id: string) => { void navigate({ search: previous => ({ ...previous, pool: id }) }) }
   const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.pool; return next } }) }
-  const setFilter = (key: 'q' | 'state', value: string) => { if (key === 'q') setQ(value); else setState(value); setCursor(undefined); setLoaded([]); void navigate({ search: previous => ({ ...previous, [key]: value || undefined }) }) }
+  const setFilter = (key: 'q' | 'state', value: string) => { void navigate({ search: previous => ({ ...previous, [key]: value || undefined }) }) }
   const enrol = async (pool: RunnerPool) => { setEnrollmentError(''); try { const token = await api.createEnrollment(orgID, pool.id, csrf); setEnrollment({ ...token, pool: pool.name }) } catch (reason) { setEnrollment(undefined); setEnrollmentError(message(reason)) } }
   const act = async (run: () => Promise<unknown>) => { setActionError(''); try { await run(); refresh() } catch (reason) { setActionError(message(reason)) } }
 
-  if (pools.isLoading && !loaded.length) return <StatePanel kind="loading" title="Loading runner pools" detail="Fetching execution trust boundaries for this organisation." />
-  if (pools.error) return <StatePanel kind="error" title="Runner pools could not be loaded" detail={message(pools.error)} action={<Button onClick={() => pools.refetch()}>Retry</Button>} />
-
-  const poolTable = <DataTable caption="Runner pools"><table><thead><tr><th>Pool</th><th>State</th><th>Runners</th><th>Busy</th><th>Repositories</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{loaded.map(pool => <tr key={pool.id}><td><button className="link-button" onClick={() => select(pool.id)}>{pool.name}</button></td><td><StatusBadge label={pool.state} tone={tone(pool.state)} /></td><td>{pool.runner_count}</td><td>{pool.busy_slots}</td><td>{pool.repository_ids.length}</td><td><div className="row-actions"><Button className="button button-sm" onClick={() => select(pool.id)}>Open</Button><Button className="button button-sm" disabled={!csrf || pool.state === 'revoked'} onClick={() => void enrol(pool)}>Enroll runner</Button></div></td></tr>)}</tbody></table>{!loaded.length && <EmptyTable label="No runner pools match these filters." />}{!pools.data?.complete && <div className="table-note"><Button disabled={pools.isFetching} onClick={() => setCursor(pools.data?.next_cursor)}>{pools.isFetching ? 'Loading…' : 'Load more pools'}</Button></div>}</DataTable>
+  const poolTable = pools.isLoading && !loaded.length ? <StatePanel kind="loading" title="Loading runner pools" detail="Fetching execution trust boundaries for this organisation." /> : pools.error ? <StatePanel kind="error" title="Runner pools could not be loaded" detail={message(pools.error)} action={<Button onClick={() => pools.refetch()}>Retry</Button>} /> : <DataTable caption="Runner pools"><table><thead><tr><th>Pool</th><th>State</th><th>Runners</th><th>Busy</th><th>Repositories</th><th><span className="sr-only">Actions</span></th></tr></thead><tbody>{loaded.map(pool => <tr key={pool.id}><td><button className="link-button" onClick={() => select(pool.id)}>{pool.name}</button></td><td><StatusBadge label={pool.state} tone={tone(pool.state)} /></td><td>{pool.runner_count}</td><td>{pool.busy_slots}</td><td>{pool.repository_ids.length}</td><td><div className="row-actions"><Button className="button button-sm" onClick={() => select(pool.id)}>Open</Button><Button className="button button-sm" disabled={!csrf || pool.state === 'revoked'} onClick={() => void enrol(pool)}>Enroll runner</Button></div></td></tr>)}</tbody></table>{!loaded.length && <EmptyTable label="No runner pools match these filters." />}{lastPage && !lastPage.complete && <div className="table-note"><Button disabled={pools.isFetching} onClick={() => void pools.fetchNextPage()}>{pools.isFetchingNextPage ? 'Loading…' : 'Load more pools'}</Button></div>}</DataTable>
 
   const poolDetail = !selectedID ? <SplitPlaceholder label="Select a pool to view runners, capacity and routes." />
     : detail.isLoading ? <StatePanel kind="loading" title="Loading pool" detail="Fetching capacity and trust data." />

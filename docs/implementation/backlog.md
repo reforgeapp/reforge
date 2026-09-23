@@ -4,6 +4,14 @@
 
 Latest owner instruction supersedes the pause below. Review Deepseek T29k/l/m, repair Findings/theme issues, rebuild Policies, then finish outstanding GUI acceptance. Astra coordinates/reviews; Luna implements. See current `progress.md`; earlier checks remain historical.
 
+### T29q — Reliable list data through navigation and refresh
+
+- Status: **local complete, 2026-09-23**. [Review and evidence](data-lifecycle-review-2026-09-23.md). Depends T29h/i and current GUI; no new API contract.
+- Cause: local list copies cleared while structurally shared query responses retain identity. Confirmed Connections: 33 server records become zero displayed rows after Refresh or cached-tab selection.
+- Own: Luna admin slice (Connections, Runners, list query builders, regressions); Luna work-list slice (Repositories, Findings, Runs, regressions); Luna Organisation cache-shape slice. Astra reproduces/reviews/integrates.
+- Build: query-owned paginated lists, tenant/filter-specific keys, no secondary resettable row copies. Refresh and mutations retain/replace rows from authoritative responses. Separate finite/infinite cache shapes; keep filters mounted during loading/errors. Preserve cursor traversal, back/deep links, saved views, cancellation, errors and tenant isolation.
+- Accept: unchanged-response refresh, same/cached tabs and filters, repeated saved-view load, multi-page refresh/removal, genuine empty responses, retry and late-response isolation. Tests fail against old served bundle before repair; connected backend navigation/refresh plus integrated browser checks pass afterward. Review all routes for the same pattern; document remaining limitations precisely.
+
 ### T29p — Shared controls, surfaces and search
 
 - Status: **local complete, 2026-09-23**. [Review and evidence](shared-controls-review-2026-09-23.md). Depends T29b/d/j/o; no new backend contract.

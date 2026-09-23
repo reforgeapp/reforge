@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
@@ -19,23 +19,21 @@ const sourceURL = (value: string) => { try { const url = new URL(value); return 
 export function RunsPage({ orgID }: { orgID: string }) {
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
-  const session = useSession(); const client = useQueryClient(); const [cursor, setCursor] = useState<string>(); const [items, setItems] = useState<Task[]>([])
+  const session = useSession(); const client = useQueryClient()
   const [state, setState] = useState(search.state ?? '')
-  useEffect(() => { setState(search.state ?? ''); setCursor(undefined); setItems([]) }, [search.state])
+  useEffect(() => { setState(search.state ?? '') }, [search.state])
   const repositories = useQuery({ queryKey: ['org', orgID, 'run-repositories'], queryFn: ({ signal }) => inventoryAPI.repositories(orgID, { limit: 100, signal }) })
-  const result = useQuery({ queryKey: ['org', orgID, 'tasks', state, cursor ?? 'first'], queryFn: ({ signal }) => runsAPI.tasks(orgID, { cursor, state: state || undefined, signal }) })
-  useEffect(() => { if (result.data) setItems(previous => { const next = cursor ? [...previous, ...result.data.items] : result.data.items; return [...new Map(next.map(item => [item.id, item])).values()] }) }, [cursor, result.data])
-  if (result.isLoading && !items.length) return <StatePanel kind="loading" title="Loading runs" detail="Fetching recorded maintenance work." />
-  if (result.error) return <StatePanel kind="error" title="Runs could not be loaded" detail={message(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} />
+  const result = useInfiniteQuery({ queryKey: ['org', orgID, 'tasks', 'list', state], queryFn: ({ pageParam, signal }) => runsAPI.tasks(orgID, { cursor: pageParam, state: state || undefined, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const items = [...new Map((result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
   const repositoryName = (id: string) => repositories.data?.items.find(repo => repo.id === id)?.name ?? id
-  const setFilter = (value: string) => { setState(value); setCursor(undefined); setItems([]); void navigate({ search: previous => ({ ...previous, state: value || undefined }) }) }
+  const setFilter = (value: string) => { setState(value); void navigate({ search: previous => ({ ...previous, state: value || undefined }) }) }
   const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.run; return next } }) }
 
-  const list = <><DataTable caption="Maintenance runs"><table><thead><tr><th>Run</th><th>Repository</th><th>Recipe</th><th>Route</th><th>Attempts</th><th>State</th><th>Created</th><th>Next action</th></tr></thead><tbody>{items.map(task => <tr key={task.id}><td><button className="link-button" onClick={() => void navigate({ search: previous => ({ ...previous, run: task.id }) })}>{task.id.slice(0, 8)}</button></td><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(task.repository_id)}`}>{repositoryName(task.repository_id)}</a></td><td>{task.recipe} <small className="table-meta">v{task.recipe_version}</small></td><td>{task.model_route || '—'}</td><td>{task.max_attempts}</td><td><StatusBadge label={task.state} tone={tone(task.state)} /></td><td>{new Date(task.created_at).toLocaleString()}</td><td>{task.reason || (task.state === 'blocked' || task.state === 'reconciling' ? 'Review recorded evidence' : 'No action')}</td></tr>)}</tbody></table>{!items.length && <EmptyTable label="No maintenance runs match this filter." />}</DataTable>{!result.data?.complete && <Button disabled={result.isFetching} onClick={() => setCursor(result.data?.next_cursor)}>{result.isFetching ? 'Loading…' : 'Load more runs'}</Button>}</>
+  const list = <><DataTable caption="Maintenance runs"><table><thead><tr><th>Run</th><th>Repository</th><th>Recipe</th><th>Route</th><th>Attempts</th><th>State</th><th>Created</th><th>Next action</th></tr></thead><tbody>{items.map(task => <tr key={task.id}><td><button className="link-button" onClick={() => void navigate({ search: previous => ({ ...previous, run: task.id }) })}>{task.id.slice(0, 8)}</button></td><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(task.repository_id)}`}>{repositoryName(task.repository_id)}</a></td><td>{task.recipe} <small className="table-meta">v{task.recipe_version}</small></td><td>{task.model_route || '—'}</td><td>{task.max_attempts}</td><td><StatusBadge label={task.state} tone={tone(task.state)} /></td><td>{new Date(task.created_at).toLocaleString()}</td><td>{task.reason || (task.state === 'blocked' || task.state === 'reconciling' ? 'Review recorded evidence' : 'No action')}</td></tr>)}</tbody></table>{!items.length && <EmptyTable label="No maintenance runs match this filter." />}</DataTable>{result.hasNextPage && <Button disabled={result.isFetching} onClick={() => void result.fetchNextPage()}>{result.isFetchingNextPage ? 'Loading…' : 'Load more runs'}</Button>}</>
 
   return <div className="stack">
-    <Toolbar label="Run filters"><label>State<select value={state} onChange={event => setFilter(event.target.value)}><option value="">All states</option>{['queued', 'reproducing', 'planning', 'repairing', 'validating', 'publishing', 'blocked', 'reconciling', 'completed', 'failed', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label><span className="toolbar-meta">{items.length} loaded{result.data?.complete === false ? ' · more available' : ''}</span></Toolbar>
-    <SplitView listLabel="Runs" selected={!!search.run} onBack={clear} list={list} detail={search.run ? <RunDetail key={search.run} orgID={orgID} repositories={repositories.data?.items ?? []} taskID={search.run} csrf={session.data?.csrf_token ?? ''} onClose={clear} onChanged={() => { setCursor(undefined); void client.invalidateQueries({ queryKey: ['org', orgID, 'tasks'] }) }} /> : <SplitPlaceholder label="Select a run to inspect stages, evidence and cancellation." />} />
+    <Toolbar label="Run filters"><label>State<select value={state} onChange={event => setFilter(event.target.value)}><option value="">All states</option>{['queued', 'reproducing', 'planning', 'repairing', 'validating', 'publishing', 'blocked', 'reconciling', 'completed', 'failed', 'cancelled'].map(value => <option key={value} value={value}>{value}</option>)}</select></label><span className="toolbar-meta">{items.length} loaded{result.hasNextPage ? ' · more available' : ''}</span></Toolbar>
+    <SplitView listLabel="Runs" selected={!!search.run} onBack={clear} list={result.isLoading ? <StatePanel kind="loading" title="Loading runs" detail="Fetching recorded maintenance work." /> : result.error ? <StatePanel kind="error" title="Runs could not be loaded" detail={message(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} /> : list} detail={search.run ? <RunDetail key={search.run} orgID={orgID} repositories={repositories.data?.items ?? []} taskID={search.run} csrf={session.data?.csrf_token ?? ''} onClose={clear} onChanged={() => { void client.invalidateQueries({ queryKey: ['org', orgID, 'tasks'] }) }} /> : <SplitPlaceholder label="Select a run to inspect stages, evidence and cancellation." />} />
   </div>
 }
 

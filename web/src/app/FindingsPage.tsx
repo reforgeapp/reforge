@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
-import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { discoveryAPI, type Finding } from '../api/discovery'
 import { inventoryAPI } from '../api/inventory'
@@ -17,20 +17,18 @@ const text = (value: unknown) => value instanceof Error ? value.message : 'The s
 
 export function FindingsPage({ orgID }: { orgID: string }) {
   const session = useSession(); const client = useQueryClient(); const navigate = useNavigate({ from: '/org/$orgID/$section' }); const search = useSearch({ strict: false }) as Record<string, string | undefined>
-  const [q, setQ] = useState(search.q ?? ''); const [state, setState] = useState(search.finding_state ?? ''); const [severity, setSeverity] = useState(search.finding_severity ?? ''); const [category, setCategory] = useState(search.finding_category ?? ''); const [repositoryID, setRepositoryID] = useState(search.repository ?? ''); const [cursor, setCursor] = useState<string>(); const [rows, setRows] = useState<Finding[]>([]); const [advisoryOpen, setAdvisoryOpen] = useState(false)
+  const [q, setQ] = useState(search.q ?? ''); const [state, setState] = useState(search.finding_state ?? ''); const [severity, setSeverity] = useState(search.finding_severity ?? ''); const [category, setCategory] = useState(search.finding_category ?? ''); const [repositoryID, setRepositoryID] = useState(search.repository ?? ''); const [advisoryOpen, setAdvisoryOpen] = useState(false)
   const selected = search.finding
   const repositories = useQuery({ queryKey: ['org', orgID, 'finding-repositories'], queryFn: ({ signal }) => inventoryAPI.repositories(orgID, { limit: 100, signal }) })
-  useEffect(() => { setQ(search.q ?? ''); setState(search.finding_state ?? ''); setSeverity(search.finding_severity ?? ''); setCategory(search.finding_category ?? ''); setRepositoryID(search.repository ?? ''); setCursor(undefined); setRows([]) }, [search.q, search.finding_state, search.finding_severity, search.finding_category, search.repository])
-  const result = useQuery({ queryKey: ['org', orgID, 'findings', { q, state, severity, category, repositoryID, cursor }], queryFn: ({ signal }) => discoveryAPI.findings(orgID, { q, state, severity, category, repository_id: repositoryID, cursor, limit: 50, signal }) })
-  useEffect(() => { if (result.data) setRows(previous => cursor ? [...new Map([...previous, ...result.data.items].map(item => [item.id, item])).values()] : result.data.items) }, [cursor, result.data])
-  if (result.isLoading && !rows.length) return <StatePanel kind="loading" title="Loading findings" detail="Fetching evidence-backed maintenance findings." />
-  if (result.error) return <StatePanel kind="error" title="Findings could not be loaded" detail={text(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} />
-  const reset = (setter: (value: string) => void, key: string, value: string, replace = false) => { setter(value); setCursor(undefined); setRows([]); void navigate({ search: { ...search, [key]: value || undefined }, replace }) }
+  useEffect(() => { setQ(search.q ?? ''); setState(search.finding_state ?? ''); setSeverity(search.finding_severity ?? ''); setCategory(search.finding_category ?? ''); setRepositoryID(search.repository ?? '') }, [search.q, search.finding_state, search.finding_severity, search.finding_category, search.repository])
+  const result = useInfiniteQuery({ queryKey: ['org', orgID, 'findings', 'list', { q, state, severity, category, repositoryID }], queryFn: ({ pageParam, signal }) => discoveryAPI.findings(orgID, { q, state, severity, category, repository_id: repositoryID, cursor: pageParam, limit: 50, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
+  const rows = [...new Map((result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
+  const reset = (setter: (value: string) => void, key: string, value: string, replace = false) => { setter(value); void navigate({ search: { ...search, [key]: value || undefined }, replace }) }
   const select = (id: string) => { void navigate({ search: { ...search, finding: id }, replace: false }) }
   const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.finding; return next } }) }
-  const refresh = () => { setCursor(undefined); setRows([]); void client.invalidateQueries({ queryKey: ['org', orgID, 'findings'] }) }
+  const refresh = () => { void client.invalidateQueries({ queryKey: ['org', orgID, 'findings'] }) }
 
-  const list = <DataTable caption="Finding queue"><table><thead><tr><th>Finding</th><th>Severity</th><th>Source</th><th>Evidence age</th><th>State</th><th>Owner</th></tr></thead><tbody>{rows.map(finding => <tr key={finding.id}><td><button className="link-button" onClick={() => select(finding.id)}>{finding.title}</button><small className="table-meta">{finding.category}</small></td><td><StatusBadge label={finding.severity} tone={tone(finding.severity)} /></td><td>{finding.source}</td><td>{age(finding.last_seen)}</td><td><StatusBadge label={finding.state} tone={tone(finding.state)} /></td><td>{finding.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No findings match these filters." />}{result.data?.complete === false && <div className="table-note"><Button disabled={result.isFetching} onClick={() => setCursor(result.data?.next_cursor)}>{result.isFetching ? 'Loading…' : 'Load more findings'}</Button></div>}</DataTable>
+  const list = <DataTable caption="Finding queue"><table><thead><tr><th>Finding</th><th>Severity</th><th>Source</th><th>Evidence age</th><th>State</th><th>Owner</th></tr></thead><tbody>{rows.map(finding => <tr key={finding.id}><td><button className="link-button" onClick={() => select(finding.id)}>{finding.title}</button><small className="table-meta">{finding.category}</small></td><td><StatusBadge label={finding.severity} tone={tone(finding.severity)} /></td><td>{finding.source}</td><td>{age(finding.last_seen)}</td><td><StatusBadge label={finding.state} tone={tone(finding.state)} /></td><td>{finding.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No findings match these filters." />}{result.hasNextPage && <div className="table-note"><Button disabled={result.isFetching} onClick={() => void result.fetchNextPage()}>{result.isFetchingNextPage ? 'Loading…' : 'Load more findings'}</Button></div>}</DataTable>
 
   return <div className="stack">
     <Toolbar label="Finding filters">
@@ -41,7 +39,7 @@ export function FindingsPage({ orgID }: { orgID: string }) {
       <label>Repository<select value={repositoryID} onChange={event => reset(setRepositoryID, 'repository', event.target.value)}><option value="">All repositories</option>{(repositories.data?.items ?? []).map(repo => <option key={repo.id} value={repo.id}>{repo.name}</option>)}</select></label>
       <Button className="button button-primary" onClick={() => setAdvisoryOpen(true)}>Import advisory</Button>
     </Toolbar>
-    <SplitView listLabel="Findings" selected={!!selected} onBack={clear} hideBack closeControl={{ label: 'Close finding details', onClose: clear }} list={list} detail={selected ? <FindingDetails orgID={orgID} repositories={repositories.data?.items ?? []} findingID={selected} csrf={session.data?.csrf_token ?? ''} onRefresh={refresh} /> : <SplitPlaceholder label="Select a finding to inspect evidence and repair options." />} />
+    <SplitView listLabel="Findings" selected={!!selected} onBack={clear} hideBack closeControl={{ label: 'Close finding details', onClose: clear }} list={result.isLoading ? <StatePanel kind="loading" title="Loading findings" detail="Fetching evidence-backed maintenance findings." /> : result.error ? <StatePanel kind="error" title="Findings could not be loaded" detail={text(result.error)} action={<Button onClick={() => result.refetch()}>Retry</Button>} /> : list} detail={selected ? <FindingDetails orgID={orgID} repositories={repositories.data?.items ?? []} findingID={selected} csrf={session.data?.csrf_token ?? ''} onRefresh={refresh} /> : <SplitPlaceholder label="Select a finding to inspect evidence and repair options." />} />
     {advisoryOpen && <AdvisoryDialog orgID={orgID} csrf={session.data?.csrf_token ?? ''} defaultRepository={repositoryID} repositories={repositories.data?.items ?? []} onClose={() => setAdvisoryOpen(false)} onImported={refresh} />}
   </div>
 }
