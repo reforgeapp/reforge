@@ -1,5 +1,14 @@
 # Implementation progress
 
+## Opt-in defects and host feasibility — 2026-09-24
+
+Browser worker completed; quota2026-09-23T22:44:50.977Z **45% weekly remaining**. Enabled11 previouslyskipped scenarios:6 original passes and5 stale-spec failures; diagnostic copies pass, including repeated isolated checks. Two real GUI defects identified: closed mobile sidebar shadow and unused Unassign reason gate. T29y/T29z/T28e allocated to Opus after root review; source changes require new bundle verification. Original675b0fd default193/15 baseline remains historical, not a current opt-in pass.
+
+Host worker completed; quota22:42:16.006Z **45%**. One production-config/rootless gVisor guest passed under disposable delegated cgroup parent (1GiB/1CPU/192pids), including real per-run readbacks, cancellation and graceful close/reopen. Root reviewed privileged setup/cleanup and limits; integrated `90761d0`. Prior blanket cgroup host blocker superseded. Fresh source helper, resource exhaustion and actual crash/orphan recovery now allocated under same aggregate bounds; no100-load/hosted qualification yet.
+
+Docs-image worker completed; quota22:34:53.576Z **46%**. Recovered signed archives23/27 historical unmatched rows and mapped exact source inputs all27;4 binary archives remain untried in additional channels. Integrated `bb6aebd`. Notice completeness, reproducibility and legal sign-off remain open. Three workers continue: positive GUI repair, bounded cgroup enforcement, GUI/test fixes. Demo remains8084/docs8082.
+
+
 ## Genuine current-fixture repair pass — 2026-09-24
 
 Opus repair worker completed; quota2026-09-23T22:29:15.442Z **47% weekly remaining**. `TestRepairLiveProtectedMerge` passed81.74s, first qwen2.5:7b attempt, unchanged source-only fixture/output caps/protection. Native canonical merge SHA `67955e97975e38b1bb431b155e7d01fdf6f7e2b2`; stale-gate rejection, missing-approval denial, replay/result-loss recovery and cross-tenant denial asserted. Root reviewed retained log and assertions; integrated `6337a2b`. Positive GUI remains separate and allocated to same Opus worker, with new opt-in test ownership only. Model cache swap removed only preserved-metadata qwen3:8b; 1.7b/4b retained, >=3GiB post-pull. No paid integration API.

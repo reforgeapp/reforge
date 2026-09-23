@@ -1,5 +1,25 @@
 # Implementation backlog
 
+### T29y — Remove closed mobile drawer shadow
+
+- Status: **in progress,2026-09-24**. Depends T29 rebuild. Opus owns only mobile sidebar rule in `web/src/styles/app.css`; Astra review.
+- Defect: off-canvas closed sidebar still casts a shadow onto every narrow page.
+- Accept: closed sidebar leaves no shadow; open drawer keeps depth cue; light/dark390px captures and existing keyboard dismissal behavior remain correct.
+
+### T29z — Remove unused Findings unassign reason gate
+
+- Status: **in progress,2026-09-24**. Depends discovery triage GUI. Opus owns only Unassign disabled condition and associated existing live finding check.
+- Defect: Unassign requires nonempty reason but sends assignment-clear payload without reason.
+- Accept: assigned finding can be unassigned with empty reason, persisted after mutation; busy/CSRF/version controls remain. Snooze/dismiss/reopen reason requirements unchanged.
+
+### T28e — Align stale opt-in acceptance with rebuilt GUI
+
+- Status: **in progress,2026-09-24**. Child T28a; depends current T29 routes and T29z.
+- Correct five existing specs: Organisation team dialog/list, mobile Connections card containment/close label, Findings Repair actions, Policies Review/Audit event controls, Campaign Members→Execution→Rollout and persisted selected detail.
+- Preserve backend mutation/version/reload/tenant/disabled-route assertions. No conditional fallbacks masking reload regressions. Test1 creates its own artifact directory; evidence output must not overwrite historical captures.
+- Original checks and diagnostic copies recorded in [opt-in review](t28a-optin-browser-review.md). Diagnostic passes are not tracked-suite passes; rerun corrected specs against current production assets and isolated restricted-role PostgreSQL.
+
+
 ## Current execution — 2026-09-24
 
 [Work status](work-status.md) is authoritative. Final frozen product `675b0fd`: browser193 passed/15 opt-in skipped/0 failed; exact-source amd64 control/runner/docs builds and direct clean install/recovery passed. T29v onboarding, T29x picker/budget corrections and T28d readiness fix locally complete. T29u positive merge, hosted isolation, provider certification, provenance/legal/human review and G5 remain open.
