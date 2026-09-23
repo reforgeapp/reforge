@@ -61,12 +61,15 @@ type User struct {
 }
 
 type Session struct {
-	automation    *automationGrant
-	ID            string                `json:"-"`
-	User          User                  `json:"user"`
-	Organisations []domain.Organisation `json:"organisations"`
-	Memberships   []Membership          `json:"memberships"`
-	CSRFToken     string                `json:"csrf_token"`
+	automation        *automationGrant
+	ID                string                `json:"-"`
+	OrganizationID    string                `json:"-"`
+	OIDCConfigID      string                `json:"-"`
+	OIDCConfigVersion int64                 `json:"-"`
+	User              User                  `json:"user"`
+	Organisations     []domain.Organisation `json:"organisations"`
+	Memberships       []Membership          `json:"memberships"`
+	CSRFToken         string                `json:"csrf_token"`
 }
 
 type Membership struct {
@@ -180,7 +183,16 @@ func (s *Service) CheckRequest(r *http.Request, csrf string) error {
 	return nil
 }
 
-func (s *Service) Login(ctx context.Context, w http.ResponseWriter) (string, error) {
+func (s *Service) Login(ctx context.Context, w http.ResponseWriter, orgIDs ...string) (string, error) {
+	if len(orgIDs) > 1 {
+		return "", ErrInvalid
+	}
+	if len(orgIDs) == 1 {
+		if orgIDs[0] == "" {
+			return "", ErrInvalid
+		}
+		return s.beginOrgOIDCLogin(ctx, w, orgIDs[0])
+	}
 	if s.cfg.FixtureAuth {
 		user, err := s.upsertUser(ctx, "reforge:development", "local-owner", "Development owner", "owner@localhost")
 		if err != nil {
@@ -213,23 +225,31 @@ func (s *Service) Login(ctx context.Context, w http.ResponseWriter) (string, err
 }
 
 func (s *Service) Callback(ctx context.Context, w http.ResponseWriter, r *http.Request) error {
-	if s.verifier == nil {
+	query := r.URL.Query()
+	states, codes := query["state"], query["code"]
+	if len(states) != 1 || len(codes) != 1 {
 		return ErrUnauthenticated
 	}
-	state, code := r.URL.Query().Get("state"), r.URL.Query().Get("code")
+	state, code := states[0], codes[0]
+	if len(state) != 43 || len(code) == 0 || len(code) > 4096 {
+		return ErrUnauthenticated
+	}
 	browser, err := r.Cookie(s.oidcCookieName())
-	if err != nil || state == "" || code == "" {
+	if err != nil || len(browser.Value) != 43 {
 		return ErrUnauthenticated
 	}
-	var nonce, verifier string
-	err = s.identity(ctx, "", map[string]string{"reforge.login_hash": digest(state)}, func(tx pgx.Tx) error {
-		return tx.QueryRow(ctx, `DELETE FROM oidc_logins WHERE state_hash=$1 AND browser_hash=$2 AND expires_at>now() RETURNING nonce,verifier`, digest(state), digest(browser.Value)).Scan(&nonce, &verifier)
-	})
+	attempt, err := s.consumeOIDCLogin(ctx, state, browser.Value)
 	if err != nil {
 		return ErrUnauthenticated
 	}
 	http.SetCookie(w, s.cookie(s.oidcCookieName(), "", -1))
-	token, err := s.oauth.Exchange(context.WithValue(ctx, oauth2.HTTPClient, s.httpClient), code, oauth2.VerifierOption(verifier))
+	if attempt.OrgID != "" {
+		return s.completeOrgOIDCCallback(ctx, w, attempt, code)
+	}
+	if s.verifier == nil {
+		return ErrUnauthenticated
+	}
+	token, err := s.oauth.Exchange(context.WithValue(ctx, oauth2.HTTPClient, s.httpClient), code, oauth2.VerifierOption(attempt.Verifier))
 	if err != nil {
 		return ErrUnauthenticated
 	}
@@ -238,7 +258,7 @@ func (s *Service) Callback(ctx context.Context, w http.ResponseWriter, r *http.R
 		return ErrUnauthenticated
 	}
 	id, err := s.verifier.Verify(oidc.ClientContext(ctx, s.httpClient), raw)
-	if err != nil || !equal(id.Nonce, nonce) || id.Subject == "" {
+	if err != nil || !equal(id.Nonce, attempt.Nonce) || id.Subject == "" {
 		return ErrUnauthenticated
 	}
 	var claims struct {
@@ -282,8 +302,26 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		return session, ErrUnauthenticated
 	}
 	err := s.identity(ctx, "", map[string]string{"reforge.session_hash": digest(token)}, func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT id::text,user_id::text,csrf_token FROM sessions WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()`, digest(token)).Scan(&session.ID, &session.User.ID, &session.CSRFToken); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT id::text,user_id::text,csrf_token,coalesce(org_id::text,''),coalesce(oidc_config_id::text,''),coalesce(oidc_config_version,0) FROM sessions WHERE token_hash=$1 AND revoked_at IS NULL AND expires_at>now()`, digest(token)).Scan(&session.ID, &session.User.ID, &session.CSRFToken, &session.OrganizationID, &session.OIDCConfigID, &session.OIDCConfigVersion); err != nil {
 			return err
+		}
+		if session.OrganizationID != "" {
+			if !ValidID(session.OrganizationID) || !ValidID(session.OIDCConfigID) || session.OIDCConfigVersion < 1 {
+				return ErrUnauthenticated
+			}
+			for key, value := range map[string]string{
+				"reforge.login_org_id":         session.OrganizationID,
+				"reforge.login_config_id":      session.OIDCConfigID,
+				"reforge.login_config_version": formatOIDCVersion(session.OIDCConfigVersion),
+			} {
+				if _, err := tx.Exec(ctx, `SELECT set_config($1,$2,true)`, key, value); err != nil {
+					return err
+				}
+			}
+			var active bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM org_oidc_configs WHERE org_id=$1 AND id=$2 AND version=$3 AND status='active' AND verified_version=version)`, session.OrganizationID, session.OIDCConfigID, session.OIDCConfigVersion).Scan(&active); err != nil || !active {
+				return ErrUnauthenticated
+			}
 		}
 		if _, err := tx.Exec(ctx, `SELECT set_config('reforge.user_id',$1,true)`, session.User.ID); err != nil {
 			return err
@@ -291,7 +329,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		if err := tx.QueryRow(ctx, `SELECT name,email FROM users WHERE id=$1`, session.User.ID).Scan(&session.User.Name, &session.User.Email); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT org_id::text,role,all_repositories,version FROM memberships WHERE user_id=$1 ORDER BY org_id`, session.User.ID)
+		rows, err := tx.Query(ctx, `SELECT org_id::text,role,all_repositories,version FROM memberships WHERE user_id=$1 AND ($2='' OR org_id=$2::uuid) ORDER BY org_id`, session.User.ID, session.OrganizationID)
 		if err != nil {
 			return err
 		}
@@ -307,6 +345,9 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		rows.Close()
 		if err != nil {
 			return err
+		}
+		if session.OrganizationID != "" && len(session.Memberships) != 1 {
+			return ErrUnauthenticated
 		}
 		for i := range session.Memberships {
 			m := &session.Memberships[i]

@@ -95,8 +95,8 @@ func oidcFailure(c *gin.Context, err error) {
 		return
 	}
 	switch {
-	case errors.Is(err, auth.ErrOIDCNotReady):
-		Fail(c, http.StatusConflict, "activation_unavailable", "Organisation login is not available until org-aware login support is implemented", false)
+	case errors.Is(err, auth.ErrOIDCActivation):
+		Fail(c, http.StatusConflict, "activation_requires_verification", "Verify the current issuer configuration before enabling organisation login", false)
 	case errors.Is(err, auth.ErrOIDCProbe):
 		Fail(c, http.StatusUnprocessableEntity, "issuer_unverified", "Issuer metadata could not be verified", false)
 	case errors.Is(err, auth.ErrOIDCUnavailable):

@@ -5,6 +5,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/netip"
@@ -123,10 +124,20 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 		t.Fatal("fixture session cookie missing")
 	}
 	owner, err := identity.Authenticate(ctx, cookies[0].Value)
-	if err != nil || len(owner.Organisations) != 1 {
+	if err != nil || len(owner.Organisations) == 0 {
 		t.Fatal("authenticate fixture owner")
 	}
-	orgID := owner.Organisations[0].ID
+	orgID := "00000000-0000-4000-8000-000000000001"
+	foundDevelopmentOrg := false
+	for _, organisation := range owner.Organisations {
+		if organisation.ID == orgID {
+			foundDevelopmentOrg = true
+			break
+		}
+	}
+	if !foundDevelopmentOrg {
+		t.Fatal("development organisation missing")
+	}
 	var healthy atomic.Bool
 	healthy.Store(true)
 	var issuer string
@@ -185,7 +196,7 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 	}
 	clear(opened)
 	verified, err := identity.ProbeOrgOIDC(ctx, owner, orgID, updated.Version, "request-probe-success")
-	if err != nil || verified.Status != "probe_verified" || !verified.Verified || !verified.SecretPresent || verified.ActivationAvailable {
+	if err != nil || verified.Status != "probe_verified" || !verified.Verified || !verified.SecretPresent || !verified.ActivationAvailable {
 		t.Fatal("successful metadata probe was not represented truthfully")
 	}
 	if _, err = identity.ProbeOrgOIDC(ctx, owner, orgID, updated.Version, "request-probe-too-soon"); err == nil {
@@ -196,8 +207,12 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 			t.Fatal("successful probe did not return a retry delay")
 		}
 	}
-	if err = identity.ActivateOrgOIDC(ctx, owner, orgID, updated.Version, "request-activate"); !errors.Is(err, ErrOIDCNotReady) {
-		t.Fatal("activation claimed before org-aware login support")
+	if err = identity.ActivateOrgOIDC(ctx, owner, orgID, updated.Version, "request-activate"); err != nil {
+		t.Fatal("verified organization OIDC configuration could not be activated")
+	}
+	active, err := identity.OrgOIDC(ctx, owner, orgID)
+	if err != nil || active.Status != "active" || active.ActivationAvailable || active.ActivationBlocked != "" {
+		t.Fatal("active organization OIDC status was not represented truthfully")
 	}
 	if err = db.Tenant(ctx, orgID, owner.User.ID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE org_oidc_configs SET probe_attempt_at=now()-interval '31 seconds' WHERE org_id=$1`, orgID)
@@ -350,5 +365,30 @@ func TestOrgOIDCMetadataRedirectRejected(t *testing.T) {
 	issuer = server.URL + "/tenant"
 	if _, err := fetchOIDCMetadata(context.Background(), issuer, true); !errors.Is(err, ErrOIDCProbe) {
 		t.Fatal("issuer metadata redirect was accepted")
+	}
+}
+
+func TestOrgOIDCResponseBodyBounded(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		_, _ = writer.Write([]byte(strings.Repeat("x", (1<<20)+1)))
+	}))
+	defer server.Close()
+	issuer, err := url.Parse(server.URL + "/tenant")
+	if err != nil {
+		t.Fatal(err)
+	}
+	client, err := issuerHTTPClient(context.Background(), issuer, true)
+	if err != nil {
+		t.Fatal("create bounded issuer client")
+	}
+	defer client.CloseIdleConnections()
+	response, err := client.Get(server.URL + "/tenant/body")
+	if err != nil {
+		t.Fatal("request bounded issuer body")
+	}
+	defer response.Body.Close()
+	body, err := io.ReadAll(response.Body)
+	if err == nil || len(body) > 1<<20 {
+		t.Fatal("oversized issuer response body was not rejected")
 	}
 }

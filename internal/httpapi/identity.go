@@ -20,9 +20,14 @@ func (s *Server) RegisterIdentity(service *auth.Service) {
 			IdentityFailure(c, err)
 			return
 		}
-		location, err := service.Login(c.Request.Context(), c.Writer)
+		orgIDs := c.Request.URL.Query()["org_id"]
+		if len(orgIDs) > 1 || len(orgIDs) == 1 && orgIDs[0] == "" {
+			IdentityFailure(c, auth.ErrInvalid)
+			return
+		}
+		location, err := service.Login(c.Request.Context(), c.Writer, orgIDs...)
 		if err != nil {
-			IdentityFailure(c, err)
+			loginFailure(c, len(orgIDs) > 0, err)
 			return
 		}
 		c.Redirect(http.StatusFound, location)
@@ -189,6 +194,14 @@ func SessionFromContext(c *gin.Context) (auth.Session, bool) {
 	session, ok := v.(auth.Session)
 	return session, ok
 }
+func loginFailure(c *gin.Context, orgScoped bool, err error) {
+	if orgScoped {
+		oidcFailure(c, err)
+		return
+	}
+	IdentityFailure(c, err)
+}
+
 func IdentityFailure(c *gin.Context, err error) {
 	switch {
 	case errors.Is(err, auth.ErrUnauthenticated):

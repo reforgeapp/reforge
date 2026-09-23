@@ -28,6 +28,18 @@ func loadBindings(ctx context.Context, tx pgx.Tx, m *Membership) error {
 }
 
 func liveActor(ctx context.Context, tx pgx.Tx, session Session, orgID string) (domain.Actor, error) {
+	if session.OrganizationID != "" && session.OrganizationID != orgID {
+		return domain.Actor{}, ErrForbidden
+	}
+	if session.OrganizationID != "" {
+		if !ValidID(session.OIDCConfigID) || session.OIDCConfigVersion < 1 {
+			return domain.Actor{}, ErrUnauthenticated
+		}
+		var active bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM org_oidc_configs WHERE org_id=$1 AND id=$2 AND version=$3 AND status='active' AND verified_version=version)`, orgID, session.OIDCConfigID, session.OIDCConfigVersion).Scan(&active); err != nil || !active {
+			return domain.Actor{}, ErrUnauthenticated
+		}
+	}
 	if session.automation != nil {
 		return session.automation.actor(ctx, tx, orgID, session.User.ID)
 	}

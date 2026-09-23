@@ -21,7 +21,7 @@ import (
 
 var (
 	ErrOIDCProbe         = errors.New("OIDC issuer could not be verified")
-	ErrOIDCNotReady      = errors.New("organisation OIDC login is not available until org-aware callback support is implemented")
+	ErrOIDCActivation    = errors.New("organisation OIDC requires current issuer verification before activation")
 	ErrOIDCUnavailable   = errors.New("OIDC secret storage unavailable")
 	ErrOIDCProbeCooldown = errors.New("OIDC issuer probe cooldown active")
 	ErrOIDCProbeBusy     = errors.New("OIDC issuer probe capacity reached")
@@ -207,7 +207,7 @@ func (s *Service) ProbeOrgOIDC(ctx context.Context, session Session, orgID strin
 				return &ProbeCooldownError{RetryAfter: retryAfter}
 			}
 		}
-		if _, err := tx.Exec(ctx, `UPDATE org_oidc_configs SET probe_attempt_at=now(),verified_version=NULL,verified_at=NULL,updated_at=now() WHERE org_id=$1`, orgID); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE org_oidc_configs SET probe_attempt_at=now(),status=CASE WHEN status='active' THEN 'draft' ELSE status END,verified_version=NULL,verified_at=NULL,updated_at=now() WHERE org_id=$1`, orgID); err != nil {
 			return err
 		}
 		if err := audit(ctx, tx, orgID, string(actor.UserID), "org.oidc.probe_started", record.ID, requestID, record.Version); err != nil {
@@ -270,15 +270,21 @@ func (s *Service) ActivateOrgOIDC(ctx context.Context, session Session, orgID st
 		if record.Version != expected {
 			return ErrConflict
 		}
-		if record.VerifiedVersion != record.Version || record.Status == "disabled" {
-			return ErrInvalid
+		if record.VerifiedVersion != record.Version || record.VerifiedAt == nil || record.Status == "disabled" {
+			return ErrOIDCActivation
 		}
-		return audit(ctx, tx, orgID, string(actor.UserID), "org.oidc.activation_blocked", record.ID, requestID, record.Version)
+		if record.Status == "active" {
+			return nil
+		}
+		if _, err := tx.Exec(ctx, `UPDATE org_oidc_configs SET status='active',updated_at=now() WHERE org_id=$1 AND id=$2 AND version=$3`, orgID, record.ID, record.Version); err != nil {
+			return err
+		}
+		return audit(ctx, tx, orgID, string(actor.UserID), "org.oidc.activated", record.ID, requestID, record.Version)
 	})
 	if err != nil {
 		return err
 	}
-	return ErrOIDCNotReady
+	return nil
 }
 
 func (s *Service) DisableOrgOIDC(ctx context.Context, session Session, orgID string, expected int64, requestID string) (OrgOIDCSettings, error) {
@@ -315,16 +321,21 @@ func (s *Service) DisableOrgOIDC(ctx context.Context, session Session, orgID str
 }
 
 func emptyOrgOIDCSettings() OrgOIDCSettings {
-	return OrgOIDCSettings{Status: "unconfigured", ActivationAvailable: false, ActivationBlocked: ErrOIDCNotReady.Error()}
+	return OrgOIDCSettings{Status: "unconfigured", ActivationAvailable: false, ActivationBlocked: "Configure and verify an issuer before enabling organisation login"}
 }
 
 func settingsFor(record orgOIDCRecord) OrgOIDCSettings {
 	status := record.Status
 	verified := record.VerifiedVersion == record.Version && record.VerifiedAt != nil
-	if status != "disabled" && verified {
+	if status != "disabled" && status != "active" && verified {
 		status = "probe_verified"
 	}
-	return OrgOIDCSettings{Configured: true, SecretPresent: true, Issuer: record.Issuer, ClientID: record.ClientID, Status: status, Version: record.Version, VerifiedAt: record.VerifiedAt, Verified: verified, ActivationAvailable: false, ActivationBlocked: ErrOIDCNotReady.Error()}
+	activationAvailable := status == "probe_verified" && verified
+	blocked := ""
+	if status == "draft" || status == "disabled" {
+		blocked = "Verify issuer before enabling organisation login"
+	}
+	return OrgOIDCSettings{Configured: true, SecretPresent: true, Issuer: record.Issuer, ClientID: record.ClientID, Status: status, Version: record.Version, VerifiedAt: record.VerifiedAt, Verified: verified, ActivationAvailable: activationAvailable, ActivationBlocked: blocked}
 }
 
 func loadOrgOIDC(ctx context.Context, tx pgx.Tx, orgID string) (orgOIDCRecord, error) {
@@ -469,8 +480,42 @@ func (t *issuerRoundTripper) RoundTrip(request *http.Request) (*http.Response, e
 	default:
 		return nil, ErrInvalid
 	}
-	return t.base.RoundTrip(request)
+	response, err := t.base.RoundTrip(request)
+	if err != nil {
+		return nil, err
+	}
+	const responseLimit = int64(1 << 20)
+	if response.ContentLength > responseLimit {
+		response.Body.Close()
+		return nil, ErrOIDCProbe
+	}
+	response.Body = &oidcResponseBody{body: response.Body, limit: responseLimit}
+	return response, nil
 }
+
+type oidcResponseBody struct {
+	body  io.ReadCloser
+	limit int64
+	read  int64
+}
+
+func (b *oidcResponseBody) Read(buffer []byte) (int, error) {
+	remaining := b.limit - b.read
+	if remaining < 0 {
+		return 0, ErrOIDCProbe
+	}
+	if int64(len(buffer)) > remaining+1 {
+		buffer = buffer[:remaining+1]
+	}
+	n, err := b.body.Read(buffer)
+	b.read += int64(n)
+	if b.read > b.limit {
+		return 0, ErrOIDCProbe
+	}
+	return n, err
+}
+
+func (b *oidcResponseBody) Close() error { return b.body.Close() }
 
 func safeOIDCPath(raw string) (string, bool) {
 	if raw == "" {
@@ -529,6 +574,7 @@ func fetchOIDCMetadata(ctx context.Context, rawIssuer string, development bool) 
 	if err != nil {
 		return oidcMetadata{}, err
 	}
+	defer client.CloseIdleConnections()
 	metadataURL := strings.TrimRight(issuerValue, "/") + "/.well-known/openid-configuration"
 	request, err := http.NewRequestWithContext(requestCtx, http.MethodGet, metadataURL, nil)
 	if err != nil {
