@@ -37,6 +37,12 @@ type Config struct {
 	OIDCClientSecret   string `json:"-"`
 	BootstrapToken     string `json:"-"`
 	BootstrapExpiresAt time.Time
+	GitHubApp          GitHubAppFiles
+}
+
+type GitHubAppFiles struct {
+	AppID, Slug, ClientID                         string
+	ClientSecretFile, PrivateKeyFile, WebhookFile string
 }
 
 func Load() (Config, error) {
@@ -60,6 +66,10 @@ func Load() (Config, error) {
 		OIDCClientID:      os.Getenv("REFORGE_OIDC_CLIENT_ID"),
 		OIDCClientSecret:  os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
 		BootstrapToken:    os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
+		GitHubApp: GitHubAppFiles{
+			AppID: os.Getenv("REFORGE_GITHUB_APP_ID"), Slug: os.Getenv("REFORGE_GITHUB_APP_SLUG"), ClientID: os.Getenv("REFORGE_GITHUB_APP_CLIENT_ID"),
+			ClientSecretFile: os.Getenv("REFORGE_GITHUB_APP_CLIENT_SECRET_FILE"), PrivateKeyFile: os.Getenv("REFORGE_GITHUB_APP_PRIVATE_KEY_FILE"), WebhookFile: os.Getenv("REFORGE_GITHUB_APP_WEBHOOK_SECRET_FILE"),
+		},
 	}
 	if raw := os.Getenv("REFORGE_REPAIR_IMAGES"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &c.RepairImages); err != nil {
@@ -142,6 +152,16 @@ func (c Config) Validate() error {
 	}
 	if !c.FixtureAuth && (c.OIDCIssuer == "" || c.OIDCClientID == "") {
 		return errors.New("OIDC issuer and client ID required outside explicit fixture authentication")
+	}
+	g := c.GitHubApp
+	set := 0
+	for _, v := range []string{g.AppID, g.Slug, g.ClientID, g.ClientSecretFile, g.PrivateKeyFile, g.WebhookFile} {
+		if v != "" {
+			set++
+		}
+	}
+	if set != 0 && (set != 6 || c.Edition != "hosted") {
+		return errors.New("REFORGE_GITHUB_APP_ID, _SLUG, _CLIENT_ID, _CLIENT_SECRET_FILE, _PRIVATE_KEY_FILE and _WEBHOOK_SECRET_FILE must all be set, for the hosted edition only")
 	}
 	if c.BootstrapToken != "" && (c.Edition != "self-hosted" || c.BootstrapExpiresAt.IsZero() || len(c.BootstrapToken) < 32) {
 		return errors.New("bootstrap requires self-hosted edition, an explicit expiry and at least 32 random token characters")

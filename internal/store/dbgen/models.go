@@ -284,6 +284,36 @@ type DeploymentHealthReport struct {
 	ReceivedAt   pgtype.Timestamptz `json:"received_at"`
 }
 
+type GithubAppSetup struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ID             pgtype.UUID        `json:"id"`
+	UserID         pgtype.UUID        `json:"user_id"`
+	SessionID      pgtype.UUID        `json:"session_id"`
+	Mode           string             `json:"mode"`
+	Phase          string             `json:"phase"`
+	Name           string             `json:"name"`
+	GithubOrg      string             `json:"github_org"`
+	StateHash      pgtype.Text        `json:"state_hash"`
+	ConnectionID   pgtype.UUID        `json:"connection_id"`
+	WebhookID      pgtype.UUID        `json:"webhook_id"`
+	AppID          pgtype.Int8        `json:"app_id"`
+	AppSlug        string             `json:"app_slug"`
+	OwnerID        pgtype.Int8        `json:"owner_id"`
+	InstallationID pgtype.Int8        `json:"installation_id"`
+	Envelope       []byte             `json:"envelope"`
+	ExpiresAt      pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
+type GithubInstallationBinding struct {
+	AppID          int64              `json:"app_id"`
+	InstallationID int64              `json:"installation_id"`
+	AccountID      int64              `json:"account_id"`
+	OrgID          pgtype.UUID        `json:"org_id"`
+	ConnectionID   pgtype.UUID        `json:"connection_id"`
+	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+}
+
 type GitopsConfiguration struct {
 	OrgID                pgtype.UUID        `json:"org_id"`
 	Environment          string             `json:"environment"`
@@ -586,11 +616,55 @@ type ModelTurn struct {
 }
 
 type OidcLogin struct {
-	StateHash   string             `json:"state_hash"`
-	BrowserHash string             `json:"browser_hash"`
-	Nonce       string             `json:"nonce"`
-	Verifier    string             `json:"verifier"`
-	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	StateHash       string             `json:"state_hash"`
+	BrowserHash     string             `json:"browser_hash"`
+	Nonce           string             `json:"nonce"`
+	Verifier        string             `json:"verifier"`
+	ExpiresAt       pgtype.Timestamptz `json:"expires_at"`
+	OrgID           pgtype.UUID        `json:"org_id"`
+	ConfigID        pgtype.UUID        `json:"config_id"`
+	ConfigVersion   pgtype.Int8        `json:"config_version"`
+	Issuer          pgtype.Text        `json:"issuer"`
+	ClientID        pgtype.Text        `json:"client_id"`
+	InvitationOrgID pgtype.UUID        `json:"invitation_org_id"`
+	InvitationID    pgtype.UUID        `json:"invitation_id"`
+	InvitationHash  pgtype.Text        `json:"invitation_hash"`
+}
+
+type OrgOidcConfig struct {
+	OrgID           pgtype.UUID        `json:"org_id"`
+	ID              pgtype.UUID        `json:"id"`
+	Issuer          string             `json:"issuer"`
+	ClientID        string             `json:"client_id"`
+	Status          string             `json:"status"`
+	Version         int64              `json:"version"`
+	VerifiedVersion pgtype.Int8        `json:"verified_version"`
+	VerifiedAt      pgtype.Timestamptz `json:"verified_at"`
+	ProbeAttemptAt  pgtype.Timestamptz `json:"probe_attempt_at"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+}
+
+type OrgOidcInvitation struct {
+	OrgID             pgtype.UUID        `json:"org_id"`
+	ID                pgtype.UUID        `json:"id"`
+	Email             string             `json:"email"`
+	Role              string             `json:"role"`
+	OidcConfigID      pgtype.UUID        `json:"oidc_config_id"`
+	OidcConfigVersion int64              `json:"oidc_config_version"`
+	Issuer            string             `json:"issuer"`
+	TokenHash         string             `json:"token_hash"`
+	CreatedBy         pgtype.UUID        `json:"created_by"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	RedeemedAt        pgtype.Timestamptz `json:"redeemed_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+}
+
+type OrgOidcSecret struct {
+	OrgID     pgtype.UUID        `json:"org_id"`
+	ConfigID  pgtype.UUID        `json:"config_id"`
+	Version   int64              `json:"version"`
+	Envelope  []byte             `json:"envelope"`
+	UpdatedAt pgtype.Timestamptz `json:"updated_at"`
 }
 
 type Organisation struct {
@@ -725,13 +799,16 @@ type RunnerPoolRepository struct {
 }
 
 type Session struct {
-	ID        pgtype.UUID        `json:"id"`
-	UserID    pgtype.UUID        `json:"user_id"`
-	TokenHash string             `json:"token_hash"`
-	CsrfToken string             `json:"csrf_token"`
-	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
-	RevokedAt pgtype.Timestamptz `json:"revoked_at"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	ID                pgtype.UUID        `json:"id"`
+	UserID            pgtype.UUID        `json:"user_id"`
+	TokenHash         string             `json:"token_hash"`
+	CsrfToken         string             `json:"csrf_token"`
+	ExpiresAt         pgtype.Timestamptz `json:"expires_at"`
+	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	CreatedAt         pgtype.Timestamptz `json:"created_at"`
+	OrgID             pgtype.UUID        `json:"org_id"`
+	OidcConfigID      pgtype.UUID        `json:"oidc_config_id"`
+	OidcConfigVersion pgtype.Int8        `json:"oidc_config_version"`
 }
 
 type Team struct {

@@ -20,6 +20,7 @@ import (
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
+	"reforge/internal/githubapp"
 	"reforge/internal/gitops"
 	"reforge/internal/httpapi"
 	"reforge/internal/insights"
@@ -164,6 +165,17 @@ func run() error {
 	providerReads := providers.New(db, connectionService, private, runners, cfg.Development)
 	portfolio := inventory.New(db, identity, vault, providerReads, providers.DecodeWebhook)
 	app.RegisterInventory(portfolio)
+	hostedGitHub, err := githubapp.LoadHosted(cfg.GitHubApp)
+	if err != nil {
+		return err
+	}
+	githubApp := githubapp.New(db, identity, vault, connectionService, portfolio, githubapp.Options{PublicURL: cfg.PublicURL, Edition: cfg.Edition, Development: cfg.Development, Hosted: hostedGitHub})
+	app.RegisterGitHubApp(githubApp)
+	githubAppContext, stopGitHubApp := context.WithCancel(ctx)
+	var githubAppDone sync.WaitGroup
+	githubAppDone.Add(1)
+	go func() { defer githubAppDone.Done(); githubApp.Run(githubAppContext) }()
+	defer func() { stopGitHubApp(); githubAppDone.Wait() }()
 	inventoryContext, stopInventory := context.WithCancel(ctx)
 	var inventoryDone sync.WaitGroup
 	for i := 0; i < 4; i++ {

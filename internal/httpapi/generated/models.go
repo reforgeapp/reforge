@@ -181,6 +181,22 @@ func (e ChangeState) Valid() bool {
 }
 
 const (
+	GithubHosted   ConnectionSettingsManaged = "github_hosted"
+	GithubManifest ConnectionSettingsManaged = "github_manifest"
+)
+
+func (e ConnectionSettingsManaged) Valid() bool {
+	switch e {
+	case GithubHosted:
+		return true
+	case GithubManifest:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	CreatedOrgOIDCInvitationRoleAdmin      CreatedOrgOIDCInvitationRole = "admin"
 	CreatedOrgOIDCInvitationRoleMaintainer CreatedOrgOIDCInvitationRole = "maintainer"
 	CreatedOrgOIDCInvitationRoleOwner      CreatedOrgOIDCInvitationRole = "owner"
@@ -424,6 +440,53 @@ func (e FindingUpdateAction) Valid() bool {
 }
 
 const (
+	Authorizing     GitHubAppPendingPhase = "authorizing"
+	AwaitingInstall GitHubAppPendingPhase = "awaiting_install"
+	Completing      GitHubAppPendingPhase = "completing"
+	Converting      GitHubAppPendingPhase = "converting"
+	Created         GitHubAppPendingPhase = "created"
+	HandedOff       GitHubAppPendingPhase = "handed_off"
+)
+
+func (e GitHubAppPendingPhase) Valid() bool {
+	switch e {
+	case Authorizing:
+		return true
+	case AwaitingInstall:
+		return true
+	case Completing:
+		return true
+	case Converting:
+		return true
+	case Created:
+		return true
+	case HandedOff:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	GitHubAppStatusModeHosted      GitHubAppStatusMode = "hosted"
+	GitHubAppStatusModeManifest    GitHubAppStatusMode = "manifest"
+	GitHubAppStatusModeUnavailable GitHubAppStatusMode = "unavailable"
+)
+
+func (e GitHubAppStatusMode) Valid() bool {
+	switch e {
+	case GitHubAppStatusModeHosted:
+		return true
+	case GitHubAppStatusModeManifest:
+		return true
+	case GitHubAppStatusModeUnavailable:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Import  InventoryJobKind = "import"
 	Refresh InventoryJobKind = "refresh"
 	Scan    InventoryJobKind = "scan"
@@ -525,15 +588,15 @@ func (e MaintenanceConfigMergeAuthority) Valid() bool {
 }
 
 const (
-	Hosted     MetaEdition = "hosted"
-	SelfHosted MetaEdition = "self-hosted"
+	MetaEditionHosted     MetaEdition = "hosted"
+	MetaEditionSelfHosted MetaEdition = "self-hosted"
 )
 
 func (e MetaEdition) Valid() bool {
 	switch e {
-	case Hosted:
+	case MetaEditionHosted:
 		return true
-	case SelfHosted:
+	case MetaEditionSelfHosted:
 		return true
 	default:
 		return false
@@ -1304,17 +1367,20 @@ type ConnectionPage struct {
 	NextCursor *string      `json:"next_cursor,omitempty"`
 }
 type ConnectionSettings struct {
-	AllowedModels  *[]string `json:"allowed_models,omitempty"`
-	AppId          *string   `json:"app_id,omitempty"`
-	AuthKind       string    `json:"auth_kind"`
-	BillingRoute   string    `json:"billing_route"`
-	CaPem          *string   `json:"ca_pem,omitempty"`
-	InstallationId *string   `json:"installation_id,omitempty"`
-	Model          *string   `json:"model,omitempty"`
-	Namespace      *string   `json:"namespace,omitempty"`
-	Profile        *string   `json:"profile,omitempty"`
-	RuntimeVersion *string   `json:"runtime_version,omitempty"`
+	AllowedModels  *[]string                  `json:"allowed_models,omitempty"`
+	AppId          *string                    `json:"app_id,omitempty"`
+	AuthKind       string                     `json:"auth_kind"`
+	BillingRoute   string                     `json:"billing_route"`
+	CaPem          *string                    `json:"ca_pem,omitempty"`
+	InstallationId *string                    `json:"installation_id,omitempty"`
+	Managed        *ConnectionSettingsManaged `json:"managed,omitempty"`
+	Model          *string                    `json:"model,omitempty"`
+	Namespace      *string                    `json:"namespace,omitempty"`
+	Profile        *string                    `json:"profile,omitempty"`
+	RuntimeVersion *string                    `json:"runtime_version,omitempty"`
+	WebhookPending *bool                      `json:"webhook_pending,omitempty"`
 }
+type ConnectionSettingsManaged string
 type CreatedOrgOIDCInvitation struct {
 	CreatedAt     time.Time                    `json:"created_at"`
 	Email         string                       `json:"email"`
@@ -1674,6 +1740,28 @@ type ForgeRules struct {
 	State                string           `json:"state"`
 	StrictTargetEnforced string           `json:"strict_target_enforced"`
 }
+type GitHubAppPending struct {
+	AppSlug   *string               `json:"app_slug,omitempty"`
+	ExpiresAt time.Time             `json:"expires_at"`
+	Id        string                `json:"id"`
+	Phase     GitHubAppPendingPhase `json:"phase"`
+	ResumeUrl *string               `json:"resume_url,omitempty"`
+}
+type GitHubAppPendingPhase string
+type GitHubAppSetup struct {
+	HandoffUrl string `json:"handoff_url"`
+	Id         string `json:"id"`
+}
+type GitHubAppSetupCreate struct {
+	GithubOrg *string `json:"github_org,omitempty"`
+	Name      string  `json:"name"`
+}
+type GitHubAppStatus struct {
+	Mode    GitHubAppStatusMode `json:"mode"`
+	Pending *GitHubAppPending   `json:"pending,omitempty"`
+	Reason  *string             `json:"reason,omitempty"`
+}
+type GitHubAppStatusMode string
 type GitOpsConfiguration struct {
 	DeadlineSeconds       int64    `json:"deadline_seconds"`
 	DeliveryRepositoryId  string   `json:"delivery_repository_id"`
@@ -2910,6 +2998,12 @@ type ListFindingsParams struct {
 type UpdateFindingParams struct {
 	IfMatch string `json:"If-Match"`
 }
+type StartGitHubAppSetupParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type CancelGitHubAppSetupParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type PutGitOpsConfigurationParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -3163,6 +3257,20 @@ type OidcCallbackParams struct {
 	State string `form:"state" json:"state"`
 	Code  string `form:"code" json:"code"`
 }
+type GithubInstallCallbackParams struct {
+	InstallationId *string `form:"installation_id,omitempty" json:"installation_id,omitempty"`
+	SetupAction    *string `form:"setup_action,omitempty" json:"setup_action,omitempty"`
+	State          *string `form:"state,omitempty" json:"state,omitempty"`
+}
+type GithubManifestCallbackParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+}
+type GithubOAuthCallbackParams struct {
+	Code  *string `form:"code,omitempty" json:"code,omitempty"`
+	State *string `form:"state,omitempty" json:"state,omitempty"`
+	Error *string `form:"error,omitempty" json:"error,omitempty"`
+}
 type RedeemOrgOIDCInvitationFormdataBody struct {
 	Token string `form:"token" json:"token"`
 }
@@ -3171,6 +3279,11 @@ type RedeemOrgOIDCInvitationParams struct {
 }
 type LogoutParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type GithubAppWebhookJSONBody = map[string]interface{}
+type GithubAppWebhookParams struct {
+	XHubSignature256 string `json:"X-Hub-Signature-256"`
+	XGitHubEvent     string `json:"X-GitHub-Event"`
 }
 type ReceiveForgeWebhookJSONBody map[string]interface{}
 type UploadRunnerArtifactJSONBody = []byte
@@ -3219,6 +3332,7 @@ type TrackDeploymentJSONRequestBody = DeploymentTrackInput
 type RequestDeploymentJSONRequestBody = DeploymentRequestInput
 type ImportAdvisoryJSONRequestBody = AdvisoryInput
 type UpdateFindingJSONRequestBody = FindingUpdate
+type StartGitHubAppSetupJSONRequestBody = GitHubAppSetupCreate
 type PutGitOpsConfigurationJSONRequestBody = GitOpsConfiguration
 type PreviewGitOpsPromotionJSONRequestBody = GitOpsPreviewInput
 type RequestGitOpsPromotionJSONRequestBody = DeploymentRequestInput
@@ -3245,6 +3359,7 @@ type EnqueueTaskJSONRequestBody = TaskCreate
 type PutTeamJSONRequestBody = TeamInput
 type BootstrapJSONRequestBody = BootstrapRequest
 type RedeemOrgOIDCInvitationFormdataRequestBody RedeemOrgOIDCInvitationFormdataBody
+type GithubAppWebhookJSONRequestBody = GithubAppWebhookJSONBody
 type ReceiveForgeWebhookJSONRequestBody ReceiveForgeWebhookJSONBody
 type UploadRunnerArtifactJSONRequestBody = UploadRunnerArtifactJSONBody
 type UploadRunnerArtifactTextRequestBody = UploadRunnerArtifactTextBody

@@ -34,7 +34,7 @@ func (f Factory) Forge(ctx context.Context, r connections.Resolved, checks ...fu
 	case "github":
 		var p *github.Provider
 		var err error
-		if c.Settings.AuthKind == "github_app" {
+		if c.Settings.GitHubApp() {
 			p, err = github.NewApp(ctx, cfg, github.AppConfig{AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, PrivateKeyPEM: []byte(r.Secret)})
 		} else {
 			p, err = github.New(cfg)

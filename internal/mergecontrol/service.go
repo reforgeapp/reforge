@@ -119,7 +119,7 @@ func (s *Service) PutConfig(ctx context.Context, session auth.Session, org, repo
 			return auth.ErrConflict
 		}
 		if in.Enabled && q.QueueExecutionGate {
-			supported := c.Provider == "github" && c.Settings.AuthKind == "github_app" && c.Settings.AppID != "" && in.CheckPublishers[forge.QueueExecutionCheckName] == c.Settings.AppID
+			supported := c.Provider == "github" && c.Settings.GitHubApp() && c.Settings.AppID != "" && in.CheckPublishers[forge.QueueExecutionCheckName] == c.Settings.AppID
 			supported = supported || c.Provider == "gitlab" && source.ValidSHA(q.CIConfigSHA256, "sha256") && in.CheckPublishers[forge.QueueExecutionCheckName] != ""
 			if !supported {
 				return &domain.ProviderError{Kind: "unsupported", Message: "Queue execution requires a qualified GitHub App or protected GitLab train job with a pinned CI configuration and operational publisher"}

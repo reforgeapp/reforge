@@ -188,6 +188,8 @@ func connectionFailure(c *gin.Context, err error) {
 		Fail(c, 409, "runner_required", "Enrol an authorised runner before approving a private route", false)
 	case errors.Is(err, connections.ErrCatalogUnavailable):
 		Fail(c, 502, "catalog_unavailable", "Model list unavailable; check endpoint, credential and provider access, then retry", true)
+	case errors.Is(err, connections.ErrRepositoryEndpoint):
+		Fail(c, 400, "repository_endpoint", "Enter the provider API address, not a repository or web URL; choose repositories after connecting", false)
 	case errors.Is(err, connections.ErrRevoked):
 		Fail(c, 409, "connection_revoked", "Connection revoked; create a new connection", false)
 	case errors.Is(err, network.ErrDestination), errors.Is(err, network.ErrRequest):

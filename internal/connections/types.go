@@ -21,6 +21,12 @@ type Settings struct {
 	RuntimeVersion string   `json:"runtime_version,omitempty"`
 	CAPEM          string   `json:"ca_pem,omitempty"`
 	AllowedModels  []string `json:"allowed_models,omitempty"`
+	Managed        string   `json:"managed,omitempty"`
+	WebhookPending bool     `json:"webhook_pending,omitempty"`
+}
+
+func (s Settings) GitHubApp() bool {
+	return s.AuthKind == "github_app" || s.AuthKind == PlatformAuthKind
 }
 
 type Route struct {

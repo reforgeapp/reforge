@@ -5,6 +5,9 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -12,6 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
 	"reforge/internal/domain"
+	"reforge/internal/forge/github"
 	"reforge/internal/model/compatible"
 	"reforge/internal/network"
 	"reforge/internal/secrets"
@@ -20,6 +24,20 @@ import (
 
 var ErrRunnerRequired = errors.New("enrol a runner in this organisation before approving a private route")
 var ErrRevoked = errors.New("connection revoked")
+var ErrRepositoryEndpoint = errors.New("API address is a repository URL")
+var ErrManaged = errors.New("connection is managed by a GitHub App setup")
+
+const PlatformAuthKind = "github_app_platform"
+const GitHubAPI = "https://api.github.com"
+
+type PlatformApp struct {
+	AppID         string
+	PrivateKeyPEM []byte
+}
+
+func (p PlatformApp) String() string       { return "GitHub platform App [redacted]" }
+func (p PlatformApp) GoString() string     { return p.String() }
+func (p PlatformApp) LogValue() slog.Value { return slog.StringValue(p.String()) }
 
 type RunnerCheck func(context.Context, pgx.Tx, string, string) error
 type Service struct {
@@ -32,10 +50,16 @@ type Service struct {
 	runnerCheck  RunnerCheck
 	privateProbe PrivateProber
 	catalog      Cataloger
+	platform     *PlatformApp
 }
 
 func New(db *store.Store, identity *auth.Service, vault *secrets.Vault, development bool) *Service {
 	return &Service{db: db, auth: identity, vault: vault, development: development, probers: map[string]Prober{}}
+}
+func (s *Service) SetPlatformApp(app PlatformApp) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.platform = &app
 }
 func (s *Service) Register(kind, provider string, probe Prober) {
 	s.mu.Lock()
@@ -100,8 +124,15 @@ func validSetup(r CreateRequest) bool {
 		if r.Settings.BillingRoute != "forge" {
 			return false
 		}
+		if r.Settings.Managed != "" {
+			return false
+		}
 		if r.Settings.AuthKind == "github_app" {
-			return r.Provider == "github" && r.Secret != "" && r.Settings.AppID != "" && r.Settings.InstallationID != ""
+			if r.Provider != "github" || !positiveID(r.Settings.AppID) || !positiveID(r.Settings.InstallationID) || r.Settings.Namespace != "installation" {
+				return false
+			}
+			_, err := github.ParseAppKey([]byte(r.Secret))
+			return err == nil
 		}
 		return r.Settings.AuthKind == "token" && r.Secret != ""
 	case "model":
@@ -116,6 +147,56 @@ func validSetup(r CreateRequest) bool {
 	}
 }
 
+func positiveID(value string) bool {
+	n, err := strconv.ParseInt(value, 10, 64)
+	return err == nil && n > 0 && strconv.FormatInt(n, 10) == value
+}
+
+func RepositoryEndpoint(provider, endpoint string) bool {
+	u, err := url.Parse(strings.TrimSpace(endpoint))
+	if err != nil || u.Host == "" {
+		return false
+	}
+	path := strings.Trim(u.Path, "/")
+	host := strings.ToLower(u.Hostname())
+	if strings.HasSuffix(path, ".git") || strings.Contains(path, "/-/") || strings.Contains(path, "/tree/") || strings.Contains(path, "/blob/") {
+		return true
+	}
+	switch provider {
+	case "github":
+		if host == "github.com" || host == "www.github.com" {
+			return true
+		}
+		if host == "api.github.com" {
+			return path != ""
+		}
+		if apiBasePath(provider, path) {
+			return false
+		}
+		return path != ""
+	case "gitlab", "gitea":
+		public := host == "gitlab.com" || host == "gitea.com" || host == "codeberg.org"
+		if !public && apiBasePath(provider, path) {
+			return false
+		}
+		if public {
+			return path != ""
+		}
+		return strings.Count(path, "/") >= 1
+	}
+	return false
+}
+
+func apiBasePath(provider, path string) bool {
+	suffix := "/api/v1"
+	if provider == "github" {
+		suffix = "/api/v3"
+	} else if path == "api/v4" || strings.HasSuffix(path, "/api/v4") {
+		return true
+	}
+	return path == strings.TrimPrefix(suffix, "/") || strings.HasSuffix(path, suffix)
+}
+
 func (s *Service) options(c Connection, runnerID string) network.Options {
 	o := network.Options{RunnerID: runnerID, CAPEM: []byte(c.Settings.CAPEM), Development: s.development}
 	if c.Route != nil && c.Route.RevokedAt == nil {
@@ -124,7 +205,16 @@ func (s *Service) options(c Connection, runnerID string) network.Options {
 	return o
 }
 func (s *Service) Create(ctx context.Context, session auth.Session, orgID string, r CreateRequest, requestID string) (Connection, error) {
+	if r.Settings.WebhookPending {
+		return Connection{}, auth.ErrInvalid
+	}
+	if (r.Kind == "forge" || r.Kind == "delivery") && r.Settings.AuthKind == "github_app" && r.Settings.Namespace == "" {
+		r.Settings.Namespace = "installation"
+	}
 	c := Connection{ID: domain.NewID(), OrgID: orgID, Kind: r.Kind, Provider: r.Provider, Name: strings.TrimSpace(r.Name), Endpoint: r.Endpoint, Settings: r.Settings, State: "unverified", Reason: "Run a capability test before use", Capabilities: map[string]domain.Capability{}, CredentialVersion: 1, Version: 1, Route: r.PrivateRoute}
+	if (r.Kind == "forge" || r.Kind == "delivery") && RepositoryEndpoint(r.Provider, r.Endpoint) {
+		return Connection{}, ErrRepositoryEndpoint
+	}
 	if !validSetup(r) {
 		return Connection{}, auth.ErrInvalid
 	}
@@ -174,6 +264,40 @@ func (s *Service) Create(ctx context.Context, session auth.Session, orgID string
 		return record(ctx, tx, a, "connection.created", c.ID, requestID, c.Version)
 	})
 	return c, err
+}
+func (s *Service) CreateManagedTx(ctx context.Context, tx pgx.Tx, a domain.Actor, c *Connection, secret, requestID string) error {
+	if a.Role != domain.Owner || a.OrgID != c.OrgID || !auth.ValidID(c.ID) || c.Provider != "github" || c.Kind != "forge" || c.Endpoint != GitHubAPI || c.Settings.Managed == "" || !positiveID(c.Settings.AppID) || !positiveID(c.Settings.InstallationID) {
+		return auth.ErrInvalid
+	}
+	switch c.Settings.AuthKind {
+	case "github_app":
+		if _, err := github.ParseAppKey([]byte(secret)); err != nil {
+			return auth.ErrInvalid
+		}
+	case PlatformAuthKind:
+		if secret != "" {
+			return auth.ErrInvalid
+		}
+	default:
+		return auth.ErrInvalid
+	}
+	c.Settings.BillingRoute = "forge"
+	c.Settings.Namespace = "installation"
+	c.Capabilities = map[string]domain.Capability{}
+	c.CredentialVersion, c.Version = 1, 1
+	if c.State == "" {
+		c.State, c.Reason = "unverified", "Run a capability test before use"
+	}
+	settings, _ := json.Marshal(c.Settings)
+	if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, c.OrgID, c.ID, c.Kind, c.Provider, c.Name, c.Endpoint, settings, c.State, c.Reason); err != nil {
+		return err
+	}
+	if secret != "" {
+		if err := s.putSecret(ctx, tx, c, secret); err != nil {
+			return err
+		}
+	}
+	return record(ctx, tx, a, "connection.github_app_created", c.ID, requestID, c.Version)
 }
 func (s *Service) putSecret(ctx context.Context, tx pgx.Tx, c *Connection, value string) error {
 	e, err := s.vault.SealContext(ctx, secrets.Binding{OrgID: c.OrgID, ConnectionID: c.ID, Version: c.CredentialVersion}, []byte(value))
@@ -311,7 +435,9 @@ func invalidate(c *Connection) {
 }
 func (s *Service) Rotate(ctx context.Context, session auth.Session, orgID, id string, expected int64, value, requestID string) (Connection, error) {
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.credential_rotated", func(tx pgx.Tx, c *Connection) error {
-		if value == "" || !validSetup(CreateRequest{Kind: c.Kind, Provider: c.Provider, Name: c.Name, Endpoint: c.Endpoint, Settings: c.Settings, Secret: value}) || c.Kind == "agent" {
+		settings := c.Settings
+		settings.Managed = ""
+		if value == "" || c.Settings.AuthKind == PlatformAuthKind || !validSetup(CreateRequest{Kind: c.Kind, Provider: c.Provider, Name: c.Name, Endpoint: c.Endpoint, Settings: settings, Secret: value}) || c.Kind == "agent" {
 			return auth.ErrInvalid
 		}
 		c.CredentialVersion++
@@ -330,6 +456,9 @@ func (s *Service) Revoke(ctx context.Context, session auth.Session, orgID, id st
 			return err
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM connection_secrets WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM github_installation_bindings WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
 			return err
 		}
 		if c.Route != nil {
@@ -425,6 +554,16 @@ func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID 
 			return r, err
 		}
 	}
+	if r.Connection.Settings.AuthKind == PlatformAuthKind {
+		s.mu.RLock()
+		platform := s.platform
+		s.mu.RUnlock()
+		if platform == nil || platform.AppID != r.Connection.Settings.AppID || r.Connection.Endpoint != GitHubAPI || r.Connection.Route != nil {
+			return r, ErrRevoked
+		}
+		r.Secret = string(platform.PrivateKeyPEM)
+		return r, nil
+	}
 	if r.Connection.SecretID != nil {
 		var e secrets.Envelope
 		var raw []byte
@@ -518,6 +657,12 @@ func applyProbe(c *Connection, result ProbeResult) error {
 	}
 	now := time.Now().UTC()
 	c.State, c.Reason, c.Capabilities, c.ServerVersion, c.VerifiedAt = result.State, result.Reason, result.Capabilities, result.ServerVersion, &now
+	if c.Settings.WebhookPending && c.State == "healthy" {
+		if c.Reason != "" {
+			c.Reason += "; "
+		}
+		c.Reason += "webhook inactive: set a public HTTPS URL and update the GitHub App webhook, then run a capability test"
+	}
 	return nil
 }
 func redactProbe(result ProbeResult, secret string) ProbeResult {

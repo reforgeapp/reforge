@@ -53,7 +53,27 @@ func NewApp(ctx context.Context, cfg forge.Config, app AppConfig) (*Provider, er
 	if !positive(app.AppID) || !positive(app.InstallationID) || len(app.PrivateKeyPEM) > 65536 {
 		return nil, failure("configuration", "GitHub App IDs and private key are required")
 	}
-	block, rest := pem.Decode(app.PrivateKeyPEM)
+	key, err := ParseAppKey(app.PrivateKeyPEM)
+	if err != nil {
+		return nil, err
+	}
+	cfg.Token = "app-bootstrap"
+	p, err := New(cfg)
+	if err != nil {
+		return nil, err
+	}
+	p.config.Token = ""
+	p.app = &installationAuth{appID: app.AppID, installationID: app.InstallationID, key: key}
+	if _, err = p.installationToken(ctx); err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+func ParseAppKey(raw []byte) (*rsa.PrivateKey, error) {
+	if len(raw) > 65536 {
+		return nil, failure("configuration", "Invalid GitHub App private key")
+	}
+	block, rest := pem.Decode(raw)
 	if block == nil || len(strings.TrimSpace(string(rest))) != 0 {
 		return nil, failure("configuration", "Invalid GitHub App private key")
 	}
@@ -68,17 +88,10 @@ func NewApp(ctx context.Context, cfg forge.Config, app AppConfig) (*Provider, er
 	if key == nil || key.N.BitLen() < 2048 || key.Validate() != nil {
 		return nil, failure("configuration", "GitHub App requires a valid RSA private key of at least 2048 bits")
 	}
-	cfg.Token = "app-bootstrap"
-	p, err := New(cfg)
-	if err != nil {
-		return nil, err
-	}
-	p.config.Token = ""
-	p.app = &installationAuth{appID: app.AppID, installationID: app.InstallationID, key: key}
-	if _, err = p.installationToken(ctx); err != nil {
-		return nil, err
-	}
-	return p, nil
+	return key, nil
+}
+func AppJWT(appID string, key *rsa.PrivateKey) (string, error) {
+	return (&installationAuth{appID: appID, key: key}).jwt()
 }
 func (a *installationAuth) jwt() (string, error) {
 	now := time.Now()

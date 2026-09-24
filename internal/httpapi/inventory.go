@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"reforge/internal/auth"
+	"reforge/internal/connections"
 	"reforge/internal/inventory"
 )
 
@@ -191,6 +192,8 @@ func inventoryFailure(c *gin.Context, err error) {
 		Fail(c, 404, "webhook_unconfigured", "Configure a webhook to receive forge events", false)
 	case errors.Is(err, inventory.ErrStale), errors.Is(err, inventory.ErrIncomplete):
 		Fail(c, 409, "inventory_stale", "Verify the connection and start a new complete inventory sync", false)
+	case errors.Is(err, connections.ErrManaged):
+		Fail(c, 409, "managed_webhook", "This webhook is managed by the GitHub App; change it in the App settings on GitHub", false)
 	case errors.Is(err, inventory.ErrBusy):
 		Fail(c, 429, "inventory_busy", "Inventory queue is full; retry later", true)
 	default:

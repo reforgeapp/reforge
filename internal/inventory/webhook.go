@@ -9,9 +9,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
+	"reforge/internal/connections"
 	"reforge/internal/domain"
 	"reforge/internal/secrets"
 )
@@ -31,6 +33,9 @@ func (s *Service) ConfigureWebhook(ctx context.Context, session auth.Session, or
 		c, err := connection(ctx, tx, org, connectionID)
 		if err != nil {
 			return err
+		}
+		if c.Settings.Managed != "" {
+			return connections.ErrManaged
 		}
 		var current int64
 		err = tx.QueryRow(ctx, `SELECT id::text,version FROM inventory_webhooks WHERE org_id=$1 AND connection_id=$2 FOR UPDATE`, org, connectionID).Scan(&out.ID, &current)
@@ -71,6 +76,23 @@ func (s *Service) ConfigureWebhook(ctx context.Context, session auth.Session, or
 	}
 	return out, err
 }
+func (s *Service) AdoptWebhookTx(ctx context.Context, tx pgx.Tx, a domain.Actor, org, connectionID, id, secret, request string) (string, error) {
+	if err := owner(a); err != nil {
+		return "", err
+	}
+	if a.OrgID != org || !auth.ValidID(connectionID) || !auth.ValidID(id) || len(secret) < 16 || len(secret) > 512 {
+		return "", auth.ErrInvalid
+	}
+	envelope, err := s.vault.SealContext(ctx, secrets.Binding{OrgID: org, ConnectionID: id, Version: 1}, []byte(secret))
+	if err != nil {
+		return "", err
+	}
+	body, _ := json.Marshal(envelope)
+	if _, err = tx.Exec(ctx, `INSERT INTO inventory_webhooks(org_id,id,connection_id,envelope,version) VALUES($1,$2,$3,$4,1)`, org, id, connectionID, body); err != nil {
+		return "", err
+	}
+	return webhookPath(org, id), audit(ctx, tx, org, a.UserID, "inventory.webhook_adopt", id, request, map[string]any{"version": 1, "session_id": a.SessionID})
+}
 func (s *Service) Webhook(ctx context.Context, session auth.Session, org, connectionID string) (Webhook, error) {
 	var w Webhook
 	if !auth.ValidID(connectionID) {
@@ -80,15 +102,28 @@ func (s *Service) Webhook(ctx context.Context, session auth.Session, org, connec
 		if err := owner(a); err != nil {
 			return err
 		}
-		if _, err := connection(ctx, tx, org, connectionID); err != nil {
+		c, err := connection(ctx, tx, org, connectionID)
+		if err != nil {
 			return err
 		}
-		err := tx.QueryRow(ctx, `SELECT id::text,connection_id::text,version,revoked_at IS NOT NULL FROM inventory_webhooks WHERE org_id=$1 AND connection_id=$2`, org, connectionID).Scan(&w.ID, &w.ConnectionID, &w.Version, &w.Revoked)
+		hosted := c.Settings.Managed == "github_hosted"
+		err = tx.QueryRow(ctx, `SELECT id::text,connection_id::text,version,revoked_at IS NOT NULL FROM inventory_webhooks WHERE org_id=$1 AND connection_id=$2`, org, connectionID).Scan(&w.ID, &w.ConnectionID, &w.Version, &w.Revoked)
 		if errors.Is(err, pgx.ErrNoRows) {
+			if hosted {
+				w.ConnectionID, w.Path = connectionID, managedHostedWebhookPath
+				return nil
+			}
 			return ErrWebhookUnconfigured
 		}
-		w.Path = webhookPath(org, w.ID)
-		return err
+		if err != nil {
+			return err
+		}
+		if hosted {
+			w.Path = managedHostedWebhookPath
+		} else {
+			w.Path = webhookPath(org, w.ID)
+		}
+		return nil
 	})
 	return w, err
 }
@@ -99,6 +134,13 @@ func (s *Service) RevokeWebhook(ctx context.Context, session auth.Session, org, 
 	return s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if err := owner(a); err != nil {
 			return err
+		}
+		var managed bool
+		if err := tx.QueryRow(ctx, `SELECT coalesce(settings->>'managed','')<>'' FROM connections WHERE org_id=$1 AND id=$2`, org, connectionID).Scan(&managed); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return err
+		}
+		if managed {
+			return connections.ErrManaged
 		}
 		tag, err := tx.Exec(ctx, `UPDATE inventory_webhooks SET revoked_at=clock_timestamp(),envelope='{}',version=version+1 WHERE org_id=$1 AND connection_id=$2 AND version=$3`, org, connectionID, expected)
 		if err != nil {
@@ -111,7 +153,7 @@ func (s *Service) RevokeWebhook(ctx context.Context, session auth.Session, org, 
 	})
 }
 func (s *Service) HandleWebhook(ctx context.Context, org, id string, headers http.Header, body []byte) error {
-	if !auth.ValidID(org) || !auth.ValidID(id) || len(body) == 0 || len(body) > MaxWebhookBytes || s.decode == nil {
+	if !auth.ValidID(org) || !auth.ValidID(id) || len(body) == 0 || len(body) > MaxWebhookBytes {
 		return auth.ErrInvalid
 	}
 	digest := sha256.Sum256(body)
@@ -130,8 +172,11 @@ func (s *Service) HandleWebhook(ctx context.Context, org, id string, headers htt
 		if err != nil {
 			return err
 		}
-		c, err := connection(ctx, tx, org, connectionID)
+		c, err := loadConnectionRaw(ctx, tx, org, connectionID)
 		if err != nil {
+			return auth.ErrUnauthenticated
+		}
+		if c.Settings.Managed == "github_hosted" {
 			return auth.ErrUnauthenticated
 		}
 		var envelope secrets.Envelope
@@ -143,55 +188,91 @@ func (s *Service) HandleWebhook(ctx context.Context, org, id string, headers htt
 			return err
 		}
 		defer clear(secret)
-		event, err := s.decode(c.Provider, string(secret), headers, body)
+		return s.ingestWebhook(ctx, tx, org, id, connectionID, c, string(secret), headers, body, encoded)
+	})
+}
+
+func (s *Service) HandleHostedWebhook(ctx context.Context, org, connectionID, endpointID string, appID int64, secret []byte, headers http.Header, body []byte) error {
+	if !auth.ValidID(org) || !auth.ValidID(connectionID) || !auth.ValidID(endpointID) || appID <= 0 || len(secret) < 16 || len(body) == 0 || len(body) > MaxWebhookBytes {
+		return auth.ErrInvalid
+	}
+	digest := sha256.Sum256(body)
+	encoded := hex.EncodeToString(digest[:])
+	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		if err := lockOrg(ctx, tx, org); err != nil {
+			return auth.ErrUnauthenticated
+		}
+		c, err := loadConnectionRaw(ctx, tx, org, connectionID)
 		if err != nil {
 			return auth.ErrUnauthenticated
 		}
-		if !validNative(event.Repository.NativeID) || len(event.DeliveryID) > 256 || len(event.Kind) > 128 {
-			return auth.ErrInvalid
+		if c.Provider != "github" || c.Settings.Managed != "github_hosted" || c.Settings.AuthKind != connections.PlatformAuthKind || c.Settings.AppID != strconv.FormatInt(appID, 10) {
+			return auth.ErrUnauthenticated
 		}
-		key := event.DeliveryID
-		if key == "" {
-			key = "digest:" + encoded
-		}
-		var stored string
-		err = tx.QueryRow(ctx, `SELECT digest FROM inventory_deliveries WHERE org_id=$1 AND endpoint_id=$2 AND delivery_key=$3`, org, id, key).Scan(&stored)
-		if err == nil {
-			if stored != encoded {
-				return auth.ErrConflict
+		var bound string
+		err = tx.QueryRow(ctx, `SELECT connection_id::text FROM inventory_webhooks WHERE org_id=$1 AND id=$2 AND revoked_at IS NULL`, org, endpointID).Scan(&bound)
+		if err != nil {
+			if errors.Is(err, pgx.ErrNoRows) && c.State == "revoked" {
+				return nil
 			}
-			return nil
+			return auth.ErrUnauthenticated
 		}
-		if !errors.Is(err, pgx.ErrNoRows) {
-			return err
+		if bound != connectionID {
+			return auth.ErrUnauthenticated
 		}
-		var replay bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory_deliveries WHERE org_id=$1 AND endpoint_id=$2 AND digest=$3)`, org, id, encoded).Scan(&replay); err != nil {
-			return err
-		}
-		if replay {
-			return nil
-		}
-		var count int
-		if err = tx.QueryRow(ctx, `SELECT count(*) FROM inventory_deliveries WHERE org_id=$1`, org).Scan(&count); err != nil {
-			return err
-		}
-		if count >= 100000 {
-			return ErrBusy
-		}
-		_, err = tx.Exec(ctx, `INSERT INTO inventory_deliveries(org_id,endpoint_id,delivery_key,digest) VALUES($1,$2,$3,$4)`, org, id, key, encoded)
-		if err != nil {
-			return err
-		}
-		var repo string
-		err = tx.QueryRow(ctx, `SELECT r.id::text FROM repositories r JOIN inventory_repository_state s ON s.org_id=r.org_id AND s.repository_id=r.id WHERE r.org_id=$1 AND r.connection_id=$2 AND r.native_id=$3`, org, connectionID, event.Repository.NativeID).Scan(&repo)
-		if errors.Is(err, pgx.ErrNoRows) {
-			_, err = tx.Exec(ctx, `UPDATE inventory_sources SET poll_due=least(poll_due,clock_timestamp()+interval '30 seconds') WHERE org_id=$1 AND connection_id=$2`, org, connectionID)
-			return err
-		}
-		if err != nil {
-			return err
-		}
-		return queueRefresh(ctx, tx, c, repo)
+		return s.ingestWebhook(ctx, tx, org, endpointID, connectionID, c, string(secret), headers, body, encoded)
 	})
+}
+
+func (s *Service) ingestWebhook(ctx context.Context, tx pgx.Tx, org, endpointID, connectionID string, c connections.Connection, secret string, headers http.Header, body []byte, encoded string) error {
+	if c.Provider == "github" && c.Settings.Managed != "" {
+		kind := headers.Get("X-GitHub-Event")
+		if !verifyManagedSignature(secret, headers, body) {
+			return auth.ErrUnauthenticated
+		}
+		if kind == "ping" {
+			return nil
+		}
+		installationID, appID, ok := managedIdentity(body)
+		if !ok || c.Settings.InstallationID == "" || c.Settings.InstallationID != strconv.FormatInt(installationID, 10) {
+			return auth.ErrUnauthenticated
+		}
+		if appID > 0 && c.Settings.AppID != "" && c.Settings.AppID != strconv.FormatInt(appID, 10) {
+			return auth.ErrUnauthenticated
+		}
+		if ev, ok := parseManagedEvent(kind, body); ok {
+			return s.applyManagedEvent(ctx, tx, org, endpointID, connectionID, c, ev, headers, encoded)
+		}
+	}
+	if c.Kind != "forge" || c.State == "revoked" || c.State == "disabled" || s.decode == nil {
+		return auth.ErrUnauthenticated
+	}
+	event, err := s.decode(c.Provider, secret, headers, body)
+	if err != nil {
+		return auth.ErrUnauthenticated
+	}
+	if !validNative(event.Repository.NativeID) || len(event.DeliveryID) > 256 || len(event.Kind) > 128 {
+		return auth.ErrInvalid
+	}
+	key := event.DeliveryID
+	if key == "" {
+		key = "digest:" + encoded
+	}
+	replay, err := recordDelivery(ctx, tx, org, endpointID, key, encoded)
+	if err != nil {
+		return err
+	}
+	if replay {
+		return nil
+	}
+	var repo string
+	err = tx.QueryRow(ctx, `SELECT r.id::text FROM repositories r JOIN inventory_repository_state s ON s.org_id=r.org_id AND s.repository_id=r.id WHERE r.org_id=$1 AND r.connection_id=$2 AND r.native_id=$3`, org, connectionID, event.Repository.NativeID).Scan(&repo)
+	if errors.Is(err, pgx.ErrNoRows) {
+		_, err = tx.Exec(ctx, `UPDATE inventory_sources SET poll_due=least(poll_due,clock_timestamp()+interval '30 seconds') WHERE org_id=$1 AND connection_id=$2`, org, connectionID)
+		return err
+	}
+	if err != nil {
+		return err
+	}
+	return queueRefresh(ctx, tx, c, repo)
 }

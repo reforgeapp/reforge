@@ -193,7 +193,7 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	}
 	concurrency = max(1, concurrency)
 	out.Usage = policy.Limits{Budget: &zero, Concurrency: &concurrency, Attempts: &one, OpenChanges: &open}
-	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && (q.StrictTarget && !snapshot.Rules.RequireQueue || q.QueueExecutionGate && snapshot.Rules.RequireQueue && (c.Provider == "github" && c.Settings.AuthKind == "github_app" || c.Provider == "gitlab" && source.ValidSHA(q.CIConfigSHA256, "sha256")))
+	out.Qualified = cfg.Enabled && q.ConnectionVersion == c.Version && q.Provider == c.Provider && q.ServerVersion == c.ServerVersion && snapshot.Capabilities.ServerVersion == q.ServerVersion && snapshot.Capabilities.Provider == q.Provider && !q.VerifiedAt.After(now) && q.ExpiresAt.After(now) && q.ExactHead && (q.StrictTarget && !snapshot.Rules.RequireQueue || q.QueueExecutionGate && snapshot.Rules.RequireQueue && (c.Provider == "github" && c.Settings.GitHubApp() || c.Provider == "gitlab" && source.ValidSHA(q.CIConfigSHA256, "sha256")))
 	if q.QueueExecutionGate {
 		if c.Provider == "github" {
 			out.ExecutionPublisher = c.Settings.AppID
