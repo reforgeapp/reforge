@@ -75,6 +75,42 @@ func (r CreateRequest) MarshalJSON() ([]byte, error) {
 	}{safe: v})
 }
 
+type CatalogSettings struct {
+	Model        string `json:"model,omitempty"`
+	Profile      string `json:"profile,omitempty"`
+	AuthKind     string `json:"auth_kind"`
+	BillingRoute string `json:"billing_route"`
+	CAPEM        string `json:"ca_pem,omitempty"`
+}
+
+type CatalogRequest struct {
+	Provider string          `json:"provider"`
+	Endpoint string          `json:"endpoint"`
+	Secret   string          `json:"secret"`
+	Settings CatalogSettings `json:"settings"`
+}
+
+func (r CatalogRequest) LogValue() slog.Value {
+	return slog.GroupValue(slog.String("provider", r.Provider))
+}
+func (r CatalogRequest) String() string   { return "model catalog request [credential redacted]" }
+func (r CatalogRequest) GoString() string { return r.String() }
+func (r CatalogRequest) MarshalJSON() ([]byte, error) {
+	type safe CatalogRequest
+	v := safe(r)
+	v.Secret = ""
+	return json.Marshal(v)
+}
+
+type CatalogItem struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	Disabled bool   `json:"disabled,omitempty"`
+	Reason   string `json:"reason,omitempty"`
+}
+
+type Cataloger func(context.Context, Resolved) ([]CatalogItem, error)
+
 type Resolved struct {
 	Protection      *Resolved         `json:"-"`
 	CheckPublishers map[string]string `json:"-"`

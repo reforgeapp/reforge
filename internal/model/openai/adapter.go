@@ -30,13 +30,25 @@ type Provider struct {
 }
 
 func New(config model.Config) (*Provider, error) {
+	return build(config, true)
+}
+
+func NewCatalog(config model.Config) (model.ModelLister, error) {
+	p, err := build(config, false)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func build(config model.Config, requireModel bool) (*Provider, error) {
 	if config.Client == nil {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "an HTTP client is required"}
 	}
 	if strings.TrimSpace(config.APIKey) == "" {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "an API key is required"}
 	}
-	if strings.TrimSpace(config.Model) == "" {
+	if requireModel && strings.TrimSpace(config.Model) == "" {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "a model is required"}
 	}
 	profile := config.Profile

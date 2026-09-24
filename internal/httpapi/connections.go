@@ -43,6 +43,20 @@ func (s *Server) RegisterConnections(service *connections.Service) {
 			connectionResponse(c, 201, value)
 		})
 	}
+	g.POST("/model-catalog", func(c *gin.Context) {
+		var input connections.CatalogRequest
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		items, err := service.ModelCatalog(c.Request.Context(), session, c.Param("orgID"), input)
+		input.Secret = ""
+		if err != nil {
+			connectionFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"items": items})
+	})
 	g.GET("", func(c *gin.Context) {
 		limit, cursor, ok := identityPage(c)
 		if !ok {
@@ -172,6 +186,8 @@ func connectionFailure(c *gin.Context, err error) {
 		Fail(c, 503, "encryption_unavailable", "Credential encryption unavailable; ask the operator to verify wrapping keys, AWS credentials and KMS permissions", true)
 	case errors.Is(err, connections.ErrRunnerRequired):
 		Fail(c, 409, "runner_required", "Enrol an authorised runner before approving a private route", false)
+	case errors.Is(err, connections.ErrCatalogUnavailable):
+		Fail(c, 502, "catalog_unavailable", "Model list unavailable; check endpoint, credential and provider access, then retry", true)
 	case errors.Is(err, connections.ErrRevoked):
 		Fail(c, 409, "connection_revoked", "Connection revoked; create a new connection", false)
 	case errors.Is(err, network.ErrDestination), errors.Is(err, network.ErrRequest):

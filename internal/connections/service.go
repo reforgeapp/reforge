@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
 	"reforge/internal/domain"
+	"reforge/internal/model/compatible"
 	"reforge/internal/network"
 	"reforge/internal/secrets"
 	"reforge/internal/store"
@@ -30,6 +31,7 @@ type Service struct {
 	probers      map[string]Prober
 	runnerCheck  RunnerCheck
 	privateProbe PrivateProber
+	catalog      Cataloger
 }
 
 func New(db *store.Store, identity *auth.Service, vault *secrets.Vault, development bool) *Service {
@@ -60,11 +62,31 @@ func (s *Service) checkRunner(ctx context.Context, tx pgx.Tx, orgID, runnerID st
 	return check(ctx, tx, orgID, runnerID)
 }
 
-func validSetup(r CreateRequest) bool {
+func validBounds(r CreateRequest) bool {
 	if r.Settings.CAPEM != "" && !x509.NewCertPool().AppendCertsFromPEM([]byte(r.Settings.CAPEM)) {
 		return false
 	}
-	if strings.TrimSpace(r.Name) == "" || len(r.Name) > 160 || len(r.Endpoint) > 2048 || len(r.Secret) > 65536 || len(r.Settings.CAPEM) > 65536 {
+	return len(r.Endpoint) <= 2048 && len(r.Secret) <= 65536 && len(r.Settings.CAPEM) <= 65536
+}
+
+func validModel(r CreateRequest, requireModel bool) bool {
+	if r.Provider != "openai" && r.Provider != "anthropic" && r.Provider != "google" && r.Provider != "compatible" {
+		return false
+	}
+	if r.Settings.BillingRoute != "direct_api" || (requireModel && r.Settings.Model == "") || r.Settings.AuthKind != "api_key" {
+		return false
+	}
+	if strings.HasPrefix(r.Secret, "sk-ant-oat") || strings.HasPrefix(r.Secret, "eyJ") {
+		return false
+	}
+	if compatible.IsOpenCode(r.Settings.Profile) {
+		return r.Provider == "compatible" && r.Secret != "" && strings.TrimRight(r.Endpoint, "/") == compatible.OpenCodeEndpoint(r.Settings.Profile)
+	}
+	return r.Secret != "" || r.Provider == "compatible"
+}
+
+func validSetup(r CreateRequest) bool {
+	if strings.TrimSpace(r.Name) == "" || len(r.Name) > 160 || !validBounds(r) {
 		return false
 	}
 	if r.Settings.BillingRoute == "" {
@@ -83,16 +105,7 @@ func validSetup(r CreateRequest) bool {
 		}
 		return r.Settings.AuthKind == "token" && r.Secret != ""
 	case "model":
-		if r.Provider != "openai" && r.Provider != "anthropic" && r.Provider != "google" && r.Provider != "compatible" {
-			return false
-		}
-		if r.Settings.BillingRoute != "direct_api" || r.Settings.Model == "" || r.Settings.AuthKind != "api_key" {
-			return false
-		}
-		if strings.HasPrefix(r.Secret, "sk-ant-oat") || strings.HasPrefix(r.Secret, "eyJ") {
-			return false
-		}
-		return r.Secret != "" || r.Provider == "compatible"
+		return validModel(r, true)
 	case "agent":
 		if r.Provider == "custom_command" {
 			return r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == "" && r.Settings.Model != ""

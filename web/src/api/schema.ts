@@ -319,6 +319,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/connections/model-catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["listModelCatalog"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/connections/agents": {
         parameters: {
             query?: never;
@@ -4330,6 +4346,31 @@ export interface components {
         InvitationAuthorization: {
             authorization_url: string;
         };
+        ModelCatalogSettings: {
+            model?: string;
+            profile?: string;
+
+            auth_kind: "api_key";
+
+            billing_route: "direct_api";
+            ca_pem?: string;
+        };
+        ModelCatalogRequest: {
+
+            provider: "openai" | "anthropic" | "google" | "compatible";
+            endpoint: string;
+            secret?: string;
+            settings: components["schemas"]["ModelCatalogSettings"];
+        };
+        ModelCatalogItem: {
+            id: string;
+            name: string;
+            disabled?: boolean;
+            reason?: string;
+        };
+        ModelCatalog: {
+            items: components["schemas"]["ModelCatalogItem"][];
+        };
     };
     responses: never;
     parameters: never;
@@ -5240,6 +5281,43 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Connection"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    listModelCatalog: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ModelCatalogRequest"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ModelCatalog"];
                 };
             };
 

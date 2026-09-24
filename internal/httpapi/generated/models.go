@@ -541,6 +541,54 @@ func (e MetaEdition) Valid() bool {
 }
 
 const (
+	Anthropic  ModelCatalogRequestProvider = "anthropic"
+	Compatible ModelCatalogRequestProvider = "compatible"
+	Google     ModelCatalogRequestProvider = "google"
+	Openai     ModelCatalogRequestProvider = "openai"
+)
+
+func (e ModelCatalogRequestProvider) Valid() bool {
+	switch e {
+	case Anthropic:
+		return true
+	case Compatible:
+		return true
+	case Google:
+		return true
+	case Openai:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	ApiKey ModelCatalogSettingsAuthKind = "api_key"
+)
+
+func (e ModelCatalogSettingsAuthKind) Valid() bool {
+	switch e {
+	case ApiKey:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	DirectApi ModelCatalogSettingsBillingRoute = "direct_api"
+)
+
+func (e ModelCatalogSettingsBillingRoute) Valid() bool {
+	switch e {
+	case DirectApi:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	OrgOIDCInvitationRoleAdmin      OrgOIDCInvitationRole = "admin"
 	OrgOIDCInvitationRoleMaintainer OrgOIDCInvitationRole = "maintainer"
 	OrgOIDCInvitationRoleOwner      OrgOIDCInvitationRole = "owner"
@@ -1970,6 +2018,31 @@ type Meta struct {
 	Version           string      `json:"version"`
 }
 type MetaEdition string
+type ModelCatalog struct {
+	Items []ModelCatalogItem `json:"items"`
+}
+type ModelCatalogItem struct {
+	Disabled *bool   `json:"disabled,omitempty"`
+	Id       string  `json:"id"`
+	Name     string  `json:"name"`
+	Reason   *string `json:"reason,omitempty"`
+}
+type ModelCatalogRequest struct {
+	Endpoint string                      `json:"endpoint"`
+	Provider ModelCatalogRequestProvider `json:"provider"`
+	Secret   *string                     `json:"secret,omitempty"`
+	Settings ModelCatalogSettings        `json:"settings"`
+}
+type ModelCatalogRequestProvider string
+type ModelCatalogSettings struct {
+	AuthKind     ModelCatalogSettingsAuthKind     `json:"auth_kind"`
+	BillingRoute ModelCatalogSettingsBillingRoute `json:"billing_route"`
+	CaPem        *string                          `json:"ca_pem,omitempty"`
+	Model        *string                          `json:"model,omitempty"`
+	Profile      *string                          `json:"profile,omitempty"`
+}
+type ModelCatalogSettingsAuthKind string
+type ModelCatalogSettingsBillingRoute string
 type ModelMessage struct {
 	Role       string           `json:"role"`
 	Text       string           `json:"text"`
@@ -2744,6 +2817,9 @@ type ListForgesConnectionsParams struct {
 type CreateForgesConnectionParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type ListModelCatalogParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListModelsConnectionsParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3130,6 +3206,7 @@ type CreateConnectionJSONRequestBody = ConnectionCreate
 type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
 type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate
 type CreateForgesConnectionJSONRequestBody = ConnectionCreate
+type ListModelCatalogJSONRequestBody = ModelCatalogRequest
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
 type PutAgentQualificationJSONRequestBody = AgentQualificationInput
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange

@@ -125,6 +125,9 @@ func (f Factory) Probe(ctx context.Context, r connections.Resolved) (connections
 	}
 	caps, err := p.Probe(ctx)
 	out.Reason = "Endpoint metadata returned; inference capabilities and usage limits need a qualified model turn"
+	if r.Connection.Provider == "compatible" && compatible.IsOpenCode(r.Connection.Settings.Profile) {
+		out.Reason = "Public gateway catalog listed the model; API key and inference remain unverified until a qualified model turn"
+	}
 	out.Capabilities = caps.Features
 	return out, err
 }
@@ -137,4 +140,5 @@ func (f Factory) Register(service *connections.Service) {
 	for _, provider := range []string{"openai", "anthropic", "google", "compatible"} {
 		service.Register("model", provider, f.Probe)
 	}
+	service.RegisterCatalog(f.Catalog)
 }

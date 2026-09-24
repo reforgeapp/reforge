@@ -77,8 +77,12 @@ type Capabilities struct {
 }
 type Model struct {
 	ID           string `json:"id"`
+	Name         string `json:"name,omitempty"`
 	ContextLimit int    `json:"context_limit"`
 	OutputLimit  int    `json:"output_limit"`
+}
+type ModelLister interface {
+	ListModels(context.Context) ([]Model, error)
 }
 type ModelProvider interface {
 	Probe(context.Context) (Capabilities, error)

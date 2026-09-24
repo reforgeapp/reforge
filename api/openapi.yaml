@@ -1467,6 +1467,66 @@
         }
       }
     },
+    "/api/v1/orgs/{orgID}/connections/model-catalog": {
+      "post": {
+        "operationId": "listModelCatalog",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ModelCatalog"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ModelCatalogRequest"
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/connections/agents": {
       "get": {
         "operationId": "listAgentsConnections",
@@ -18235,6 +18295,102 @@
           "authorization_url"
         ],
         "additionalProperties": false
+      },
+      "ModelCatalogSettings": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "model": {
+            "type": "string"
+          },
+          "profile": {
+            "type": "string"
+          },
+          "auth_kind": {
+            "type": "string",
+            "enum": [
+              "api_key"
+            ]
+          },
+          "billing_route": {
+            "type": "string",
+            "enum": [
+              "direct_api"
+            ]
+          },
+          "ca_pem": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "auth_kind",
+          "billing_route"
+        ]
+      },
+      "ModelCatalogRequest": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "openai",
+              "anthropic",
+              "google",
+              "compatible"
+            ]
+          },
+          "endpoint": {
+            "type": "string"
+          },
+          "secret": {
+            "type": "string",
+            "writeOnly": true
+          },
+          "settings": {
+            "$ref": "#/components/schemas/ModelCatalogSettings"
+          }
+        },
+        "required": [
+          "provider",
+          "endpoint",
+          "settings"
+        ]
+      },
+      "ModelCatalogItem": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "disabled": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "ModelCatalog": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ModelCatalogItem"
+            }
+          }
+        },
+        "required": [
+          "items"
+        ]
       }
     },
     "securitySchemes": {

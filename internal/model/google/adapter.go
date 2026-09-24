@@ -17,8 +17,9 @@ import (
 )
 
 const (
-	defaultProfile  = "gemini"
-	maxResponseBody = 8 << 20
+	GatewayV1Profile = "gateway_v1"
+	defaultProfile   = "gemini"
+	maxResponseBody  = 8 << 20
 )
 
 type Provider struct {
@@ -28,20 +29,32 @@ type Provider struct {
 }
 
 func New(config model.Config) (*Provider, error) {
+	return build(config, true)
+}
+
+func NewCatalog(config model.Config) (model.ModelLister, error) {
+	p, err := build(config, false)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func build(config model.Config, requireModel bool) (*Provider, error) {
 	if config.Client == nil {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "an HTTP client is required"}
 	}
 	if strings.TrimSpace(config.APIKey) == "" {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "a Gemini API key is required"}
 	}
-	if strings.TrimSpace(config.Model) == "" {
+	if requireModel && strings.TrimSpace(config.Model) == "" {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "a model is required"}
 	}
 	profile := config.Profile
 	if profile == "" {
 		profile = defaultProfile
 	}
-	if profile != defaultProfile && profile != "gemini_api" {
+	if profile != defaultProfile && profile != "gemini_api" && profile != GatewayV1Profile {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "unsupported Google profile; Vertex credentials require project and location fields"}
 	}
 	base, err := url.Parse(config.Endpoint)
@@ -62,9 +75,13 @@ func New(config model.Config) (*Provider, error) {
 	}
 	transport := &clientTransport{client: injected}
 	httpClient := &http.Client{Transport: transport, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
+	apiVersion := "v1beta"
+	if profile == GatewayV1Profile {
+		apiVersion = "v1"
+	}
 	options := genai.HTTPOptions{
 		BaseURL:      strings.TrimRight(base.String(), "/") + "/",
-		APIVersion:   "v1beta",
+		APIVersion:   apiVersion,
 		RetryOptions: &genai.HTTPRetryOptions{Attempts: genai.Ptr(int32(1))},
 	}
 	client, err := genai.NewClient(context.Background(), &genai.ClientConfig{
@@ -114,7 +131,7 @@ func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
 		if entry == nil || entry.Name == "" {
 			continue
 		}
-		result = append(result, model.Model{ID: modelID(entry.Name), ContextLimit: int(entry.InputTokenLimit), OutputLimit: int(entry.OutputTokenLimit)})
+		result = append(result, model.Model{ID: modelID(entry.Name), Name: entry.DisplayName, ContextLimit: int(entry.InputTokenLimit), OutputLimit: int(entry.OutputTokenLimit)})
 	}
 	return result, nil
 }

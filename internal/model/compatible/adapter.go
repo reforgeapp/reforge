@@ -30,23 +30,36 @@ type Provider struct {
 	client       model.HTTPClient
 	base         *url.URL
 	delegate     model.ModelProvider
+	gateway      bool
 	mu           sync.RWMutex
 	contextLimit int
 	outputLimit  int
 }
 
 func New(config model.Config) (*Provider, error) {
+	return build(config, true)
+}
+
+func NewCatalog(config model.Config) (model.ModelLister, error) {
+	p, err := build(config, false)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func build(config model.Config, requireModel bool) (*Provider, error) {
 	if config.Client == nil {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "an HTTP client is required"}
 	}
-	if strings.TrimSpace(config.Model) == "" {
+	if requireModel && strings.TrimSpace(config.Model) == "" {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "a model is required"}
 	}
 	profile := config.Profile
 	if profile == "" {
 		profile = defaultProfile
 	}
-	if profile != defaultProfile && profile != "ollama" && profile != "vllm" && profile != "responses" {
+	if profile != defaultProfile && profile != "ollama" && profile != "vllm" && profile != "responses" && !IsOpenCode(profile) {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "unsupported compatible profile"}
 	}
 	base, err := url.Parse(config.Endpoint)
@@ -64,7 +77,10 @@ func New(config model.Config) (*Provider, error) {
 		injected = &clone
 	}
 	config.Profile = profile
-	if profile == "responses" {
+	if IsOpenCode(profile) {
+		return openCode(config, &Provider{config: config, base: base, client: injected, gateway: true}, requireModel)
+	}
+	if profile == "responses" && requireModel {
 		delegateConfig := config
 		delegateConfig.Profile = "responses"
 		delegateConfig.Endpoint = strings.TrimSuffix(strings.TrimRight(delegateConfig.Endpoint, "/"), "/v1")
@@ -78,6 +94,9 @@ func New(config model.Config) (*Provider, error) {
 }
 
 func (p *Provider) Probe(ctx context.Context) (model.Capabilities, error) {
+	if p.gateway {
+		return p.gatewayProbe(ctx)
+	}
 	if p.delegate != nil {
 		caps, err := p.delegate.Probe(ctx)
 		caps.Provider, caps.BillingRoute = "compatible", "customer_endpoint"
@@ -127,7 +146,7 @@ func (p *Provider) unknownCapabilities(reason string) model.Capabilities {
 }
 
 func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
-	if p.delegate != nil {
+	if p.delegate != nil && !p.gateway {
 		return p.delegate.ListModels(ctx)
 	}
 	response, err := p.do(ctx, http.MethodGet, "/models", nil)

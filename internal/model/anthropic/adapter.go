@@ -28,13 +28,25 @@ type Provider struct {
 }
 
 func New(config model.Config) (*Provider, error) {
+	return build(config, true)
+}
+
+func NewCatalog(config model.Config) (model.ModelLister, error) {
+	p, err := build(config, false)
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+func build(config model.Config, requireModel bool) (*Provider, error) {
 	if config.Client == nil {
 		return nil, providerError("configuration", "an HTTP client is required", false)
 	}
 	if strings.TrimSpace(config.APIKey) == "" {
 		return nil, providerError("configuration", "an API key is required", false)
 	}
-	if strings.TrimSpace(config.Model) == "" {
+	if requireModel && strings.TrimSpace(config.Model) == "" {
 		return nil, providerError("configuration", "a model is required", false)
 	}
 	profile := config.Profile
@@ -105,7 +117,7 @@ func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
 				return nil, providerError("protocol", "invalid or repeated model identity", false)
 			}
 			seen[item.ID] = true
-			result = append(result, model.Model{ID: item.ID, ContextLimit: int(item.MaxInputTokens), OutputLimit: int(item.MaxTokens)})
+			result = append(result, model.Model{ID: item.ID, Name: item.DisplayName, ContextLimit: int(item.MaxInputTokens), OutputLimit: int(item.MaxTokens)})
 		}
 		if !page.HasMore {
 			return result, nil
