@@ -9,7 +9,18 @@ test.use({ trace: 'off' })
 
 test.describe('connections and runners administration', () => {
   async function signIn(page: Page) {
-    await page.goto('/auth/login')
+    if (process.env.REFORGE_WEB_FIXTURE === '1') {
+      await page.route('**/api/v1/session', route => route.fulfill({ json: {
+        user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' },
+        organisations: [{ id: organisation, name: 'Fixture', version: 1, paused: false }],
+        memberships: [{ org_id: organisation, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }],
+        csrf_token: 'csrf-1',
+      } }))
+      await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
+      await page.goto('/')
+    } else {
+      await page.goto('/auth/login')
+    }
     await expect(page).toHaveURL(/\/org\/[^/]+\/overview/)
   }
 
@@ -173,6 +184,67 @@ test.describe('connections and runners administration', () => {
     await page.getByRole('button', { name: 'Load more' }).click()
     await expect(page.getByRole('row', { name: /not loaded model/ })).toBeVisible()
     await expect(page.getByText('No matches in loaded results; more may be available.')).toHaveCount(0)
+  })
+
+  test('keeps dense capabilities collapsed and surfaces reasons without default prose', async ({ page }) => {
+    await signIn(page)
+    const names = ['changes.create', 'changes.update', 'checks.check-runs', 'checks.status', 'repositories.read', 'repositories:write', 'pull_requests.merge', 'pull_requests.review', 'webhooks.manage', 'issues.create', 'issues:close', 'actions.workflow-runs', 'secrets.read', 'secrets:write', 'packages.publish']
+    const capabilities = Object.fromEntries(names.map((name, index) => [name, {
+      state: index === 3 ? 'unsupported' : index === 7 ? 'unknown' : 'supported',
+      scope: 'provider',
+      reason: `Repeated implementation note for ${name} that should not fill the default view.`,
+      source: 'probe',
+      version: '1',
+      last_checked: '2026-09-24T10:00:00Z',
+    }]))
+    const healthy = { id: 'connection-dense', org_id: organisation, kind: 'forge', provider: 'gitea', name: 'dense forge', endpoint: 'https://example.invalid', state: 'healthy', reason: 'Run a capability test before use', version: 1, credential_version: 1, settings: { billing_route: 'forge' }, capabilities, verified_at: '2026-09-24T10:00:00Z' }
+    const degraded = { ...healthy, id: 'connection-degraded', name: 'degraded forge', state: 'degraded', reason: 'The token is missing repository read access.', capabilities: {} }
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      const path = new URL(route.request().url()).pathname
+      if (path.endsWith('/connection-dense')) return route.fulfill({ json: healthy })
+      if (path.endsWith('/connection-degraded')) return route.fulfill({ json: degraded })
+      return route.fulfill({ json: { items: [healthy, degraded], complete: true } })
+    })
+
+    await page.goto(`/org/${organisation}/connections?connection=connection-dense`)
+    const dense = page.getByRole('region', { name: 'dense forge' })
+    await expect(dense).toBeVisible()
+    await expect(dense.getByText('Run a capability test before use')).toHaveCount(0)
+    const details = dense.locator('details.connection-capabilities')
+    const summary = dense.locator('details.connection-capabilities > summary')
+    await expect(summary).toHaveText('Capabilities (15)')
+    await expect(details).not.toHaveAttribute('open', '')
+    await expect(dense.getByText('Capability suggestions')).toHaveCount(0)
+    await expect(dense.getByText(/Repeated implementation note/)).toHaveCount(0)
+    expect(await details.evaluate(element => element.scrollHeight - element.clientHeight)).toBeLessThanOrEqual(1)
+    await summary.click()
+    await expect(dense.getByText('Checks Check Runs', { exact: true })).toBeVisible()
+    await expect(dense.getByText('Unsupported', { exact: true })).toBeVisible()
+    const help = dense.locator('.connection-capability-help[title]').first()
+    await expect(help).toHaveAttribute('title', /Repeated implementation note/)
+    await expect(help).toHaveAttribute('aria-label', /Repeated implementation note/)
+    await help.focus()
+    await expect(help).toBeFocused()
+
+    await page.goto(`/org/${organisation}/connections?connection=connection-degraded`)
+    const unhealthy = page.getByRole('region', { name: 'degraded forge' })
+    await expect(unhealthy.getByText('The token is missing repository read access.')).toBeVisible()
+  })
+
+  test('shows the webhook pending warning on a healthy managed forge', async ({ page }) => {
+    await signIn(page)
+    const pending = { id: 'connection-pending', org_id: organisation, kind: 'forge', provider: 'github', name: 'pending forge', endpoint: 'https://api.github.com', state: 'healthy', reason: '', version: 1, credential_version: 1, settings: { auth_kind: 'github_app', managed: 'github_manifest', webhook_pending: true }, capabilities: {}, verified_at: '2026-09-24T10:00:00Z' }
+    await page.route(`**/api/v1/orgs/${organisation}/connections**`, route => {
+      if (new URL(route.request().url()).pathname.endsWith('/connection-pending')) return route.fulfill({ json: pending })
+      return route.fulfill({ json: { items: [pending], complete: true } })
+    })
+    await page.route(`**/api/v1/orgs/${organisation}/connections/connection-pending/webhook`, route => route.fulfill({ json: { path: '/hooks/github/app', version: 1, revoked: false } }))
+    await page.goto(`/org/${organisation}/connections?connection=connection-pending`)
+    const detail = page.getByRole('region', { name: 'pending forge' })
+    await expect(detail.getByRole('status')).toHaveText('Webhook setup pending. Recreate this App with a public HTTPS URL.')
+    await expect(detail.getByText('Run a capability test before use')).toHaveCount(0)
+    await detail.getByRole('button', { name: 'Actions', exact: true }).click()
+    await expect(detail.getByRole('link', { name: 'Configure on GitHub' })).toBeVisible()
   })
 
   test('closes connection details with the top-right control or Escape', async ({ page }) => {

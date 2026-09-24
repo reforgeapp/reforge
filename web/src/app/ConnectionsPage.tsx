@@ -423,8 +423,18 @@ function authLabel(connection: Connection) {
   return authKind || 'Unknown'
 }
 
+function capabilityTone(state: string) {
+  return state === 'supported' ? 'green' as const : state === 'unsupported' ? 'red' as const : 'amber' as const
+}
+
+function humanize(value: string) {
+  return value.replace(/[._:-]+/g, ' ').trim().replace(/\b\w/g, character => character.toUpperCase())
+}
+
 function ConnectionOverview({ connection, capabilities }: { connection: Connection; capabilities: Array<[string, Connection['capabilities'][string]]> }) {
   const forgeLike = connection.kind === 'forge' || connection.kind === 'delivery'
+  const healthy = connection.state === 'healthy'
+  const webhookPending = !!connection.settings.webhook_pending
   return <div className="connection-overview">
     <dl className="detail-list">
       <div><dt>Provider</dt><dd>{connectionProviderLabel(connection.provider, connection.settings.profile)}</dd></div>
@@ -434,15 +444,16 @@ function ConnectionOverview({ connection, capabilities }: { connection: Connecti
       {!forgeLike && <div><dt>Billing route</dt><dd>{connection.settings.billing_route || 'Unknown'}</dd></div>}
       {!forgeLike && <div><dt>Model / account</dt><dd>{connection.settings.model || connection.settings.namespace || 'Not set'}</dd></div>}
       {!forgeLike && <div><dt>Runtime / protocol</dt><dd>{connection.settings.runtime_version || (connection.settings.profile ? modelProfileLabel(connection.provider, connection.settings.profile) : '') || 'Not set'}</dd></div>}
-      {connection.reason && <div><dt>Reason</dt><dd>{connection.reason}</dd></div>}
+      {!healthy && connection.reason && <div><dt>Reason</dt><dd>{connection.reason}</dd></div>}
     </dl>
-    {!!capabilities.length && <section className="connection-capabilities" aria-label="Capabilities">
-      <h3>Capabilities</h3>
-      <ul className="compact-list">{capabilities.map(([name, capability]) => {
-        const tone = capability.state === 'supported' ? 'green' : capability.state === 'unsupported' ? 'red' : 'amber'
-        return <li key={name}><StatusBadge label={capability.state} tone={tone} /> <strong>{name}</strong>: {capability.reason}</li>
-      })}</ul>
-    </section>}
+    {webhookPending && <p className="connection-reason-help" role="status">Webhook setup pending. Recreate this App with a public HTTPS URL.</p>}
+    {!!capabilities.length && <details className="connection-capabilities">
+      <summary>{`Capabilities (${capabilities.length})`}</summary>
+      <ul className="compact-list connection-capability-list">{capabilities.map(([name, capability]) => <li key={name}>
+        <span className="connection-capability-row"><StatusBadge label={humanize(capability.state)} tone={capabilityTone(capability.state)} /> <strong>{humanize(name)}</strong></span>
+        {capability.reason && <span className="connection-capability-help" tabIndex={0} title={capability.reason} aria-label={`${humanize(name)}: ${capability.reason}`}>?</span>}
+      </li>)}</ul>
+    </details>}
   </div>
 }
 

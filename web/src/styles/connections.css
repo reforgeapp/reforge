@@ -43,6 +43,17 @@
 }
 .connection-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
+.connection-reason-help { margin: 0 0 8px; color: var(--amber); font-size: 12px; }
+.connection-capabilities { margin-top: 12px; }
+.connection-overview .connection-capabilities > summary { padding: 6px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.connection-capabilities[open] > summary { margin-bottom: 4px; }
+.connection-capability-list { padding-left: 0; list-style: none; }
+.connection-capability-list > li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.connection-capability-list > li + li { padding-top: 5px; border-top: 1px solid var(--border); }
+.connection-capability-row { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
+.connection-capability-list .connection-capability-help { display: inline-grid; flex: 0 0 auto; width: 16px; height: 16px; place-items: center; border: 1px solid var(--border); border-radius: 50%; color: var(--text-subtle); font-size: 10px; cursor: help; }
+.connection-capability-list .connection-capability-help:hover, .connection-capability-list .connection-capability-help:focus-visible { color: var(--primary); border-color: var(--primary); }
+
 .connections-page .detail-panel > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .connections-page .detail-panel > header > div:first-child { min-width: 0; }
 .connections-page .detail-panel > header .detail-actions { justify-content: flex-start; }
