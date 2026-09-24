@@ -1,5 +1,17 @@
 # Implementation backlog
 
+### T29ac — Guided GitHub App connection
+
+- Status: **locally complete, 2026-09-24**; backend `4f4d802`, GUI/demo `87c3952`, acceptance `8e6c632`. [Review and external certification actions](t29ac-github-app-review.md). Other backlog paused.
+- Build/accept: [frozen contract](t29ac-github-app-contract.md): official selfhost manifest and hosted installation flows, OAuth/PKCE ownership, sealed durable state, RLS/claim isolation, webhooks, manual PEM repair; real local contract/browser evidence. Live GitHub certification separately authorized.
+- Owner: Opus backend, OpenCode frontend/docs, Astra review. Stop<=20%weekly.
+
+### T29ad — Human forge connection and repository import flow
+
+- Status: **locally complete, 2026-09-24**; GUI `87c3952`, backend-connected9/9, default GUI238/29 opt-in skips, final layout6/6 captures; clean demo refreshed with existing data preserved. [Review](t29ac-github-app-review.md).
+- Build/accept: [shared contract](t29ac-github-app-contract.md): provider→credentials→test→select repositories→persisted import; correct API defaults, prevent repo URL as endpoint, safe retry/reload, cohesive forge detail, minimal copy. Preserve model/agent/delivery. Browser desktop/mobile/light/dark and connected local provider fixture.
+- Owner: OpenCode frontend/acceptance, Opus backend validation, Astra review.
+
 ### T29ab — Provider-first model API onboarding
 
 - Status: **locally complete,2026-09-24**. Backend `f678a2a`, GUI `e43569b`, guide `0c3e0b2`. Opus/OpenCode implementation; Astra reviewed.209 default GUI passed/20 skipped,16 focused model passed,4 genuine backend-connected checks passed; Go race/integration and clean container builds passed. Demo refreshed. [Review/evidence](t29ab-model-onboarding-review.md). Live account/inference certification remains external. Other backlog stays paused; final quota32%, no workers running.

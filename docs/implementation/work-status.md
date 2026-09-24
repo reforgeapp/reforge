@@ -1,12 +1,18 @@
 # Current work and review status
 
-Updated 2026-09-24. Demo serves product `e43569b`, guide `0c3e0b2`; T29ab locally complete. Current default GUI209 passed/20 opt-in skipped, focused model16 passed, connected model4 passed. Prior focused production Changes13/13 remains attributed to `4e679e5`. Earlier `92e1d03` full default193/15 gate remains separately attributed. Earlier image/install verification remains attributed to `675b0fd`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
+Updated 2026-09-24. T29ac/T29ad locally complete; demo and documentation serve clean source `87c3952`. Backend `4f4d802`, GUI `87c3952`, connected acceptance `8e6c632`, guide `4f5e41f`. Current default GUI238 passed/29 opt-in skipped; nine GitHub backend-connected cases passed separately. **G5 has not passed.** Historical checks remain attributed to their original revisions in [progress](progress.md).
 
 ## Current batch
 
-Only T29ab model onboarding was authorized under the quota pause. It is locally complete and reviewed; **all other backlog and the broad goal remain paused**. No workers running. Opus5.5 handled backend/security and real connected acceptance; OpenCode DeepSeek4.1-Flash handled GUI/tests/guide; Astra reviewed all changes. Maximum three workers; completed-worker quota checks stayed above20%, final32% remaining. No paid Reforge test APIs, external deployment or customer mutations.
+T29ac guided GitHub App setup and T29ad forge onboarding completed under the owner’s narrow quota exception. Other backlog and broad goal remain paused. [Implementation, evidence and external actions](t29ac-github-app-review.md); [contract](t29ac-github-app-contract.md).
 
-Demo: http://127.0.0.1:8084. Updated [connection guide](http://127.0.0.1:8082/docs/connections/). Launcher: `sh .local/opus-resume/demo/start.sh`. [T29ab implementation, evidence and remaining certification](t29ab-model-onboarding-review.md).
+Astra reviewed Opus5.5/OpenCode DeepSeek4.1-Flash implementation with at most three workers and exclusive file ownership. Opus exhausted its session window; DeepSeek completed remaining fixes. Completion quota checks remain above20%; latest23%. No workers remain active. No paid Reforge API tests, external deployment or customer repository mutations.
+
+Current source: provider-specific token/manual App/guided GitHub setup, inline credential repair without duplicate connections, selected repository import, restart recovery, scoped webhook isolation/rotation. Real local server and restricted PostgreSQL acceptance passed; live provider certification remains outstanding. Final CSS adjustment passed typecheck/build and six capture checks after the full default suite.
+
+T29ab model onboarding remains locally complete at its recorded backend `f678a2a`, GUI `e43569b`, guide `0c3e0b2`;209 default GUI checks/20 opt-in skips,16 focused and four connected checks were its historical evidence. Current updated Connections tests retain model/agent/delivery coverage.
+
+Demo: http://127.0.0.1:8084. Clean control/docs images `reforge-github-app:87c3952` and `reforge-github-app-docs:87c3952`; migration037, backup, restart, asset byte matching and read-only browser smoke passed. All four existing connections and audit sentinel preserved. Backup/evidence `.local/github-app-onboarding/demo-final/`. Updated [connection guide](http://127.0.0.1:8082/docs/connections/). Launcher: `sh .local/opus-resume/demo/start.sh`. [T29ab implementation, evidence and remaining certification](t29ab-model-onboarding-review.md).
 
 | Work | Status / evidence |
 | --- | --- |
@@ -15,15 +21,15 @@ Demo: http://127.0.0.1:8084. Updated [connection guide](http://127.0.0.1:8082/do
 | Audit/Policies review findings | Fixed `8846d9d`;36 focused browser checks and8 theme/viewport probes passed. [Review](t28a-audit-policy-regression-review.md). |
 | Shared focus, team cache, pending merge controls | Fixed `e01287c`, `8cb2cac`, `dc9242b`;45/45 focused lifecycle checks passed. Team rename now invalidates both team-cache shapes; pending merge controls retain keyboard focus. [Lifecycle](t28a-lifecycle-regression-review.md), [focus](t29-shared-focus-review.md). |
 | Route surfaces |3/3 checks passed;52 route/theme/viewport records plus2 skip-link records, zero axe violations or overflow. `.local/opus-resume/shared/`. |
-| Full current browser suite | **193 passed/15 opt-in skipped/0 failed** against clean production image `92e1d03`, normal CSP. Settled390px Findings recapture independently accepted; image assets byte-matched. [Final report](t28a-final-gui-review.md); historical16 captures retain their earlier source attribution. |
-| Current control/runner/docs images | Built/verified clean `675b0fd`, linux/amd64: nonroot, strict MkDocs, byte-matched frontend/notices. Original tracked install script passed directly: migrations, rollback/retry, restart, encrypted restore and local OIDC. [Report](t28c-current-images-review.md). |
+| Historical browser gate | **193 passed/15 opt-in skipped/0 failed** against clean production image `92e1d03`, normal CSP. Settled390px Findings recapture independently accepted; image assets byte-matched. [Final report](t28a-final-gui-review.md); historical16 captures retain their earlier source attribution. |
+| Historical control/runner/docs images | Built/verified clean `675b0fd`, linux/amd64: nonroot, strict MkDocs, byte-matched frontend/notices. Original tracked install script passed directly: migrations, rollback/retry, restart, encrypted restore and local OIDC. [Report](t28c-current-images-review.md). |
 | Go/security checks | `go test -race ./internal/...` passed; fresh restricted-role PostgreSQL integration passed76.774s. Fresh auth/HTTP race and final invitation HTTP race passed. Logs `.local/opus-resume/integration/`. Initial reused-fixture auth failure retained separately. |
 
 ## Outstanding local work and defects
 
 | Priority / ticket | Remaining action |
 | --- | --- |
-| P2 / T28 generation check | Pre-existing SQL binding drift reported in internal/store/dbgen/models.go (OIDC model fields) when running the full generator. API-only generation for T29ab reproduces exactly. SQL regeneration/review deferred with paused backlog; full generation gate not claimed. |
+| P2 / T28 generation check | Resolved in `4f4d802`: generated SQL models reconciled with existing OIDC migrations; full generation check passed. |
 | P1 / T29aa | Fixed `4e679e5`: normalize parsed change ID before strict native-ID comparison. Regression proved red/green, reload and tenant switch;13 Changes tests passed, final focused assertion and typecheck passed. Production-image13/13 check and persistent demo refresh passed. [Review](t29aa-deep-link-review.md). |
 | P2 / T29y,T29z,T28e | Integrated `c4fe426`, `ba5e45b`, `92e1d03`: closed sidebar shadow, unused Unassign reason, five stale opt-in specs. Six backend-connected scenarios passed;12 focused smoke passed/1 skipped. Final193/15 suite and demo refresh passed. [Opt-in review](t28a-optin-browser-review.md). |
 | P2 / T29x | Locally fixed `d23be04`/`74957e4`: all team pickers share invalidation; budget units explicit. Regression proved failure before fix and passes afterward;14 focused tests/typecheck/build pass. Final193/15 suite passed. |
