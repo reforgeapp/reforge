@@ -401,7 +401,7 @@ export function ForgeConnectionForm({ orgID, csrf, kind, onClose, onReady, onBus
         <details className="forge-advanced">
           <summary>Advanced</summary>
           <div className="form-grid">
-            {!githubApp && <label>Namespace<input value={namespace} disabled={busy} onChange={event => setNamespace(event.target.value)} placeholder="Organisation, group or owner" /></label>}
+            {!githubApp && <label>Namespace<input value={namespace} disabled={busy} onChange={event => setNamespace(event.target.value)} placeholder={provider === 'github' ? 'org, user:name or owner/repo' : 'Organisation, group or owner'} /></label>}
             {provider !== 'gitea' && <label>API address<input value={endpoint} disabled={busy} onChange={event => setEndpoint(event.target.value)} /></label>}
             <label className="wide">CA certificate<textarea rows={3} maxLength={65536} value={caPEM} disabled={busy} onChange={event => setCAPEM(event.target.value)} placeholder="Optional PEM CA certificate" /></label>
           </div>

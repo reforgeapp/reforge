@@ -13,6 +13,9 @@ certificate.
 
 GitHub offers a guided App installation, a personal access token, and a manual App.
 
+GitHub namespace: blank (token owner's repositories), `org` or `org:org`, `user:name`, or
+`owner/repo` (or its URL) for a single repository.
+
 The guided App flow is the default. Select **Set up GitHub App** (self-hosted) or
 **Connect GitHub** (hosted) and follow the handoff to GitHub:
 

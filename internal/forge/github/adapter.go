@@ -121,6 +121,13 @@ func (p *Provider) ListRepositories(ctx context.Context, request forge.Inventory
 		return domain.Page[forge.Repository]{}, err
 	}
 	limit := boundedLimit(request.Limit)
+	if name, ok := singleRepository(request.Namespace); ok {
+		repository, err := p.GetRepository(ctx, forge.RepoRef{FullName: name})
+		if err != nil {
+			return domain.Page[forge.Repository]{}, err
+		}
+		return domain.Page[forge.Repository]{Items: []forge.Repository{repository}, Complete: true}, nil
+	}
 	segments, err := repositoryNamespace(request.Namespace)
 	if err != nil {
 		return domain.Page[forge.Repository]{}, err
@@ -819,6 +826,17 @@ func retryAfter(headers http.Header) time.Duration {
 		return 0
 	}
 	return time.Duration(seconds) * time.Second
+}
+
+func singleRepository(namespace string) (string, bool) {
+	namespace = strings.TrimSpace(namespace)
+	namespace = strings.TrimPrefix(strings.TrimPrefix(namespace, "https://"), "github.com/")
+	namespace = strings.TrimSuffix(strings.TrimSuffix(namespace, "/"), ".git")
+	owner, name, ok := strings.Cut(namespace, "/")
+	if !ok || strings.Contains(name, "/") || owner == "user" || owner == "org" || owner == "installation" {
+		return "", false
+	}
+	return namespace, true
 }
 
 func repositoryNamespace(namespace string) ([]string, error) {

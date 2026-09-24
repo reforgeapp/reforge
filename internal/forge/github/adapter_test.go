@@ -323,3 +323,23 @@ func authorizedFixture(p *Provider) *Provider {
 	p.app = &installationAuth{appID: "42", installationID: "17", token: p.config.Token, actorID: "2", slug: "reforge", expires: time.Now().Add(time.Hour)}
 	return p.WithChangeAuthorizer(func(context.Context, forge.CreateChangeRequest) error { return nil }).WithBranchAuthorizer(func(context.Context, forge.UpdateBranchRequest) error { return nil }).WithReviewAuthorizer(func(context.Context, forge.RepoRef, string, []string) error { return nil })
 }
+
+func TestListRepositoriesAcceptsSingleRepositoryScope(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/api/v3/repos/sindef/servicer" {
+			t.Errorf("path = %s", request.URL.Path)
+		}
+		_, _ = writer.Write([]byte(`{"id":7,"full_name":"sindef/servicer","default_branch":"main"}`))
+	}))
+	defer server.Close()
+	provider, err := New(forge.Config{BaseURL: server.URL + "/api/v3", Token: "token", Client: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, namespace := range []string{"sindef/servicer", "https://github.com/sindef/servicer.git"} {
+		page, err := provider.ListRepositories(context.Background(), forge.InventoryRequest{Namespace: namespace})
+		if err != nil || !page.Complete || len(page.Items) != 1 || page.Items[0].FullName != "sindef/servicer" {
+			t.Fatalf("%s: %+v %v", namespace, page, err)
+		}
+	}
+}
