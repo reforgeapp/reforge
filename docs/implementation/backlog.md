@@ -1,5 +1,12 @@
 # Implementation backlog
 
+### T29ab — Provider-first model API onboarding
+
+- Status: **in progress,2026-09-24; only authorized active ticket**. Depends existing model adapters/Connections. Opus backend; OpenCode frontend/tests; Astra review. Other backlog paused; hard stop20% weekly remaining.
+- Normal flow: friendly provider → API key → server-side catalog/test → model → save. Known endpoint/auth/profile defaults; custom endpoint, CA, manual model and private runner routing under Advanced. No redundant single-option selectors or explanatory prose.
+- Providers: OpenAI, Claude, Gemini, OpenCode Zen/Go APIs; preserve compatible/local endpoints. OpenCode gateway mixed model families must route through real adapters; unknown families disabled with action. API access is distinct from runner/CLI subscription authentication; do not collect subscription tokens or invent OAuth support.
+- Accept: real owner/CSRF-protected bounded model catalog, no draft connection or inference call; SSRF/private-boundary and credential/error redaction checks; stale form results cannot repopulate after changes; create once and preserve failed post-create probe state; keyboard390px light/dark; backend-connected local fixture acceptance and refreshed container demo. External provider certification stays explicit.
+
 ### T29aa — Open numeric native-change deep links
 
 - Status: **local complete `4e679e5`,2026-09-24**. Child T29u; Luna implementation, Astra reviewed.

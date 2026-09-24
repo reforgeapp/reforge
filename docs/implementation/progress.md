@@ -1,5 +1,11 @@
 # Implementation progress
 
+## Scoped model onboarding authorization — 2026-09-24
+
+Owner authorized T29ab only, prefers OpenCode DeepSeek4.1-Flash for bounded slices, Opus5.5 allowed. All other work remains paused. New task-specific hard stop<=20% weekly remaining. Investigator completed read-only: existing adapters already list models, constructors require model, form exposes internal fields. Initial OpenCode invocation failed beforemodeldue variadicfileargument; corrected invocation succeeded; completionquota37%. No customer/provider testkeys used.
+
+Frozen new stateless model-catalog contract and file ownership stored `.local/model-connections/`. Opus backend/security/generated contract; OpenCode model form; OpenCode browser checks. Root checked official provider/API docs, including distinct OpenCodeGo/Zen paths and per-model API families. Public gateway catalogs do not authenticate a key; UI must only say modelsloaded. Existing private-route configuration/manual-model path retained. No schema migrations planned. Root wrapper checks reportedweeklyquota every5s, terminates ownedCLIprocessgroups at20%.
+
 ## Final quota handover — 2026-09-24
 
 Demo8084 now serves clean product4e679e5 after13/13 focused production Changes checks, including numeric native-ID URL/reload and cross-org UI selection. Checks intercept backend fixture responses; they do not certify backend tenant isolation or complete the real protected merge journey. Earlier92e1d03 full default suite remains193passed/15skipped; not repeated for this one-page fix.

@@ -4,7 +4,7 @@ Updated 2026-09-24. Demo serves product `4e679e5`; focused production Changes13/
 
 ## Current batch
 
-Owner quota wrap-up triggered2026-09-23T23:47:43.290Z: **39% Codex weekly remaining**. No new implementation dispatch. Final4e679e5 production13/13 check and demo refresh passed; worker finishes report/cleanup. Demo8084/docs8082 available. Below25% would hard-stop active work jobs; not reached. Persistent goal remains incomplete; remaining local/external work below.
+Owner authorized ONLY T29ab model-connection onboarding on2026-09-24; all other backlog remains paused. API-key-first provider presets, real server-side catalog selection, Advanced custom/private settings and separate runtime flow. Workers: Opus5.5 backend/security; OpenCode DeepSeek4.1-Flash frontend and bounded browser tests. Root reviews every change. Maximum3workers, exclusive files. This task stops immediately at **20% weekly remaining**; prior broader-work39% pause remains in effect. Last completion check2026-09-24T10:40:25.604Z:37% remaining. CLI wrapper checks quota every5s and terminates owned process groups at<=20%; no paid Reforge test APIs or customer mutations authorized.
 
 | Work | Status / evidence |
 | --- | --- |
