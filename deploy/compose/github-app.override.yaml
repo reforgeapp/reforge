@@ -1,0 +1,13 @@
+services:
+  server:
+    environment:
+      REFORGE_GITHUB_APP_ID: ${REFORGE_GITHUB_APP_ID:?set REFORGE_GITHUB_APP_ID}
+      REFORGE_GITHUB_APP_SLUG: ${REFORGE_GITHUB_APP_SLUG:?set REFORGE_GITHUB_APP_SLUG}
+      REFORGE_GITHUB_APP_CLIENT_ID: ${REFORGE_GITHUB_APP_CLIENT_ID:?set REFORGE_GITHUB_APP_CLIENT_ID}
+      REFORGE_GITHUB_APP_CLIENT_SECRET_FILE: /run/secrets/github_app_client_secret
+      REFORGE_GITHUB_APP_PRIVATE_KEY_FILE: /run/secrets/github_app_private_key
+      REFORGE_GITHUB_APP_WEBHOOK_SECRET_FILE: /run/secrets/github_app_webhook_secret
+    volumes:
+      - ${GITHUB_APP_CLIENT_SECRET_HOST_FILE:?set GITHUB_APP_CLIENT_SECRET_HOST_FILE}:/run/secrets/github_app_client_secret:ro
+      - ${GITHUB_APP_PRIVATE_KEY_HOST_FILE:?set GITHUB_APP_PRIVATE_KEY_HOST_FILE}:/run/secrets/github_app_private_key:ro
+      - ${GITHUB_APP_WEBHOOK_SECRET_HOST_FILE:?set GITHUB_APP_WEBHOOK_SECRET_HOST_FILE}:/run/secrets/github_app_webhook_secret:ro
