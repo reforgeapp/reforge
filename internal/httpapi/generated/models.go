@@ -1381,6 +1381,10 @@ type ConnectionSettings struct {
 	WebhookPending *bool                      `json:"webhook_pending,omitempty"`
 }
 type ConnectionSettingsManaged string
+type ConnectionUpdate struct {
+	Name      string `json:"name"`
+	Namespace string `json:"namespace"`
+}
 type CreatedOrgOIDCInvitation struct {
 	CreatedAt     time.Time                    `json:"created_at"`
 	Email         string                       `json:"email"`
@@ -2948,6 +2952,14 @@ type RevokeConnectionParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type UpdateConnectionParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type DeleteConnectionParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type SetPrivateRouteParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -3360,6 +3372,7 @@ type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate
 type CreateForgesConnectionJSONRequestBody = ConnectionCreate
 type ListModelCatalogJSONRequestBody = ModelCatalogRequest
 type CreateModelsConnectionJSONRequestBody = ConnectionCreate
+type UpdateConnectionJSONRequestBody = ConnectionUpdate
 type PutAgentQualificationJSONRequestBody = AgentQualificationInput
 type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation

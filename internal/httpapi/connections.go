@@ -152,6 +152,38 @@ func (s *Server) RegisterConnections(service *connections.Service) {
 		}
 		connectionResponse(c, 200, value)
 	})
+	g.PATCH("/:connectionID", func(c *gin.Context) {
+		version, ok := identityVersion(c)
+		if !ok {
+			return
+		}
+		var input struct {
+			Name      string `json:"name"`
+			Namespace string `json:"namespace"`
+		}
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		value, err := service.Update(c.Request.Context(), session, c.Param("orgID"), c.Param("connectionID"), version, input.Name, input.Namespace, c.GetString("request_id"))
+		if err != nil {
+			connectionFailure(c, err)
+			return
+		}
+		connectionResponse(c, 200, value)
+	})
+	g.POST("/:connectionID/delete", func(c *gin.Context) {
+		version, ok := identityVersion(c)
+		if !ok {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		if err := service.Delete(c.Request.Context(), session, c.Param("orgID"), c.Param("connectionID"), version, c.GetString("request_id")); err != nil {
+			connectionFailure(c, err)
+			return
+		}
+		c.Status(204)
+	})
 	g.PUT("/:connectionID/private-route", func(c *gin.Context) {
 		version, ok := identityVersion(c)
 		if !ok {
@@ -190,6 +222,8 @@ func connectionFailure(c *gin.Context, err error) {
 		Fail(c, 502, "catalog_unavailable", "Model list unavailable; check endpoint, credential and provider access, then retry", true)
 	case errors.Is(err, connections.ErrRepositoryEndpoint):
 		Fail(c, 400, "repository_endpoint", "Enter the provider API address, not a repository or web URL; choose repositories after connecting", false)
+	case errors.Is(err, connections.ErrInUse):
+		Fail(c, 409, "connection_in_use", "Connection is still used by repositories, tasks or billing routes; revoke it instead", false)
 	case errors.Is(err, connections.ErrRevoked):
 		Fail(c, 409, "connection_revoked", "Connection revoked; create a new connection", false)
 	case errors.Is(err, network.ErrDestination), errors.Is(err, network.ErrRequest):

@@ -26,6 +26,7 @@ var ErrRunnerRequired = errors.New("enrol a runner in this organisation before a
 var ErrRevoked = errors.New("connection revoked")
 var ErrRepositoryEndpoint = errors.New("API address is a repository URL")
 var ErrManaged = errors.New("connection is managed by a GitHub App setup")
+var ErrInUse = errors.New("connection is used by repositories, tasks or billing routes")
 
 const PlatformAuthKind = "github_app_platform"
 const GitHubAPI = "https://api.github.com"
@@ -465,6 +466,48 @@ func (s *Service) Revoke(ctx context.Context, session auth.Session, orgID, id st
 			return tx.QueryRow(ctx, `UPDATE connection_routes SET revoked_at=now() WHERE org_id=$1 AND connection_id=$2 RETURNING revoked_at`, orgID, id).Scan(&c.Route.RevokedAt)
 		}
 		return nil
+	})
+}
+func (s *Service) Update(ctx context.Context, session auth.Session, orgID, id string, expected int64, name, namespace string, requestID string) (Connection, error) {
+	return s.change(ctx, session, orgID, id, expected, requestID, "connection.updated", func(tx pgx.Tx, c *Connection) error {
+		name = strings.TrimSpace(name)
+		namespace = strings.TrimSpace(namespace)
+		if name == "" || len(name) > 160 || len(namespace) > 256 || strings.ContainsAny(namespace, "\x00\r\n") || (namespace != c.Settings.Namespace && (c.Kind != "forge" || c.Settings.GitHubApp())) {
+			return auth.ErrInvalid
+		}
+		c.Name = name
+		c.Settings.Namespace = namespace
+		settings, _ := json.Marshal(c.Settings)
+		_, err := tx.Exec(ctx, `UPDATE connections SET name=$3,settings=$4 WHERE org_id=$1 AND id=$2`, orgID, id, name, settings)
+		return err
+	})
+}
+func (s *Service) Delete(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) error {
+	if !auth.ValidID(id) || expected < 1 {
+		return auth.ErrInvalid
+	}
+	return s.auth.WithMutation(ctx, session, orgID, func(tx pgx.Tx, a domain.Actor) error {
+		if a.Role != domain.Owner {
+			return auth.ErrForbidden
+		}
+		c, err := load(ctx, tx, orgID, id)
+		if err != nil {
+			return err
+		}
+		if c.Version != expected {
+			return auth.ErrConflict
+		}
+		var used bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repositories WHERE org_id=$1 AND connection_id=$2) OR EXISTS(SELECT 1 FROM workflow_tasks WHERE org_id=$1 AND model_connection_id=$2) OR EXISTS(SELECT 1 FROM budget_routes WHERE org_id=$1 AND connection_id=$2)`, orgID, id).Scan(&used); err != nil {
+			return err
+		}
+		if used {
+			return ErrInUse
+		}
+		if _, err = tx.Exec(ctx, `DELETE FROM connections WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
+			return err
+		}
+		return record(ctx, tx, a, "connection.deleted", id, requestID, c.Version)
 	})
 }
 func (s *Service) Rewrap(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Connection, error) {

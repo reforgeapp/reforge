@@ -115,6 +115,11 @@ func TestConnectionPersistenceRotationAndRevocation(t *testing.T) {
 	if strings.Contains(string(encoded), "replacement-credential") {
 		t.Fatal("provider error leaked secret")
 	}
+	edited, err := svc.Update(ctx, session, org, c.ID, tested.Version, "Renamed", "acme/app", "test")
+	if err != nil || edited.Name != "Renamed" || edited.Settings.Namespace != "acme/app" || edited.CredentialVersion != tested.CredentialVersion {
+		t.Fatalf("update: %+v %v", edited, err)
+	}
+	tested = edited
 	revoked, err := svc.Revoke(ctx, session, org, c.ID, tested.Version, "test")
 	if err != nil || revoked.State != "revoked" {
 		t.Fatal("revoke failed", err)
@@ -135,6 +140,12 @@ func TestConnectionPersistenceRotationAndRevocation(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if err = svc.Delete(ctx, session, org, c.ID, revoked.Version, "test"); err != nil {
+		t.Fatal("delete unused connection", err)
+	}
+	if _, err = svc.Get(ctx, session, org, c.ID); err == nil {
+		t.Fatal("deleted connection still readable")
 	}
 	input.PrivateRoute = &connections.Route{RunnerID: domain.NewID(), Host: "different.test", CIDRs: []string{"bad"}, RevokedAt: new(time.Time)}
 	if _, err = svc.Create(ctx, session, org, input, "test"); err != auth.ErrInvalid {
