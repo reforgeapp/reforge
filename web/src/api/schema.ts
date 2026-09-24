@@ -1857,6 +1857,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/usage/series": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["seriesUsage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/audit-events": {
         parameters: {
             query?: never;
@@ -4524,6 +4540,30 @@ export interface components {
         GitHubAppSetup: {
             id: string;
             handoff_url: string;
+        };
+        UsageDay: {
+            day: string;
+
+            micro_usd: number;
+
+            tokens: number;
+
+            requests: number;
+
+            records: number;
+        };
+        UsageProvider: {
+            provider: string;
+
+            micro_usd: number;
+
+            tokens: number;
+
+            records: number;
+        };
+        UsageSeries: {
+            days: components["schemas"]["UsageDay"][];
+            providers: components["schemas"]["UsageProvider"][];
         };
     };
     responses: never;
@@ -9450,6 +9490,46 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["UsageSummary"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    seriesUsage: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                team_id?: string;
+                recipe?: string;
+                provider?: string;
+                connection_id?: string;
+                state?: string;
+                since?: string;
+                until?: string;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UsageSeries"];
                 };
             };
 

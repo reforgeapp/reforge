@@ -2774,6 +2774,13 @@ type TeamPage struct {
 	Items      []Team  `json:"items"`
 	NextCursor *string `json:"next_cursor,omitempty"`
 }
+type UsageDay struct {
+	Day      string `json:"day"`
+	MicroUsd int64  `json:"micro_usd"`
+	Records  int64  `json:"records"`
+	Requests int64  `json:"requests"`
+	Tokens   int64  `json:"tokens"`
+}
 type UsageEntry struct {
 	Provider       string            `json:"provider"`
 	Recipe         string            `json:"recipe"`
@@ -2784,6 +2791,16 @@ type UsagePage struct {
 	Complete   bool         `json:"complete"`
 	Items      []UsageEntry `json:"items"`
 	NextCursor *string      `json:"next_cursor,omitempty"`
+}
+type UsageProvider struct {
+	MicroUsd int64  `json:"micro_usd"`
+	Provider string `json:"provider"`
+	Records  int64  `json:"records"`
+	Tokens   int64  `json:"tokens"`
+}
+type UsageSeries struct {
+	Days      []UsageDay      `json:"days"`
+	Providers []UsageProvider `json:"providers"`
 }
 type UsageSummary struct {
 	Cancelled             int64        `json:"cancelled"`
@@ -3236,6 +3253,16 @@ type ListUsageParams struct {
 	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
 	Cursor       *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit        *int       `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type SeriesUsageParams struct {
+	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	TeamId       *string    `form:"team_id,omitempty" json:"team_id,omitempty"`
+	Recipe       *string    `form:"recipe,omitempty" json:"recipe,omitempty"`
+	Provider     *string    `form:"provider,omitempty" json:"provider,omitempty"`
+	ConnectionId *string    `form:"connection_id,omitempty" json:"connection_id,omitempty"`
+	State        *string    `form:"state,omitempty" json:"state,omitempty"`
+	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
+	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
 }
 type SummarizeUsageParams struct {
 	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`

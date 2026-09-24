@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
 	"reforge/internal/domain"
+	"time"
 )
 
 const usageFrom = ` FROM budget_reservations r JOIN repositories repo ON repo.org_id=r.org_id AND repo.id=r.repository_id JOIN workflow_tasks task ON task.org_id=r.org_id AND task.id=r.task_id JOIN connections c ON c.org_id=r.org_id AND c.id=(r.record->>'connection_id')::uuid WHERE r.org_id=$1 AND ($2 OR r.repository_id=ANY($3::uuid[])) AND ($4='' OR r.repository_id=NULLIF($4,'')::uuid) AND ($5='' OR EXISTS(SELECT 1 FROM team_repositories t WHERE t.org_id=r.org_id AND t.repository_id=r.repository_id AND t.team_id=NULLIF($5,'')::uuid)) AND ($6='' OR task.recipe=$6) AND ($7='' OR c.provider=$7) AND ($8='' OR c.id=NULLIF($8,'')::uuid) AND ($9='' OR r.state=$9) AND ($10::timestamptz IS NULL OR r.created_at>=$10) AND ($11::timestamptz IS NULL OR r.created_at<$11)`
@@ -71,6 +72,80 @@ func (s *Service) UsageSummary(ctx context.Context, session auth.Session, org st
 			}
 		}
 		return tx.QueryRow(ctx, query+usageFrom, usageArgs(org, a, f)...).Scan(&out.Records, &out.Settled, &out.Unknown, &out.Reserved, &out.Dispatched, &out.Cancelled, &out.EstimatedCostMicroUSD, &out.KnownTokens, &out.UnknownMaximum.MicroUSD, &out.UnknownMaximum.Tokens, &out.UnknownMaximum.Milliseconds, &out.UnknownMaximum.Requests, &out.UnknownMaximum.Concurrency, &out.Held.MicroUSD, &out.Held.Tokens, &out.Held.Milliseconds, &out.Held.Requests, &out.Held.Concurrency)
+	})
+	return out, err
+}
+
+type UsageDay struct {
+	Day      string `json:"day"`
+	MicroUSD int64  `json:"micro_usd"`
+	Tokens   int64  `json:"tokens"`
+	Requests int64  `json:"requests"`
+	Records  int64  `json:"records"`
+}
+type UsageProvider struct {
+	Provider string `json:"provider"`
+	MicroUSD int64  `json:"micro_usd"`
+	Tokens   int64  `json:"tokens"`
+	Records  int64  `json:"records"`
+}
+type UsageSeries struct {
+	Days      []UsageDay      `json:"days"`
+	Providers []UsageProvider `json:"providers"`
+}
+
+func (s *Service) UsageSeries(ctx context.Context, session auth.Session, org string, f Filter) (UsageSeries, error) {
+	out := UsageSeries{Days: []UsageDay{}, Providers: []UsageProvider{}}
+	if e := validate(f); e != nil {
+		return out, e
+	}
+	until := time.Now().UTC()
+	if f.Until != nil {
+		until = f.Until.UTC()
+	}
+	since := until.AddDate(0, 0, -30)
+	if f.Since != nil {
+		since = f.Since.UTC()
+	}
+	if until.Sub(since) > 366*24*time.Hour {
+		return out, auth.ErrInvalid
+	}
+	f.Since, f.Until = &since, &until
+	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if e := scope(ctx, tx, org, a, f); e != nil {
+			return e
+		}
+		settled := `FILTER(WHERE r.state='settled'),0)`
+		rows, e := tx.Query(ctx, `WITH u AS (SELECT date_trunc('day',r.created_at AT TIME ZONE 'UTC') AS day,COALESCE(sum((r.record->'actual'->>'micro_usd')::bigint) `+settled+` AS micro_usd,COALESCE(sum((r.record->'actual'->>'tokens')::bigint) `+settled+` AS tokens,COALESCE(sum((r.record->'actual'->>'requests')::bigint) `+settled+` AS requests,count(*) AS records`+usageFrom+` GROUP BY 1)
+			SELECT to_char(d,'YYYY-MM-DD'),COALESCE(u.micro_usd,0),COALESCE(u.tokens,0),COALESCE(u.requests,0),COALESCE(u.records,0) FROM generate_series(date_trunc('day',$10::timestamptz AT TIME ZONE 'UTC'),date_trunc('day',($11::timestamptz - interval '1 microsecond') AT TIME ZONE 'UTC'),interval '1 day') d LEFT JOIN u ON u.day=d ORDER BY d`, usageArgs(org, a, f)...)
+		if e != nil {
+			return e
+		}
+		for rows.Next() {
+			var item UsageDay
+			if e = rows.Scan(&item.Day, &item.MicroUSD, &item.Tokens, &item.Requests, &item.Records); e != nil {
+				rows.Close()
+				return e
+			}
+			out.Days = append(out.Days, item)
+		}
+		rows.Close()
+		if e = rows.Err(); e != nil {
+			return e
+		}
+		rows, e = tx.Query(ctx, `SELECT c.provider,COALESCE(sum((r.record->'actual'->>'micro_usd')::bigint) `+settled+`,COALESCE(sum((r.record->'actual'->>'tokens')::bigint) `+settled+`,count(*)`+usageFrom+` GROUP BY 1 ORDER BY 2 DESC,4 DESC,1`, usageArgs(org, a, f)...)
+		if e != nil {
+			return e
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var item UsageProvider
+			if e = rows.Scan(&item.Provider, &item.MicroUSD, &item.Tokens, &item.Records); e != nil {
+				return e
+			}
+			out.Providers = append(out.Providers, item)
+		}
+		return rows.Err()
 	})
 	return out, err
 }

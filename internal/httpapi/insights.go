@@ -60,6 +60,19 @@ func (s *Server) RegisterInsights(service *insights.Service) {
 		}
 		c.JSON(200, value)
 	})
+	g.GET("/usage/series", func(c *gin.Context) {
+		f, ok := insightFilter(c)
+		if !ok {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		value, e := service.UsageSeries(c.Request.Context(), session, c.Param("orgID"), f)
+		if e != nil {
+			IdentityFailure(c, e)
+			return
+		}
+		c.JSON(200, value)
+	})
 	g.GET("/overview", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
 		value, e := service.Overview(c.Request.Context(), session, c.Param("orgID"))

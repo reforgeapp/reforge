@@ -157,6 +157,10 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 	if summary.Records != 5 || summary.Settled != 1 || summary.EstimatedCostMicroUSD != 15 || summary.KnownTokens != 30 || summary.UnknownMaximum.MicroUSD != 100 || summary.Held.MicroUSD != 300 || summary.Held.Requests != 3 {
 		t.Fatalf("wrong summary: %+v", summary)
 	}
+	series, e := service.UsageSeries(ctx, viewer, org, f)
+	if e != nil || len(series.Days) < 30 || series.Days[len(series.Days)-1].MicroUSD != 15 || series.Days[len(series.Days)-1].Records != 5 || len(series.Providers) != 1 || series.Providers[0].Tokens != 30 {
+		t.Fatalf("usage series: %+v %v", series, e)
+	}
 	f.State = "unknown"
 	f.Provider = "compatible"
 	f.Recipe = "repair"
@@ -225,7 +229,7 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 	if w.Code != 200 {
 		t.Fatalf("summary route: %d %s", w.Code, w.Body.String())
 	}
-	for _, path := range []string{"/audit-events?limit=101", "/usage?since=yesterday", "/usage?repository_id=invalid"} {
+	for _, path := range []string{"/usage/series?since=2020-01-01T00:00:00Z", "/audit-events?limit=101", "/usage?since=yesterday", "/usage?repository_id=invalid"} {
 		if w = get(path); w.Code != 400 {
 			t.Fatalf("invalid filter %s: %d", path, w.Code)
 		}
