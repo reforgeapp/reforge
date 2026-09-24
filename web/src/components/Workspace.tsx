@@ -49,7 +49,7 @@ export function SplitView({ listLabel, list, detail, selected, onBack, hideBack,
   const close = closeControl?.onClose ?? onBack
   const onKeyDown = (event: KeyboardEvent<HTMLElement>) => {
     const target = event.target as HTMLElement
-    if (event.key === 'Escape' && selected && closeControl && !event.defaultPrevented && !target.closest('dialog, [role="dialog"], input, textarea, select, [contenteditable="true"]')) { event.preventDefault(); close() }
+    if (event.key === 'Escape' && selected && !event.defaultPrevented && !target.closest('dialog, [role="dialog"], input, textarea, select, [contenteditable="true"]')) { event.preventDefault(); close() }
   }
   const onListClick = (event: MouseEvent<HTMLElement>) => {
     if (!selected || !closeControl) return
@@ -60,7 +60,7 @@ export function SplitView({ listLabel, list, detail, selected, onBack, hideBack,
   return <div className={`split-view ${selected ? 'detail-open' : ''}`}>
     <section ref={listRef} className="split-list" aria-label={listLabel} tabIndex={-1} onClick={onListClick}>{list}</section>
     <section ref={detailRef} className="split-detail" aria-label="Detail" tabIndex={-1} hidden={!selected} onKeyDown={onKeyDown}>
-      {selected && closeControl && <button ref={closeRef} className="icon-button panel-close" aria-label={closeControl.label} onClick={close}><Icon name="close" /></button>}
+      {selected && <button ref={closeRef} className={`icon-button panel-close ${closeControl ? '' : 'panel-close-desktop'}`} aria-label={closeControl?.label ?? 'Close details'} onClick={close}><Icon name="close" /></button>}
       {selected && !hideBack && <button className="back-link" onClick={onBack}><Icon name="chevron" size={14} />Back to list</button>}
       {detail}
     </section>

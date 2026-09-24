@@ -41,7 +41,7 @@ test('findings close control is usable at a narrow width', async ({ page }) => {
   await expect(page).not.toHaveURL(/finding=/)
 })
 
-test('other routes keep the back-to-list control', async ({ page }) => {
+test('other routes close the detail drawer', async ({ page }) => {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { name: 'Reforge', version: 'test', edition: 'self-hosted', development: true, fixture_auth: true } }))
   const task = { id: 'task-1', org_id: org, repository_id: 'repo-1', operation_id: 'op-1', recipe: 'go', recipe_version: '1', target_branch: 'main', model_route: '', policy_hash: 'policy', starting_policy_hash: 'policy', state: 'queued', reason: '', version: 1, cancel_version: 1, max_attempts: 1, created_at: '2026-09-22T00:00:00Z' }
@@ -52,5 +52,6 @@ test('other routes keep the back-to-list control', async ({ page }) => {
   await page.route(`**/api/v1/orgs/${org}/repositories**`, route => route.fulfill({ json: { items: [{ id: 'repo-1', name: 'payments' }], complete: true } }))
   await page.goto(`/org/${org}/runs`)
   await page.getByRole('row', { name: /task-1/ }).getByRole('button').first().click()
-  await expect(page.getByRole('button', { name: 'Back to list' })).toBeVisible()
+  await page.getByRole('button', { name: 'Close details' }).click()
+  await expect(page.getByRole('button', { name: 'Close details' })).toHaveCount(0)
 })
