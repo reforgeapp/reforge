@@ -6,10 +6,14 @@ import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { overviewAPI } from '../overview-api'
 import { Tabs } from '../components/Workspace'
+import { BarList, TrendChart } from '../components/Charts'
 import '../styles/overview.css'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
 const age = (seconds: number) => seconds < 3600 ? `${Math.max(1, Math.round(seconds / 60))}m` : seconds < 86400 ? `${Math.round(seconds / 3600)}h` : `${Math.round(seconds / 86400)}d`
+const utc = (day: string, options: Intl.DateTimeFormatOptions) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { ...options, timeZone: 'UTC' })
+const severityColor = (severity: string) => severity === 'critical' || severity === 'high' ? 'var(--red)' : severity === 'medium' ? 'var(--amber)' : severity === 'low' ? 'var(--chart-1)' : 'var(--border-strong)'
+const activitySeries = [{ key: 'findings', label: 'Findings', color: 'var(--chart-1)' }, { key: 'runs', label: 'Runs', color: 'var(--chart-2)' }, { key: 'merges', label: 'Merged', color: 'var(--chart-3)' }, { key: 'deployments', label: 'Healthy deployments', color: 'var(--chart-4)' }]
 const severityTone = (severity: string) => severity === 'critical' || severity === 'high' ? 'red' as const : severity === 'medium' ? 'amber' as const : 'neutral' as const
 
 export function OverviewPage({ orgID }: { orgID: string }) {
@@ -21,6 +25,8 @@ export function OverviewPage({ orgID }: { orgID: string }) {
   if (!value) return <StatePanel kind="empty" title="No overview data" detail="The server returned no portfolio records." />
   const c = value.counts
   const stale = c.stale_repositories > 0
+  const trend = value.trend ?? []
+  const severity = value.severity ?? []
   return <div className="stack">
     <section className="overview-metrics" aria-label="Portfolio counts">
       <div className="metric-grid">
@@ -47,6 +53,16 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <div><dt>Reserved spend</dt><dd>{value.capacity.reserved_micro_usd ? `$${(value.capacity.reserved_micro_usd / 1_000_000).toFixed(2)}` : 'None held'}</dd></div>
       </dl>
     </section>
+    <div className="panel-grid">
+      <section className="panel" aria-labelledby="overview-activity-title">
+        <div className="panel-head"><h2 id="overview-activity-title">Activity · 14 days</h2></div>
+        {trend.length ? <TrendChart label="Activity over the last 14 days" integer stacked series={activitySeries} points={trend.map(day => ({ label: utc(day.day, { month: 'short', day: 'numeric' }), detail: utc(day.day, { weekday: 'short', month: 'short', day: 'numeric' }), values: [day.findings, day.runs, day.merges, day.deployments] }))} /> : <p className="chart-empty">No activity recorded.</p>}
+      </section>
+      <section className="panel" aria-labelledby="overview-severity-title">
+        <div className="panel-head"><h2 id="overview-severity-title">Open findings</h2><a className="link-button" href={`/org/${encodeURIComponent(orgID)}/findings`}>View all</a></div>
+        <BarList label="Open findings by severity" empty="No open findings." rows={severity.map(item => ({ key: item.severity, label: item.severity, value: item.count, color: severityColor(item.severity) }))} />
+      </section>
+    </div>
     <Tabs id="overview" label="Overview surfaces" items={[{ id: 'attention', label: 'Attention' }, { id: 'portfolio', label: 'Portfolio' }]} value={tab} onChange={setTab} />
     <section id={`overview-panel-${tab}`} role="tabpanel" aria-labelledby={`overview-tab-${tab}`}>
       {tab === 'attention' ? <DataTable caption="Attention queue"><table><thead><tr><th>Finding</th><th>Repository</th><th>Severity</th><th>Age</th><th>Owner</th></tr></thead><tbody>{value.attention.map(item => <tr key={item.id}><td><a href={`/org/${encodeURIComponent(orgID)}/findings?repository=${encodeURIComponent(item.repository_id)}&finding=${encodeURIComponent(item.id)}`}>{item.title}</a></td><td>{item.repository_name || item.repository_id}</td><td><StatusBadge label={item.severity} tone={severityTone(item.severity)} /></td><td>{age(item.age_seconds)}</td><td>{item.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!value.attention.length && <EmptyTable label="No open findings." />}</DataTable> : <DataTable caption="Portfolio"><table><thead><tr><th>Repository</th><th>Forge</th><th>Open work</th><th>Freshness</th><th>Blocker</th></tr></thead><tbody>{value.portfolio.map(row => <tr key={row.repository_id}><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(row.repository_id)}`}>{row.repository_name}</a></td><td>{row.provider}</td><td>{row.open_findings} findings · {row.open_changes} changes</td><td>{row.last_synced_at ? new Date(row.last_synced_at).toLocaleString() : 'Never synced'}</td><td>{row.blocker ? <StatusBadge label={row.blocker} tone="amber" /> : 'None recorded'}</td></tr>)}</tbody></table>{!value.portfolio.length && <EmptyTable label="No repositories imported." />}</DataTable>}
