@@ -24,8 +24,8 @@ test('Connections remain usable on narrow and desktop layouts with persisted bac
     const dialog = page.getByRole('dialog')
     await dialog.getByLabel('Provider').selectOption('gitea')
     await dialog.getByLabel('Name', { exact: true }).fill(name)
-    await dialog.getByLabel('Endpoint', { exact: true }).fill('https://gitea.example.invalid')
-    await dialog.getByLabel('Secret', { exact: true }).fill('disposable-mobile-secret')
+    await dialog.getByLabel('Server URL').fill('https://gitea.example.invalid')
+    await dialog.getByLabel('Personal access token', { exact: true }).fill('disposable-mobile-secret')
     await dialog.getByRole('button', { name: 'Create connection' }).click()
   }
   const row = page.locator('tr').filter({ hasText: name })

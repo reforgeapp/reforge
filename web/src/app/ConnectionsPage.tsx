@@ -1,8 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
-import { api, ReforgeAPIError, type Connection, type ConnectionCreate } from '../api/client'
+import { api, ReforgeAPIError, type Connection } from '../api/client'
 import { inventoryAPI } from '../api/inventory'
 import { connectionQuery, connectionsListQuery, useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
@@ -13,6 +13,8 @@ import { SplitView, DetailPanel } from '../components/Workspace'
 import { CustomProfilesPanel } from './CustomProfilesPanel'
 import { AgentQualificationPanel } from './AgentQualificationPanel'
 import { ModelConnectionForm } from './ModelConnectionForm'
+import { ForgeConnectionForm } from './ForgeConnectionForm'
+import { RepositoryImportDialog, type ImportConnection } from './RepositoryImportDialog'
 import { connectionProviderLabel, connectionStateStatus, modelProfileLabel } from '../model-providers'
 import { Icon } from '../components/Icons'
 import '../styles/connections.css'
@@ -24,14 +26,33 @@ const tabs = [
 ] as const
 const tabValue = (value: string | undefined): 'forge' | 'models' | 'delivery' => value === 'models' || value === 'delivery' ? value : 'forge'
 
+const githubResultMessages: Record<string, string> = {
+  connected: 'GitHub App connected.',
+  failed: 'GitHub setup failed. Try again or use a personal access token.',
+  expired: 'GitHub setup expired. Start again.',
+  pending_approval: 'GitHub installation is pending approval. A GitHub organisation owner must approve the App.',
+}
+
+const githubReasonMessages: Record<string, string> = {
+  github_org_admin_required: 'A GitHub organisation owner must approve the installation.',
+  github_owner_mismatch: 'The signed-in GitHub user does not own or administer the target account.',
+  github_app_suspended: 'The GitHub App installation is suspended.',
+  github_installation_missing: 'No matching GitHub App installation was found. Install or reconfigure the App, then try again.',
+}
+
 export function ConnectionsPage({ orgID }: { orgID: string }) {
   const session = useSession()
   const client = useQueryClient()
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
   const [formOpen, setFormOpen] = useState(false)
+  const [importState, setImportState] = useState<{ connection: ImportConnection; filter: string }>()
+  const [githubResult, setGithubResult] = useState<{ result: string; reason?: string }>()
+  const handledResult = useRef('')
   const selectedID = search.connection ?? ''
+  const syncJob = search.sync ?? ''
   const csrf = session.data?.csrf_token ?? ''
+  const setSyncJob = (jobID: string | undefined) => { void navigate({ search: previous => { const next = { ...previous }; if (jobID) next.sync = jobID; else delete next.sync; return next }, replace: true }) }
 
   const tab = tabValue(search.connection_tab)
   const q = search.q ?? ''
@@ -40,6 +61,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
   const modelResult = useInfiniteQuery({ ...connectionsListQuery(orgID, 'model'), enabled: tab === 'models' })
   const agentResult = useInfiniteQuery({ ...connectionsListQuery(orgID, 'agent'), enabled: tab === 'models' })
   const deliveryResult = useInfiniteQuery({ ...connectionsListQuery(orgID, 'delivery'), enabled: tab === 'delivery' })
+  const teams = useQuery({ queryKey: ['org', orgID, 'teams'], queryFn: ({ signal }) => inventoryAPI.teams(orgID, signal), enabled: formOpen || !!importState })
   const activeResults = tab === 'forge' ? [forgeResult] : tab === 'models' ? [modelResult, agentResult] : [deliveryResult]
   const kinds = tabs.find(item => item.id === tab)?.kinds ?? []
   const loaded = [...new Map(activeResults.flatMap(result => result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
@@ -64,6 +86,46 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
     void navigate({ search: previous => ({ ...previous, connection_tab: value, connection: undefined }) })
   }
 
+  const openImport = (connection: ImportConnection, filter = '') => {
+    setFormOpen(false)
+    setSyncJob(undefined)
+    setImportState({ connection, filter })
+  }
+
+  useEffect(() => {
+    const result = search.github_result
+    if (!result) return
+    const connectionID = search.connection
+    const key = `${result}:${connectionID ?? ''}`
+    if (result !== 'connected' || !connectionID || !csrf) {
+      if (handledResult.current === key) return
+      handledResult.current = key
+      setGithubResult({ result, reason: search.github_reason })
+      void navigate({ search: previous => { const next = { ...previous }; delete next.github_result; delete next.github_reason; return next }, replace: true })
+      return
+    }
+    if (handledResult.current === key) return
+    handledResult.current = key
+    setGithubResult({ result, reason: search.github_reason })
+    void navigate({ search: previous => { const next = { ...previous }; delete next.github_result; delete next.github_reason; return next }, replace: true })
+    void (async () => {
+      try {
+        const connection = await api.getConnection(orgID, connectionID)
+        let healthy = connection.state === 'healthy'
+        try {
+          const tested = await api.testConnection(orgID, connection.id, connection.version, csrf)
+          healthy = tested.state === 'healthy'
+        } catch {
+          healthy = false
+        }
+        refresh()
+        if (healthy) openImport({ id: connection.id, name: connection.name, provider: connection.provider })
+      } catch {
+        refresh()
+      }
+    })()
+  }, [search.github_result, search.connection, search.github_reason, csrf, orgID])
+
   const list = <ConnectionList
     rows={rows}
     tab={tab}
@@ -85,6 +147,10 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
   />
 
   return <div className="stack connections-page">
+    {githubResult && <div className="connections-notice" role="status">
+      <span>{githubResultMessages[githubResult.result] ?? 'GitHub setup finished.'}{githubResult.reason ? ` ${githubReasonMessages[githubResult.reason] ?? ''}` : ''}</span>
+      <Button className="button button-sm" onClick={() => setGithubResult(undefined)}>Dismiss</Button>
+    </div>}
     <SplitView
       listLabel="Connections"
       selected={!!selectedID}
@@ -92,7 +158,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
       hideBack
       closeControl={{ label: 'Close connection details', onClose: clear }}
       list={list}
-      detail={selectedID ? <ConnectionDetail connectionID={selectedID} orgID={orgID} csrf={csrf} onRefresh={refresh} /> : null}
+      detail={selectedID ? <ConnectionDetail connectionID={selectedID} orgID={orgID} csrf={csrf} onRefresh={refresh} onImport={openImport} /> : null}
     />
     {tab === 'models' && <details>
       <summary>Custom command profiles</summary>
@@ -100,10 +166,26 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
     </details>}
     <ConnectionForm
       open={formOpen}
+      tab={tab}
       orgID={orgID}
       csrf={csrf}
       onClose={() => setFormOpen(false)}
       onCreated={() => { setFormOpen(false); refresh() }}
+      onReady={openImport}
+    />
+    <RepositoryImportDialog
+      open={!!importState}
+      orgID={orgID}
+      csrf={csrf}
+      teams={teams.data?.items ?? []}
+      connection={importState?.connection}
+      candidateFilter={importState?.filter}
+      repositoriesLink={importState ? `/org/${orgID}/repositories` : undefined}
+      jobID={syncJob}
+      onJobChange={setSyncJob}
+      autoStart
+      onClose={() => { setImportState(undefined); setSyncJob(undefined) }}
+      onDone={() => { refresh(); void client.invalidateQueries({ queryKey: ['org', orgID, 'inventory-repositories'] }) }}
     />
   </div>
 }
@@ -194,9 +276,10 @@ type ConnectionDetailProps = {
   orgID: string
   csrf: string
   onRefresh: () => void
+  onImport: (connection: ImportConnection) => void
 }
 
-function ConnectionDetail({ connectionID, orgID, csrf, onRefresh }: ConnectionDetailProps) {
+function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: ConnectionDetailProps) {
   const result = useQuery(connectionQuery(orgID, connectionID))
   const [secret, setSecret] = useState('')
   const [routeHost, setRouteHost] = useState('')
@@ -265,15 +348,22 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh }: ConnectionDe
   const connection = result.data
   const capabilities = Object.entries(connection.capabilities)
   const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state)
+  const forgeLike = connection.kind === 'forge'
   const status = <p>
     <span title={connectionStatus.title}><StatusBadge label={connectionStatus.label} tone={connectionStatus.tone} /></span>
     <span className="table-meta">{connection.kind}/{connectionProviderLabel(connection.provider, connection.settings.profile)} · version {connection.version}</span>
   </p>
   const actions = <>
+    {forgeLike && <Button
+      disabled={connection.state === 'revoked' || connection.state !== 'healthy'}
+      title={connection.state !== 'healthy' ? 'Run a capability test before importing repositories.' : undefined}
+      onClick={() => onImport({ id: connection.id, name: connection.name, provider: connection.provider })}
+    >Add repositories</Button>}
     {connection.kind !== 'agent' && <Button
-      disabled={!!busy || !csrf}
+      disabled={!!busy || !csrf || connection.state === 'revoked'}
+      title={connection.state === 'revoked' ? 'Revoked connections cannot be tested.' : undefined}
       onClick={() => void run('test', () => api.testConnection(orgID, connection.id, connection.version, csrf))}
-    >{busy === 'test' ? 'Testing…' : 'Test capability'}</Button>}
+    >{busy === 'test' ? 'Testing…' : 'Test connection'}</Button>}
     <Button disabled={!!busy || !csrf || connection.state === 'revoked'} onClick={() => setConfirmRevoke(true)}>Revoke</Button>
   </>
 
@@ -324,14 +414,26 @@ function ConnectionDetailTabs({ kind, value, onChange }: { kind: string; value: 
   </nav>
 }
 
+function authLabel(connection: Connection) {
+  const authKind = connection.settings.auth_kind
+  if (authKind === 'token') return 'Personal access token'
+  if (authKind === 'github_app' || authKind === 'github_app_platform') return connection.settings.managed ? 'GitHub App' : 'GitHub App (manual)'
+  if (authKind === 'api_key') return 'API key'
+  if (authKind === 'official_runtime') return 'Official runtime'
+  return authKind || 'Unknown'
+}
+
 function ConnectionOverview({ connection, capabilities }: { connection: Connection; capabilities: Array<[string, Connection['capabilities'][string]]> }) {
+  const forgeLike = connection.kind === 'forge' || connection.kind === 'delivery'
   return <div className="connection-overview">
     <dl className="detail-list">
-      <div><dt>Endpoint</dt><dd>{connection.endpoint}</dd></div>
-      <div><dt>Billing route</dt><dd>{connection.settings.billing_route || 'Unknown'}</dd></div>
-      <div><dt>Model / account</dt><dd>{connection.settings.model || connection.settings.namespace || 'Not set'}</dd></div>
-      <div><dt>Runtime / protocol</dt><dd>{connection.settings.runtime_version || (connection.settings.profile ? modelProfileLabel(connection.provider, connection.settings.profile) : '') || 'Not set'}</dd></div>
-      <div><dt>Last verified</dt><dd>{connection.verified_at ? new Date(connection.verified_at).toLocaleString() : 'Not verified'}</dd></div>
+      <div><dt>Provider</dt><dd>{connectionProviderLabel(connection.provider, connection.settings.profile)}</dd></div>
+      <div><dt>{forgeLike ? 'API address' : 'Endpoint'}</dt><dd>{connection.endpoint}</dd></div>
+      <div><dt>Authentication</dt><dd>{authLabel(connection)}</dd></div>
+      <div><dt>Last checked</dt><dd>{connection.verified_at ? new Date(connection.verified_at).toLocaleString() : 'Not verified'}</dd></div>
+      {!forgeLike && <div><dt>Billing route</dt><dd>{connection.settings.billing_route || 'Unknown'}</dd></div>}
+      {!forgeLike && <div><dt>Model / account</dt><dd>{connection.settings.model || connection.settings.namespace || 'Not set'}</dd></div>}
+      {!forgeLike && <div><dt>Runtime / protocol</dt><dd>{connection.settings.runtime_version || (connection.settings.profile ? modelProfileLabel(connection.provider, connection.settings.profile) : '') || 'Not set'}</dd></div>}
       {connection.reason && <div><dt>Reason</dt><dd>{connection.reason}</dd></div>}
     </dl>
     {!!capabilities.length && <section className="connection-capabilities" aria-label="Capabilities">
@@ -414,10 +516,11 @@ type ConnectionActionsProps = {
 }
 
 function ConnectionActions({ connection, orgID, csrf, busy, secret, onSecretChange, onRotate }: ConnectionActionsProps) {
+  const managed = !!connection.settings.managed
   return <section className="connection-actions">
-    {connection.kind !== 'agent' && <>
+    {connection.kind !== 'agent' && !managed && <>
       <label>Rotate secret<input type="password" autoComplete="new-password" value={secret} onChange={event => onSecretChange(event.target.value)} /></label>
-      <Button disabled={!secret || !!busy || !csrf} onClick={onRotate}>{busy === 'rotate' ? 'Rotating…' : 'Rotate credential'}</Button>
+      <Button disabled={!secret || !!busy || !csrf || connection.state === 'revoked'} onClick={onRotate}>{busy === 'rotate' ? 'Rotating…' : 'Rotate credential'}</Button>
     </>}
     {connection.kind === 'forge' && <WebhookPanel orgID={orgID} connection={connection} csrf={csrf} />}
   </section>
@@ -466,6 +569,13 @@ function WebhookPanel({ orgID, connection, csrf }: { orgID: string; connection: 
     }
   }
 
+  if (connection.settings.managed) {
+    return <fieldset>
+      <legend>Inventory webhook</legend>
+      <a className="button button-sm" href="https://github.com/settings/apps" target="_blank" rel="noreferrer" title="This webhook is managed by the GitHub App installation.">Configure on GitHub</a>
+    </fieldset>
+  }
+
   if (state.isLoading) {
     return <fieldset><legend>Inventory webhook</legend><p className="table-meta">Loading webhook state…</p></fieldset>
   }
@@ -496,45 +606,73 @@ function WebhookPanel({ orgID, connection, csrf }: { orgID: string; connection: 
 
 type ConnectionFormProps = {
   open: boolean
+  tab: ConnectionTab
   orgID: string
   csrf: string
   onClose: () => void
   onCreated: () => void
+  onReady: (connection: ImportConnection, repositoryFilter: string) => void
 }
 
-function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFormProps) {
-  const [kind, setKind] = useState('forge')
+function ConnectionForm({ open, tab, orgID, csrf, onClose, onCreated, onReady }: ConnectionFormProps) {
+  const [modelKind, setModelKind] = useState<'model' | 'agent'>('model')
   const [modelBusy, setModelBusy] = useState(false)
-  const [provider, setProvider] = useState('github')
+  const [forgeBusy, setForgeBusy] = useState(false)
+  const busy = modelBusy || forgeBusy
+
+  useEffect(() => {
+    if (!open) { setModelKind('model'); setModelBusy(false); setForgeBusy(false) }
+  }, [open])
+
+  return <Dialog open={open} title="Add connection" onClose={() => { if (!busy) onClose() }}>
+    <div className="form-stack">
+      {tab === 'models' && <label>Connection type<select value={modelKind} disabled={busy} onChange={event => setModelKind(event.target.value as 'model' | 'agent')}>
+        <option value="model">Model API</option>
+        <option value="agent">Agent runtime</option>
+      </select></label>}
+      {tab === 'models'
+        ? modelKind === 'model'
+          ? open && <ModelConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
+          : open && <AgentConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
+        : open && <ForgeConnectionForm orgID={orgID} csrf={csrf} kind={tab === 'delivery' ? 'delivery' : 'forge'} onClose={onClose} onReady={onReady} onBusyChange={setForgeBusy} />}
+    </div>
+  </Dialog>
+}
+
+type AgentConnectionFormProps = {
+  orgID: string
+  csrf: string
+  onClose: () => void
+  onCreated: () => void
+  onBusyChange?: (busy: boolean) => void
+}
+
+function AgentConnectionForm({ orgID, csrf, onClose, onCreated, onBusyChange }: AgentConnectionFormProps) {
+  const [provider, setProvider] = useState('codex')
   const [name, setName] = useState('')
   const [endpoint, setEndpoint] = useState('')
-  const [namespace, setNamespace] = useState('')
   const [model, setModel] = useState('')
-  const [authKind, setAuthKind] = useState('token')
-  const [billingRoute, setBillingRoute] = useState('forge')
-  const [appID, setAppID] = useState('')
-  const [installationID, setInstallationID] = useState('')
   const [caPEM, setCAPEM] = useState('')
-  const [secret, setSecret] = useState('')
   const [privateRoute, setPrivateRoute] = useState(false)
+  const [poolID, setPoolID] = useState('')
   const [runnerID, setRunnerID] = useState('')
   const [routeHost, setRouteHost] = useState('')
   const [cidrs, setCIDRs] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  const [poolID, setPoolID] = useState('')
+
   const pools = useInfiniteQuery({
-    queryKey: ['org', orgID, 'connection-form-runner-pools'],
+    queryKey: ['org', orgID, 'agent-form-runner-pools'],
     queryFn: ({ pageParam, signal }) => api.getRunnerPools(orgID, { state: 'active', cursor: pageParam, limit: 100, signal }),
     initialPageParam: undefined as string | undefined,
-    enabled: open,
+    enabled: privateRoute,
     getNextPageParam: page => page.complete ? undefined : page.next_cursor,
   })
   const runners = useInfiniteQuery({
-    queryKey: ['org', orgID, 'connection-form-runners', poolID],
+    queryKey: ['org', orgID, 'agent-form-runners', poolID],
     queryFn: ({ pageParam, signal }) => api.getRunners(orgID, poolID, { cursor: pageParam, limit: 100, signal }),
     initialPageParam: undefined as string | undefined,
-    enabled: open && !!poolID,
+    enabled: privateRoute && !!poolID,
     getNextPageParam: page => page.complete ? undefined : page.next_cursor,
   })
   const poolItems = pools.data?.pages.flatMap(page => page.items) ?? []
@@ -542,76 +680,25 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
     .filter(runner => runner.state === 'active' && new Date(runner.credential_expires_at).getTime() > Date.now())
     .map(runner => ({ ...runner, pool_name: poolItems.find(pool => pool.id === poolID)?.name ?? runner.pool_name }))
 
-  useEffect(() => {
-    setSecret('')
-    setAppID('')
-    setInstallationID('')
-    setNamespace('')
-    setPrivateRoute(false)
-    setRunnerID('')
-    setRouteHost('')
-    setCIDRs('')
-    if (kind === 'forge' || kind === 'delivery') {
-      setProvider('github')
-      setAuthKind('token')
-      setBillingRoute('forge')
-      setModel('')
-    }
-    if (kind === 'agent') {
-      setProvider('codex')
-      setAuthKind('official_runtime')
-      setBillingRoute('subscription')
-      setModel('')
-    }
-  }, [kind])
+  useEffect(() => { onBusyChange?.(busy) }, [busy, onBusyChange])
+  useEffect(() => () => { onBusyChange?.(false) }, [onBusyChange])
 
-  useEffect(() => {
-    if (!open) {
-      setSecret('')
-      setError('')
-    }
-  }, [open])
-
-  const handleProviderChange = (value: string) => {
-    setProvider(value)
-    setSecret('')
-    setAppID('')
-    setInstallationID('')
-    if (kind === 'forge' || kind === 'delivery') setAuthKind('token')
-  }
-
-  const handleAuthChange = (value: string) => {
-    setAuthKind(value)
-    setSecret('')
-    setAppID('')
-    setInstallationID('')
-  }
+  const routeIncomplete = privateRoute && (!runnerID || !routeHost.trim() || !cidrs.trim())
+  const canSave = !!csrf && !!name.trim() && !!endpoint.trim() && (provider !== 'custom_command' || !!model.trim()) && !routeIncomplete && !busy
 
   const submit = async (event: FormEvent) => {
     event.preventDefault()
     setBusy(true)
     setError('')
-    const settings = {
-      auth_kind: authKind,
-      billing_route: billingRoute,
-      ...(namespace ? { namespace } : {}),
-      ...(kind === 'agent' && model ? { model } : {}),
-      ...(appID ? { app_id: appID } : {}),
-      ...(installationID ? { installation_id: installationID } : {}),
-      ...(caPEM ? { ca_pem: caPEM } : {}),
-    }
-    const payload: ConnectionCreate = {
-      kind,
-      provider,
-      name,
-      endpoint,
-      settings,
-      ...(secret ? { secret } : {}),
-      ...(privateRoute ? { private_route: { runner_id: runnerID, host: routeHost, cidrs: cidrs.split(',').map(item => item.trim()).filter(Boolean) } } : {}),
-    }
     try {
-      await api.createConnection(orgID, kind, payload, csrf)
-      setSecret('')
+      await api.createConnection(orgID, 'agent', {
+        kind: 'agent',
+        provider,
+        name: name.trim(),
+        endpoint: endpoint.trim(),
+        settings: { auth_kind: 'official_runtime', billing_route: 'subscription', ...(model.trim() ? { model: model.trim() } : {}), ...(caPEM.trim() ? { ca_pem: caPEM } : {}) },
+        ...(privateRoute ? { private_route: { runner_id: runnerID, host: routeHost.trim(), cidrs: cidrs.split(',').map(item => item.trim()).filter(Boolean) } } : {}),
+      }, csrf)
       onCreated()
     } catch (reason) {
       setError(message(reason))
@@ -620,76 +707,36 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
     }
   }
 
-  const forgeKind = kind === 'forge' || kind === 'delivery'
-  const agentKind = kind === 'agent'
-  const secretRequired = !agentKind
-  const githubForge = forgeKind && provider === 'github'
-  const routeIncomplete = privateRoute && (!runnerID || !routeHost || !cidrs.trim())
-  const providerOptions = agentKind ? ['codex', 'claude_code', 'agy', 'gemini_cli', 'custom_command'] : ['github', 'gitlab', 'gitea']
-
-  return <Dialog open={open} title="Add connection" onClose={() => { if (!modelBusy) onClose() }}>
-    <div className="form-stack">
-      <label>Kind<select value={kind} disabled={modelBusy} onChange={event => setKind(event.target.value)}>
-        <option value="forge">Forge</option>
-        <option value="model">Model API</option>
-        <option value="agent">Agent runtime</option>
-        <option value="delivery">Delivery</option>
+  return <form className="form-stack" onSubmit={submit}>
+    <div className="form-grid">
+      <label>Provider<select value={provider} disabled={busy} onChange={event => setProvider(event.target.value)}>
+        {['codex', 'claude_code', 'agy', 'gemini_cli', 'custom_command'].map(option => <option key={option} value={option}>{option}</option>)}
       </select></label>
-      {kind === 'model'
-        ? open && <ModelConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
-        : <form className="form-stack" onSubmit={submit}>
-          <div className="form-grid">
-            <label>Provider<select value={provider} onChange={event => handleProviderChange(event.target.value)}>
-              {providerOptions.map(option => <option key={option} value={option}>{option}</option>)}
-            </select></label>
-            <label className="wide">Name<input required value={name} onChange={event => setName(event.target.value)} /></label>
-            <label className="wide">Endpoint<input required type="url" value={endpoint} onChange={event => setEndpoint(event.target.value)} placeholder="https://…" /></label>
-            {forgeKind && <label>Namespace<input value={namespace} onChange={event => setNamespace(event.target.value)} placeholder="organisation or group" /></label>}
-            {githubForge && <label>Auth<select value={authKind} onChange={event => handleAuthChange(event.target.value)}>
-              <option value="token">Token</option>
-              <option value="github_app">GitHub App</option>
-            </select></label>}
-            {githubForge && authKind === 'github_app' && <>
-              <label>App ID<input required value={appID} onChange={event => setAppID(event.target.value)} /></label>
-              <label>Installation ID<input required value={installationID} onChange={event => setInstallationID(event.target.value)} /></label>
-            </>}
-            {forgeKind && !githubForge && <input type="hidden" value="token" readOnly />}
-            {agentKind && <label>Model ID<input required={provider === 'custom_command'} value={model} onChange={event => setModel(event.target.value)} /></label>}
-            {agentKind && <label>Billing route<select value={billingRoute} onChange={event => setBillingRoute(event.target.value)}><option value="subscription">Subscription</option></select></label>}
-            <label className="wide">CA certificate<input value={caPEM} onChange={event => setCAPEM(event.target.value)} placeholder="Optional PEM CA certificate" /></label>
-            {!agentKind && <label className="wide">Secret<input type="password" autoComplete="new-password" required={secretRequired} value={secret} onChange={event => setSecret(event.target.value)} /></label>}
-            <label className="checkbox-label"><input type="checkbox" checked={privateRoute} onChange={event => setPrivateRoute(event.target.checked)} /> Private route via enrolled runner</label>
-            {privateRoute && <>
-              <label>Runner pool<select aria-label="Runner pool" value={poolID} onChange={event => { setPoolID(event.target.value); setRunnerID('') }}>
-                <option value="">Choose active pool</option>
-                {poolItems.map(pool => <option key={pool.id} value={pool.id}>{pool.name}</option>)}
-              </select></label>
-              <label>Runner<select value={runnerID} onChange={event => setRunnerID(event.target.value)}>
-                <option value="">Choose active runner</option>
-                {runnerOptions.map(runner => <option key={runner.id} value={runner.id}>{runner.name} · {runner.pool_name}</option>)}
-              </select></label>
-              <label>Route host<input value={routeHost} onChange={event => setRouteHost(event.target.value)} /></label>
-              <label className="wide">Approved CIDRs<input value={cidrs} onChange={event => setCIDRs(event.target.value)} placeholder="10.0.0.0/8" /></label>
-              {!!pools.error && <p className="error-text" role="alert">Runner pools unavailable: {message(pools.error)}</p>}
-              {!!runners.error && <p className="error-text" role="alert">Runners unavailable: {message(runners.error)}</p>}
-              {pools.hasNextPage && <Button type="button" disabled={pools.isFetchingNextPage} onClick={() => void pools.fetchNextPage()}>{pools.isFetchingNextPage ? 'Loading pools…' : 'Load more pools'}</Button>}
-              {runners.hasNextPage && <Button type="button" disabled={runners.isFetchingNextPage} onClick={() => void runners.fetchNextPage()}>{runners.isFetchingNextPage ? 'Loading runners…' : 'Load more runners'}</Button>}
-              {!runnerOptions.length && poolID && !runners.isLoading && <p className="table-meta">No active enrolled runners available in selected pool.</p>}
-            </>}
-          </div>
-          {routeIncomplete && <p className="table-meta">Choose an active runner, route host and approved CIDR before saving.</p>}
-          {error && <p className="error-text" role="alert">{error}</p>}
-          <div className="dialog-actions">
-            <Button type="button" onClick={onClose}>Cancel</Button>
-            <Button
-              className="button button-primary"
-              disabled={busy || !csrf || routeIncomplete}
-              title={!csrf ? 'Sign in again to create a connection.' : routeIncomplete ? 'Complete private route fields before saving.' : undefined}
-            >{busy ? 'Saving…' : 'Create connection'}</Button>
-          </div>
-        </form>}
+      <label className="wide">Name<input required value={name} disabled={busy} onChange={event => setName(event.target.value)} /></label>
+      <label className="wide">Endpoint<input required type="url" value={endpoint} disabled={busy} onChange={event => setEndpoint(event.target.value)} placeholder="https://…" /></label>
+      <label>Model ID<input required={provider === 'custom_command'} value={model} disabled={busy} onChange={event => setModel(event.target.value)} /></label>
+      <label className="wide">CA certificate<textarea rows={3} maxLength={65536} value={caPEM} disabled={busy} onChange={event => setCAPEM(event.target.value)} placeholder="Optional PEM CA certificate" /></label>
     </div>
-  </Dialog>
+    <label className="checkbox-label"><input type="checkbox" checked={privateRoute} disabled={busy} onChange={event => setPrivateRoute(event.target.checked)} /> Private route via enrolled runner</label>
+    {privateRoute && <div className="form-grid">
+      <label>Runner pool<select aria-label="Runner pool" value={poolID} disabled={busy} onChange={event => { setPoolID(event.target.value); setRunnerID('') }}>
+        <option value="">Choose pool</option>
+        {poolItems.map(pool => <option key={pool.id} value={pool.id}>{pool.name}</option>)}
+      </select></label>
+      <label>Runner<select aria-label="Runner" value={runnerID} disabled={busy} onChange={event => setRunnerID(event.target.value)}>
+        <option value="">Choose active runner</option>
+        {runnerOptions.map(runner => <option key={runner.id} value={runner.id}>{runner.name} · {runner.pool_name}</option>)}
+      </select></label>
+      <label>Route host<input value={routeHost} disabled={busy} onChange={event => setRouteHost(event.target.value)} /></label>
+      <label className="wide">Approved CIDRs<input value={cidrs} disabled={busy} onChange={event => setCIDRs(event.target.value)} placeholder="10.0.0.0/8" /></label>
+    </div>}
+    {routeIncomplete && <p className="table-meta">Choose an active runner, route host and approved CIDR before saving.</p>}
+    {error && <p className="error-text" role="alert">{error}</p>}
+    <div className="dialog-actions">
+      <Button type="button" disabled={busy} onClick={onClose}>Cancel</Button>
+      <Button type="submit" className="button button-primary" disabled={!canSave}>{busy ? 'Saving…' : 'Create connection'}</Button>
+    </div>
+  </form>
 }
 
 function message(value: unknown) { return value instanceof Error ? value.message : 'The server returned an unknown error.' }

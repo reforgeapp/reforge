@@ -19,7 +19,8 @@ test.describe('connections and runners administration', () => {
     await expect(page.getByRole('heading', { name: 'Connections', exact: true })).toBeVisible()
     await page.getByRole('button', { name: 'Add connection' }).click()
     await expect(page.getByRole('dialog', { name: 'Add connection' })).toBeVisible()
-    await expect(page.getByLabel('Secret')).toHaveAttribute('type', 'password')
+    await page.getByLabel('Authentication').selectOption('token')
+    await expect(page.getByLabel('Personal access token', { exact: true })).toHaveAttribute('type', 'password')
     await expect(page.getByText(/credentials are write-only|capability state comes from the server probe/i)).toHaveCount(0)
     await expect(page.getByRole('button', { name: 'Refresh connections' })).toBeVisible()
   })
@@ -313,7 +314,7 @@ test.describe('connections and runners administration', () => {
         const connectionRow = page.getByRole('row', { name: new RegExp(connectionName) })
         await expect(connectionRow).toBeVisible()
 
-        await connectionRow.getByRole('button', { name: 'Test capability' }).click()
+        await connectionRow.getByRole('button', { name: 'Test connection' }).click()
         try { await expect.poll(async () => connectionRow.innerText(), { timeout: 45_000 }).toContain('healthy') } catch (error) { throw new Error(`${error instanceof Error ? error.message : 'private probe failed'}; connector_exit=${connectorExit ?? 'running'}; connector_stderr=${connectorStderr}`) }
         await expect(connectionRow).toContainText('Version 1')
         await connectionRow.getByRole('button', { name: connectionName }).click()
@@ -392,7 +393,7 @@ test.describe('connections and runners administration', () => {
         await expect(details.getByText('Version').first()).toBeVisible({ timeout: 10_000 })
         await details.getByRole('button', { name: 'Close', exact: true }).click()
         await expect(connectionRow).toContainText('Version 2', { timeout: 10_000 })
-        await connectionRow.getByRole('button', { name: 'Test capability' }).click()
+        await connectionRow.getByRole('button', { name: 'Test connection' }).click()
         await expect.poll(async () => connectionRow.innerText(), { timeout: 45_000 }).toContain('healthy')
         await connectionRow.getByRole('button', { name: 'Revoke' }).click()
         await expect(connectionRow.getByText('revoked')).toBeVisible({ timeout: 10_000 })

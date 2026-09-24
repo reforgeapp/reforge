@@ -24,9 +24,9 @@ async function signIn(page: Page) {
 
 async function openForm(page: Page, org: string) {
   await page.goto(`/org/${org}/connections`)
+  await page.getByRole('button', { name: 'Models & agents' }).click()
   await page.getByRole('button', { name: 'Add connection' }).click()
   const dialog = page.getByRole('dialog', { name: 'Add connection' })
-  await dialog.getByLabel('Kind').selectOption('model')
   await dialog.getByLabel('Provider').selectOption('compatible')
   await dialog.getByText('Advanced', { exact: true }).click()
   await dialog.getByLabel('Profile').selectOption('responses')

@@ -43,13 +43,15 @@
 }
 .connection-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; }
 
+.connections-page .detail-panel > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+.connections-page .detail-panel > header > div:first-child { min-width: 0; }
+.connections-page .detail-panel > header .detail-actions { justify-content: flex-start; }
+
 @media (max-width: 720px) {
-  .connections-page .detail-panel > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-right: 36px; }
-  .connections-page .detail-panel > header > div:first-child { min-width: 0; }
+  .connections-page .detail-panel > header { padding-right: 36px; }
   .connections-page .detail-panel > header h2 { max-width: 100%; overflow-wrap: anywhere; line-height: 1.25; }
   .connections-page .detail-panel > header > div:first-child > p { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
   .connections-page .detail-panel > header .table-meta { min-width: 0; overflow-wrap: anywhere; }
-  .connections-page .detail-panel > header .detail-actions { grid-row: 2; justify-content: flex-start; }
 }
 
 .connections-load-error { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; color: var(--red); }
@@ -59,3 +61,14 @@
 .model-connection-form .model-advanced > summary { padding: 10px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
 .model-connection-form .model-advanced[open] > summary { margin-bottom: 4px; }
 .model-connection-created { min-width: 0; }
+
+.connections-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: var(--radius-sm); background: var(--surface-2); }
+.connections-notice span { min-width: 0; }
+
+.forge-connection-form { min-width: 0; }
+.forge-connection-form .forge-advanced { padding: 0 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.forge-connection-form .forge-advanced > summary { padding: 10px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.forge-connection-form .forge-advanced[open] > summary { margin-bottom: 4px; }
+.forge-connection-form textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+.forge-connection-form .row-actions { margin-top: var(--space-2); }
+.forge-connection-created { min-width: 0; }
