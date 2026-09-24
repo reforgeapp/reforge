@@ -82,6 +82,10 @@ billing fields belong to model connections and are not shown for forges. Advance
 CA and private-runner settings are secondary. A revoked connection disables **Test
 connection** and **Revoke** and shows the reason.
 
+**Edit** changes the name and, for token forges, the namespace; the next sync uses the
+new namespace. **Delete** removes a connection and its stored credential when no
+repository, task or billing route uses it; otherwise revoke it.
+
 ## Development and webhook limitation
 
 Production requires an HTTPS `REFORGE_PUBLIC_URL`. On a loopback development server
