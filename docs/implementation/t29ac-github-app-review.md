@@ -40,3 +40,7 @@ Evidence: `.local/github-app-onboarding/state-final/`, `webhook-binding/`, `conn
 3. Certify manual GitHub Enterprise Server App and real GitLab/Gitea token/import contracts using approved instances and credentials. No new live provider certification was attempted.
 
 Loopback development App setup leaves webhooks inactive. Move to public HTTPS and recreate/reconfigure App before expecting inbound events. Existing revoked connections stay revoked; existing malformed endpoints are not silently rewritten. Credential fixes reuse a valid existing connection, while an invalid original endpoint requires a correctly configured new connection.
+
+## Final actual-data presentation correction
+
+`e4f8ae5` removes healthy metadata prose and collapses capability evidence into compact rows with optional technical help. Failure and pending-webhook warnings remain visible.26 focused browser checks and11 actual-demo checks passed; desktop/narrow screenshots accepted. Final image `reforge-github-app:e4f8ae5` (`sha256:5966bcda982e7d47abf1f1d7c63208a6fca43ddc6242f87d40a5924c3bd75191`) replaces only clean-archive frontend assets over the verified `87c3952` runtime; backend source unchanged. Served assets match image bytes. Restart preserved4connections/18audit entries/sentinel1/migration37. Evidence `.local/github-app-onboarding/demo-copy-final/`.

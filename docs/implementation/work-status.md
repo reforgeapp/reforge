@@ -1,18 +1,18 @@
 # Current work and review status
 
-Updated 2026-09-24. T29ac/T29ad locally complete; demo and documentation serve clean source `87c3952`. Backend `4f4d802`, GUI `87c3952`, connected acceptance `8e6c632`, guide `4f5e41f`. Current default GUI238 passed/29 opt-in skipped; nine GitHub backend-connected cases passed separately. **G5 has not passed.** Historical checks remain attributed to their original revisions in [progress](progress.md).
+Updated 2026-09-24. T29ac/T29ad locally complete. Demo serves GUI `e4f8ae5` on verified backend image `87c3952`; documentation serves `87c3952`. Backend `4f4d802`, GUI `87c3952`, connected acceptance `8e6c632`, guide `4f5e41f`. Current default GUI238 passed/29 opt-in skipped; nine GitHub backend-connected cases passed separately. **G5 has not passed.** Historical checks remain attributed to their original revisions in [progress](progress.md).
 
 ## Current batch
 
 T29ac guided GitHub App setup and T29ad forge onboarding completed under the owner’s narrow quota exception. Other backlog and broad goal remain paused. [Implementation, evidence and external actions](t29ac-github-app-review.md); [contract](t29ac-github-app-contract.md).
 
-Astra reviewed Opus5.5/OpenCode DeepSeek4.1-Flash implementation with at most three workers and exclusive file ownership. Opus exhausted its session window; DeepSeek completed remaining fixes. Completion quota checks remain above20%; latest23%. No workers remain active. No paid Reforge API tests, external deployment or customer repository mutations.
+Astra reviewed Opus5.5/OpenCode DeepSeek4.1-Flash implementation with at most three workers and exclusive file ownership. Opus exhausted its session window; DeepSeek completed remaining fixes. Completion quota checks remain above20%; latest23%. All work jobs stopped after accepted reports; latest quota21%. Final dense-data presentation passed26 focused browser tests and11 actual-demo checks. No paid Reforge API tests, external deployment or customer repository mutations.
 
-Current source: provider-specific token/manual App/guided GitHub setup, inline credential repair without duplicate connections, selected repository import, restart recovery, scoped webhook isolation/rotation. Real local server and restricted PostgreSQL acceptance passed; live provider certification remains outstanding. Final CSS adjustment passed typecheck/build and six capture checks after the full default suite.
+Current source: provider-specific token/manual App/guided GitHub setup, inline credential repair without duplicate connections, selected repository import, restart recovery, scoped webhook isolation/rotation. Real local server and restricted PostgreSQL acceptance passed; live provider certification remains outstanding. Final presentation correction hides healthy boilerplate and collapses capability evidence; failure and pending-webhook warnings remain visible. Typecheck/build,26 focused tests and11 actual-demo checks passed after the full default suite. Final evidence `.local/github-app-onboarding/demo-copy-final/`.
 
 T29ab model onboarding remains locally complete at its recorded backend `f678a2a`, GUI `e43569b`, guide `0c3e0b2`;209 default GUI checks/20 opt-in skips,16 focused and four connected checks were its historical evidence. Current updated Connections tests retain model/agent/delivery coverage.
 
-Demo: http://127.0.0.1:8084. Clean control/docs images `reforge-github-app:87c3952` and `reforge-github-app-docs:87c3952`; migration037, backup, restart, asset byte matching and read-only browser smoke passed. All four existing connections and audit sentinel preserved. Backup/evidence `.local/github-app-onboarding/demo-final/`. Updated [connection guide](http://127.0.0.1:8082/docs/connections/). Launcher: `sh .local/opus-resume/demo/start.sh`. [T29ab implementation, evidence and remaining certification](t29ab-model-onboarding-review.md).
+Demo: http://127.0.0.1:8084. Clean control/docs images `reforge-github-app:e4f8ae5` and `reforge-github-app-docs:87c3952`; migration037, backup, restart, asset byte matching and read-only browser smoke passed. All four existing connections and audit sentinel preserved. Backup/evidence `.local/github-app-onboarding/demo-final/`. Updated [connection guide](http://127.0.0.1:8082/docs/connections/). Launcher: `sh .local/opus-resume/demo/start.sh`. [T29ab implementation, evidence and remaining certification](t29ab-model-onboarding-review.md).
 
 | Work | Status / evidence |
 | --- | --- |

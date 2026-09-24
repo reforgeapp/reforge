@@ -8,7 +8,7 @@
 
 ### T29ad — Human forge connection and repository import flow
 
-- Status: **locally complete, 2026-09-24**; GUI `87c3952`, backend-connected9/9, default GUI238/29 opt-in skips, final layout6/6 captures; clean demo refreshed with existing data preserved. [Review](t29ac-github-app-review.md).
+- Status: **locally complete, 2026-09-24**; GUI `e4f8ae5`, backend-connected9/9, default GUI238/29 opt-in skips, final layout6/6 captures plus26 focused dense-detail checks and11 actual-demo checks; clean demo refreshed with existing data preserved. [Review](t29ac-github-app-review.md).
 - Build/accept: [shared contract](t29ac-github-app-contract.md): provider→credentials→test→select repositories→persisted import; correct API defaults, prevent repo URL as endpoint, safe retry/reload, cohesive forge detail, minimal copy. Preserve model/agent/delivery. Browser desktop/mobile/light/dark and connected local provider fixture.
 - Owner: OpenCode frontend/acceptance, Opus backend validation, Astra review.
 
