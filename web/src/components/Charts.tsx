@@ -29,7 +29,7 @@ function scale(max: number, integer: boolean) {
 
 const column = (x: number, y: number, w: number, h: number, r: number) => { const k = Math.min(r, h, w / 2); return `M${x},${y + h}V${y + k}Q${x},${y} ${x + k},${y}H${x + w - k}Q${x + w},${y} ${x + w},${y + k}V${y + h}Z` }
 
-export function TrendChart({ label, points, series, format = plain, axisFormat = format, integer = false, stacked = false, height = 220 }: { label: string; points: ChartPoint[]; series: ChartSeries[]; format?: (value: number) => string; axisFormat?: (value: number) => string; integer?: boolean; stacked?: boolean; height?: number }) {
+export function TrendChart({ label, points, series, format = plain, axisFormat = format, integer = false, stacked = false, height = 220, empty }: { label: string; empty: string; points: ChartPoint[]; series: ChartSeries[]; format?: (value: number) => string; axisFormat?: (value: number) => string; integer?: boolean; stacked?: boolean; height?: number }) {
   const [ref, width] = useWidth()
   const [active, setActive] = useState<number | null>(null)
   const pad = { top: 10, right: 12, bottom: 26, left: 52 }
@@ -57,6 +57,7 @@ export function TrendChart({ label, points, series, format = plain, axisFormat =
     if (event.key === 'End') { event.preventDefault(); setActive(last) }
     if (event.key === 'Escape') setActive(null)
   }
+  if (!points.some(point => point.values.some(value => value > 0))) return <p className="chart-empty">{empty}</p>
   const tip = active === null ? undefined : points[active]
   const tipLeft = active === null ? 0 : x(active)
   return <figure className="chart">

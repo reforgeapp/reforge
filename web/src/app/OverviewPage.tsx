@@ -56,7 +56,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
     <div className="panel-grid">
       <section className="panel" aria-labelledby="overview-activity-title">
         <div className="panel-head"><h2 id="overview-activity-title">Activity · 14 days</h2></div>
-        {trend.length ? <TrendChart label="Activity over the last 14 days" integer stacked series={activitySeries} points={trend.map(day => ({ label: utc(day.day, { month: 'short', day: 'numeric' }), detail: utc(day.day, { weekday: 'short', month: 'short', day: 'numeric' }), values: [day.findings, day.runs, day.merges, day.deployments] }))} /> : <p className="chart-empty">No activity recorded.</p>}
+        <TrendChart label="Activity over the last 14 days" empty="No activity in the last 14 days." integer stacked series={activitySeries} points={trend.map(day => ({ label: utc(day.day, { month: 'short', day: 'numeric' }), detail: utc(day.day, { weekday: 'short', month: 'short', day: 'numeric' }), values: [day.findings, day.runs, day.merges, day.deployments] }))} />
       </section>
       <section className="panel" aria-labelledby="overview-severity-title">
         <div className="panel-head"><h2 id="overview-severity-title">Open findings</h2><a className="link-button" href={`/org/${encodeURIComponent(orgID)}/findings`}>View all</a></div>
