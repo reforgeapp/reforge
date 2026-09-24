@@ -10,13 +10,15 @@
   max-width: 100%;
   min-height: 42px;
   padding: 7px 12px 7px 9px;
+  border: 1px solid var(--amber-border);
   border-left: 3px solid var(--amber);
+  border-radius: var(--radius);
   color: var(--text);
   background: var(--amber-soft);
 }
 
 .overview-sync-link:hover {
-  background: var(--surface-3);
+  border-color: var(--amber);
 }
 
 .overview-sync-mark {
