@@ -12,10 +12,11 @@ import { StatusBadge } from '../components/Status'
 import { SplitView, DetailPanel } from '../components/Workspace'
 import { CustomProfilesPanel } from './CustomProfilesPanel'
 import { AgentQualificationPanel } from './AgentQualificationPanel'
+import { ModelConnectionForm } from './ModelConnectionForm'
+import { connectionProviderLabel, connectionStateStatus, modelProfileLabel } from '../model-providers'
 import { Icon } from '../components/Icons'
 import '../styles/connections.css'
 
-const profileOptions = ['openai:responses', 'anthropic:messages', 'google:gemini', 'compatible:chat_completions', 'compatible:ollama', 'compatible:vllm', 'compatible:responses']
 const tabs = [
   { id: 'forge', label: 'Forges', kinds: ['forge'] },
   { id: 'models', label: 'Models & agents', kinds: ['model', 'agent'] },
@@ -177,12 +178,12 @@ function ConnectionList(props: ConnectionListProps) {
 }
 
 function ConnectionRow({ connection, onSelect }: { connection: Connection; onSelect: (id: string) => void }) {
-  const tone = connection.state === 'healthy' ? 'green' : connection.state === 'revoked' ? 'red' : 'amber'
+  const status = connectionStateStatus(connection.provider, connection.settings.profile, connection.state)
 
   return <tr>
     <td><button className="link-button" onClick={() => onSelect(connection.id)}>{connection.name}</button></td>
-    <td className="connection-provider">{connection.provider}</td>
-    <td><StatusBadge label={connection.state} tone={tone} /></td>
+    <td className="connection-provider">{connectionProviderLabel(connection.provider, connection.settings.profile)}</td>
+    <td><span title={status.title}><StatusBadge label={status.label} tone={status.tone} /></span></td>
     <td>Version {connection.credential_version}</td>
     <td><Button className="button button-sm" onClick={() => onSelect(connection.id)}>Open</Button></td>
   </tr>
@@ -263,10 +264,10 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh }: ConnectionDe
 
   const connection = result.data
   const capabilities = Object.entries(connection.capabilities)
-  const statusTone = connection.state === 'healthy' ? 'green' : connection.state === 'revoked' ? 'red' : 'amber'
+  const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state)
   const status = <p>
-    <StatusBadge label={connection.state} tone={statusTone} />
-    <span className="table-meta">{connection.kind}/{connection.provider} · version {connection.version}</span>
+    <span title={connectionStatus.title}><StatusBadge label={connectionStatus.label} tone={connectionStatus.tone} /></span>
+    <span className="table-meta">{connection.kind}/{connectionProviderLabel(connection.provider, connection.settings.profile)} · version {connection.version}</span>
   </p>
   const actions = <>
     {connection.kind !== 'agent' && <Button
@@ -329,7 +330,7 @@ function ConnectionOverview({ connection, capabilities }: { connection: Connecti
       <div><dt>Endpoint</dt><dd>{connection.endpoint}</dd></div>
       <div><dt>Billing route</dt><dd>{connection.settings.billing_route || 'Unknown'}</dd></div>
       <div><dt>Model / account</dt><dd>{connection.settings.model || connection.settings.namespace || 'Not set'}</dd></div>
-      <div><dt>Runtime / protocol</dt><dd>{connection.settings.runtime_version || connection.settings.profile || 'Not set'}</dd></div>
+      <div><dt>Runtime / protocol</dt><dd>{connection.settings.runtime_version || (connection.settings.profile ? modelProfileLabel(connection.provider, connection.settings.profile) : '') || 'Not set'}</dd></div>
       <div><dt>Last verified</dt><dd>{connection.verified_at ? new Date(connection.verified_at).toLocaleString() : 'Not verified'}</dd></div>
       {connection.reason && <div><dt>Reason</dt><dd>{connection.reason}</dd></div>}
     </dl>
@@ -503,11 +504,11 @@ type ConnectionFormProps = {
 
 function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFormProps) {
   const [kind, setKind] = useState('forge')
+  const [modelBusy, setModelBusy] = useState(false)
   const [provider, setProvider] = useState('github')
   const [name, setName] = useState('')
   const [endpoint, setEndpoint] = useState('')
   const [namespace, setNamespace] = useState('')
-  const [profile, setProfile] = useState('responses')
   const [model, setModel] = useState('')
   const [authKind, setAuthKind] = useState('token')
   const [billingRoute, setBillingRoute] = useState('forge')
@@ -554,20 +555,12 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
       setProvider('github')
       setAuthKind('token')
       setBillingRoute('forge')
-      setProfile('')
       setModel('')
-    }
-    if (kind === 'model') {
-      setProvider('openai')
-      setAuthKind('api_key')
-      setBillingRoute('direct_api')
-      setProfile('responses')
     }
     if (kind === 'agent') {
       setProvider('codex')
       setAuthKind('official_runtime')
       setBillingRoute('subscription')
-      setProfile('')
       setModel('')
     }
   }, [kind])
@@ -580,16 +573,11 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
   }, [open])
 
   const handleProviderChange = (value: string) => {
-    const [nextProvider, nextProfile] = value.split(':')
-    setProvider(nextProvider)
+    setProvider(value)
     setSecret('')
     setAppID('')
     setInstallationID('')
-    if (nextProfile) setProfile(nextProfile)
-    else if (kind === 'forge' || kind === 'delivery') {
-      setAuthKind('token')
-      setProfile('')
-    }
+    if (kind === 'forge' || kind === 'delivery') setAuthKind('token')
   }
 
   const handleAuthChange = (value: string) => {
@@ -607,8 +595,7 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
       auth_kind: authKind,
       billing_route: billingRoute,
       ...(namespace ? { namespace } : {}),
-      ...((kind === 'model' || kind === 'agent') && model ? { model } : {}),
-      ...(kind === 'model' && profile ? { profile } : {}),
+      ...(kind === 'agent' && model ? { model } : {}),
       ...(appID ? { app_id: appID } : {}),
       ...(installationID ? { installation_id: installationID } : {}),
       ...(caPEM ? { ca_pem: caPEM } : {}),
@@ -635,77 +622,73 @@ function ConnectionForm({ open, orgID, csrf, onClose, onCreated }: ConnectionFor
 
   const forgeKind = kind === 'forge' || kind === 'delivery'
   const agentKind = kind === 'agent'
-  const secretRequired = !agentKind && !(kind === 'model' && provider === 'compatible')
+  const secretRequired = !agentKind
   const githubForge = forgeKind && provider === 'github'
   const routeIncomplete = privateRoute && (!runnerID || !routeHost || !cidrs.trim())
-  const providerOptions = kind === 'model'
-    ? profileOptions
-    : forgeKind
-      ? ['github', 'gitlab', 'gitea']
-      : agentKind
-        ? ['codex', 'claude_code', 'agy', 'gemini_cli', 'custom_command']
-        : ['github', 'gitlab', 'gitea']
+  const providerOptions = agentKind ? ['codex', 'claude_code', 'agy', 'gemini_cli', 'custom_command'] : ['github', 'gitlab', 'gitea']
 
-  return <Dialog open={open} title="Add connection" onClose={onClose}>
-    <form className="form-stack" onSubmit={submit}>
-      <div className="form-grid">
-        <label>Kind<select value={kind} onChange={event => setKind(event.target.value)}>
-          <option value="forge">Forge</option>
-          <option value="model">Model</option>
-          <option value="agent">Agent</option>
-          <option value="delivery">Delivery</option>
-        </select></label>
-        <label>Provider<select value={kind === 'model' ? `${provider}:${profile}` : provider} onChange={event => handleProviderChange(event.target.value)}>
-          {providerOptions.map(option => <option key={option} value={option}>{option}</option>)}
-        </select></label>
-        <label className="wide">Name<input required value={name} onChange={event => setName(event.target.value)} /></label>
-        <label className="wide">Endpoint<input required type="url" value={endpoint} onChange={event => setEndpoint(event.target.value)} placeholder="https://…" /></label>
-        {forgeKind && <label>Namespace<input value={namespace} onChange={event => setNamespace(event.target.value)} placeholder="organisation or group" /></label>}
-        {githubForge && <label>Auth<select value={authKind} onChange={event => handleAuthChange(event.target.value)}>
-          <option value="token">Token</option>
-          <option value="github_app">GitHub App</option>
-        </select></label>}
-        {githubForge && authKind === 'github_app' && <>
-          <label>App ID<input required value={appID} onChange={event => setAppID(event.target.value)} /></label>
-          <label>Installation ID<input required value={installationID} onChange={event => setInstallationID(event.target.value)} /></label>
-        </>}
-        {forgeKind && !githubForge && <input type="hidden" value="token" readOnly />}
-        {(kind === 'model' || agentKind) && <label>Model ID<input required={!agentKind || provider === 'custom_command'} value={model} onChange={event => setModel(event.target.value)} /></label>}
-        {kind === 'model' && <label>Auth<select value={authKind} onChange={event => setAuthKind(event.target.value)}><option value="api_key">API key</option></select></label>}
-        {kind === 'model' && <label>Billing route<select value={billingRoute} onChange={event => setBillingRoute(event.target.value)}><option value="direct_api">Direct API</option></select></label>}
-        {agentKind && <label>Billing route<select value={billingRoute} onChange={event => setBillingRoute(event.target.value)}><option value="subscription">Subscription</option></select></label>}
-        <label className="wide">CA certificate<input value={caPEM} onChange={event => setCAPEM(event.target.value)} placeholder="Optional PEM CA certificate" /></label>
-        {!agentKind && <label className="wide">Secret<input type="password" autoComplete="new-password" required={secretRequired} value={secret} onChange={event => setSecret(event.target.value)} /></label>}
-        <label className="checkbox-label"><input type="checkbox" checked={privateRoute} onChange={event => setPrivateRoute(event.target.checked)} /> Private route via enrolled runner</label>
-        {privateRoute && <>
-          <label>Runner pool<select aria-label="Runner pool" value={poolID} onChange={event => { setPoolID(event.target.value); setRunnerID('') }}>
-            <option value="">Choose active pool</option>
-            {poolItems.map(pool => <option key={pool.id} value={pool.id}>{pool.name}</option>)}
-          </select></label>
-          <label>Runner<select value={runnerID} onChange={event => setRunnerID(event.target.value)}>
-            <option value="">Choose active runner</option>
-            {runnerOptions.map(runner => <option key={runner.id} value={runner.id}>{runner.name} · {runner.pool_name}</option>)}
-          </select></label>
-          <label>Route host<input value={routeHost} onChange={event => setRouteHost(event.target.value)} /></label>
-          <label className="wide">Approved CIDRs<input value={cidrs} onChange={event => setCIDRs(event.target.value)} placeholder="10.0.0.0/8" /></label>
-          {!!pools.error && <p className="error-text" role="alert">Runner pools unavailable: {message(pools.error)}</p>}
-          {!!runners.error && <p className="error-text" role="alert">Runners unavailable: {message(runners.error)}</p>}
-          {pools.hasNextPage && <Button type="button" disabled={pools.isFetchingNextPage} onClick={() => void pools.fetchNextPage()}>{pools.isFetchingNextPage ? 'Loading pools…' : 'Load more pools'}</Button>}
-          {runners.hasNextPage && <Button type="button" disabled={runners.isFetchingNextPage} onClick={() => void runners.fetchNextPage()}>{runners.isFetchingNextPage ? 'Loading runners…' : 'Load more runners'}</Button>}
-          {!runnerOptions.length && poolID && !runners.isLoading && <p className="table-meta">No active enrolled runners available in selected pool.</p>}
-        </>}
-      </div>
-      {routeIncomplete && <p className="table-meta">Choose an active runner, route host and approved CIDR before saving.</p>}
-      {error && <p className="error-text" role="alert">{error}</p>}
-      <div className="dialog-actions">
-        <Button type="button" onClick={onClose}>Cancel</Button>
-        <Button
-          className="button button-primary"
-          disabled={busy || !csrf || routeIncomplete}
-          title={!csrf ? 'Sign in again to create a connection.' : routeIncomplete ? 'Complete private route fields before saving.' : undefined}
-        >{busy ? 'Saving…' : 'Create connection'}</Button>
-      </div>
-    </form>
+  return <Dialog open={open} title="Add connection" onClose={() => { if (!modelBusy) onClose() }}>
+    <div className="form-stack">
+      <label>Kind<select value={kind} disabled={modelBusy} onChange={event => setKind(event.target.value)}>
+        <option value="forge">Forge</option>
+        <option value="model">Model API</option>
+        <option value="agent">Agent runtime</option>
+        <option value="delivery">Delivery</option>
+      </select></label>
+      {kind === 'model'
+        ? open && <ModelConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
+        : <form className="form-stack" onSubmit={submit}>
+          <div className="form-grid">
+            <label>Provider<select value={provider} onChange={event => handleProviderChange(event.target.value)}>
+              {providerOptions.map(option => <option key={option} value={option}>{option}</option>)}
+            </select></label>
+            <label className="wide">Name<input required value={name} onChange={event => setName(event.target.value)} /></label>
+            <label className="wide">Endpoint<input required type="url" value={endpoint} onChange={event => setEndpoint(event.target.value)} placeholder="https://…" /></label>
+            {forgeKind && <label>Namespace<input value={namespace} onChange={event => setNamespace(event.target.value)} placeholder="organisation or group" /></label>}
+            {githubForge && <label>Auth<select value={authKind} onChange={event => handleAuthChange(event.target.value)}>
+              <option value="token">Token</option>
+              <option value="github_app">GitHub App</option>
+            </select></label>}
+            {githubForge && authKind === 'github_app' && <>
+              <label>App ID<input required value={appID} onChange={event => setAppID(event.target.value)} /></label>
+              <label>Installation ID<input required value={installationID} onChange={event => setInstallationID(event.target.value)} /></label>
+            </>}
+            {forgeKind && !githubForge && <input type="hidden" value="token" readOnly />}
+            {agentKind && <label>Model ID<input required={provider === 'custom_command'} value={model} onChange={event => setModel(event.target.value)} /></label>}
+            {agentKind && <label>Billing route<select value={billingRoute} onChange={event => setBillingRoute(event.target.value)}><option value="subscription">Subscription</option></select></label>}
+            <label className="wide">CA certificate<input value={caPEM} onChange={event => setCAPEM(event.target.value)} placeholder="Optional PEM CA certificate" /></label>
+            {!agentKind && <label className="wide">Secret<input type="password" autoComplete="new-password" required={secretRequired} value={secret} onChange={event => setSecret(event.target.value)} /></label>}
+            <label className="checkbox-label"><input type="checkbox" checked={privateRoute} onChange={event => setPrivateRoute(event.target.checked)} /> Private route via enrolled runner</label>
+            {privateRoute && <>
+              <label>Runner pool<select aria-label="Runner pool" value={poolID} onChange={event => { setPoolID(event.target.value); setRunnerID('') }}>
+                <option value="">Choose active pool</option>
+                {poolItems.map(pool => <option key={pool.id} value={pool.id}>{pool.name}</option>)}
+              </select></label>
+              <label>Runner<select value={runnerID} onChange={event => setRunnerID(event.target.value)}>
+                <option value="">Choose active runner</option>
+                {runnerOptions.map(runner => <option key={runner.id} value={runner.id}>{runner.name} · {runner.pool_name}</option>)}
+              </select></label>
+              <label>Route host<input value={routeHost} onChange={event => setRouteHost(event.target.value)} /></label>
+              <label className="wide">Approved CIDRs<input value={cidrs} onChange={event => setCIDRs(event.target.value)} placeholder="10.0.0.0/8" /></label>
+              {!!pools.error && <p className="error-text" role="alert">Runner pools unavailable: {message(pools.error)}</p>}
+              {!!runners.error && <p className="error-text" role="alert">Runners unavailable: {message(runners.error)}</p>}
+              {pools.hasNextPage && <Button type="button" disabled={pools.isFetchingNextPage} onClick={() => void pools.fetchNextPage()}>{pools.isFetchingNextPage ? 'Loading pools…' : 'Load more pools'}</Button>}
+              {runners.hasNextPage && <Button type="button" disabled={runners.isFetchingNextPage} onClick={() => void runners.fetchNextPage()}>{runners.isFetchingNextPage ? 'Loading runners…' : 'Load more runners'}</Button>}
+              {!runnerOptions.length && poolID && !runners.isLoading && <p className="table-meta">No active enrolled runners available in selected pool.</p>}
+            </>}
+          </div>
+          {routeIncomplete && <p className="table-meta">Choose an active runner, route host and approved CIDR before saving.</p>}
+          {error && <p className="error-text" role="alert">{error}</p>}
+          <div className="dialog-actions">
+            <Button type="button" onClick={onClose}>Cancel</Button>
+            <Button
+              className="button button-primary"
+              disabled={busy || !csrf || routeIncomplete}
+              title={!csrf ? 'Sign in again to create a connection.' : routeIncomplete ? 'Complete private route fields before saving.' : undefined}
+            >{busy ? 'Saving…' : 'Create connection'}</Button>
+          </div>
+        </form>}
+    </div>
   </Dialog>
 }
 

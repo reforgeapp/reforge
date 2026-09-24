@@ -53,3 +53,9 @@
 }
 
 .connections-load-error { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0 0 10px; color: var(--red); }
+
+.model-connection-form { min-width: 0; }
+.model-connection-form .model-advanced { padding: 0 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.model-connection-form .model-advanced > summary { padding: 10px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
+.model-connection-form .model-advanced[open] > summary { margin-bottom: 4px; }
+.model-connection-created { min-width: 0; }
