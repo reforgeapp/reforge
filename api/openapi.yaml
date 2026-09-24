@@ -18992,7 +18992,6 @@
           "day",
           "micro_usd",
           "tokens",
-          "requests",
           "records"
         ],
         "properties": {
@@ -19004,10 +19003,6 @@
             "format": "int64"
           },
           "tokens": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "requests": {
             "type": "integer",
             "format": "int64"
           },

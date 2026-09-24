@@ -2791,7 +2791,6 @@ type UsageDay struct {
 	Day      string `json:"day"`
 	MicroUsd int64  `json:"micro_usd"`
 	Records  int64  `json:"records"`
-	Requests int64  `json:"requests"`
 	Tokens   int64  `json:"tokens"`
 }
 type UsageEntry struct {

@@ -4550,8 +4550,6 @@ export interface components {
 
             tokens: number;
 
-            requests: number;
-
             records: number;
         };
         UsageProvider: {

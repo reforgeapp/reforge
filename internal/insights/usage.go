@@ -80,7 +80,6 @@ type UsageDay struct {
 	Day      string `json:"day"`
 	MicroUSD int64  `json:"micro_usd"`
 	Tokens   int64  `json:"tokens"`
-	Requests int64  `json:"requests"`
 	Records  int64  `json:"records"`
 }
 type UsageProvider struct {
@@ -116,14 +115,14 @@ func (s *Service) UsageSeries(ctx context.Context, session auth.Session, org str
 			return e
 		}
 		settled := `FILTER(WHERE r.state='settled'),0)`
-		rows, e := tx.Query(ctx, `WITH u AS (SELECT date_trunc('day',r.created_at AT TIME ZONE 'UTC') AS day,COALESCE(sum((r.record->'actual'->>'micro_usd')::bigint) `+settled+` AS micro_usd,COALESCE(sum((r.record->'actual'->>'tokens')::bigint) `+settled+` AS tokens,COALESCE(sum((r.record->'actual'->>'requests')::bigint) `+settled+` AS requests,count(*) AS records`+usageFrom+` GROUP BY 1)
-			SELECT to_char(d,'YYYY-MM-DD'),COALESCE(u.micro_usd,0),COALESCE(u.tokens,0),COALESCE(u.requests,0),COALESCE(u.records,0) FROM generate_series(date_trunc('day',$10::timestamptz AT TIME ZONE 'UTC'),date_trunc('day',($11::timestamptz - interval '1 microsecond') AT TIME ZONE 'UTC'),interval '1 day') d LEFT JOIN u ON u.day=d ORDER BY d`, usageArgs(org, a, f)...)
+		rows, e := tx.Query(ctx, `WITH u AS (SELECT date_trunc('day',r.created_at AT TIME ZONE 'UTC') AS day,COALESCE(sum((r.record->'actual'->>'micro_usd')::bigint) `+settled+` AS micro_usd,COALESCE(sum((r.record->'actual'->>'tokens')::bigint) `+settled+` AS tokens,count(*) AS records`+usageFrom+` GROUP BY 1)
+			SELECT to_char(d,'YYYY-MM-DD'),COALESCE(u.micro_usd,0),COALESCE(u.tokens,0),COALESCE(u.records,0) FROM generate_series(date_trunc('day',$10::timestamptz AT TIME ZONE 'UTC'),date_trunc('day',($11::timestamptz - interval '1 microsecond') AT TIME ZONE 'UTC'),interval '1 day') d LEFT JOIN u ON u.day=d ORDER BY d`, usageArgs(org, a, f)...)
 		if e != nil {
 			return e
 		}
 		for rows.Next() {
 			var item UsageDay
-			if e = rows.Scan(&item.Day, &item.MicroUSD, &item.Tokens, &item.Requests, &item.Records); e != nil {
+			if e = rows.Scan(&item.Day, &item.MicroUSD, &item.Tokens, &item.Records); e != nil {
 				rows.Close()
 				return e
 			}
