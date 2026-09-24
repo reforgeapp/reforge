@@ -51,6 +51,7 @@ nav:
       - Backup and restore: backup-restore.md
       - Troubleshooting: troubleshooting.md
   - User guide:
+      - Overview: overview.md
       - Repositories: repositories.md
       - Findings: findings.md
       - Runs and repair: repair.md

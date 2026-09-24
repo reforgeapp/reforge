@@ -1,0 +1,33 @@
+# Overview
+
+The **Overview** route summarises the organisation within the viewer's repository scope.
+Every count links to its filtered list.
+
+## Counts
+
+| Tile | Counts |
+| --- | --- |
+| Needs decision | Open findings |
+| Running | Active tasks, merge operations and deployments |
+| Ready for review | Published repair runs |
+| Blocked | Blocked tasks, merge operations and deployments |
+| Verified deployments | Deployments currently healthy |
+
+Stale repositories (never synced, or not synced for 24 hours) are shown separately.
+
+## Activity
+
+Stacked daily columns for the last 14 UTC days:
+
+| Series | Counted on |
+| --- | --- |
+| Findings | Day the finding was first seen |
+| Runs | Day the repair run started |
+| Merged | Day the merge operation reached `merged` |
+| Healthy deployments | Day the deployment first reported healthy |
+
+Hover or focus the chart and use the arrow keys to read a single day.
+
+## Open findings
+
+Open findings grouped by severity, highest first.

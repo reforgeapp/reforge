@@ -1,6 +1,6 @@
 # Reforge GUI specification
 
-Updated: 2026-09-23. T29 rebuild authority; prior prototype direction is superseded.
+Updated: 2026-09-25. T29 rebuild authority; prior prototype direction is superseded.
 
 ## Rebuild authority
 
@@ -10,11 +10,11 @@ Apply [product-rebuild](../implementation/product-rebuild.md) across every route
 
 One application vocabulary and one connected journey: repository → finding → task → change → deployment. The operator can explain what happened without reading an agent transcript or visiting five dashboards. Native forge links remain available for reviews and controls that belong there.
 
-Use a restrained desktop web interface: light slate navigation, white workspace, blue primary action, amber blocked/pending, red failure and green verified outcomes. Status always includes text/icon, never colour alone. Dense flat inventory surfaces; 14 px body text; consistent 8 px spacing; visible keyboard focus. No animated agent avatars, decorative fake activity, or opaque health scores.
+Use a restrained desktop web interface: white navigation with pill active states, tinted page background with white rounded card surfaces (12 px) and 8 px control radii, blue primary action, amber blocked/pending, red failure and green verified outcomes. Status always includes text/icon, never colour alone. Dense flat inventory surfaces; 14 px body text; consistent 8 px spacing; visible keyboard focus. No animated agent avatars, decorative fake activity, or opaque health scores.
 
 React/TypeScript with accessible headless primitives and shared tokens. Responsive layout: desktop table+detail drawer; smaller widths show list rows and a full-screen detail view. Target WCAG 2.2 AA; keyboard navigation, labels, live-region announcements and reduced motion.
 
-Group related content with spacing and dividers, without nested card frames. Reserve visible boundaries for editable controls, overlays and status notices. Shared controls use consistent heights and restrained corners; compound controls have one focus boundary, with a distinct focused action. Review open, focused, disabled and error states in both themes, not only resting screens. Repository search names its scope, submits through Enter or its search action, and keeps enough input space on narrow screens through a separate header row. Browser form history is not application search results.
+Top-level work surfaces (tables, filter panels, charts, detail panes, KPI tiles) sit on single card frames; never nest a card inside a card. Reserve visible boundaries for editable controls, overlays and status notices. Shared controls use consistent heights and restrained corners; compound controls have one focus boundary, with a distinct focused action. Review open, focused, disabled and error states in both themes, not only resting screens. Repository search names its scope, submits through Enter or its search action, and keeps enough input space on narrow screens through a separate header row. Browser form history is not application search results.
 
 ## Structural work surfaces
 
@@ -51,6 +51,8 @@ Main content:
 4. Capacity/spend strip: queued jobs, busy/available workers, period budget consumed/reserved, subscription quota if known.
 
 No default token-speed chart, endless feed or log wall. Operators see the next decision first.
+
+Charts: 14-day stacked daily activity (findings first seen, runs started, merges completed, deployments first healthy) and open findings by severity. Usage: headline tiles, daily cost/tokens/records, provider split, reservation-state bar and saved-cap meters, all following ledger filters. Charts are dependency-free SVG with legends, keyboard stepping, hover tooltips and screen-reader tables; categorical series use the validated `--chart-1..4` tokens.
 
 ### Repositories — `/repositories`
 

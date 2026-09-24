@@ -3,7 +3,7 @@ import { Dialog } from './Accessible'
 import { Icon } from './Icons'
 
 const topics: Record<string, { summary: string; links: Array<{ label: string; path: string }> }> = {
-  overview: { summary: 'Portfolio counts and the attention queue. Counts open their filtered list.', links: [{ label: 'Triage findings', path: 'findings/' }, { label: 'Runners and capacity', path: 'runners/' }] },
+  overview: { summary: 'Portfolio counts, activity and the attention queue. Counts open their filtered list.', links: [{ label: 'Overview', path: 'overview/' }, { label: 'Triage findings', path: 'findings/' }, { label: 'Runners and capacity', path: 'runners/' }] },
   repositories: { summary: 'Import and scope repositories from each forge.', links: [{ label: 'Connect a forge', path: 'connections/' }, { label: 'Private runner routes', path: 'runners/' }] },
   findings: { summary: 'Evidence-backed issues and repair options.', links: [{ label: 'Repair lifecycle', path: 'repair/' }, { label: 'Budgets', path: 'usage/' }] },
   runs: { summary: 'Bounded repair runs, stage evidence and cancellation.', links: [{ label: 'Validation recipes', path: 'repair/' }, { label: 'Model routes', path: 'models/' }] },
