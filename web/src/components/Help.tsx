@@ -27,7 +27,7 @@ export function HelpLink({ route }: { route: string }) {
     <Dialog open={open} title={`Help · ${route}`} onClose={() => setOpen(false)}>
       <p>{topic.summary}</p>
       <ul className="compact-list">{topic.links.map(link => <li key={link.path}><a href={`${root}${link.path}`} target="_blank" rel="noreferrer">{link.label}</a></li>)}</ul>
-      <p className="table-meta">Documentation opens in a new tab. Operator installation and provider-native approval steps live in the operator runbook.</p>
+      <p className="table-meta">Documentation opens in a new tab.</p>
     </Dialog>
   </>
 }
