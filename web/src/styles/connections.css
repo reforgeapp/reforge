@@ -83,3 +83,5 @@
 .forge-connection-form textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .forge-connection-form .row-actions { margin-top: var(--space-2); }
 .forge-connection-created { min-width: 0; }
+.connection-edit { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
+.connection-edit .row-actions { justify-content: flex-start; }

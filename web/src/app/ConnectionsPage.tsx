@@ -158,7 +158,7 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
       hideBack
       closeControl={{ label: 'Close connection details', onClose: clear }}
       list={list}
-      detail={selectedID ? <ConnectionDetail connectionID={selectedID} orgID={orgID} csrf={csrf} onRefresh={refresh} onImport={openImport} /> : null}
+      detail={selectedID ? <ConnectionDetail key={selectedID} connectionID={selectedID} orgID={orgID} csrf={csrf} onRefresh={refresh} onImport={openImport} onDeleted={() => { clear(); refresh() }} /> : null}
     />
     {tab === 'models' && <details>
       <summary>Custom command profiles</summary>
@@ -277,9 +277,10 @@ type ConnectionDetailProps = {
   csrf: string
   onRefresh: () => void
   onImport: (connection: ImportConnection) => void
+  onDeleted: () => void
 }
 
-function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: ConnectionDetailProps) {
+function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDeleted }: ConnectionDetailProps) {
   const result = useQuery(connectionQuery(orgID, connectionID))
   const [secret, setSecret] = useState('')
   const [routeHost, setRouteHost] = useState('')
@@ -290,6 +291,8 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: Co
   const [busy, setBusy] = useState('')
   const [detailTab, setDetailTab] = useState<'overview' | 'configuration' | 'qualification' | 'actions'>('overview')
   const [confirmRevoke, setConfirmRevoke] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
+  const [edit, setEdit] = useState<{ name: string; namespace: string }>()
   const pools = useInfiniteQuery({
     queryKey: ['org', orgID, 'connection-detail-runner-pools'],
     queryFn: ({ pageParam, signal }) => api.getRunnerPools(orgID, { state: 'active', cursor: pageParam, limit: 100, signal }),
@@ -349,6 +352,8 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: Co
   const capabilities = Object.entries(connection.capabilities)
   const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state)
   const forgeLike = connection.kind === 'forge'
+  const namespaceEditable = forgeLike && connection.settings.auth_kind !== 'github_app' && connection.settings.auth_kind !== 'github_app_platform'
+  const revoked = connection.state === 'revoked'
   const status = <p>
     <span title={connectionStatus.title}><StatusBadge label={connectionStatus.label} tone={connectionStatus.tone} /></span>
     <span className="table-meta">{connection.kind}/{connectionProviderLabel(connection.provider, connection.settings.profile)} · version {connection.version}</span>
@@ -364,10 +369,19 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: Co
       title={connection.state === 'revoked' ? 'Revoked connections cannot be tested.' : undefined}
       onClick={() => void run('test', () => api.testConnection(orgID, connection.id, connection.version, csrf))}
     >{busy === 'test' ? 'Testing…' : 'Test connection'}</Button>}
-    <Button disabled={!!busy || !csrf || connection.state === 'revoked'} onClick={() => setConfirmRevoke(true)}>Revoke</Button>
+    <Button disabled={!!busy || !csrf || revoked || !!edit} onClick={() => setEdit({ name: connection.name, namespace: connection.settings.namespace ?? '' })}>Edit</Button>
+    <span className="detail-actions-end">
+      <Button className="button button-danger-ghost" disabled={!!busy || !csrf || revoked} onClick={() => setConfirmRevoke(true)}>Revoke</Button>
+      <Button className="button button-danger-ghost" disabled={!!busy || !csrf} onClick={() => setConfirmDelete(true)}>Delete</Button>
+    </span>
   </>
 
   return <><DetailPanel title={connection.name} status={status} actions={actions}>
+    {edit && <form className="connection-edit" aria-label="Edit connection" onSubmit={event => { event.preventDefault(); void run('edit', async () => { await api.updateConnection(orgID, connection.id, connection.version, { name: edit.name.trim(), namespace: namespaceEditable ? edit.namespace.trim() : connection.settings.namespace ?? '' }, csrf); setEdit(undefined) }) }}>
+      <label>Name<input value={edit.name} required maxLength={160} onChange={event => setEdit({ ...edit, name: event.target.value })} /></label>
+      {namespaceEditable && <label>Namespace<input value={edit.namespace} placeholder={connection.provider === 'github' ? 'org, user:name or owner/repo' : 'Organisation, group or owner'} onChange={event => setEdit({ ...edit, namespace: event.target.value })} /></label>}
+      <div className="row-actions"><Button type="submit" className="button button-primary" disabled={!!busy || !edit.name.trim()}>{busy === 'edit' ? 'Saving…' : 'Save'}</Button><Button type="button" disabled={!!busy} onClick={() => setEdit(undefined)}>Cancel</Button></div>
+    </form>}
     <ConnectionDetailTabs kind={connection.kind} value={detailTab} onChange={setDetailTab} />
     {detailTab === 'overview' && <ConnectionOverview connection={connection} capabilities={capabilities} />}
     {detailTab === 'qualification' && connection.kind === 'agent' && <AgentQualificationPanel orgID={orgID} connectionID={connection.id} provider={connection.provider} />}
@@ -400,6 +414,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport }: Co
     {error && <p className="error-text" role="alert">{error}</p>}
   </DetailPanel>
   <Dialog open={confirmRevoke} title="Revoke connection" onClose={() => setConfirmRevoke(false)}><p>Revoke {connection.name}? It will stop being available to this organisation.</p><div className="connection-confirm-actions"><Button type="button" disabled={!!busy} onClick={() => setConfirmRevoke(false)}>Cancel</Button><Button type="button" className="button-danger" disabled={!!busy || !csrf} onClick={() => void run('revoke', async () => { await api.revokeConnection(orgID, connection.id, connection.version, csrf); setConfirmRevoke(false) })}>{busy === 'revoke' ? 'Revoking…' : 'Revoke connection'}</Button></div></Dialog>
+  <Dialog open={confirmDelete} title="Delete connection" onClose={() => setConfirmDelete(false)}><p>Delete {connection.name}? This cannot be undone.</p>{error && confirmDelete && <p className="error-text" role="alert">{error}</p>}<div className="connection-confirm-actions"><Button type="button" disabled={!!busy} onClick={() => setConfirmDelete(false)}>Cancel</Button><Button type="button" className="button-danger" disabled={!!busy || !csrf} onClick={() => { setBusy('delete'); setError(''); void api.deleteConnection(orgID, connection.id, connection.version, csrf).then(() => { setConfirmDelete(false); onDeleted() }, reason => setError(message(reason))).finally(() => setBusy('')) }}>{busy === 'delete' ? 'Deleting…' : 'Delete connection'}</Button></div></Dialog>
   </>
 }
 
