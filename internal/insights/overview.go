@@ -51,18 +51,33 @@ type Capacity struct {
 	ReservedMicro int64 `json:"reserved_micro_usd"`
 }
 
+type OverviewDay struct {
+	Day         string `json:"day"`
+	Findings    int64  `json:"findings"`
+	Runs        int64  `json:"runs"`
+	Merges      int64  `json:"merges"`
+	Deployments int64  `json:"deployments"`
+}
+
+type SeverityCount struct {
+	Severity string `json:"severity"`
+	Count    int64  `json:"count"`
+}
+
 type Overview struct {
-	Counts    OverviewCounts `json:"counts"`
-	Attention []Attention    `json:"attention"`
-	Portfolio []PortfolioRow `json:"portfolio"`
-	Capacity  Capacity       `json:"capacity"`
+	Counts    OverviewCounts  `json:"counts"`
+	Attention []Attention     `json:"attention"`
+	Portfolio []PortfolioRow  `json:"portfolio"`
+	Capacity  Capacity        `json:"capacity"`
+	Trend     []OverviewDay   `json:"trend"`
+	Severity  []SeverityCount `json:"severity"`
 }
 
 const activeTaskStates = `('queued','reproducing','planning','repairing','validating','publishing')`
 const activeOperationStates = `('requested','dispatching','queued','reconciling','awaiting_gates','running','verifying')`
 
 func (s *Service) Overview(ctx context.Context, session auth.Session, org string) (Overview, error) {
-	out := Overview{Attention: []Attention{}}
+	out := Overview{Attention: []Attention{}, Trend: []OverviewDay{}, Severity: []SeverityCount{}}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		repo := `($2 OR repository_id=ANY($3::uuid[]))`
 		counts := `SELECT
@@ -125,6 +140,42 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 			out.Portfolio = append(out.Portfolio, item)
 		}
 		if e = portfolio.Err(); e != nil {
+			return e
+		}
+		trend, e := tx.Query(ctx, `WITH days AS (SELECT to_char(d,'YYYY-MM-DD') AS day,d AT TIME ZONE 'UTC' AS s FROM generate_series(date_trunc('day',now() AT TIME ZONE 'UTC')-interval '13 days',date_trunc('day',now() AT TIME ZONE 'UTC'),interval '1 day') d)
+			SELECT day,
+				(SELECT count(*) FROM maintenance_findings WHERE org_id=$1 AND first_seen>=s AND first_seen<s+interval '1 day' AND `+repo+`),
+				(SELECT count(*) FROM repair_runs WHERE org_id=$1 AND created_at>=s AND created_at<s+interval '1 day' AND `+repo+`),
+				(SELECT count(*) FROM merge_operations WHERE org_id=$1 AND state='merged' AND updated_at>=s AND updated_at<s+interval '1 day' AND `+repo+`),
+				(SELECT count(*) FROM deployments WHERE org_id=$1 AND first_healthy_at>=s AND first_healthy_at<s+interval '1 day' AND `+repo+`)
+			FROM days ORDER BY day`, org, a.AllRepositories, a.RepositoryIDs)
+		if e != nil {
+			return e
+		}
+		defer trend.Close()
+		for trend.Next() {
+			var item OverviewDay
+			if e = trend.Scan(&item.Day, &item.Findings, &item.Runs, &item.Merges, &item.Deployments); e != nil {
+				return e
+			}
+			out.Trend = append(out.Trend, item)
+		}
+		if e = trend.Err(); e != nil {
+			return e
+		}
+		severity, e := tx.Query(ctx, `SELECT severity,count(*) FROM maintenance_findings WHERE org_id=$1 AND state='open' AND `+repo+` GROUP BY 1 ORDER BY CASE severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,1`, org, a.AllRepositories, a.RepositoryIDs)
+		if e != nil {
+			return e
+		}
+		defer severity.Close()
+		for severity.Next() {
+			var item SeverityCount
+			if e = severity.Scan(&item.Severity, &item.Count); e != nil {
+				return e
+			}
+			out.Severity = append(out.Severity, item)
+		}
+		if e = severity.Err(); e != nil {
 			return e
 		}
 		return tx.QueryRow(ctx, `SELECT

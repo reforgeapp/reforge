@@ -2460,6 +2460,8 @@ export interface components {
             attention: components["schemas"]["OverviewAttention"][];
             portfolio: components["schemas"]["OverviewPortfolioRow"][];
             capacity: components["schemas"]["OverviewCapacity"];
+            trend: components["schemas"]["OverviewDay"][];
+            severity: components["schemas"]["OverviewSeverity"][];
         };
         OverviewPortfolioRow: {
             repository_id: string;
@@ -4564,6 +4566,17 @@ export interface components {
         UsageSeries: {
             days: components["schemas"]["UsageDay"][];
             providers: components["schemas"]["UsageProvider"][];
+        };
+        OverviewDay: {
+            day: string;
+            findings: number;
+            runs: number;
+            merges: number;
+            deployments: number;
+        };
+        OverviewSeverity: {
+            severity: string;
+            count: number;
         };
     };
     responses: never;

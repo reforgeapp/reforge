@@ -11535,13 +11535,27 @@
           },
           "capacity": {
             "$ref": "#/components/schemas/OverviewCapacity"
+          },
+          "trend": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewDay"
+            }
+          },
+          "severity": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/OverviewSeverity"
+            }
           }
         },
         "required": [
           "counts",
           "attention",
           "portfolio",
-          "capacity"
+          "capacity",
+          "trend",
+          "severity"
         ],
         "additionalProperties": false
       },
@@ -19051,6 +19065,50 @@
             }
           }
         },
+        "additionalProperties": false
+      },
+      "OverviewDay": {
+        "type": "object",
+        "properties": {
+          "day": {
+            "type": "string"
+          },
+          "findings": {
+            "type": "integer"
+          },
+          "runs": {
+            "type": "integer"
+          },
+          "merges": {
+            "type": "integer"
+          },
+          "deployments": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "day",
+          "findings",
+          "runs",
+          "merges",
+          "deployments"
+        ],
+        "additionalProperties": false
+      },
+      "OverviewSeverity": {
+        "type": "object",
+        "properties": {
+          "severity": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer"
+          }
+        },
+        "required": [
+          "severity",
+          "count"
+        ],
         "additionalProperties": false
       }
     },

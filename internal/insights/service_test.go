@@ -161,6 +161,10 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 	if e != nil || len(series.Days) < 30 || series.Days[len(series.Days)-1].MicroUSD != 15 || series.Days[len(series.Days)-1].Records != 5 || len(series.Providers) != 1 || series.Providers[0].Tokens != 30 {
 		t.Fatalf("usage series: %+v %v", series, e)
 	}
+	overview, e := service.Overview(ctx, viewer, org)
+	if e != nil || len(overview.Trend) != 14 {
+		t.Fatalf("overview trend: %d %v", len(overview.Trend), e)
+	}
 	f.State = "unknown"
 	f.Provider = "compatible"
 	f.Recipe = "repair"

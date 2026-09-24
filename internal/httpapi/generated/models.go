@@ -2256,6 +2256,8 @@ type Overview struct {
 	Capacity  OverviewCapacity       `json:"capacity"`
 	Counts    OverviewCounts         `json:"counts"`
 	Portfolio []OverviewPortfolioRow `json:"portfolio"`
+	Severity  []OverviewSeverity     `json:"severity"`
+	Trend     []OverviewDay          `json:"trend"`
 }
 type OverviewAttention struct {
 	AgeSeconds     int     `json:"age_seconds"`
@@ -2284,6 +2286,13 @@ type OverviewCounts struct {
 	StaleRepositories      int `json:"stale_repositories"`
 	VerifiedDeployments    int `json:"verified_deployments"`
 }
+type OverviewDay struct {
+	Day         string `json:"day"`
+	Deployments int    `json:"deployments"`
+	Findings    int    `json:"findings"`
+	Merges      int    `json:"merges"`
+	Runs        int    `json:"runs"`
+}
 type OverviewPortfolioRow struct {
 	Accessible     bool    `json:"accessible"`
 	Blocked        int     `json:"blocked"`
@@ -2294,6 +2303,10 @@ type OverviewPortfolioRow struct {
 	Provider       string  `json:"provider"`
 	RepositoryId   string  `json:"repository_id"`
 	RepositoryName string  `json:"repository_name"`
+}
+type OverviewSeverity struct {
+	Count    int    `json:"count"`
+	Severity string `json:"severity"`
 }
 type Pause struct {
 	Id      string `json:"id"`
