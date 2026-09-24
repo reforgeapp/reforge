@@ -2,7 +2,7 @@
 
 ### T29ab — Provider-first model API onboarding
 
-- Status: **in progress,2026-09-24; only authorized active ticket**. Depends existing model adapters/Connections. Opus backend; OpenCode frontend/tests; Astra review. Other backlog paused; hard stop20% weekly remaining.
+- Status: **locally complete,2026-09-24**. Backend `f678a2a`, GUI `e43569b`, guide `0c3e0b2`. Opus/OpenCode implementation; Astra reviewed.209 default GUI passed/20 skipped,16 focused model passed,4 genuine backend-connected checks passed; Go race/integration and clean container builds passed. Demo refreshed. [Review/evidence](t29ab-model-onboarding-review.md). Live account/inference certification remains external. Other backlog stays paused; final quota32%, no workers running.
 - Normal flow: friendly provider → API key → server-side catalog/test → model → save. Known endpoint/auth/profile defaults; custom endpoint, CA, manual model and private runner routing under Advanced. No redundant single-option selectors or explanatory prose.
 - Providers: OpenAI, Claude, Gemini, OpenCode Zen/Go APIs; preserve compatible/local endpoints. OpenCode gateway mixed model families must route through real adapters; unknown families disabled with action. API access is distinct from runner/CLI subscription authentication; do not collect subscription tokens or invent OAuth support.
 - Accept: real owner/CSRF-protected bounded model catalog, no draft connection or inference call; SSRF/private-boundary and credential/error redaction checks; stale form results cannot repopulate after changes; create once and preserve failed post-create probe state; keyboard390px light/dark; backend-connected local fixture acceptance and refreshed container demo. External provider certification stays explicit.

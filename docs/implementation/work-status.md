@@ -1,13 +1,16 @@
 # Current work and review status
 
-Updated 2026-09-24. Demo serves product `4e679e5`; focused production Changes13/13 passed. Earlier `92e1d03` full default193/15 gate remains separately attributed. Earlier image/install verification remains attributed to `675b0fd`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
+Updated 2026-09-24. Demo serves product `e43569b`, guide `0c3e0b2`; T29ab locally complete. Current default GUI209 passed/20 opt-in skipped, focused model16 passed, connected model4 passed. Prior focused production Changes13/13 remains attributed to `4e679e5`. Earlier `92e1d03` full default193/15 gate remains separately attributed. Earlier image/install verification remains attributed to `675b0fd`. This index supersedes earlier status snapshots; chronological evidence remains in [progress](progress.md). **G5 has not passed.**
 
 ## Current batch
 
-Owner authorized ONLY T29ab model-connection onboarding on2026-09-24; all other backlog remains paused. API-key-first provider presets, real server-side catalog selection, Advanced custom/private settings and separate runtime flow. Workers: Opus5.5 backend/security; OpenCode DeepSeek4.1-Flash frontend and bounded browser tests. Root reviews every change. Maximum3workers, exclusive files. This task stops immediately at **20% weekly remaining**; prior broader-work39% pause remains in effect. Last completion check2026-09-24T10:40:25.604Z:37% remaining. CLI wrapper checks quota every5s and terminates owned process groups at<=20%; no paid Reforge test APIs or customer mutations authorized.
+Only T29ab model onboarding was authorized under the quota pause. It is locally complete and reviewed; **all other backlog and the broad goal remain paused**. No workers running. Opus5.5 handled backend/security and real connected acceptance; OpenCode DeepSeek4.1-Flash handled GUI/tests/guide; Astra reviewed all changes. Maximum three workers; completed-worker quota checks stayed above20%, final32% remaining. No paid Reforge test APIs, external deployment or customer mutations.
+
+Demo: http://127.0.0.1:8084. Updated [connection guide](http://127.0.0.1:8082/docs/connections/). Launcher: `sh .local/opus-resume/demo/start.sh`. [T29ab implementation, evidence and remaining certification](t29ab-model-onboarding-review.md).
 
 | Work | Status / evidence |
 | --- | --- |
+| T29ab model connection onboarding | Local complete: provider/API key/catalog/model/save, Advanced custom/private settings, safe async retries, truthful gateway catalog state. Backend `f678a2a`, GUI `e43569b`, guide `0c3e0b2`; clean local control/docs containers refreshed with data preserved. Live provider certification remains external. |
 | T29v first-user invitation onboarding | Locally complete at `22cea8a`; real signed local IdP, restricted PostgreSQL, normal CSP, new-member callback, replay/revoke, reload, keyboard and390px light/dark passed. API/generated types/admin guide integrated `18c8045`. [GUI review](t29-identity-invitation-gui-review.md), [API review](t29-identity-api-docs-review.md). Customer IdP certification remains open. |
 | Audit/Policies review findings | Fixed `8846d9d`;36 focused browser checks and8 theme/viewport probes passed. [Review](t28a-audit-policy-regression-review.md). |
 | Shared focus, team cache, pending merge controls | Fixed `e01287c`, `8cb2cac`, `dc9242b`;45/45 focused lifecycle checks passed. Team rename now invalidates both team-cache shapes; pending merge controls retain keyboard focus. [Lifecycle](t28a-lifecycle-regression-review.md), [focus](t29-shared-focus-review.md). |
@@ -20,6 +23,7 @@ Owner authorized ONLY T29ab model-connection onboarding on2026-09-24; all other 
 
 | Priority / ticket | Remaining action |
 | --- | --- |
+| P2 / T28 generation check | Pre-existing SQL binding drift reported in internal/store/dbgen/models.go (OIDC model fields) when running the full generator. API-only generation for T29ab reproduces exactly. SQL regeneration/review deferred with paused backlog; full generation gate not claimed. |
 | P1 / T29aa | Fixed `4e679e5`: normalize parsed change ID before strict native-ID comparison. Regression proved red/green, reload and tenant switch;13 Changes tests passed, final focused assertion and typecheck passed. Production-image13/13 check and persistent demo refresh passed. [Review](t29aa-deep-link-review.md). |
 | P2 / T29y,T29z,T28e | Integrated `c4fe426`, `ba5e45b`, `92e1d03`: closed sidebar shadow, unused Unassign reason, five stale opt-in specs. Six backend-connected scenarios passed;12 focused smoke passed/1 skipped. Final193/15 suite and demo refresh passed. [Opt-in review](t28a-optin-browser-review.md). |
 | P2 / T29x | Locally fixed `d23be04`/`74957e4`: all team pickers share invalidation; budget units explicit. Regression proved failure before fix and passes afterward;14 focused tests/typecheck/build pass. Final193/15 suite passed. |

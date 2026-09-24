@@ -1,3 +1,26 @@
+## T29ab complete — 2026-09-24
+
+- Local model API onboarding complete: backend `f678a2a`, GUI/acceptance `e43569b`, guide `0c3e0b2`; [review and evidence](t29ab-model-onboarding-review.md).
+- Checks:209 default GUI passed/20 opt-in skipped;16 focused model tests passed;4 genuine GUI/Go/PostgreSQL/TLS-provider scenarios passed; scoped Go race/vet, fresh integration and API generation checks passed. Strict clean control/docs image builds passed.
+- Demo refreshed at http://127.0.0.1:8084; guide http://127.0.0.1:8082/docs/connections/. Served assets byte-matched image; actual demo browser preset/keyboard390px checks passed. Existing DB/encryption/artifacts/audit sentinel preserved; previous containers stopped for rollback.
+- Final completed-worker quota32% remaining; no worker processes remain. No20% hard stop required. All other backlog and broad goal stay paused. Live provider auth/inference certification remains external; G5 remains unpassed. Pre-existing SQL generation drift recorded for later review.
+
+## T29ab checkpoint — integrated acceptance
+
+- Backend/catalog committed `f678a2a`; root reviewed and independently ran scoped Go race packages. API-only generation reproduced byte-identically. Full generator still has unrelated pre-existing SQL binding drift; not repaired under this scope.
+- Genuine isolated GUI/Go/PostgreSQL/TLS-provider acceptance:4 passed, zero detected secret leaks, one persisted create/probe, reload visible; invalid key and private/metadata destinations blocked. Network namespace had loopback only and no external routes. Harness and live spec pending GUI commit.
+- Root full default GUI regression against disposable backend:209 passed,20 opt-in skipped,0 failed (1.4m). Final gateway badge assertion and docs polish still pending; no live-provider certification claimed.
+- Normal form, private/manual reset, save/probe retry, lost-response terminal state, organisation change and multiline CA reviewed. Gateway public-catalog badge uses amber Catalog only; backend execution authorization remains intact.
+- Remaining this ticket: final worker review, GUI/docs commits, clean control/docs image builds and persistent local demo refresh. Other backlog remains paused. Latest completed-worker check:33% weekly remaining.
+
+## T29ab checkpoint — 2026-09-24 model onboarding only
+
+- Initial Opus backend and DeepSeek frontend/browser slices complete, uncommitted pending review. Endpoint uses owner/CSRF authorization, network guard, 10s timeout and redacted responses. OpenCode gateway family routing delegates existing adapters; unknown families disabled.
+- Worker evidence: scoped Go race/vet and fresh PostgreSQL integration passed; initial 11 API-intercepted browser checks passed. These do not establish live provider certification.
+- Root review corrections in flight: compatible Responses catalog constructor still required a model; frontend manual state, async save/organisation lifecycle, uncertain create/probe outcomes, and retry version refresh. Further regression checks and isolated Go/DB/TLS-provider GUI acceptance pending.
+- User-doc update, reviewed commits, container demo refresh and final visual check pending. No unrelated backlog resumed; existing broad goal remains paused. All CLI workers enforce <=20% weekly stop, maximum three workers. Latest completed-worker checks:35% remaining.
+- Reclaimed only inactive regenerable /tmp/reforge-go-build cache (2.6GiB); no databases, source, credentials or evidence removed.
+
 # Implementation progress
 
 ## Scoped model onboarding authorization — 2026-09-24
