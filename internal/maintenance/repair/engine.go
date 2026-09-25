@@ -73,6 +73,19 @@ func Protected(p Plan, files map[string][]byte) bool {
 	}
 	return true
 }
+func advance(continuation json.RawMessage, messages []model.Message, result model.TurnResult) (json.RawMessage, []model.Message) {
+	switch {
+	case len(result.Continuation) > 0:
+		return result.Continuation, nil
+	case len(continuation) == 0 && result.FinishReason != "length":
+		messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
+	}
+	if result.FinishReason == "length" {
+		messages = append(messages, model.Message{Role: "user", Text: "Your previous reply hit the output token limit and was discarded. Keep replies shorter: one file per apply_patch and no long explanations."})
+	}
+	return continuation, messages
+}
+
 func (e Engine) turnTimeout() time.Duration {
 	if e.TurnTimeout <= 0 || e.TurnTimeout > 5*time.Minute {
 		return 60 * time.Second
@@ -221,11 +234,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		if result.FinishReason == "length" {
 			return fail("Model output limit reached; increase the authorized output limit or select a qualified model", ErrHandoff)
 		}
-		continuation = result.Continuation
-		if len(continuation) > 0 {
-			messages = nil
-		} else {
-			messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
+		continuation, messages = advance(continuation, messages, result)
+		if result.FinishReason == "length" {
+			continue
 		}
 		verified := checkedRevision == patchRevision && Verified(p, out.Baseline, out.Candidate)
 		returned := 0

@@ -191,11 +191,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++
-		continuation = result.Continuation
-		if len(continuation) > 0 {
-			messages = nil
-		} else {
-			messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
+		continuation, messages = advance(continuation, messages, result)
+		if result.FinishReason == "length" {
+			continue
 		}
 		if len(result.ToolCalls) == 0 {
 			messages = append(messages, model.Message{Role: "user", Text: "Use the tools: change something and run_checks, then finish, or skip with a reason."})

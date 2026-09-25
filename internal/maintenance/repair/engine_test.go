@@ -260,3 +260,11 @@ func TestEngineRepairsFromCILogsWithDependencyUpdate(t *testing.T) {
 		t.Fatal("dependency files must be admissible only with a declared update")
 	}
 }
+
+func TestAdvanceKeepsContinuationAfterTruncatedReply(t *testing.T) {
+	continuation, messages := advance(nil, []model.Message{{Role: "user", Text: "prompt"}}, model.TurnResult{Continuation: []byte(`["history"]`), ToolCalls: []model.ToolCall{{ID: "1"}}})
+	continuation, messages = advance(continuation, messages, model.TurnResult{FinishReason: "length"})
+	if string(continuation) != `["history"]` || len(messages) != 1 || messages[0].Role != "user" {
+		t.Fatalf("continuation=%s messages=%+v", continuation, messages)
+	}
+}
