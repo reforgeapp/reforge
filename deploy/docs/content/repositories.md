@@ -30,6 +30,10 @@ manifests, open changes and check results. A failed scan names the access the fo
 lacks. **Settings → Runner pools** selects which active pools may run fixes for the
 repository.
 
+Findings from Dependabot or Renovate pull requests stay blocked until the bot's native
+identity is trusted. **Settings → Trusted native bot identities** lists bots seen on open
+pull requests; **Trust** adds one and the next scan clears the blocker.
+
 ## Scope
 
 Team and repository scoping is enforced server-side. Filters, sort and page state live in
