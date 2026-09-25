@@ -111,7 +111,7 @@ func npmUpdate(ctx context.Context, cfg sandbox.RuntimeConfig, work string, u re
 	}
 	args = append(args, "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund", "--registry", npmRegistry)
 	command := append([]string{"--library-path", filepath.Join(root, "lib/x86_64-linux-gnu") + ":" + filepath.Join(root, "lib64"), filepath.Join(root, "usr/local/bin/node"), npmCLI}, args...)
-	env := []string{"PATH=/usr/bin:/bin", "HOME=" + filepath.Join(work, "home"), "npm_config_cache=" + filepath.Join(work, "cache"), "npm_config_userconfig=/dev/null", "npm_config_globalconfig=/dev/null", "npm_config_update_notifier=false"}
+	env := []string{"PATH=/usr/bin:/bin", "HOME=" + filepath.Join(work, "home"), "npm_config_cache=" + filepath.Join(work, "cache"), "npm_config_userconfig=" + filepath.Join(work, "home", ".npmrc"), "npm_config_globalconfig=" + filepath.Join(work, "global-npmrc"), "npm_config_update_notifier=false"}
 	return runTool(ctx, work, env, filepath.Join(root, "lib64/ld-linux-x86-64.so.2"), command...)
 }
 
