@@ -10,6 +10,7 @@ const steps: Record<Step['id'], { label: string; action?: string; href?: (org: s
   scan: { label: 'Scan a repository', action: 'Scan', href: (org, step) => `/org/${org}/repositories${step.repository_id ? `?repository=${step.repository_id}` : ''}` },
   model: { label: 'Add an AI model', action: 'Add model', href: org => `/org/${org}/connections?connection_tab=models` },
   pricing: { label: 'Set model pricing', action: 'Set pricing', href: (org, step) => `/org/${org}/connections?connection_tab=models${step.connection_id ? `&connection=${step.connection_id}` : ''}` },
+  budget: { label: 'Set a spending limit', action: 'Budgets', href: org => `/org/${org}/usage` },
   runner: { label: 'Start a runner', action: 'Runners', href: org => `/org/${org}/runners` },
   assignment: { label: 'Give a runner your repositories', action: 'Assign', href: (org, step) => `/org/${org}/repositories${step.repository_id ? `?repository=${step.repository_id}` : ''}` },
   policy: { label: 'Allow Reforge to propose fixes', action: 'Policies', href: org => `/org/${org}/policies` },

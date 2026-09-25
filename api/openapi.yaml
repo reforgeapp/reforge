@@ -19423,6 +19423,7 @@
               "scan",
               "model",
               "pricing",
+              "budget",
               "runner",
               "assignment",
               "policy",

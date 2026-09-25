@@ -28,6 +28,7 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 	out := Setup{}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		var forge, model, priced, repository, scanned, runner, assigned string
+		var budgeted bool
 		var scanReason, scanRepository string
 		err := tx.QueryRow(ctx, `SELECT
 			coalesce((SELECT id::text FROM connections WHERE org_id=$1 AND kind='forge' AND state='healthy' ORDER BY created_at LIMIT 1),''),
@@ -38,8 +39,9 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			coalesce((SELECT id::text FROM runners WHERE org_id=$1 AND state='active' AND last_seen_at>now()-interval '5 minutes' LIMIT 1),''),
 			coalesce((SELECT r.repository_id::text FROM runner_pool_repositories r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND p.state='active' LIMIT 1),''),
 			coalesce((SELECT reason FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
-			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),'')`,
-			org, a.AllRepositories, a.RepositoryIDs).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository)
+			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
+			EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND caps->>'micro_usd' IS NOT NULL AND caps->>'concurrency' IS NOT NULL)`,
+			org, a.AllRepositories, a.RepositoryIDs).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository, &budgeted)
 		if err != nil {
 			return err
 		}
@@ -61,6 +63,7 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			scan,
 			{ID: "model", Done: model != "", ConnectionID: model},
 			{ID: "pricing", Done: priced != "", ConnectionID: model},
+			{ID: "budget", Done: budgeted},
 			{ID: "runner", Done: runner != ""},
 			{ID: "assignment", Done: assigned != "", RepositoryID: repository},
 			{ID: "policy", Done: allowed},

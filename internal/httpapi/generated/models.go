@@ -945,6 +945,7 @@ func (e RunnerPoolInputState) Valid() bool {
 
 const (
 	SetupStepIdAssignment SetupStepId = "assignment"
+	SetupStepIdBudget     SetupStepId = "budget"
 	SetupStepIdForge      SetupStepId = "forge"
 	SetupStepIdModel      SetupStepId = "model"
 	SetupStepIdPolicy     SetupStepId = "policy"
@@ -958,6 +959,8 @@ const (
 func (e SetupStepId) Valid() bool {
 	switch e {
 	case SetupStepIdAssignment:
+		return true
+	case SetupStepIdBudget:
 		return true
 	case SetupStepIdForge:
 		return true

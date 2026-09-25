@@ -22,7 +22,7 @@ const metrics = { micro_usd: { label: 'Cost', format: usd, axis: (value: number)
 const capLabels = { micro_usd: 'USD spend', tokens: 'Token use', milliseconds: 'Runtime', requests: 'Request use', concurrency: 'Concurrency use' } as const
 const amount = (value: Amount, quota = false) => `${value.tokens.toLocaleString()} tokens · ${value.requests} requests · ${value.milliseconds} ms${quota ? ' · subscription quota' : ` · ${money(value.micro_usd)}`}`
 const dateTime = (value: string, end: boolean) => value ? new Date(Date.parse(`${value}T00:00:00Z`) + (end ? 86_400_000 : 0)).toISOString() : undefined
-const emptyLimit = (kind: string, id: string): Limit => ({ scope: { kind, id }, period: 'daily', caps: {}, paused: false, version: 0, held: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 }, spent: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 } })
+const emptyLimit = (kind: string, id: string): Limit => ({ scope: { kind, id }, period: 'daily', caps: kind === 'organisation' ? { concurrency: 1 } : {}, paused: false, version: 0, held: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 }, spent: { micro_usd: 0, tokens: 0, milliseconds: 0, requests: 0, concurrency: 0 } })
 
 export function UsagePage({ orgID }: { orgID: string }) {
   const search = useSearch({ strict: false }) as Record<string, string | undefined>

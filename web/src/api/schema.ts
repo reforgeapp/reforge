@@ -4631,7 +4631,7 @@ export interface components {
         };
         SetupStep: {
 
-            id: "forge" | "repository" | "scan" | "model" | "pricing" | "runner" | "assignment" | "policy" | "server";
+            id: "forge" | "repository" | "scan" | "model" | "pricing" | "budget" | "runner" | "assignment" | "policy" | "server";
             done: boolean;
             reason?: string;
             repository_id?: string;
