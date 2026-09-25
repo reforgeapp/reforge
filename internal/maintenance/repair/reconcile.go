@@ -88,6 +88,34 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 	if r.Version != expected {
 		return out, auth.ErrConflict
 	}
+	if err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if !manage(a, r.Task.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		if err := recoveryReady(ctx, tx, org, id); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state='unknown'`, org, id)
+		if err != nil {
+			return err
+		}
+		turns, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct{ ID, Reservation string }])
+		if err != nil {
+			return err
+		}
+		for _, turn := range turns {
+			if err = s.budgets.SettleUnknownAtMaximumTx(ctx, tx, org, turn.Reservation, "reconciled-at-maximum:"+turn.ID); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE model_turns SET state='failed',completed_at=coalesce(completed_at,clock_timestamp()) WHERE org_id=$1 AND id=$2`, org, turn.ID); err != nil {
+				return err
+			}
+		}
+		_, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2 AND EXISTS(SELECT 1 FROM workflow_tasks WHERE org_id=$1 AND id=$2 AND state IN ('failed','cancelled')) AND NOT EXISTS(SELECT 1 FROM workflow_outbox WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatching','unknown')) AND NOT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, org, id)
+		return err
+	}); err != nil {
+		return out, err
+	}
 	var intents []recoveryIntent
 	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
 		actor, err := s.auth.ActorTx(ctx, tx, session, org)

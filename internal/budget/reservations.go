@@ -483,3 +483,14 @@ func (s *Service) Get(ctx context.Context, session auth.Session, org, id string)
 	})
 	return result, err
 }
+
+func (s *Service) SettleUnknownAtMaximumTx(ctx context.Context, tx pgx.Tx, org, id, reference string) error {
+	r, err := loadReservation(ctx, tx, org, id)
+	if err != nil || r.State != "unknown" {
+		return err
+	}
+	actual := r.Maximum
+	actual.Concurrency = 0
+	_, err = s.SettleTx(ctx, tx, org, id, Settlement{Known: true, Actual: actual, Reference: reference})
+	return err
+}
