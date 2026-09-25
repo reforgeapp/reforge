@@ -19,7 +19,7 @@ test('findings triage renders evidence and keeps repair unavailable', async ({ p
   await expect(details).toContainText('head123')
   await details.getByRole('tab', { name: 'Evidence' }).click()
   await expect(details).toContainText('example/module 1.0.0 → 1.1.0')
-  await expect(details.getByRole('link', { name: 'source' })).toHaveCount(1)
+  await expect(details.getByRole('link', { name: 'Open CI on forge' })).toHaveCount(1)
   await details.getByRole('tab', { name: 'Repair' }).click()
   await expect(page.getByRole('button', { name: 'Generate preview' })).toBeDisabled()
   await expect(page.getByRole('button', { name: 'Dismiss', exact: true })).toBeDisabled()

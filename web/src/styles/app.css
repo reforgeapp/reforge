@@ -190,6 +190,11 @@ td small, .table-meta { color: var(--text-subtle); }
 .empty-table span { color: var(--text-subtle); font-size: 21px; }
 .link-button { padding: 0; color: var(--primary); font-size: inherit; font-weight: 600; text-align: left; }
 .link-button:hover { text-decoration: underline; }
+.forge-link { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-weight: 600; }
+.forge-link:hover { text-decoration: underline; }
+.forge-link-icon { margin-left: 6px; color: var(--text-subtle); vertical-align: middle; }
+.forge-link-icon:hover { color: var(--primary); }
+.forge-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .form-stack { display: grid; gap: 13px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
 .form-grid .wide { grid-column: 1 / -1; }
