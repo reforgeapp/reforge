@@ -13,6 +13,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/budget"
 	"reforge/internal/connections"
+	"reforge/internal/domain"
 	"reforge/internal/model"
 	"reforge/internal/network"
 	"reforge/internal/privateconnector"
@@ -270,10 +271,12 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	finalctx, stopFinal := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer stopFinal()
 	body, marshalErr := json.Marshal(result)
+	var providerError *domain.ProviderError
+	rejected := errors.As(err, &providerError) && !providerError.Uncertain
 	known := err == nil && marshalErr == nil && len(body) <= 3<<20 && result.Usage.Known && result.Usage.CacheTokens >= 0 && result.Usage.CacheCreationTokens >= 0 && !privateconnector.ContainsSecret(body, resolved.Secret)
 	amount, amountErr := budget.ObservedAmount(reservation.Route, result.Usage.InputTokens, result.Usage.OutputTokens, time.Since(started).Milliseconds())
 	known = known && amountErr == nil
-	if !known {
+	if !known && !rejected {
 		reason := "usage unknown or response rejected"
 		if err != nil && !privateconnector.ContainsSecret([]byte(err.Error()), resolved.Secret) {
 			reason = err.Error()
@@ -281,6 +284,13 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.WarnContext(ctx, "model turn outcome unknown", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "reason", reason)
 	}
 	persistErr := s.db.Tenant(finalctx, lease.OrgID, "", func(tx pgx.Tx) error {
+		if rejected {
+			if _, e := s.budgets.SettleTx(finalctx, tx, lease.OrgID, reservation.ID, budget.Settlement{Known: true, Reference: "model-turn:" + in.OperationID}); e != nil {
+				return e
+			}
+			_, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
+			return e
+		}
 		if !known {
 			if _, e := s.budgets.MarkUnknownTx(finalctx, tx, lease.OrgID, reservation.ID, "model-turn:"+in.OperationID); e != nil {
 				return e
@@ -309,6 +319,14 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		}
 		return e
 	})
+	if rejected && persistErr == nil {
+		message := providerError.Message
+		if privateconnector.ContainsSecret([]byte(message), resolved.Secret) {
+			message = ""
+		}
+		slog.WarnContext(ctx, "model turn rejected by provider", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "kind", providerError.Kind, "reason", message)
+		return model.TurnResult{}, err
+	}
 	if persistErr != nil || !known {
 		return model.TurnResult{}, ErrUncertain
 	}
