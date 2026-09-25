@@ -75,7 +75,11 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			state = domain.TaskState(next)
 			return nil
 		}
-		engine := repair.Engine{Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
+		dependencies, err := prefetch(ctx, cfg, j.Lease.OrgID, execution.Plan.Image, baseline, target)
+		if err != nil {
+			return failed, err
+		}
+		engine := repair.Engine{Dependencies: dependencies, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", data)
 			return m.ID, err
 		}, Progress: func(_ context.Context, next string) error { return progress(next) }}
@@ -147,7 +151,7 @@ func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.E
 	if engine.Trust != "" {
 		trust = engine.Trust
 	}
-	workspace, err := runtime.PreparePinnedWorkspace(runCtx, sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.BaselineSHA, Image: spec.ImageDigest, Trust: trust, Timeout: timeout})
+	workspace, err := runtime.PreparePinnedWorkspace(runCtx, sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.BaselineSHA, Image: spec.ImageDigest, Trust: trust, Timeout: timeout, Dependencies: engine.Dependencies})
 	if err != nil {
 		out.Reason = "Custom profile workspace was unavailable"
 		return out, err

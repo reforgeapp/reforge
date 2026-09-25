@@ -13,6 +13,7 @@ type WorkspaceRequest struct {
 	Image         string
 	Trust         string
 	Timeout       time.Duration
+	Dependencies  string
 }
 type Workspace struct {
 	ID        string

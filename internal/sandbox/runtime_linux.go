@@ -34,20 +34,21 @@ type Snapshot struct {
 }
 
 type RuntimeConfig struct {
-	Runsc        string                                                    `json:"runsc"`
-	RunscSHA256  string                                                    `json:"runsc_sha256"`
-	Tool         string                                                    `json:"tool"`
-	ToolSHA256   string                                                    `json:"tool_sha256"`
-	StateRoot    string                                                    `json:"state_root"`
-	CgroupRoot   string                                                    `json:"cgroup_root"`
-	Images       map[string]string                                         `json:"images"`
-	Development  bool                                                      `json:"development"`
-	Rootless     bool                                                      `json:"rootless"`
-	MemoryBytes  int64                                                     `json:"memory_bytes"`
-	DiskBytes    int64                                                     `json:"disk_bytes"`
-	CPUs         int64                                                     `json:"cpus"`
-	MaxProcesses int64                                                     `json:"max_processes"`
-	Fetch        func(context.Context, WorkspaceRequest) (Snapshot, error) `json:"-"`
+	Runsc          string                                                    `json:"runsc"`
+	RunscSHA256    string                                                    `json:"runsc_sha256"`
+	Tool           string                                                    `json:"tool"`
+	ToolSHA256     string                                                    `json:"tool_sha256"`
+	StateRoot      string                                                    `json:"state_root"`
+	DependencyRoot string                                                    `json:"dependency_root,omitempty"`
+	CgroupRoot     string                                                    `json:"cgroup_root"`
+	Images         map[string]string                                         `json:"images"`
+	Development    bool                                                      `json:"development"`
+	Rootless       bool                                                      `json:"rootless"`
+	MemoryBytes    int64                                                     `json:"memory_bytes"`
+	DiskBytes      int64                                                     `json:"disk_bytes"`
+	CPUs           int64                                                     `json:"cpus"`
+	MaxProcesses   int64                                                     `json:"max_processes"`
+	Fetch          func(context.Context, WorkspaceRequest) (Snapshot, error) `json:"-"`
 }
 
 type Runtime struct {
@@ -59,19 +60,20 @@ type Runtime struct {
 }
 
 type workspaceState struct {
-	mu         chan struct{}
-	workspace  Workspace
-	bundle     string
-	cgroup     *os.File
-	cgroupPath string
-	ctx        context.Context
-	cancel     context.CancelFunc
-	process    *exec.Cmd
-	done       chan struct{}
-	output     *boundedOutput
-	stopOnce   sync.Once
-	processMu  sync.Mutex
-	stopped    bool
+	mu           chan struct{}
+	workspace    Workspace
+	bundle       string
+	dependencies string
+	cgroup       *os.File
+	cgroupPath   string
+	ctx          context.Context
+	cancel       context.CancelFunc
+	process      *exec.Cmd
+	done         chan struct{}
+	output       *boundedOutput
+	stopOnce     sync.Once
+	processMu    sync.Mutex
+	stopped      bool
 }
 
 func NewRuntime(cfg RuntimeConfig) (*Runtime, error) {
@@ -217,6 +219,12 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in WorkspaceReques
 	if !ok || (r.config.Development && in.Trust != "development-fixture") {
 		return Workspace{}, ErrUnavailable
 	}
+	if in.Dependencies != "" {
+		info, err := os.Lstat(in.Dependencies)
+		if filepath.Clean(in.Dependencies) != in.Dependencies || r.config.DependencyRoot == "" || !strings.HasPrefix(in.Dependencies, r.config.DependencyRoot+"/") || err != nil || !info.IsDir() {
+			return Workspace{}, ErrBoundary
+		}
+	}
 	jobctx, cancel := context.WithTimeout(ctx, in.Timeout)
 	keep := false
 	defer func() {
@@ -243,7 +251,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in WorkspaceReques
 	if err != nil {
 		return Workspace{}, err
 	}
-	w := &workspaceState{mu: make(chan struct{}, 1), workspace: Workspace{ID: id, CommitSHA: in.CommitSHA, Root: "/workspace", Image: in.Image}, bundle: bundle, ctx: jobctx, cancel: cancel}
+	w := &workspaceState{mu: make(chan struct{}, 1), workspace: Workspace{ID: id, CommitSHA: in.CommitSHA, Root: "/workspace", Image: in.Image}, bundle: bundle, dependencies: in.Dependencies, ctx: jobctx, cancel: cancel}
 	if err = r.setupCgroup(w); err != nil {
 		cancel()
 		os.RemoveAll(bundle)
@@ -471,8 +479,13 @@ func (r *Runtime) spec(w *workspaceState, image string) any {
 		map[string]any{"destination": "/workspace", "type": "tmpfs", "source": "tmpfs", "options": []string{"nosuid", "nodev", "mode=700", "uid=65532", "gid=65532", fmt.Sprintf("size=%d", r.config.DiskBytes), "nr_inodes=100000"}},
 		map[string]any{"destination": "/opt/reforge/tool", "type": "bind", "source": r.config.Tool, "options": []string{"ro", "rbind", "nosuid", "nodev"}},
 	}
+	env := []string{"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "TMPDIR=/tmp", "GOCACHE=/tmp/go-build", "GOPATH=/workspace/.reforge/gopath", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "CI=true"}
+	if w.dependencies != "" {
+		mounts = append(mounts, map[string]any{"destination": "/opt/deps", "type": "bind", "source": w.dependencies, "options": []string{"ro", "rbind", "nosuid", "nodev", "noexec"}})
+		env = append(env, "GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")
+	}
 	empty := []string{}
-	return map[string]any{"ociVersion": "1.0.2", "hostname": "reforge", "root": map[string]any{"path": image, "readonly": true}, "process": map[string]any{"terminal": false, "user": map[string]int{"uid": 65532, "gid": 65532}, "args": []string{"/opt/reforge/tool", "hold"}, "cwd": "/workspace", "env": []string{"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "TMPDIR=/tmp", "GOCACHE=/tmp/go-build", "GOPATH=/workspace/.reforge/gopath", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "CI=true"}, "noNewPrivileges": true, "capabilities": map[string]any{"bounding": empty, "effective": empty, "inheritable": empty, "permitted": empty, "ambient": empty}, "rlimits": []any{map[string]any{"type": "RLIMIT_NOFILE", "hard": 1024, "soft": 1024}, map[string]any{"type": "RLIMIT_FSIZE", "hard": r.config.DiskBytes, "soft": r.config.DiskBytes}}}, "mounts": mounts, "linux": map[string]any{"namespaces": []any{map[string]string{"type": "pid"}, map[string]string{"type": "network"}, map[string]string{"type": "ipc"}, map[string]string{"type": "uts"}, map[string]string{"type": "mount"}}, "maskedPaths": []string{"/proc/acpi", "/proc/kcore", "/proc/keys", "/proc/timer_list", "/proc/scsi", "/sys/firmware"}, "readonlyPaths": []string{"/proc/sys", "/proc/sysrq-trigger", "/proc/irq", "/proc/bus"}}}
+	return map[string]any{"ociVersion": "1.0.2", "hostname": "reforge", "root": map[string]any{"path": image, "readonly": true}, "process": map[string]any{"terminal": false, "user": map[string]int{"uid": 65532, "gid": 65532}, "args": []string{"/opt/reforge/tool", "hold"}, "cwd": "/workspace", "env": env, "noNewPrivileges": true, "capabilities": map[string]any{"bounding": empty, "effective": empty, "inheritable": empty, "permitted": empty, "ambient": empty}, "rlimits": []any{map[string]any{"type": "RLIMIT_NOFILE", "hard": 1024, "soft": 1024}, map[string]any{"type": "RLIMIT_FSIZE", "hard": r.config.DiskBytes, "soft": r.config.DiskBytes}}}, "mounts": mounts, "linux": map[string]any{"namespaces": []any{map[string]string{"type": "pid"}, map[string]string{"type": "network"}, map[string]string{"type": "ipc"}, map[string]string{"type": "uts"}, map[string]string{"type": "mount"}}, "maskedPaths": []string{"/proc/acpi", "/proc/kcore", "/proc/keys", "/proc/timer_list", "/proc/scsi", "/sys/firmware"}, "readonlyPaths": []string{"/proc/sys", "/proc/sysrq-trigger", "/proc/irq", "/proc/bus"}}}
 }
 
 var _ SandboxRuntime = (*Runtime)(nil)

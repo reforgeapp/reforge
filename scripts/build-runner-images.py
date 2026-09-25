@@ -8,7 +8,7 @@ import stat
 import subprocess
 import sys
 
-MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge")
+MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge", "opt/deps")
 SKIP_DIRS = {"__pycache__", "site-packages", "test", "tests", "doc", "docs"}
 
 

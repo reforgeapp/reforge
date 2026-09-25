@@ -38,6 +38,7 @@ type Engine struct {
 	JobID           string
 	AttemptID       string
 	Trust           string
+	Dependencies    string
 	MaxOutputTokens int
 	TurnTimeout     time.Duration
 }
@@ -74,7 +75,7 @@ func (e Engine) stage(ctx context.Context, state string) error {
 	return nil
 }
 func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, label string, report *Report) (checks []CheckResult, failure error) {
-	w, err := e.Runtime.PreparePinnedWorkspace(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: sha, Image: p.Image, Trust: e.Trust, Timeout: time.Duration(p.Recipe.TimeoutSeconds) * time.Second})
+	w, err := e.Runtime.PreparePinnedWorkspace(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: sha, Image: p.Image, Trust: e.Trust, Timeout: time.Duration(p.Recipe.TimeoutSeconds) * time.Second, Dependencies: e.Dependencies})
 	if err != nil {
 		return nil, err
 	}
