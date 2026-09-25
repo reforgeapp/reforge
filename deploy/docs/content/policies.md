@@ -22,6 +22,7 @@ repository's runner pool, and waits while the organisation budget in
 [Usage](usage.md) has no headroom. Blocked findings wait until the blocker is cleared, and the line under the switch names it.
 A failed fix is retried after ten minutes, up to three runs per finding version. A finding
 it cannot fix is skipped; a new version of the finding is tried again. The line under the switch shows what it is doing.
+A blocked run is resumed, up to three attempts, then cancelled so the finding is queued again.
 
 Only an owner with access to all repositories can turn it on. Its actions are recorded
 under that owner.

@@ -22,6 +22,7 @@ import (
 	"reforge/internal/mergecontrol"
 	"reforge/internal/policy"
 	"reforge/internal/store"
+	"reforge/internal/workflow"
 )
 
 const active = `('queued','reproducing','planning','repairing','validating','publishing','reconciling','cancelling')`
@@ -44,6 +45,7 @@ type Service struct {
 	budgets  *budget.Service
 	policies *policy.Service
 	Scan     func(context.Context, auth.Session, string, string, string) error
+	Tasks    *workflow.Service
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -242,6 +244,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		if err = s.merge(ctx, session, org); err != nil {
 			return err
 		}
+		if err = s.unblock(ctx, session, org); err != nil {
+			slog.WarnContext(ctx, "autopilot unblock failed", "org_id", org, "error", err)
+		}
 	}
 	if err = s.reconcile(ctx, session, org); err != nil {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
@@ -376,6 +381,44 @@ func (s *Service) reconcile(ctx context.Context, session auth.Session, org strin
 			_, e = s.repairs.Reconcile(ctx, session, org, task, run.Version, "autopilot")
 		}
 		if e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+	return err
+}
+
+func (s *Service) unblock(ctx context.Context, session auth.Session, org string) error {
+	if s.Tasks == nil {
+		return nil
+	}
+	type blockedTask struct {
+		id       string
+		version  int64
+		attempts int
+	}
+	var tasks []blockedTask
+	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT t.id::text,t.version,(SELECT count(*) FROM workflow_attempts w WHERE w.org_id=t.org_id AND w.task_id=t.id) FROM workflow_tasks t WHERE t.org_id=$1 AND t.state='blocked' ORDER BY t.created_at LIMIT 10`, org)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var t blockedTask
+			if err = rows.Scan(&t.id, &t.version, &t.attempts); err != nil {
+				return err
+			}
+			tasks = append(tasks, t)
+		}
+		return rows.Err()
+	})
+	for _, t := range tasks {
+		if t.attempts < 3 {
+			if _, e := s.Tasks.Resume(ctx, session, org, t.id, t.version, "autopilot"); e == nil {
+				continue
+			}
+		}
+		if _, e := s.Tasks.Cancel(ctx, session, org, t.id, t.version, "autopilot"); e != nil {
 			err = errors.Join(err, e)
 		}
 	}
