@@ -87,6 +87,14 @@ func (s *Service) Claim(ctx context.Context, raw string) (Assignment, error) {
 	if err == nil && result.Lease.JobID == "" {
 		err = workflow.ErrNoWork
 	}
+	if errors.Is(err, workflow.ErrNoWork) {
+		if seen := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `UPDATE runners SET last_seen_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND last_seen_at<clock_timestamp()-interval '30 seconds'`, org, id)
+			return err
+		}); seen != nil {
+			err = seen
+		}
+	}
 	if err != nil {
 		result = Assignment{}
 	}
