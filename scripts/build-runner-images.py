@@ -56,16 +56,16 @@ def file_digest(filename):
     return digest.digest()
 
 
-def copy_tree(root, source, absolute):
+def copy_tree(root, source, absolute, skip_nested=True):
     source = os.path.realpath(source)
     if not os.path.isdir(source):
         fail("toolchain directory missing: " + source)
     for current, dirs, files in os.walk(source, followlinks=False):
         if any(os.path.islink(os.path.join(current, directory)) for directory in dirs):
             fail("toolchain directory symlink is not allowed: " + current)
-        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS)
-        files.sort()
         relative = os.path.relpath(current, source)
+        dirs[:] = sorted(d for d in dirs if d not in SKIP_DIRS or not skip_nested and relative != ".")
+        files.sort()
         for filename in files:
             source_file = os.path.join(current, filename)
             if filename.lower() == "readme.md" or filename.endswith(".pyc") or filename.endswith(".pyo") or filename.endswith("_test.go"):
@@ -120,7 +120,7 @@ def go_toolchain(root, binary):
     if not os.path.isabs(goroot):
         fail("Go GOROOT is not absolute")
     tool_binary = regular_source(os.path.join(goroot, "bin", "go"), executable=True)
-    copy_tree(root, goroot, "/usr/local/go")
+    copy_tree(root, goroot, "/usr/local/go", skip_nested=False)
     copy_binary_dependencies(root, tool_binary)
     copy_file(root, tool_binary, "/usr/local/go/bin/go")
     version = subprocess.run([tool_binary, "version"], check=True, capture_output=True, text=True).stdout.strip()
