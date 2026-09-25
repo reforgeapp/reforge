@@ -392,7 +392,12 @@ func (s *Service) fail(ctx context.Context, lease Job, cause error) error {
 			state = "stale"
 			reason = "Connection, membership or import authorization changed; start a new sync"
 		}
-		if j.Failures >= 7 {
+		limited := provider != nil && (provider.Kind == "rate_limit" || provider.Kind == "rate_limited")
+		if limited {
+			delay = max(delay, provider.RetryAfter, 5*time.Minute)
+			reason = "Provider rate limit reached; retry scheduled"
+		}
+		if j.Failures >= 7 && !limited {
 			state = "failed"
 			reason = "Retry limit reached; verify provider connectivity and start a new sync"
 		}
