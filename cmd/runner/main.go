@@ -32,7 +32,7 @@ func main() {
 }
 func run() error {
 	if len(os.Args) < 2 {
-		return errors.New("usage: reforge-runner enroll|connector|run [flags]")
+		return errors.New("usage: reforge-runner enroll|connector|run|builtin|builtin-init [flags]")
 	}
 	mode := os.Args[1]
 	if mode == "image-digest" {
@@ -40,6 +40,12 @@ func run() error {
 	}
 	if mode == "verify-runtime" {
 		return verifyRuntime(os.Args[2:])
+	}
+	if mode == "builtin-init" {
+		return builtinInit(os.Args[2:])
+	}
+	if mode == "builtin" {
+		return runBuiltin(os.Args[2:])
 	}
 	if mode != "enroll" && mode != "connector" && mode != "run" {
 		return errors.New("unknown runner command")

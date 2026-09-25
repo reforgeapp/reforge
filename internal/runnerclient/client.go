@@ -281,31 +281,54 @@ func (c *Client) Run(ctx context.Context, process Processor) error {
 		return errors.New("runner processor is not configured")
 	}
 	for ctx.Err() == nil {
-		c.mu.RLock()
-		rotate := time.Until(c.credential.ExpiresAt) < time.Hour
-		c.mu.RUnlock()
-		if rotate {
-			if err := c.Rotate(ctx); err != nil {
-				return err
-			}
+		worked, err := c.Step(ctx, process)
+		if err != nil {
+			return err
 		}
-		job, err := c.Claim(ctx)
-		if errors.Is(err, workflow.ErrNoWork) {
+		if !worked {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
 			case <-time.After(2 * time.Second):
-				continue
 			}
-		}
-		if err != nil {
-			return err
-		}
-		if err = c.runJob(ctx, job, process); err != nil {
-			return err
 		}
 	}
 	return ctx.Err()
+}
+
+func (c *Client) Step(ctx context.Context, process Processor) (bool, error) {
+	c.mu.RLock()
+	rotate := time.Until(c.credential.ExpiresAt) < time.Hour
+	c.mu.RUnlock()
+	if rotate {
+		if err := c.Rotate(ctx); err != nil {
+			return false, err
+		}
+	}
+	job, err := c.Claim(ctx)
+	if errors.Is(err, workflow.ErrNoWork) {
+		return false, nil
+	}
+	if err != nil {
+		return false, err
+	}
+	return true, c.runJob(ctx, job, process)
+}
+
+func (c *Client) BuiltinOrgs(ctx context.Context, secret string) ([]string, error) {
+	var out struct {
+		OrgIDs []string `json:"org_ids"`
+	}
+	_, err := c.call(ctx, "GET", "/runner/v1/builtin/orgs", secret, nil, &out)
+	return out.OrgIDs, err
+}
+
+func (c *Client) EnrollBuiltin(ctx context.Context, secret, org string) error {
+	var next credential
+	if _, err := c.call(ctx, "POST", "/runner/v1/builtin/enroll", secret, map[string]string{"org_id": org, "name": c.config.Name}, &next); err != nil {
+		return err
+	}
+	return c.save(next)
 }
 
 func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
