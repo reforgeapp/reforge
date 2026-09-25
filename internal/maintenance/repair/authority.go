@@ -19,11 +19,11 @@ func (s *Service) CheckModelTx(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 		return workflow.ErrPolicy
 	}
 	var turns int
-	var started time.Time
-	if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM model_turns WHERE org_id=$1 AND task_id=$2),min(started_at) FROM workflow_attempts WHERE org_id=$1 AND task_id=$2`, t.OrgID, t.ID).Scan(&turns, &started); err != nil {
+	var started *time.Time
+	if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM model_turns WHERE org_id=$1 AND task_id=$2),(SELECT min(created_at) FROM model_turns WHERE org_id=$1 AND task_id=$2 AND attempt_id=$3)`, t.OrgID, t.ID, reservation.Lease.AttemptID).Scan(&turns, &started); err != nil {
 		return err
 	}
-	if turns >= p.Recipe.MaxTurns || time.Since(started) > time.Duration(p.Recipe.TimeoutSeconds)*time.Second {
+	if turns >= p.Recipe.MaxTurns || started != nil && time.Since(*started) > time.Duration(p.Recipe.TimeoutSeconds)*time.Second {
 		return budget.ErrCapacity
 	}
 	var money, concurrency, attempts, open int64
