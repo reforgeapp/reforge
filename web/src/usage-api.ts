@@ -21,6 +21,7 @@ export const usageAPI = {
   series: (orgID: string, filters: UsageFilters = {}) => apiRequest<UsageSeries>(path(orgID, `/usage/series?${query(filters, false)}`), { signal: filters.signal }),
   budget: (orgID: string, kind: string, id: string, signal?: AbortSignal) => apiRequest<Limit>(path(orgID, `/budgets/${encodeURIComponent(kind)}/${encodeURIComponent(id)}`), { signal }),
   saveBudget: (orgID: string, limit: Limit, csrf: string) => json<Limit>(path(orgID, `/budgets/${encodeURIComponent(limit.scope.kind)}/${encodeURIComponent(limit.scope.id)}`), limit, csrf, { method: 'PUT', headers: { 'If-Match': tag(limit.version) } }),
+  saveRoute: (orgID: string, route: Route, csrf: string) => json<Route>(path(orgID, `/budget-routes/${encodeURIComponent(route.connection_id)}`), route, csrf, { method: 'PUT', headers: { 'If-Match': tag(route.version) } }),
   route: (orgID: string, connectionID: string, model: string, routeName: string, signal?: AbortSignal) => {
     const params = new URLSearchParams({ model, route: routeName })
     return apiRequest<Route>(path(orgID, `/budget-routes/${encodeURIComponent(connectionID)}?${params}`), { signal })

@@ -85,3 +85,5 @@
 .forge-connection-created { min-width: 0; }
 .connection-edit { display: grid; gap: 12px; padding: 14px 16px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .connection-edit .row-actions { justify-content: flex-start; }
+.model-pricing { display: grid; gap: 12px; padding-top: 14px; border-top: 1px solid var(--border); }
+.model-pricing h3 { font-size: 14px; font-weight: 650; }
