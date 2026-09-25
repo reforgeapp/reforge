@@ -169,7 +169,7 @@ func runBuiltin(args []string) error {
 	if err != nil {
 		return err
 	}
-	config := sandbox.RuntimeConfig{Runsc: f.runsc, Tool: f.tool, StateRoot: filepath.Join(f.state, "sandbox"), DependencyRoot: "/var/cache/reforge-deps", CgroupRoot: f.cgroup, Images: map[string]string{}, Rootless: true, MemoryBytes: 2 << 30, DiskBytes: 512 << 20, CPUs: 2, MaxProcesses: 512}
+	config := sandbox.RuntimeConfig{Runsc: f.runsc, Tool: f.tool, StateRoot: filepath.Join(f.state, "sandbox"), DependencyRoot: "/var/cache/reforge-deps", CgroupRoot: f.cgroup, Images: map[string]string{}, Rootless: true, MemoryBytes: 6 << 30, DiskBytes: 3 << 30, CPUs: 2, MaxProcesses: 512}
 	for recipe, digest := range images {
 		config.Images[digest] = filepath.Join(f.images, recipe)
 	}

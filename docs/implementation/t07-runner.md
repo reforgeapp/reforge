@@ -75,6 +75,6 @@ Verification: all 11 runner tests passed with `go test -race -count=1 ./internal
 
 Enrolment creates the pool on first use, grants all repositories and revokes the pool's previous runners. Migration 038 adds `runner_pools.builtin` (one per org) and a trigger granting new repositories to it. `PutPool` keeps a built-in pool's name and repositories and rejects `revoked`.
 
-`reforge-runner builtin` moves container processes to a `supervisor` leaf, enables memory/pids/cpu on `/sys/fs/cgroup/reforge`, verifies the production runtime (rootless gVisor, 2 GiB, 2 CPUs, 512 pids, 512 MiB disk), then loops over organisations with one job at a time. It reaches the server over loopback with the public Host header. Failed steps drop the org credential and re-enrol after 10 seconds; failed enrolment retries after a minute.
+`reforge-runner builtin` moves container processes to a `supervisor` leaf, enables memory/pids/cpu on `/sys/fs/cgroup/reforge`, verifies the production runtime (rootless gVisor, 6 GiB, 2 CPUs, 512 pids, 3 GiB disk), then loops over organisations with one job at a time. It reaches the server over loopback with the public Host header. Failed steps drop the org credential and re-enrol after 10 seconds; failed enrolment retries after a minute.
 
 Verification: `TestBuiltinPoolCoversRepositoriesAndReplacesRunner` against PostgreSQL. A throwaway probe in the runner image under a privileged private cgroup namespace ran an untrusted Go workspace with `go build` and read back `memory.max=2147483648` from the delegated cgroup. No repair job ran end to end.
