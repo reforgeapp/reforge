@@ -12,6 +12,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode"
 
 	"reforge/internal/domain"
 	"reforge/internal/model"
@@ -238,7 +239,7 @@ func (p *Provider) StreamTurn(ctx context.Context, request model.TurnRequest, em
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return classifyHTTP(response, true)
+		return classifyHTTP(response, false)
 	}
 	state := &streamState{schemas: schemas}
 	if err := p.readStream(ctx, response.Body, state, emit); err != nil {
@@ -687,7 +688,24 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		kind = "invalid_request"
 	}
-	return &domain.ProviderError{Kind: kind, Message: "compatible endpoint request failed", Uncertain: uncertain || response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests}
+	message := "compatible endpoint request failed"
+	if response.Body != nil {
+		raw, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		var body struct {
+			Error struct {
+				Message string `json:"message"`
+			} `json:"error"`
+		}
+		if json.Unmarshal(raw, &body) == nil && body.Error.Message != "" {
+			message += ": " + strings.Map(func(r rune) rune {
+				if unicode.IsPrint(r) {
+					return r
+				}
+				return -1
+			}, body.Error.Message[:min(len(body.Error.Message), 300)])
+		}
+	}
+	return &domain.ProviderError{Kind: kind, Message: message, Uncertain: uncertain || response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests}
 }
 
 func classifyTransport(ctx context.Context, err error, uncertain bool) error {
