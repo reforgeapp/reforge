@@ -182,6 +182,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	if err = s.merge(ctx, session, org); err != nil {
 		return err
 	}
+	if err = s.reconcile(ctx, session, org); err != nil {
+		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
+	}
 	var busy bool
 	var model, route, headroom, blocked string
 	var next *candidate
@@ -257,13 +260,6 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	if resolved.Hash == "" || len(resolved.Problems) > 0 || resolved.Paused || slices.Contains(resolved.Policy.Deny, policy.Repair) {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "Mode does not allow fixes", 10*time.Minute), s.status(ctx, org, "Set Mode to Propose fixes or higher"))
 	}
-	if c.previous != "" {
-		if previous, err := s.repairs.Get(ctx, session, org, c.previous); err == nil {
-			if _, err = s.repairs.Reconcile(ctx, session, org, c.previous, previous.Version, "autopilot"); err != nil {
-				return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not reconcile the previous fix for "+c.name))
-			}
-		}
-	}
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
@@ -292,6 +288,28 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 		return errors.Join(s.record(ctx, org, c, run.Task.ID, "queued", "", 0), s.status(ctx, org, "Fixing a finding in "+c.name))
 	}
 	return s.record(ctx, org, c, "", "skipped", "No supported recipe for this repository", 0)
+}
+
+func (s *Service) reconcile(ctx context.Context, session auth.Session, org string) error {
+	var tasks []string
+	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT a.task_id::text FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN ('failed','cancelled') AND (EXISTS(SELECT 1 FROM model_turns m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND m.state='unknown') OR EXISTS(SELECT 1 FROM maintenance_repairs r WHERE r.org_id=a.org_id AND r.task_id=a.task_id AND r.active))`, org)
+		if err != nil {
+			return err
+		}
+		tasks, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	})
+	for _, task := range tasks {
+		run, e := s.repairs.Get(ctx, session, org, task)
+		if e == nil {
+			_, e = s.repairs.Reconcile(ctx, session, org, task, run.Version, "autopilot")
+		}
+		if e != nil {
+			err = errors.Join(err, e)
+		}
+	}
+	return err
 }
 
 func (s *Service) merge(ctx context.Context, session auth.Session, org string) error {
