@@ -86,6 +86,10 @@ func advance(continuation json.RawMessage, messages []model.Message, result mode
 	return continuation, messages
 }
 
+func AttemptTimeout(p Plan) time.Duration {
+	return 4 * time.Duration(p.Recipe.TimeoutSeconds) * time.Second
+}
+
 func (e Engine) turnTimeout() time.Duration {
 	if e.TurnTimeout <= 0 || e.TurnTimeout > 5*time.Minute {
 		return 60 * time.Second
@@ -170,7 +174,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	if err != nil {
 		return fail("Target source is incomplete", err)
 	}
-	ctx, cancel := context.WithTimeout(ctx, time.Duration(p.Recipe.TimeoutSeconds)*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, AttemptTimeout(p))
 	defer cancel()
 	if err = e.stage(ctx, "reproducing"); err != nil {
 		return fail("Run authorization changed", err)

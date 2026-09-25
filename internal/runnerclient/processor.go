@@ -24,7 +24,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			return failed, err
 		}
 		execution := run.Context
-		ctx, cancel := context.WithTimeout(ctx, time.Duration(execution.Plan.Recipe.TimeoutSeconds)*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, repair.AttemptTimeout(execution.Plan))
 		defer cancel()
 		baseline, err := c.RepairSnapshot(ctx, j, execution.Plan.BaselineSHA)
 		if err != nil {
@@ -97,7 +97,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 		} else if execution.CustomProfile != nil {
 			report, err = c.runCustomProfile(ctx, j, execution, runtime, baseline, target, engine)
-			if _, saveErr := c.RepairReport(ctx, j, report); saveErr != nil {
+			if _, saveErr := c.saveReport(ctx, j, report); saveErr != nil {
 				return failed, saveErr
 			}
 			if err != nil {
@@ -108,7 +108,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 		} else {
 			report, err = engine.Run(ctx, execution.Plan, baseline, target)
-			if _, saveErr := c.RepairReport(ctx, j, report); saveErr != nil {
+			if _, saveErr := c.saveReport(ctx, j, report); saveErr != nil {
 				return failed, saveErr
 			}
 			if err != nil {
@@ -225,4 +225,10 @@ func (c *Client) customProfilePatches(ctx context.Context, runtime sandbox.Sandb
 		}
 	}
 	return patches, nil
+}
+
+func (c *Client) saveReport(ctx context.Context, j Job, report repair.Report) (repair.Run, error) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	return c.RepairReport(ctx, j, report)
 }
