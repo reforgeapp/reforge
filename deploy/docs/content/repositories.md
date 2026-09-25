@@ -23,6 +23,13 @@ changes, deployment environments and branch-rule capabilities. Protection data c
 timestamp and a refresh control; an unavailable rule is shown as unknown, never as
 disabled.
 
+## Scan and runners
+
+**Start scan** on the repository Summary tab reads the default branch, dependency
+manifests, open changes and check results. A failed scan names the access the forge token
+lacks. **Settings → Runner pools** selects which active pools may run fixes for the
+repository.
+
 ## Scope
 
 Team and repository scoping is enforced server-side. Filters, sort and page state live in

@@ -15,6 +15,10 @@ the affected role.
 
 ## Billing routes
 
+Set a model's price in **Connections → Models & agents → (model) → Pricing**: input and
+output dollars per million tokens. Saving creates the `default` priced route with limits
+of 200,000 input tokens, 32,000 output tokens, 10 minutes and one request per turn.
+
 Every route records whether it is priced API usage or subscription quota. Pricing uses
 operator-pinned conservative rates; the estimate is distinct from provider invoice
 reconciliation. Unknown usage is held, not zeroed.

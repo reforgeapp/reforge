@@ -3,6 +3,22 @@
 The **Overview** route summarises the organisation within the viewer's repository scope.
 Every count links to its filtered list.
 
+## Get started
+
+Shown until every step is done; each step links to where it is fixed.
+
+| Step | Done when |
+| --- | --- |
+| Connect your code host | A forge connection is healthy |
+| Import a repository | At least one repository is imported |
+| Scan a repository | A discovery scan has completed |
+| Add an AI model | A model connection is healthy |
+| Set model pricing | A healthy model has a priced billing route |
+| Start a runner | A runner reported in the last 5 minutes |
+| Give a runner your repositories | An active runner pool includes a repository |
+| Allow Reforge to propose fixes | The effective policy permits repair |
+| Enable fixes on this server | The operator configured `REFORGE_REPAIR_IMAGES` |
+
 ## Counts
 
 | Tile | Counts |
