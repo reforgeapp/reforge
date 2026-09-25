@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
-import { policyAPI, type Action, type Policy, type Resolved } from '../policy-api'
+import { autopilotAPI, policyAPI, type Action, type Policy, type Resolved } from '../policy-api'
 
 export const presets = [
   { id: 'observe', label: 'Observe', deny: ['repair', 'publish', 'merge', 'deploy', 'recover'] as Action[] },
@@ -14,6 +15,21 @@ const text = (value: unknown) => value instanceof Error ? value.message : 'The s
 export function PolicyMode({ orgID, repositoryID, effective, base, currentVersion, csrf, canWrite, onChanged }: { orgID: string; repositoryID: string; effective?: Resolved; base: Policy; currentVersion: number; csrf: string; canWrite: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
+  const autopilot = useQuery({ queryKey: ['org', orgID, 'autopilot'], queryFn: ({ signal }) => autopilotAPI.get(orgID, signal), refetchInterval: query => query.state.data?.enabled ? 15_000 : false })
+  const toggle = async (enabled: boolean) => {
+    if (!autopilot.data) return
+    if (enabled && !window.confirm('Fix every open finding automatically? Spending is limited by Usage → Budgets.')) return
+    setBusy('autopilot')
+    setError('')
+    try {
+      await autopilotAPI.put(orgID, autopilot.data.version, enabled, csrf)
+      await autopilot.refetch()
+    } catch (reason) {
+      setError(text(reason))
+    } finally {
+      setBusy('')
+    }
+  }
   const deny = effective?.policy.deny ?? []
   const current = !effective?.layers?.some(layer => layer.scope.kind === 'organisation') || deny.includes('repair') ? 'observe' : deny.includes('merge') ? 'propose' : deny.includes('deploy') ? 'merge' : 'deliver'
   const apply = async (preset: typeof presets[number]) => {
@@ -39,6 +55,8 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
     <div className="segmented" role="group" aria-label="Organisation mode">
       {presets.map(preset => <Button key={preset.id} aria-pressed={current === preset.id} disabled={!canWrite || !csrf || !repositoryID || !!busy} onClick={() => { if (current !== preset.id) void apply(preset) }}>{busy === preset.id ? 'Applying…' : preset.label}</Button>)}
     </div>
+    <label className="checkbox-label"><input type="checkbox" checked={autopilot.data?.enabled ?? false} disabled={!canWrite || !csrf || !autopilot.data || !!busy} onChange={event => void toggle(event.target.checked)} />Fix findings automatically</label>
+    {autopilot.data?.enabled && <p className="table-meta" role="status">{autopilot.data.status || 'Starting'} · {autopilot.data.queued} fixes started · {autopilot.data.skipped} skipped</p>}
     {error && <p className="error-text" role="alert">{error}</p>}
   </section>
 }

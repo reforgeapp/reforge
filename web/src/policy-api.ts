@@ -1,4 +1,5 @@
 import { apiRequest } from './api/client'
+import type { components } from './api/schema'
 
 export type Action = 'read' | 'repair' | 'publish' | 'merge' | 'deploy' | 'recover'
 export type Scope = { kind: string; id: string }
@@ -25,4 +26,10 @@ export const policyAPI = {
   createVersion: (orgID: string, scope: Scope, policy: Policy, reason: string, csrf: string) => apiRequest<Version>(path(orgID, '/policies/versions'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope, policy, reason }) }, csrf),
   simulate: (orgID: string, versionID: string, repositoryID: string, primaryTeamID: string, input: Input, csrf: string) => apiRequest<Simulation>(path(orgID, `/policies/versions/${encodeURIComponent(versionID)}/simulate`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ repository_id: repositoryID, primary_team_id: primaryTeamID, input }) }, csrf),
   activate: (orgID: string, versionID: string, repositoryID: string, primaryTeamID: string, version: number, simulationHash: string, reason: string, csrf: string) => apiRequest<{ version: number }>(path(orgID, `/policies/versions/${encodeURIComponent(versionID)}/activate`), { method: 'POST', headers: { 'Content-Type': 'application/json', 'If-Match': `"${version}"` }, body: JSON.stringify({ repository_id: repositoryID, primary_team_id: primaryTeamID, simulation_hash: simulationHash, reason }) }, csrf),
+}
+
+export type Autopilot = components['schemas']['Autopilot']
+export const autopilotAPI = {
+  get: (orgID: string, signal?: AbortSignal) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { signal }),
+  put: (orgID: string, version: number, enabled: boolean, csrf: string) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': `"${version}"` }, body: JSON.stringify({ enabled }) }, csrf),
 }
