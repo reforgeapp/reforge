@@ -172,3 +172,24 @@ func TestSnapshotTotalByteLimit(t *testing.T) {
 		t.Fatalf("total byte limit failed calls=%d error=%v", calls, err)
 	}
 }
+
+func TestBatchedFilesContinueFromPartialBatches(t *testing.T) {
+	m, data := fixture("sha1")
+	reader := readerFor(m, data)
+	reader.File = nil
+	calls := 0
+	reader.Files = func(_ context.Context, _ forge.RepoRef, paths []string, _ string) ([]forge.File, error) {
+		calls++
+		return []forge.File{{Path: paths[0], Content: data[paths[0]]}}, nil
+	}
+	snapshot, err := Fetch(context.Background(), reader, m.Repository, m.CommitSHA)
+	if err != nil || len(snapshot.Files) != 3 || calls != 3 || snapshot.Files[0].Path != "a.c" {
+		t.Fatalf("snapshot=%+v calls=%d error=%v", snapshot, calls, err)
+	}
+	reader.Files = func(_ context.Context, _ forge.RepoRef, paths []string, _ string) ([]forge.File, error) {
+		return []forge.File{{Path: paths[len(paths)-1], Content: data[paths[len(paths)-1]]}}, nil
+	}
+	if _, err = Fetch(context.Background(), reader, m.Repository, m.CommitSHA); err == nil {
+		t.Fatal("out-of-order batch accepted")
+	}
+}

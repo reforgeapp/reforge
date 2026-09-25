@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"reforge/internal/auth"
@@ -387,6 +388,8 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		var v forge.File
 		v, err = provider.ReadFileAtRef(ctx, op.File.Repository, op.File.Path, op.File.CommitSHA)
 		result.File = &v
+	case ForgeReadFiles:
+		result.Files, err = readFiles(ctx, provider, *op.Files)
 	case ForgeReadChange:
 		var v forge.Change
 		v, err = provider.ReadChange(ctx, op.Change.Repository, op.Change.ChangeID)
@@ -406,3 +409,33 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 }
 
 func ContainsSecret(data []byte, secret string) bool { return containsSecret(data, secret) }
+
+func readFiles(ctx context.Context, provider forge.Provider, in FilesArgs) ([]forge.File, error) {
+	out := []forge.File{}
+	total := 0
+	for start := 0; start < len(in.Paths) && total < batchBytes; start += 8 {
+		paths := in.Paths[start:min(start+8, len(in.Paths))]
+		files := make([]forge.File, len(paths))
+		errs := make([]error, len(paths))
+		var wg sync.WaitGroup
+		for i, path := range paths {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				files[i], errs[i] = provider.ReadFileAtRef(ctx, in.Repository, path, in.CommitSHA)
+			}()
+		}
+		wg.Wait()
+		for i, file := range files {
+			if errs[i] != nil {
+				return nil, errs[i]
+			}
+			if len(out) > 0 && total+len(file.Content) > batchBytes {
+				return out, nil
+			}
+			out = append(out, file)
+			total += len(file.Content)
+		}
+	}
+	return out, nil
+}

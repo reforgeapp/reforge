@@ -33,5 +33,12 @@ func (s *Service) SourceReader(org, connection string, authorize func(context.Co
 			}
 			return *result.File, nil
 		},
+		Files: func(ctx context.Context, repo forge.RepoRef, paths []string, commit string) ([]forge.File, error) {
+			result, err := s.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadFiles, Files: &privateconnector.FilesArgs{Repository: repo, CommitSHA: commit, Paths: paths}}, authorize)
+			if err != nil {
+				return nil, err
+			}
+			return result.Files, nil
+		},
 	}
 }

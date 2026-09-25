@@ -27,6 +27,7 @@ const MaxTotalBytes = 64 << 20
 type Reader struct {
 	Manifest func(context.Context, forge.RepoRef, string) (forge.SourceManifest, error)
 	File     func(context.Context, forge.RepoRef, string, string) (forge.File, error)
+	Files    func(context.Context, forge.RepoRef, []string, string) ([]forge.File, error)
 }
 
 func ValidSHA(value, format string) bool {
@@ -165,7 +166,7 @@ func ValidateManifest(ctx context.Context, m forge.SourceManifest) (string, erro
 
 func Fetch(ctx context.Context, reader Reader, repo forge.RepoRef, commit string) (sandbox.Snapshot, error) {
 	var zero sandbox.Snapshot
-	if reader.Manifest == nil || reader.File == nil || repo.NativeID == "" || repo.FullName == "" || !(ValidSHA(commit, "sha1") || ValidSHA(commit, "sha256")) {
+	if reader.Manifest == nil || reader.File == nil && reader.Files == nil || repo.NativeID == "" || repo.FullName == "" || !(ValidSHA(commit, "sha1") || ValidSHA(commit, "sha256")) {
 		return zero, errors.New("authorized source readers and repository identity required")
 	}
 	if err := ctx.Err(); err != nil {
@@ -183,17 +184,39 @@ func Fetch(ctx context.Context, reader Reader, repo forge.RepoRef, commit string
 	}
 	entries := append([]forge.SourceEntry(nil), manifest.Entries...)
 	sort.Slice(entries, func(i, j int) bool { return entries[i].Path < entries[j].Path })
-	files := make([]guest.File, 0, len(entries))
-	total := 0
+	blobs := entries[:0]
 	for _, e := range entries {
+		if e.Type == "blob" {
+			blobs = append(blobs, e)
+		}
+	}
+	var fetched []forge.File
+	if reader.Files != nil {
+		for len(fetched) < len(blobs) {
+			paths := []string{}
+			for _, e := range blobs[len(fetched):min(len(blobs), len(fetched)+50)] {
+				paths = append(paths, e.Path)
+			}
+			batch, err := reader.Files(ctx, repo, paths, commit)
+			if err != nil {
+				return zero, err
+			}
+			if len(batch) == 0 || len(batch) > len(paths) {
+				return zero, errors.New("invalid source file batch")
+			}
+			fetched = append(fetched, batch...)
+		}
+	}
+	files := make([]guest.File, 0, len(blobs))
+	total := 0
+	for i, e := range blobs {
 		if err := ctx.Err(); err != nil {
 			return zero, err
 		}
-		if e.Type != "blob" {
-			continue
-		}
-		f, err := reader.File(ctx, repo, e.Path, commit)
-		if err != nil {
+		var f forge.File
+		if fetched != nil {
+			f = fetched[i]
+		} else if f, err = reader.File(ctx, repo, e.Path, commit); err != nil {
 			return zero, err
 		}
 		if err := ctx.Err(); err != nil {
