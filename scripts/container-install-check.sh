@@ -37,7 +37,6 @@ REFORGE_OIDC_CLIENT_ID=$client_id
 REFORGE_OIDC_CLIENT_SECRET=
 REFORGE_BOOTSTRAP_TOKEN=
 REFORGE_BOOTSTRAP_EXPIRES_AT=
-REFORGE_RUNNER_DIR=$run_dir/runner
 ENV
 dc() { docker compose --project-name "$project" --env-file "$run_dir/.env" --file "$root/deploy/compose/compose.yaml" "$@"; }
 cleanup() {

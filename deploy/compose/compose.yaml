@@ -83,10 +83,15 @@ services:
       REFORGE_BOOTSTRAP_EXPIRES_AT: ${REFORGE_BOOTSTRAP_EXPIRES_AT:-}
       REFORGE_KMS_REGION: ${REFORGE_KMS_REGION:-}
       REFORGE_KMS_KEY_ARN: ${REFORGE_KMS_KEY_ARN:-}
+      REFORGE_BUILTIN_RUNNER_DIR: /builtin
+    volumes:
+      - builtin:/builtin:ro
     depends_on:
       postgres:
         condition: service_healthy
       runtime-grants:
+        condition: service_completed_successfully
+      runner-init:
         condition: service_completed_successfully
 
   docs:
@@ -102,17 +107,34 @@ services:
     environment:
       DOCS_VERSION: ${REFORGE_VERSION:-dev}
 
-  runner:
-    profiles: ["runner"]
+  runner-init:
     build:
       context: ../..
       dockerfile: deploy/runner/Dockerfile
-    restart: unless-stopped
-    command: ["run", "--endpoint", "${REFORGE_PUBLIC_URL}", "--credentials", "/runner/credentials", "--runtime-config", "/runner/runtime-config.json"]
+    image: reforge-runner
+    restart: "no"
+    user: "10002:10001"
+    network_mode: none
+    command: ["builtin-init"]
     volumes:
-      - ${REFORGE_RUNNER_DIR:-./runner}:/runner:ro
+      - builtin:/builtin
+
+  runner:
+    image: reforge-runner
+    restart: unless-stopped
+    privileged: true
+    cgroup: private
+    user: "0:0"
+    network_mode: service:server
+    command: ["builtin"]
+    environment:
+      REFORGE_PUBLIC_URL: ${REFORGE_PUBLIC_URL:?set REFORGE_PUBLIC_URL}
+    volumes:
+      - builtin:/builtin:ro
     depends_on:
-      - server
+      server:
+        condition: service_started
 
 volumes:
   pgdata:
+  builtin:
