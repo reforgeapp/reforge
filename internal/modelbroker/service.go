@@ -318,9 +318,6 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		if e == nil && changed.RowsAffected() != 1 {
 			return auth.ErrConflict
 		}
-		if e == nil {
-			_, e = tx.Exec(finalctx, `UPDATE connections SET key_confirmed_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, lease.OrgID, reservation.ConnectionID)
-		}
 		return e
 	})
 	if rejected && persistErr == nil {
@@ -330,6 +327,17 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		}
 		slog.WarnContext(ctx, "model turn rejected by provider", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "kind", providerError.Kind, "reason", message)
 		return model.TurnResult{}, err
+	}
+	if persistErr == nil && known {
+		if err := s.db.Tenant(finalctx, lease.OrgID, "", func(tx pgx.Tx) error {
+			_, e := tx.Exec(finalctx, `UPDATE connections SET key_confirmed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND (key_confirmed_at IS NULL OR key_confirmed_at<clock_timestamp()-interval '1 hour')`, lease.OrgID, reservation.ConnectionID)
+			return e
+		}); err != nil {
+			slog.WarnContext(ctx, "model key confirmation not recorded", "org_id", lease.OrgID, "error", err)
+		}
+	}
+	if persistErr != nil {
+		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
 	if persistErr != nil || !known {
 		return model.TurnResult{}, ErrUncertain
