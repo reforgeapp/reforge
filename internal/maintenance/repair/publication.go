@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
+	"log/slog"
 	"reforge/internal/auth"
 	"reforge/internal/connections"
 	"reforge/internal/domain"
@@ -224,6 +225,9 @@ func (s *Service) dispatch(ctx context.Context, credential string, r Run, l work
 	finalctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()
 	outcome, evidence := "unknown", "Native outcome requires authoritative reconciliation"
+	if err != nil {
+		slog.WarnContext(ctx, "native write failed", "org_id", l.OrgID, "task_id", l.TaskID, "kind", op.Kind, "error", err)
+	}
 	if err == nil {
 		if op.Kind == privateconnector.ForgeUpdateBranch && source.ValidSHA(out.SHA, "sha1") {
 			outcome, evidence = "succeeded", out.SHA
