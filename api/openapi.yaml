@@ -19482,6 +19482,7 @@
               "runner",
               "assignment",
               "policy",
+              "publish",
               "server"
             ]
           },

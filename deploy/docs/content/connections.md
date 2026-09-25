@@ -48,6 +48,9 @@ selected**. A failed test keeps the connection: paste a corrected token and sele
 create another. A test that returns an unhealthy state does not open the repository
 step; read the reason and retry after fixing it.
 
+A GitHub token connection is read-only for Reforge: fixes are published only through the
+GitHub App, so its bot authors every branch and pull request Reforge owns.
+
 #### GitHub Enterprise Server and manual App
 
 GHES keeps the manual App flow. Under **Authentication**, choose **GitHub App

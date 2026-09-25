@@ -950,6 +950,7 @@ const (
 	SetupStepIdModel      SetupStepId = "model"
 	SetupStepIdPolicy     SetupStepId = "policy"
 	SetupStepIdPricing    SetupStepId = "pricing"
+	SetupStepIdPublish    SetupStepId = "publish"
 	SetupStepIdRepository SetupStepId = "repository"
 	SetupStepIdRunner     SetupStepId = "runner"
 	SetupStepIdScan       SetupStepId = "scan"
@@ -969,6 +970,8 @@ func (e SetupStepId) Valid() bool {
 	case SetupStepIdPolicy:
 		return true
 	case SetupStepIdPricing:
+		return true
+	case SetupStepIdPublish:
 		return true
 	case SetupStepIdRepository:
 		return true

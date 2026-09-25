@@ -320,8 +320,12 @@ func (s *Service) Step(ctx context.Context, org string) error {
 
 func (s *Service) queue(ctx context.Context, session auth.Session, org string, c candidate, model, route string) error {
 	var pool string
+	var readOnly bool
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repositories r JOIN connections c ON c.org_id=r.org_id AND c.id=r.connection_id WHERE r.org_id=$1 AND r.id=$2 AND c.provider='github' AND c.settings->>'auth_kind'='token')`, org, c.repository).Scan(&readOnly); err != nil {
+			return err
+		}
 		err := tx.QueryRow(ctx, `SELECT p.id::text FROM runner_pools p JOIN runner_pool_repositories rp ON rp.org_id=p.org_id AND rp.pool_id=p.id WHERE p.org_id=$1 AND rp.repository_id=$2 AND p.state='active' ORDER BY p.builtin DESC,p.created_at LIMIT 1`, org, c.repository).Scan(&pool)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
@@ -334,6 +338,9 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if resolved.Hash == "" || len(resolved.Problems) > 0 || resolved.Paused || slices.Contains(resolved.Policy.Deny, policy.Repair) {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "Mode does not allow fixes", 10*time.Minute), s.status(ctx, org, "Set Mode to Propose fixes or higher"))
+	}
+	if readOnly {
+		return errors.Join(s.record(ctx, org, c, "", "retry", "Publishing requires the GitHub App", 10*time.Minute), s.status(ctx, org, "Install the GitHub App on "+c.name+" to publish fixes"))
 	}
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))

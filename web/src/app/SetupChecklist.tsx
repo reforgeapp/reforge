@@ -14,6 +14,7 @@ const steps: Record<Step['id'], { label: string; action?: string; href?: (org: s
   runner: { label: 'Start a runner', action: 'Runners', href: org => `/org/${org}/runners` },
   assignment: { label: 'Give a runner your repositories', action: 'Assign', href: (org, step) => `/org/${org}/repositories${step.repository_id ? `?repository=${step.repository_id}` : ''}` },
   policy: { label: 'Allow Reforge to propose fixes', action: 'Policies', href: org => `/org/${org}/policies` },
+  publish: { label: 'Install the GitHub App to publish fixes', action: 'Connections', href: org => `/org/${org}/connections` },
   server: { label: 'Enable fixes on this server', note: 'Ask your administrator to configure repair images.' },
 }
 
