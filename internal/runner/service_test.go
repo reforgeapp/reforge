@@ -15,6 +15,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -699,5 +700,54 @@ func TestRunnerInventoryPagination(t *testing.T) {
 	}
 	if len(seen) != 3 {
 		t.Fatalf("runner inventory truncated: %d", len(seen))
+	}
+}
+
+func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	first, err := f.service.EnrollBuiltin(ctx, f.org, "built-in")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pool, err := f.service.Pool(ctx, f.session, f.org, first.Runner.PoolID)
+	if err != nil || !pool.Builtin || len(pool.RepositoryIDs) != 2 {
+		t.Fatalf("built-in pool %+v: %v", pool, err)
+	}
+	added := domain.NewID()
+	if err = f.db.Tenant(ctx, f.org, f.session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO repositories(org_id,id,native_id,name) VALUES($1,$2::uuid,$2::text,'Added repo')`, f.org, added)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if pool, _ = f.service.Pool(ctx, f.session, f.org, pool.ID); len(pool.RepositoryIDs) != 3 {
+		t.Fatal("new repository not granted to built-in pool")
+	}
+	if pool, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Renamed", State: "draining"}, pool.Version, "fixture"); err != nil || pool.Name != "Built-in" || len(pool.RepositoryIDs) != 3 {
+		t.Fatalf("built-in pool edit %+v: %v", pool, err)
+	}
+	if _, err = f.service.EnrollBuiltin(ctx, f.org, "built-in"); !errors.Is(err, auth.ErrForbidden) {
+		t.Fatalf("draining built-in pool enrolled: %v", err)
+	}
+	if _, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Built-in", State: "revoked"}, pool.Version, "fixture"); !errors.Is(err, auth.ErrInvalid) {
+		t.Fatalf("built-in pool revoked: %v", err)
+	}
+	if _, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Built-in", State: "active"}, pool.Version, "fixture"); err != nil {
+		t.Fatal(err)
+	}
+	second, err := f.service.EnrollBuiltin(ctx, f.org, "built-in")
+	if err != nil || second.Runner.PoolID != pool.ID {
+		t.Fatalf("re-enrol: %v", err)
+	}
+	if _, err = f.service.Claim(ctx, first.Token); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Fatal("replaced built-in runner still valid")
+	}
+	if _, err = f.service.Claim(ctx, second.Token); !errors.Is(err, workflow.ErrNoWork) {
+		t.Fatalf("built-in runner claim: %v", err)
+	}
+	orgs, err := f.service.BuiltinOrgs(ctx)
+	if err != nil || !slices.Contains(orgs, f.org) {
+		t.Fatalf("built-in orgs: %v", err)
 	}
 }

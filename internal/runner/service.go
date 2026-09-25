@@ -113,8 +113,9 @@ func (s *Service) PutPool(ctx context.Context, session auth.Session, org, id str
 			return auth.ErrForbidden
 		}
 		var version int64
-		var state string
-		err := tx.QueryRow(ctx, `SELECT version,state FROM runner_pools WHERE org_id=$1 AND id=$2`, org, id).Scan(&version, &state)
+		var state, name string
+		var builtin bool
+		err := tx.QueryRow(ctx, `SELECT version,state,name,builtin FROM runner_pools WHERE org_id=$1 AND id=$2`, org, id).Scan(&version, &state, &name, &builtin)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
@@ -126,7 +127,16 @@ func (s *Service) PutPool(ctx context.Context, session auth.Session, org, id str
 		if expected != version || state == "revoked" {
 			return auth.ErrConflict
 		}
-		p = Pool{ID: id, OrgID: org, Name: strings.TrimSpace(in.Name), State: in.State, RepositoryIDs: append([]string{}, in.RepositoryIDs...), Version: version + 1}
+		if builtin {
+			if in.State == "revoked" {
+				return auth.ErrInvalid
+			}
+			in.Name = name
+			if err = tx.QueryRow(ctx, `SELECT coalesce(array_agg(repository_id::text),'{}') FROM runner_pool_repositories WHERE org_id=$1 AND pool_id=$2`, org, id).Scan(&in.RepositoryIDs); err != nil {
+				return err
+			}
+		}
+		p = Pool{ID: id, OrgID: org, Name: strings.TrimSpace(in.Name), State: in.State, RepositoryIDs: append([]string{}, in.RepositoryIDs...), Version: version + 1, Builtin: builtin}
 		if _, err = tx.Exec(ctx, `INSERT INTO runner_pools(org_id,id,name,state,version) VALUES($1,$2,$3,$4,$5) ON CONFLICT(org_id,id) DO UPDATE SET name=EXCLUDED.name,state=EXCLUDED.state,version=EXCLUDED.version`, org, id, p.Name, p.State, p.Version); err != nil {
 			return err
 		}
@@ -359,14 +369,14 @@ func (s *Service) Pools(ctx context.Context, session auth.Session, org string, f
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
-		rows, err := tx.Query(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running') FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id::text>$2 AND ($3='' OR p.state=$3) AND ($4='' OR p.name ILIKE '%'||$4||'%') AND ($5 OR NOT EXISTS(SELECT 1 FROM runner_pool_repositories excluded WHERE excluded.org_id=p.org_id AND excluded.pool_id=p.id AND NOT (excluded.repository_id::text=ANY(coalesce($6::text[],'{}'))))) GROUP BY p.org_id,p.id ORDER BY p.id LIMIT $7`, org, cursor, filter.State, filter.Query, a.AllRepositories, a.RepositoryIDs, limit+1)
+		rows, err := tx.Query(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running'),p.builtin FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id::text>$2 AND ($3='' OR p.state=$3) AND ($4='' OR p.name ILIKE '%'||$4||'%') AND ($5 OR NOT EXISTS(SELECT 1 FROM runner_pool_repositories excluded WHERE excluded.org_id=p.org_id AND excluded.pool_id=p.id AND NOT (excluded.repository_id::text=ANY(coalesce($6::text[],'{}'))))) GROUP BY p.org_id,p.id ORDER BY p.id LIMIT $7`, org, cursor, filter.State, filter.Query, a.AllRepositories, a.RepositoryIDs, limit+1)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var p Pool
-			if err = rows.Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots); err != nil {
+			if err = rows.Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots, &p.Builtin); err != nil {
 				return err
 			}
 			page.Items = append(page.Items, p)
@@ -395,7 +405,7 @@ func (s *Service) Pool(ctx context.Context, session auth.Session, org, id string
 		if err := checkPoolAccess(ctx, tx, a, id); err != nil {
 			return err
 		}
-		err := tx.QueryRow(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running') FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id=$2 GROUP BY p.org_id,p.id`, org, id).Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots)
+		err := tx.QueryRow(ctx, `SELECT p.id::text,p.org_id::text,p.name,p.state,p.version,coalesce(array_agg(DISTINCT r.repository_id::text ORDER BY r.repository_id::text) FILTER(WHERE r.repository_id IS NOT NULL),'{}'),(SELECT count(*) FROM runners ru WHERE ru.org_id=p.org_id AND ru.pool_id=p.id AND ru.state='active'),(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE t.org_id=p.org_id AND t.runner_pool_id=p.id AND j.state='running'),p.builtin FROM runner_pools p LEFT JOIN runner_pool_repositories r ON r.org_id=p.org_id AND r.pool_id=p.id WHERE p.org_id=$1 AND p.id=$2 GROUP BY p.org_id,p.id`, org, id).Scan(&p.ID, &p.OrgID, &p.Name, &p.State, &p.Version, &p.RepositoryIDs, &p.RunnerCount, &p.BusySlots, &p.Builtin)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return auth.ErrForbidden
 		}

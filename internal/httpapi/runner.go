@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"crypto/subtle"
 	"encoding/json"
 	"errors"
 	"io"
@@ -130,21 +131,7 @@ func (s *Server) RegisterRunner(service *runner.Service) {
 		defer r.Close()
 		sendArtifact(c, m, r)
 	})
-	workers := s.Router.Group("/runner/v1", func(c *gin.Context) {
-		origin, err := url.Parse(s.Config.PublicURL)
-		if err != nil || c.Request.Host != origin.Host || c.GetHeader("Origin") != "" || c.GetHeader("Sec-Fetch-Site") == "cross-site" {
-			IdentityFailure(c, auth.ErrForbidden)
-			return
-		}
-		value := c.GetHeader("Authorization")
-		if !strings.HasPrefix(value, "Bearer ") || len(value) > 256 {
-			IdentityFailure(c, auth.ErrUnauthenticated)
-			return
-		}
-		c.Set("runner_token", strings.TrimPrefix(value, "Bearer "))
-		c.Header("Cache-Control", "no-store")
-		c.Next()
-	})
+	workers := s.Router.Group("/runner/v1", s.runnerBearer)
 	workers.POST("/enroll", func(c *gin.Context) {
 		var in struct {
 			Name string `json:"name"`
@@ -253,6 +240,55 @@ func (s *Server) RegisterRunner(service *runner.Service) {
 		c.Data(200, "application/json", value)
 	})
 }
+func (s *Server) runnerBearer(c *gin.Context) {
+	origin, err := url.Parse(s.Config.PublicURL)
+	if err != nil || c.Request.Host != origin.Host || c.GetHeader("Origin") != "" || c.GetHeader("Sec-Fetch-Site") == "cross-site" {
+		IdentityFailure(c, auth.ErrForbidden)
+		return
+	}
+	value := c.GetHeader("Authorization")
+	if !strings.HasPrefix(value, "Bearer ") || len(value) > 256 {
+		IdentityFailure(c, auth.ErrUnauthenticated)
+		return
+	}
+	c.Set("runner_token", strings.TrimPrefix(value, "Bearer "))
+	c.Header("Cache-Control", "no-store")
+	c.Next()
+}
+
+func (s *Server) RegisterBuiltinRunner(service *runner.Service, secret string) {
+	group := s.Router.Group("/runner/v1/builtin", s.runnerBearer, func(c *gin.Context) {
+		if subtle.ConstantTimeCompare([]byte(c.GetString("runner_token")), []byte(secret)) != 1 {
+			IdentityFailure(c, auth.ErrUnauthenticated)
+			return
+		}
+		c.Next()
+	})
+	group.GET("/orgs", func(c *gin.Context) {
+		value, err := service.BuiltinOrgs(c.Request.Context())
+		if err != nil {
+			runnerFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"org_ids": value})
+	})
+	group.POST("/enroll", func(c *gin.Context) {
+		var in struct {
+			OrgID string `json:"org_id"`
+			Name  string `json:"name"`
+		}
+		if !identityJSON(c, &in) {
+			return
+		}
+		value, err := service.EnrollBuiltin(c.Request.Context(), in.OrgID, in.Name)
+		if err != nil {
+			runnerFailure(c, err)
+			return
+		}
+		c.JSON(201, gin.H{"token": value.Token, "expires_at": value.ExpiresAt, "runner": value.Runner})
+	})
+}
+
 func sendArtifact(c *gin.Context, m artifact.Metadata, r io.Reader) {
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": m.Name}))

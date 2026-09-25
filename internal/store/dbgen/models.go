@@ -790,6 +790,7 @@ type RunnerPool struct {
 	State     string             `json:"state"`
 	Version   int64              `json:"version"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Builtin   bool               `json:"builtin"`
 }
 
 type RunnerPoolRepository struct {

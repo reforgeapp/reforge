@@ -2730,6 +2730,7 @@ type RunnerPage struct {
 	NextCursor *string  `json:"next_cursor,omitempty"`
 }
 type RunnerPool struct {
+	Builtin       *bool           `json:"builtin,omitempty"`
 	BusySlots     *int            `json:"busy_slots,omitempty"`
 	Id            string          `json:"id"`
 	Name          string          `json:"name"`

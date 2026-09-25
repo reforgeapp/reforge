@@ -38,6 +38,7 @@ type Config struct {
 	BootstrapToken     string `json:"-"`
 	BootstrapExpiresAt time.Time
 	GitHubApp          GitHubAppFiles
+	BuiltinRunnerToken string `json:"-"`
 }
 
 type GitHubAppFiles struct {
@@ -74,6 +75,11 @@ func Load() (Config, error) {
 	if raw := os.Getenv("REFORGE_REPAIR_IMAGES"); raw != "" {
 		if err := json.Unmarshal([]byte(raw), &c.RepairImages); err != nil {
 			return c, errors.New("REFORGE_REPAIR_IMAGES must map recipe names to sha256 image digests")
+		}
+	}
+	if dir := os.Getenv("REFORGE_BUILTIN_RUNNER_DIR"); dir != "" {
+		if err := c.loadBuiltinRunner(dir); err != nil {
+			return c, err
 		}
 	}
 	var pathErr error
@@ -163,8 +169,37 @@ func (c Config) Validate() error {
 	if set != 0 && (set != 6 || c.Edition != "hosted") {
 		return errors.New("REFORGE_GITHUB_APP_ID, _SLUG, _CLIENT_ID, _CLIENT_SECRET_FILE, _PRIVATE_KEY_FILE and _WEBHOOK_SECRET_FILE must all be set, for the hosted edition only")
 	}
+	if c.BuiltinRunnerToken != "" && (c.Edition != "self-hosted" || len(c.BuiltinRunnerToken) < 43) {
+		return errors.New("the built-in runner requires the self-hosted edition and a 32-byte token")
+	}
 	if c.BootstrapToken != "" && (c.Edition != "self-hosted" || c.BootstrapExpiresAt.IsZero() || len(c.BootstrapToken) < 32) {
 		return errors.New("bootstrap requires self-hosted edition, an explicit expiry and at least 32 random token characters")
+	}
+	return nil
+}
+
+func (c *Config) loadBuiltinRunner(dir string) error {
+	read := func(name string) ([]byte, error) {
+		path := filepath.Join(dir, name)
+		info, err := os.Lstat(path)
+		if err != nil || !info.Mode().IsRegular() || info.Mode().Perm()&0027 != 0 || info.Size() > 4096 {
+			return nil, errors.New("REFORGE_BUILTIN_RUNNER_DIR requires private regular files " + name)
+		}
+		return os.ReadFile(path)
+	}
+	token, err := read("token")
+	if err != nil {
+		return err
+	}
+	c.BuiltinRunnerToken = strings.TrimSpace(string(token))
+	if len(c.RepairImages) == 0 {
+		images, err := read("repair-images.json")
+		if err != nil {
+			return err
+		}
+		if json.Unmarshal(images, &c.RepairImages) != nil {
+			return errors.New("built-in runner repair-images.json is invalid")
+		}
 	}
 	return nil
 }

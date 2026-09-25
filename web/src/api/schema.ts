@@ -3151,6 +3151,7 @@ export interface components {
             version: number;
             runner_count?: number;
             busy_slots?: number;
+            builtin?: boolean;
         };
         Runner: {
 

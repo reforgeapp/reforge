@@ -14134,6 +14134,9 @@
           },
           "busy_slots": {
             "type": "integer"
+          },
+          "builtin": {
+            "type": "boolean"
           }
         }
       },

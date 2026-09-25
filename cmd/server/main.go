@@ -143,6 +143,9 @@ func run() error {
 	workflows.RegisterScopeCheck(runners.CheckScopeTx)
 	connectionService.RegisterRunnerCheck(runners.CheckRunnerTx)
 	app.RegisterRunner(runners)
+	if cfg.BuiltinRunnerToken != "" {
+		app.RegisterBuiltinRunner(runners, cfg.BuiltinRunnerToken)
+	}
 	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 8})
 	if err != nil {
 		return err

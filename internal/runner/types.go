@@ -23,6 +23,7 @@ type Pool struct {
 	Version       int64    `json:"version"`
 	RunnerCount   int      `json:"runner_count"`
 	BusySlots     int      `json:"busy_slots"`
+	Builtin       bool     `json:"builtin"`
 }
 type PoolInput struct {
 	Name          string   `json:"name"`
