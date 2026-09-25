@@ -129,8 +129,9 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 type candidate struct {
-	finding, repository, name string
-	version                   int64
+	finding, repository, name, previous string
+	version                             int64
+	runs                                int
 }
 
 func (s *Service) status(ctx context.Context, org, message string) error {
@@ -142,7 +143,7 @@ func (s *Service) status(ctx context.Context, org, message string) error {
 
 func (s *Service) record(ctx context.Context, org string, c candidate, task, outcome, reason string, retry time.Duration) error {
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,reason,retry_after) VALUES($1,$2,$3,nullif($4,'')::uuid,$5,$6,CASE WHEN $7::bigint>0 THEN clock_timestamp()+make_interval(secs=>$7::bigint) END) ON CONFLICT(org_id,finding_id,finding_version) DO UPDATE SET task_id=EXCLUDED.task_id,outcome=EXCLUDED.outcome,reason=EXCLUDED.reason,retry_after=EXCLUDED.retry_after,updated_at=clock_timestamp()`, org, c.finding, c.version, task, outcome, reason, int64(retry.Seconds()))
+		_, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,reason,retry_after,runs) VALUES($1,$2,$3,nullif($4,'')::uuid,$5,$6,CASE WHEN $7::bigint>0 THEN clock_timestamp()+make_interval(secs=>$7::bigint) END,CASE WHEN $5='queued' THEN 1 ELSE 0 END) ON CONFLICT(org_id,finding_id,finding_version) DO UPDATE SET task_id=coalesce(EXCLUDED.task_id,autopilot_attempts.task_id),outcome=EXCLUDED.outcome,reason=EXCLUDED.reason,retry_after=EXCLUDED.retry_after,runs=autopilot_attempts.runs+EXCLUDED.runs,updated_at=clock_timestamp()`, org, c.finding, c.version, task, outcome, reason, int64(retry.Seconds()))
 		return err
 	})
 }
@@ -209,7 +210,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var c candidate
-		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND (a.outcome<>'retry' OR a.retry_after>clock_timestamp())) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) ORDER BY f.first_seen,f.id LIMIT 1`, org).Scan(&c.finding, &c.version, &c.repository, &c.name)
+		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<3 AND a.updated_at<clock_timestamp()-interval '10 minutes')) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) ORDER BY f.first_seen,f.id LIMIT 1`, org).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs)
 		if errors.Is(err, pgx.ErrNoRows) {
 			var count int
 			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(f.evidence->'blockers'->>0),'') FROM maintenance_findings f WHERE f.org_id=$1 AND f.state='open' AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0`, org).Scan(&count, &blocked)
@@ -256,6 +257,13 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	if resolved.Hash == "" || len(resolved.Problems) > 0 || resolved.Paused || slices.Contains(resolved.Policy.Deny, policy.Repair) {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "Mode does not allow fixes", 10*time.Minute), s.status(ctx, org, "Set Mode to Propose fixes or higher"))
 	}
+	if c.previous != "" {
+		if previous, err := s.repairs.Get(ctx, session, org, c.previous); err == nil {
+			if _, err = s.repairs.Reconcile(ctx, session, org, c.previous, previous.Version, "autopilot"); err != nil {
+				return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not reconcile the previous fix for "+c.name))
+			}
+		}
+	}
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
@@ -276,7 +284,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 			return s.record(ctx, org, c, "", "skipped", preview.Blockers[0], 0)
 		}
 		in.PlanDigest = preview.Context.Plan.Digest
-		in.IdempotencyKey = "autopilot/" + c.finding + "/" + preview.Context.Plan.Digest[:16]
+		in.IdempotencyKey = "autopilot/" + c.finding + "/" + preview.Context.Plan.Digest[:16] + "/" + strconv.Itoa(c.runs+1)
 		run, err := s.repairs.Enqueue(ctx, session, org, in, "autopilot")
 		if err != nil {
 			return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not queue a fix for "+c.name))
