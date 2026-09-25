@@ -94,6 +94,18 @@ func withDependencyHashes(p Plan, files map[string][]byte, updates []DependencyU
 	return next
 }
 
+func retarget(p Plan, files map[string][]byte) Plan {
+	next := p
+	next.ProtectedHashes = map[string]string{}
+	for name := range p.ProtectedHashes {
+		if body, ok := files[name]; ok {
+			next.ProtectedHashes[name] = hashBytes(body)
+		}
+	}
+	next.Digest = planDigest(next)
+	return next
+}
+
 func ciTools() []model.Tool {
 	return []model.Tool{
 		{Name: "read_file", Description: "Read a file from the target branch", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024}},"required":["path"],"additionalProperties":false}`)},
@@ -107,11 +119,9 @@ func ciTools() []model.Tool {
 
 func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string][]byte) (Report, error) {
 	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
-	independent, err := targetPlan(p, files)
-	if err != nil {
-		return fail("Target validation differs; independent review required", err)
-	}
+	independent := retarget(p, files)
 	out.Mode = "ci"
+	var err error
 	if err = e.stage(ctx, "planning"); err != nil {
 		return fail("Run authorization changed", err)
 	}

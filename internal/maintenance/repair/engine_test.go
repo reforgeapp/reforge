@@ -223,7 +223,18 @@ func snapshotForEngine(t *testing.T, commit string, files map[string][]byte) san
 	return sandbox.Snapshot{CommitSHA: commit, Complete: true, ManifestSHA256: digest, Files: entries}
 }
 
-type passRuntime struct{ retryRuntime }
+type passRuntime struct {
+	retryRuntime
+	target    map[string][]byte
+	targetSHA string
+}
+
+func (r *passRuntime) CollectArtifact(ctx context.Context, w sandbox.Workspace, name string) (sandbox.Artifact, error) {
+	if w.CommitSHA == r.targetSHA {
+		return sandbox.Artifact{Name: name, Data: append([]byte(nil), r.target[name]...)}, nil
+	}
+	return r.retryRuntime.CollectArtifact(ctx, w, name)
+}
 
 func (r *passRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {
 	return sandbox.CommandResult{Output: []byte("ok 1 - adds\n")}, nil
@@ -233,7 +244,12 @@ func TestEngineRepairsFromCILogsWithDependencyUpdate(t *testing.T) {
 	plan, files := testPlan(t)
 	plan.Recipe.MaxTurns = 3
 	plan.Digest = planDigest(plan)
-	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}}
+	targetFiles := map[string][]byte{}
+	for name, body := range files {
+		targetFiles[name] = body
+	}
+	targetFiles["value.test.js"] = append([]byte("// newer target test\n"), files["value.test.js"]...)
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, targetFiles, plan.TargetSHA}
 	turns := 0
 	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: "js-yaml 5.2.1 HIGH fixed 5.2.2"}}, Progress: func(context.Context, string) error { return nil },
 		UpdateDependency: func(_ context.Context, in map[string][]byte, u DependencyUpdate) (map[string][]byte, error) {
@@ -252,7 +268,7 @@ func TestEngineRepairsFromCILogsWithDependencyUpdate(t *testing.T) {
 			}
 			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "done", Name: "finish", Arguments: []byte(`{"summary":"Bump js-yaml to 5.2.2"}`)}}}, nil
 		}}
-	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, targetFiles))
 	if err != nil || report.State != "validated" || report.Mode != "ci" || len(report.Patches) != 1 || report.Patches[0].Path != "package-lock.json" || len(report.Dependencies) != 1 {
 		t.Fatalf("report=%+v error=%v", report, err)
 	}

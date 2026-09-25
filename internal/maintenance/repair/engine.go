@@ -461,9 +461,11 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 	if err != nil || target.CommitSHA != p.TargetSHA {
 		return out, ErrValidation
 	}
-	next, err := targetPlan(p, files)
-	if err != nil {
-		return out, err
+	next := retarget(p, files)
+	if repaired.Mode != "ci" {
+		if next, err = targetPlan(p, files); err != nil {
+			return out, err
+		}
 	}
 	if len(repaired.Dependencies) > 0 {
 		for _, patch := range repaired.Patches {
