@@ -119,3 +119,30 @@ export function Meter({ label, used, held, cap, format = plain }: { label: strin
     </div>
   </div>
 }
+
+export function Donut({ label, segments, empty, format = plain }: { label: string; segments: Array<{ key: string; label: string; value: number; color: string }>; empty: string; format?: (value: number) => string }) {
+  const [active, setActive] = useState<string>()
+  const total = segments.reduce((sum, item) => sum + item.value, 0)
+  if (!total) return <p className="chart-empty">{empty}</p>
+  const radius = 58
+  const circumference = 2 * Math.PI * radius
+  const gap = segments.filter(item => item.value).length > 1 ? 2 : 0
+  let offset = 0
+  const percent = (value: number) => `${Math.round(value / total * 100)}%`
+  const focus = segments.find(item => item.key === active)
+  return <figure className="donut">
+    <svg viewBox="0 0 160 160" role="img" aria-label={`${label}: ${segments.map(item => `${item.label} ${format(item.value)}`).join(', ')}`}>
+      <circle cx="80" cy="80" r={radius} fill="none" stroke="var(--surface-3)" strokeWidth="22" />
+      {segments.filter(item => item.value).map(item => {
+        const length = item.value / total * circumference
+        const arc = <circle key={item.key} cx="80" cy="80" r={radius} fill="none" stroke={item.color} strokeWidth={active === item.key ? 26 : 22} strokeDasharray={`${Math.max(0.5, length - gap)} ${circumference}`} strokeDashoffset={-offset} transform="rotate(-90 80 80)" onPointerEnter={() => setActive(item.key)} onPointerLeave={() => setActive(undefined)}><title>{`${item.label}: ${format(item.value)} (${percent(item.value)})`}</title></circle>
+        offset += length
+        return arc
+      })}
+      <text x="80" y="76" textAnchor="middle" className="donut-total">{format(focus?.value ?? total)}</text>
+      <text x="80" y="96" textAnchor="middle" className="donut-caption">{focus?.label ?? 'total'}</text>
+    </svg>
+    <ul className="chart-legend donut-legend">{segments.map(item => <li key={item.key} onPointerEnter={() => setActive(item.key)} onPointerLeave={() => setActive(undefined)}><i style={{ background: item.color }} />{item.label}<b>{format(item.value)}</b><span>{percent(item.value)}</span></li>)}</ul>
+    <div className="sr-only"><table><caption>{label}</caption><thead><tr><th scope="col">Severity</th><th scope="col">Count</th></tr></thead><tbody>{segments.map(item => <tr key={item.key}><th scope="row">{item.label}</th><td>{format(item.value)}</td></tr>)}</tbody></table></div>
+  </figure>
+}

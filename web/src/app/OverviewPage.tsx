@@ -6,14 +6,15 @@ import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { overviewAPI } from '../overview-api'
 import { Tabs } from '../components/Workspace'
-import { BarList, TrendChart } from '../components/Charts'
+import { Donut, TrendChart } from '../components/Charts'
 import { SetupChecklist } from './SetupChecklist'
 import '../styles/overview.css'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
 const age = (seconds: number) => seconds < 3600 ? `${Math.max(1, Math.round(seconds / 60))}m` : seconds < 86400 ? `${Math.round(seconds / 3600)}h` : `${Math.round(seconds / 86400)}d`
 const utc = (day: string, options: Intl.DateTimeFormatOptions) => new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, { ...options, timeZone: 'UTC' })
-const severityColor = (severity: string) => severity === 'critical' || severity === 'high' ? 'var(--red)' : severity === 'medium' ? 'var(--amber)' : severity === 'low' ? 'var(--chart-1)' : 'var(--border-strong)'
+const severityOrder = ['critical', 'high', 'medium', 'low', 'info']
+const severityColor = (severity: string) => severity === 'critical' ? 'var(--red)' : severity === 'high' ? 'var(--chart-2)' : severity === 'medium' ? 'var(--amber)' : severity === 'low' ? 'var(--chart-1)' : 'var(--border-strong)'
 const activitySeries = [{ key: 'findings', label: 'Findings', color: 'var(--chart-1)' }, { key: 'runs', label: 'Runs', color: 'var(--chart-2)' }, { key: 'merges', label: 'Merged', color: 'var(--chart-3)' }, { key: 'deployments', label: 'Healthy deployments', color: 'var(--chart-4)' }]
 const severityTone = (severity: string) => severity === 'critical' || severity === 'high' ? 'red' as const : severity === 'medium' ? 'amber' as const : 'neutral' as const
 
@@ -62,7 +63,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
       </section>
       <section className="panel" aria-labelledby="overview-severity-title">
         <div className="panel-head"><h2 id="overview-severity-title">Open findings</h2><a className="link-button" href={`/org/${encodeURIComponent(orgID)}/findings`}>View all</a></div>
-        <BarList label="Open findings by severity" empty="No open findings." rows={severity.map(item => ({ key: item.severity, label: item.severity, value: item.count, color: severityColor(item.severity) }))} />
+        <Donut label="Open findings by severity" empty="No open findings." segments={[...severity].sort((a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity)).map(item => ({ key: item.severity, label: item.severity, value: item.count, color: severityColor(item.severity) }))} />
       </section>
     </div>
     <Tabs id="overview" label="Overview surfaces" items={[{ id: 'attention', label: 'Attention' }, { id: 'portfolio', label: 'Portfolio' }]} value={tab} onChange={setTab} />
