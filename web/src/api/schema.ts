@@ -2749,6 +2749,8 @@ export interface components {
 
             version: number;
             private_route?: components["schemas"]["PrivateRoute"];
+
+            key_confirmed_at?: string;
         };
         ConnectionCreate: {
             kind: string;

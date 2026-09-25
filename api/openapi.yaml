@@ -12781,6 +12781,10 @@
           },
           "private_route": {
             "$ref": "#/components/schemas/PrivateRoute"
+          },
+          "key_confirmed_at": {
+            "type": "string",
+            "format": "date-time"
           }
         },
         "required": [

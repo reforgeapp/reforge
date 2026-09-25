@@ -53,6 +53,7 @@ type AutopilotAttempt struct {
 	MergeReason    string             `json:"merge_reason"`
 	MergeAfter     pgtype.Timestamptz `json:"merge_after"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+	Runs           int32              `json:"runs"`
 }
 
 type AutopilotSetting struct {
@@ -190,6 +191,7 @@ type Connection struct {
 	Version           int64              `json:"version"`
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
+	KeyConfirmedAt    pgtype.Timestamptz `json:"key_confirmed_at"`
 }
 
 type ConnectionRoute struct {

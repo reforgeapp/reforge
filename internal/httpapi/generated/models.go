@@ -1384,6 +1384,7 @@ type Connection struct {
 	CredentialVersion int64                           `json:"credential_version"`
 	Endpoint          string                          `json:"endpoint"`
 	Id                string                          `json:"id"`
+	KeyConfirmedAt    *time.Time                      `json:"key_confirmed_at,omitempty"`
 	Kind              string                          `json:"kind"`
 	Name              string                          `json:"name"`
 	OrgId             string                          `json:"org_id"`

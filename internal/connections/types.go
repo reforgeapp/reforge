@@ -50,6 +50,7 @@ type Connection struct {
 	Capabilities      map[string]domain.Capability `json:"capabilities"`
 	ServerVersion     string                       `json:"server_version"`
 	VerifiedAt        *time.Time                   `json:"verified_at"`
+	KeyConfirmedAt    *time.Time                   `json:"key_confirmed_at,omitempty"`
 	CredentialVersion int64                        `json:"credential_version"`
 	Version           int64                        `json:"version"`
 	Route             *Route                       `json:"private_route,omitempty"`

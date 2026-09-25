@@ -324,12 +324,12 @@ func (s *Service) putRoute(ctx context.Context, tx pgx.Tx, c Connection, userID 
 	return tx.QueryRow(ctx, `INSERT INTO connection_routes(org_id,connection_id,runner_id,hostname,cidrs,approved_by) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(org_id,connection_id) DO UPDATE SET runner_id=EXCLUDED.runner_id,hostname=EXCLUDED.hostname,cidrs=EXCLUDED.cidrs,approved_by=EXCLUDED.approved_by,approved_at=now(),revoked_at=NULL RETURNING approved_at`, c.OrgID, c.ID, c.Route.RunnerID, c.Route.Host, c.Route.CIDRs, userID).Scan(&c.Route.ApprovedAt)
 }
 
-const columns = `c.id::text,c.org_id::text,c.kind,c.provider,c.name,c.endpoint,c.settings,c.state,c.reason,c.capabilities,c.server_version,c.verified_at,c.credential_version,c.version,c.secret_id::text,(SELECT jsonb_build_object('runner_id',r.runner_id,'host',r.hostname,'cidrs',r.cidrs,'approved_at',r.approved_at,'revoked_at',r.revoked_at) FROM connection_routes r WHERE r.org_id=c.org_id AND r.connection_id=c.id)`
+const columns = `c.id::text,c.org_id::text,c.kind,c.provider,c.name,c.endpoint,c.settings,c.state,c.reason,c.capabilities,c.server_version,c.verified_at,c.key_confirmed_at,c.credential_version,c.version,c.secret_id::text,(SELECT jsonb_build_object('runner_id',r.runner_id,'host',r.hostname,'cidrs',r.cidrs,'approved_at',r.approved_at,'revoked_at',r.revoked_at) FROM connection_routes r WHERE r.org_id=c.org_id AND r.connection_id=c.id)`
 
 func scan(row pgx.Row) (Connection, error) {
 	var c Connection
 	var settings, caps, route []byte
-	err := row.Scan(&c.ID, &c.OrgID, &c.Kind, &c.Provider, &c.Name, &c.Endpoint, &settings, &c.State, &c.Reason, &caps, &c.ServerVersion, &c.VerifiedAt, &c.CredentialVersion, &c.Version, &c.SecretID, &route)
+	err := row.Scan(&c.ID, &c.OrgID, &c.Kind, &c.Provider, &c.Name, &c.Endpoint, &settings, &c.State, &c.Reason, &caps, &c.ServerVersion, &c.VerifiedAt, &c.KeyConfirmedAt, &c.CredentialVersion, &c.Version, &c.SecretID, &route)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return c, auth.ErrForbidden
 	}

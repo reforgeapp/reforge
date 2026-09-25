@@ -318,6 +318,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		if e == nil && changed.RowsAffected() != 1 {
 			return auth.ErrConflict
 		}
+		if e == nil {
+			_, e = tx.Exec(finalctx, `UPDATE connections SET key_confirmed_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, lease.OrgID, reservation.ConnectionID)
+		}
 		return e
 	})
 	if rejected && persistErr == nil {
