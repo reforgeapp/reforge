@@ -392,20 +392,21 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 		return nil
 	}
 	type blockedTask struct {
-		id       string
-		version  int64
-		attempts int
+		id          string
+		version     int64
+		attempts    int
+		reconciling bool
 	}
 	var tasks []blockedTask
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT t.id::text,t.version,(SELECT count(*) FROM workflow_attempts w WHERE w.org_id=t.org_id AND w.task_id=t.id) FROM workflow_tasks t WHERE t.org_id=$1 AND t.state='blocked' ORDER BY t.created_at LIMIT 10`, org)
+		rows, err := tx.Query(ctx, `SELECT t.id::text,t.version,(SELECT count(*) FROM workflow_attempts w WHERE w.org_id=t.org_id AND w.task_id=t.id),t.state='reconciling' FROM workflow_tasks t WHERE t.org_id=$1 AND t.state IN ('blocked','reconciling') ORDER BY t.created_at LIMIT 10`, org)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var t blockedTask
-			if err = rows.Scan(&t.id, &t.version, &t.attempts); err != nil {
+			if err = rows.Scan(&t.id, &t.version, &t.attempts, &t.reconciling); err != nil {
 				return err
 			}
 			tasks = append(tasks, t)
@@ -413,6 +414,20 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 		return rows.Err()
 	})
 	for _, t := range tasks {
+		if t.reconciling {
+			run, e := s.repairs.Get(ctx, session, org, t.id)
+			if e == nil {
+				_, e = s.repairs.Reconcile(ctx, session, org, t.id, run.Version, "autopilot")
+			}
+			if e == nil {
+				run, e = s.repairs.Get(ctx, session, org, t.id)
+			}
+			if e != nil {
+				err = errors.Join(err, e)
+				continue
+			}
+			t.version = run.Task.Version
+		}
 		if t.attempts < 3 {
 			if _, e := s.Tasks.Resume(ctx, session, org, t.id, t.version, "autopilot"); e == nil {
 				continue
