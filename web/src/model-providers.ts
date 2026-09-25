@@ -59,9 +59,9 @@ export type ConnectionStatus = {
 export function connectionStateStatus(provider: string, profile: string | undefined, state: string): ConnectionStatus {
   if (state === 'healthy' && provider === 'compatible' && (profile === 'opencode_zen' || profile === 'opencode_go')) {
     return {
-      label: 'Catalog only',
+      label: 'Key untested',
       tone: 'amber',
-      title: 'The public catalogue does not verify this API key or inference; key and inference stay unverified.',
+      title: 'Model found in the provider catalogue. The API key is checked on first use.',
     }
   }
   return {

@@ -214,7 +214,7 @@ test.describe('model connection onboarding', () => {
     await page.getByRole('button', { name: 'Models & agents' }).click()
     const row = page.getByRole('row', { name: /OpenCode/ })
     await expect(row).toBeVisible()
-    await expect(row.locator('.status-badge')).toHaveText('Catalog only')
+    await expect(row.locator('.status-badge')).toHaveText('Key untested')
     await expect(row.locator('.status-badge')).toHaveClass(/status-amber/)
     await expect(row.getByText('healthy')).toHaveCount(0)
   })
