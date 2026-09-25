@@ -201,6 +201,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
 		}
+		messages = compact(messages)
 		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
 			return fail("Model route stopped; review budget, authorization or unresolved usage", err)
@@ -457,4 +458,21 @@ func targetPlan(p Plan, files map[string][]byte) (Plan, error) {
 	}
 	next.Digest = planDigest(next)
 	return next, nil
+}
+
+const historyBudget = 384 << 10
+
+func compact(messages []model.Message) []model.Message {
+	size := 0
+	for _, m := range messages {
+		size += len(m.Text)
+	}
+	for i := 1; i < len(messages)-8 && size > historyBudget; i++ {
+		if messages[i].Role == "tool" && len(messages[i].Text) > 200 {
+			size -= len(messages[i].Text)
+			messages[i].Text = "Earlier tool output omitted to fit the request; call the tool again if needed."
+			size += len(messages[i].Text)
+		}
+	}
+	return messages
 }
