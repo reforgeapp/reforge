@@ -201,6 +201,7 @@ td small, .table-meta { color: var(--text-subtle); }
 .forge-link-icon { display: inline-flex; margin-left: 6px; color: var(--text-subtle); vertical-align: -2px; }
 .forge-link-icon:hover { color: var(--primary); }
 .run-button { color: var(--primary); }
+.run-button svg path { fill: currentColor; }
 .run-button:hover:not(:disabled) { background: var(--primary-soft); }
 .run-notice { padding: 10px 14px; border: 1px solid var(--primary-border); border-radius: var(--radius); color: var(--text); background: var(--primary-soft); }
 .run-notice a { color: var(--primary); font-weight: 600; }
