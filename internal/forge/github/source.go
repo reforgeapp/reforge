@@ -2,7 +2,7 @@ package github
 
 import (
 	"context"
-	"strings"
+	"net/url"
 
 	"reforge/internal/forge"
 	"reforge/internal/source"
@@ -34,39 +34,24 @@ func (p *Provider) ReadSourceManifest(ctx context.Context, r forge.RepoRef, comm
 		return out, failure("response", "Missing immutable commit tree binding")
 	}
 	out = forge.SourceManifest{Repository: r, CommitSHA: commit, TreeSHA: c.Tree.SHA, ObjectFormat: "sha1", Proof: "commit_tree_hash"}
-	type pending struct{ path, sha string }
+	var tree struct {
+		SHA       string              `json:"sha"`
+		Tree      []forge.SourceEntry `json:"tree"`
+		Truncated *bool               `json:"truncated"`
+	}
+	if err = p.get(ctx, append(route, "git", "trees", c.Tree.SHA), url.Values{"recursive": {"1"}}, &tree); err != nil {
+		return forge.SourceManifest{}, err
+	}
+	if tree.SHA != c.Tree.SHA || tree.Truncated == nil || *tree.Truncated || len(tree.Tree) > source.MaxEntries {
+		return forge.SourceManifest{}, failure("response", "Incomplete or oversized source tree")
+	}
 	seen := map[string]bool{}
-	queue := []pending{{"", c.Tree.SHA}}
-	for len(queue) > 0 {
-		current := queue[0]
-		queue = queue[1:]
-		var tree struct {
-			SHA       string              `json:"sha"`
-			Tree      []forge.SourceEntry `json:"tree"`
-			Truncated *bool               `json:"truncated"`
+	for _, e := range tree.Tree {
+		if !source.ValidEntry(e, "sha1") || seen[e.Path] {
+			return forge.SourceManifest{}, failure("response", "Invalid or duplicate source entry")
 		}
-		if err = p.get(ctx, append(route, "git", "trees", current.sha), nil, &tree); err != nil {
-			return forge.SourceManifest{}, err
-		}
-		if tree.SHA != current.sha || tree.Truncated == nil || *tree.Truncated || len(out.Entries)+len(tree.Tree) > source.MaxEntries {
-			return forge.SourceManifest{}, failure("response", "Incomplete or oversized source tree")
-		}
-		for _, e := range tree.Tree {
-			if e.Path == "" || strings.Contains(e.Path, "/") {
-				return forge.SourceManifest{}, failure("response", "Invalid nonrecursive tree entry")
-			}
-			if current.path != "" {
-				e.Path = current.path + "/" + e.Path
-			}
-			if !source.ValidEntry(e, "sha1") || seen[e.Path] {
-				return forge.SourceManifest{}, failure("response", "Invalid or duplicate source entry")
-			}
-			seen[e.Path] = true
-			if e.Type == "tree" {
-				queue = append(queue, pending{e.Path, e.SHA})
-			}
-			out.Entries = append(out.Entries, e)
-		}
+		seen[e.Path] = true
+		out.Entries = append(out.Entries, e)
 	}
 	out.Complete = true
 	if _, err = source.ValidateManifest(ctx, out); err != nil {

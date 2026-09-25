@@ -20,8 +20,8 @@ func TestSourceManifestNativeTreeTraversalAndTruncation(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			calls := 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				if r.Method != "GET" || r.URL.RawQuery != "" {
-					t.Error("source must use fixed nonrecursive read operations")
+				if r.Method != "GET" || (strings.Contains(r.URL.Path, "/git/trees/") != (r.URL.RawQuery == "recursive=1")) {
+					t.Error("source must use fixed read operations with one recursive tree read")
 				}
 				switch {
 				case strings.HasSuffix(r.URL.Path, "/git/commits/"+commit):
@@ -39,22 +39,18 @@ func TestSourceManifestNativeTreeTraversalAndTruncation(t *testing.T) {
 					if name == "missing-truncation" {
 						trunc = ""
 					}
-					p := "d"
+					p, sub := "d", subtree
 					if name == "unsafe-entry" {
 						p = "../outside"
 					}
-					fmt.Fprintf(w, `{"sha":%q%s,"tree":[{"path":%q,"mode":"040000","type":"tree","sha":%q}]}`, root, trunc, p, subtree)
-				case strings.HasSuffix(r.URL.Path, "/git/trees/"+subtree):
-					calls++
-					s := subtree
 					if name == "wrong-subtree" {
-						s = root
+						sub = root
 					}
-					entries := `[{"path":"f","mode":"100644","type":"blob","sha":"ce013625030ba8dba906f756967f9e9ca394464a"}]`
+					entries := fmt.Sprintf(`{"path":%q,"mode":"040000","type":"tree","sha":%q},{"path":"d/f","mode":"100644","type":"blob","sha":"ce013625030ba8dba906f756967f9e9ca394464a"}`, p, sub)
 					if name == "missing-entry" {
-						entries = `[]`
+						entries = fmt.Sprintf(`{"path":%q,"mode":"040000","type":"tree","sha":%q}`, p, sub)
 					}
-					fmt.Fprintf(w, `{"sha":%q,"truncated":false,"tree":%s}`, s, entries)
+					fmt.Fprintf(w, `{"sha":%q%s,"tree":[%s]}`, root, trunc, entries)
 				default:
 					io.WriteString(w, `{"id":1,"full_name":"org/repo"}`)
 				}
@@ -63,7 +59,7 @@ func TestSourceManifestNativeTreeTraversalAndTruncation(t *testing.T) {
 			p, _ := New(forge.Config{BaseURL: server.URL, Token: "test", Client: server.Client()})
 			m, err := p.ReadSourceManifest(context.Background(), forge.RepoRef{NativeID: "1", FullName: "org/repo"}, commit)
 			if name == "complete" {
-				if err != nil || calls != 2 || len(m.Entries) != 2 || m.Entries[1].Path != "d/f" || m.Proof != "commit_tree_hash" {
+				if err != nil || calls != 1 || len(m.Entries) != 2 || m.Entries[1].Path != "d/f" || m.Proof != "commit_tree_hash" {
 					t.Fatalf("manifest=%+v error=%v", m, err)
 				}
 			} else if err == nil {

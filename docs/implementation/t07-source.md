@@ -4,11 +4,11 @@
 
 | Provider | Native reads | Proof |
 | --- | --- | --- |
-| GitHub | Repository identity; Git commit; bounded nonrecursive Git trees addressed by tree SHA | `commit_tree_hash`: every subtree and the native commit's root tree hash are reconstructed |
+| GitHub | Repository identity; Git commit; one recursive Git tree read addressed by root tree SHA | `commit_tree_hash`: every subtree and the native commit's root tree hash are reconstructed |
 | GitLab | Repository identity; exact commit ID; recursively paginated repository tree with `ref=commitSHA` | `immutable_ref_api`: provider-attested immutable commit addressing, verified pagination, subtree hashes and file blob hashes; no claimed native root hash |
 | Gitea 1.27.3 | Repository identity; exact commit ID; commit-addressed recursive tree with page, total count and truncation checks | `immutable_ref_api`: this version returns the **commit ID** in both `commit.tree.sha` and the root tree response's `sha`; neither is a root tree object hash |
 
-GitHub uses nonrecursive tree traversal to avoid accepting a truncated recursive result. GitLab requires native page/per-page metadata, sequential next pages, consistent totals when supplied and a provably final page. Gitea verifies the pinned commit identity on every page, stable total count, page number, progress and final entry count. All profiles stop at 10,000 entries and reject malformed or duplicate entries.
+GitHub reads the recursive tree in one request so large repositories fit the read budget; `truncated: true` or a missing flag is rejected, and the root tree hash is rebuilt from every entry. GitLab requires native page/per-page metadata, sequential next pages, consistent totals when supplied and a provably final page. Gitea verifies the pinned commit identity on every page, stable total count, page number, progress and final entry count. All profiles stop at 10,000 entries and reject malformed or duplicate entries.
 
 `source.Fetch(ctx, source.Reader{Manifest: ..., File: ...}, repository, commitSHA)` returns a complete `sandbox.Snapshot` only after validation. Reader callbacks are trusted control-plane operations, bound to the authorized tenant, repository, connection and route. They must use the fixed public/private provider gateway and current authorization; a browser cannot supply a manifest, source callback or completeness assertion. Credentials remain outside the sandbox. T19 connects these callbacks to its current lease and policy checks.
 
