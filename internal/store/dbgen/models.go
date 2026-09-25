@@ -42,6 +42,28 @@ type AuditEvent struct {
 	OccurredAt   pgtype.Timestamptz `json:"occurred_at"`
 }
 
+type AutopilotAttempt struct {
+	OrgID          pgtype.UUID        `json:"org_id"`
+	FindingID      pgtype.UUID        `json:"finding_id"`
+	FindingVersion int64              `json:"finding_version"`
+	TaskID         pgtype.UUID        `json:"task_id"`
+	Outcome        string             `json:"outcome"`
+	Reason         string             `json:"reason"`
+	RetryAfter     pgtype.Timestamptz `json:"retry_after"`
+	MergeReason    string             `json:"merge_reason"`
+	MergeAfter     pgtype.Timestamptz `json:"merge_after"`
+	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
+}
+
+type AutopilotSetting struct {
+	OrgID     pgtype.UUID        `json:"org_id"`
+	Enabled   bool               `json:"enabled"`
+	EnabledBy pgtype.UUID        `json:"enabled_by"`
+	Status    string             `json:"status"`
+	CheckedAt pgtype.Timestamptz `json:"checked_at"`
+	Version   int64              `json:"version"`
+}
+
 type Bootstrap struct {
 	ID         bool               `json:"id"`
 	TokenHash  string             `json:"token_hash"`

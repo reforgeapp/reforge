@@ -1140,6 +1140,18 @@ type AuditEventPage struct {
 	Items      []AuditEvent `json:"items"`
 	NextCursor *string      `json:"next_cursor,omitempty"`
 }
+type Autopilot struct {
+	Active    int        `json:"active"`
+	CheckedAt *time.Time `json:"checked_at,omitempty"`
+	Enabled   bool       `json:"enabled"`
+	Queued    int        `json:"queued"`
+	Skipped   int        `json:"skipped"`
+	Status    string     `json:"status"`
+	Version   int64      `json:"version"`
+}
+type AutopilotUpdate struct {
+	Enabled bool `json:"enabled"`
+}
 type BootstrapRequest struct {
 	Name  string `json:"name"`
 	Token string `json:"token"`
@@ -2915,6 +2927,10 @@ type ExportAuditPageParams struct {
 	Cursor       *string    `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit        *int       `form:"limit,omitempty" json:"limit,omitempty"`
 }
+type UpdateAutopilotParams struct {
+	IfMatch    string `json:"If-Match"`
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type GetBudgetRouteParams struct {
 	Model *string `form:"model,omitempty" json:"model,omitempty"`
 	Route *string `form:"route,omitempty" json:"route,omitempty"`
@@ -3407,6 +3423,7 @@ type RunnerProgressJSONBody struct {
 }
 type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
 type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
+type UpdateAutopilotJSONRequestBody = AutopilotUpdate
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type PreviewCampaignJSONRequestBody = CampaignInput

@@ -11,6 +11,7 @@ import (
 	"reforge/internal/agent"
 	"reforge/internal/artifact"
 	"reforge/internal/auth"
+	"reforge/internal/autopilot"
 	"reforge/internal/budget"
 	"reforge/internal/campaign"
 	"reforge/internal/config"
@@ -221,6 +222,11 @@ func run() error {
 		return ref, campaigns.CheckMergeTx(ctx, tx, org, repo, snapshot)
 	})
 	app.RegisterCampaigns(campaigns)
+	autopilots := autopilot.New(db, identity, repairs, merges, budgets, policies)
+	app.RegisterAutopilot(autopilots)
+	autopilotContext, stopAutopilot := context.WithCancel(ctx)
+	autopilotDone := make(chan struct{})
+	defer func() { stopAutopilot(); <-autopilotDone }()
 	app.RegisterCustomProfiles(profiles)
 	app.RegisterCustomDispatch(customcmd.NewDispatcher(db, runners, profiles, budgets))
 	campaignContext, stopCampaign := context.WithCancel(ctx)
@@ -260,6 +266,7 @@ func run() error {
 	go func() { defer close(deliveryDone); _ = deliveries.Run(deliveryContext) }()
 	go func() { defer close(mergeDone); _ = merges.Run(mergeContext) }()
 	go func() { defer close(discoveryDone); _ = discoveries.Run(discoveryContext) }()
+	go func() { defer close(autopilotDone); _ = autopilots.Run(autopilotContext) }()
 	defer func() { stopDiscovery(); <-discoveryDone }()
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)

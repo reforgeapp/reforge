@@ -2395,6 +2395,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/autopilot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAutopilot"];
+        put: operations["updateAutopilot"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4623,6 +4639,20 @@ export interface components {
         };
         Setup: {
             steps: components["schemas"]["SetupStep"][];
+        };
+        Autopilot: {
+            enabled: boolean;
+            status: string;
+
+            checked_at?: string;
+            active: number;
+            queued: number;
+            skipped: number;
+
+            version: number;
+        };
+        AutopilotUpdate: {
+            enabled: boolean;
         };
     };
     responses: never;
@@ -11300,6 +11330,75 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getAutopilot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Autopilot"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    updateAutopilot: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AutopilotUpdate"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Autopilot"];
+                };
             };
 
             default: {

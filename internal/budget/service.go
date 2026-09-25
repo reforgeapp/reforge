@@ -297,3 +297,32 @@ func lockOrg(ctx context.Context, tx pgx.Tx, org string) error {
 func (s *Service) RouteTx(ctx context.Context, tx pgx.Tx, org, connection, model, route string) (Route, error) {
 	return loadRoute(ctx, tx, org, connection, model, route)
 }
+
+func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
+	limit, err := loadLimit(ctx, tx, org, Scope{Kind: "organisation", ID: org})
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && (limit.Caps.MicroUSD == nil || limit.Caps.Concurrency == nil) {
+		return ErrUnknown
+	}
+	if err != nil {
+		return err
+	}
+	if limit.Paused {
+		return ErrRevoked
+	}
+	var now time.Time
+	if err = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {
+		return err
+	}
+	start, err := periodStart(limit, now)
+	if err != nil {
+		return err
+	}
+	spent, err := loadSpend(ctx, tx, org, limit.Scope, start)
+	if err != nil {
+		return err
+	}
+	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD || limit.Held.Concurrency >= *limit.Caps.Concurrency {
+		return ErrCapacity
+	}
+	return nil
+}
