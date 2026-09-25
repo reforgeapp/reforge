@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -272,6 +273,13 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	known := err == nil && marshalErr == nil && len(body) <= 3<<20 && result.Usage.Known && result.Usage.CacheTokens >= 0 && result.Usage.CacheCreationTokens >= 0 && !privateconnector.ContainsSecret(body, resolved.Secret)
 	amount, amountErr := budget.ObservedAmount(reservation.Route, result.Usage.InputTokens, result.Usage.OutputTokens, time.Since(started).Milliseconds())
 	known = known && amountErr == nil
+	if !known {
+		reason := "usage unknown or response rejected"
+		if err != nil && !privateconnector.ContainsSecret([]byte(err.Error()), resolved.Secret) {
+			reason = err.Error()
+		}
+		slog.WarnContext(ctx, "model turn outcome unknown", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "reason", reason)
+	}
 	persistErr := s.db.Tenant(finalctx, lease.OrgID, "", func(tx pgx.Tx) error {
 		if !known {
 			if _, e := s.budgets.MarkUnknownTx(finalctx, tx, lease.OrgID, reservation.ID, "model-turn:"+in.OperationID); e != nil {
