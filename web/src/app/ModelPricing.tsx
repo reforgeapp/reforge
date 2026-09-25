@@ -15,10 +15,10 @@ export function ModelPricing({ orgID, connectionID, model, csrf }: { orgID: stri
   useEffect(() => { if (route.data) { setInput(dollars(route.data.input_micro_usd_per_million)); setOutput(dollars(route.data.output_micro_usd_per_million)) } }, [route.data])
   const save = async (event: FormEvent) => {
     event.preventDefault()
-    const base: Route = route.data ?? { connection_id: connectionID, model, name: 'default', mode: 'priced', pricing_version: '', input_micro_usd_per_million: 0, output_micro_usd_per_million: 0, request_micro_usd: 0, max_input_tokens: 200_000, max_output_tokens: 32_000, max_milliseconds: 600_000, max_requests: 1, qualified: false, qualification_ref: '', paused: false, version: 0 }
+    const base: Route = route.data ?? { connection_id: connectionID, model, name: 'default', mode: 'priced', pricing_version: '', input_micro_usd_per_million: 0, output_micro_usd_per_million: 0, request_micro_usd: 0, max_input_tokens: 600_000, max_output_tokens: 32_000, max_milliseconds: 600_000, max_requests: 1, qualified: false, qualification_ref: '', paused: false, version: 0 }
     setBusy(true); setMessage('')
     try {
-      await usageAPI.saveRoute(orgID, { ...base, qualified: false, qualification_ref: '', pricing_version: `manual-${new Date().toISOString().slice(0, 10)}`, input_micro_usd_per_million: micro(input), output_micro_usd_per_million: micro(output) }, csrf)
+      await usageAPI.saveRoute(orgID, { ...base, qualified: false, qualification_ref: '', pricing_version: `manual-${new Date().toISOString().slice(0, 10)}`, max_input_tokens: Math.max(base.max_input_tokens, 600_000), input_micro_usd_per_million: micro(input), output_micro_usd_per_million: micro(output) }, csrf)
       await route.refetch(); setMessage('Pricing saved.')
     } catch (reason) { setMessage(reason instanceof Error ? reason.message : 'Pricing could not be saved.') } finally { setBusy(false) }
   }
