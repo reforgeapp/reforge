@@ -700,13 +700,17 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 				Message string `json:"message"`
 			} `json:"error"`
 		}
+		detail := string(raw)
 		if json.Unmarshal(raw, &body) == nil && body.Error.Message != "" {
+			detail = body.Error.Message
+		}
+		if detail = strings.TrimSpace(detail); detail != "" {
 			message += ": " + strings.Map(func(r rune) rune {
 				if unicode.IsPrint(r) {
 					return r
 				}
 				return -1
-			}, body.Error.Message[:min(len(body.Error.Message), 300)])
+			}, detail[:min(len(detail), 300)])
 		}
 	}
 	return &domain.ProviderError{Kind: kind, Message: message, Uncertain: uncertain || response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests}

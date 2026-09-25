@@ -294,6 +294,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				reply = "Not returned: this turn already returned its output budget. Request it in a later turn."
 			}
 			returned += len(reply)
+			if reply == "" {
+				reply = "(empty)"
+			}
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
 		}
 	}
