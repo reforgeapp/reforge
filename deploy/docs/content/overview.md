@@ -14,6 +14,7 @@ Shown until every step is done; each step links to where it is fixed.
 | Scan a repository | A discovery scan has completed |
 | Add an AI model | A model connection is healthy |
 | Set model pricing | A healthy model has a priced billing route |
+| Set a spending limit | The organisation budget has a USD cap and a concurrency cap and is not paused |
 | Start a runner | A runner reported in the last 5 minutes |
 | Give a runner your repositories | An active runner pool includes a repository |
 | Allow Reforge to propose fixes | The effective policy permits repair |

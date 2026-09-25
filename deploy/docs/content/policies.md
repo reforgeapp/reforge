@@ -15,8 +15,15 @@ organisation version.
 | Merge eligible fixes | Also merge changes that pass every gate |
 | Deliver to approved environments | Also deploy |
 
-Mode permits actions; it does not start them. Repairs start from **Findings** or a
-[campaign](campaigns.md); merges from **Changes**.
+Mode permits actions. **Fix findings automatically** starts them: Reforge queues one repair
+at a time for every open finding, existing ones included, and with **Merge eligible fixes**
+requests a merge once every gate passes. It uses the first priced model and the
+repository's runner pool, and waits while the organisation budget in
+[Usage](usage.md) has no headroom. A finding it cannot fix is skipped; a new version of the
+finding is tried again. The line under the switch shows what it is doing.
+
+Only an owner with access to all repositories can turn it on. Its actions are recorded
+under that owner.
 
 ## Select a policy
 
