@@ -487,18 +487,18 @@ func (e GitHubAppStatusMode) Valid() bool {
 }
 
 const (
-	Import  InventoryJobKind = "import"
-	Refresh InventoryJobKind = "refresh"
-	Scan    InventoryJobKind = "scan"
+	InventoryJobKindImport  InventoryJobKind = "import"
+	InventoryJobKindRefresh InventoryJobKind = "refresh"
+	InventoryJobKindScan    InventoryJobKind = "scan"
 )
 
 func (e InventoryJobKind) Valid() bool {
 	switch e {
-	case Import:
+	case InventoryJobKindImport:
 		return true
-	case Refresh:
+	case InventoryJobKindRefresh:
 		return true
-	case Scan:
+	case InventoryJobKindScan:
 		return true
 	default:
 		return false
@@ -937,6 +937,43 @@ func (e RunnerPoolInputState) Valid() bool {
 	case RunnerPoolInputStateDraining:
 		return true
 	case RunnerPoolInputStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	SetupStepIdAssignment SetupStepId = "assignment"
+	SetupStepIdForge      SetupStepId = "forge"
+	SetupStepIdModel      SetupStepId = "model"
+	SetupStepIdPolicy     SetupStepId = "policy"
+	SetupStepIdPricing    SetupStepId = "pricing"
+	SetupStepIdRepository SetupStepId = "repository"
+	SetupStepIdRunner     SetupStepId = "runner"
+	SetupStepIdScan       SetupStepId = "scan"
+	SetupStepIdServer     SetupStepId = "server"
+)
+
+func (e SetupStepId) Valid() bool {
+	switch e {
+	case SetupStepIdAssignment:
+		return true
+	case SetupStepIdForge:
+		return true
+	case SetupStepIdModel:
+		return true
+	case SetupStepIdPolicy:
+		return true
+	case SetupStepIdPricing:
+		return true
+	case SetupStepIdRepository:
+		return true
+	case SetupStepIdRunner:
+		return true
+	case SetupStepIdScan:
+		return true
+	case SetupStepIdServer:
 		return true
 	default:
 		return false
@@ -2724,6 +2761,17 @@ type Session struct {
 		Name  string `json:"name"`
 	} `json:"user"`
 }
+type Setup struct {
+	Steps []SetupStep `json:"steps"`
+}
+type SetupStep struct {
+	ConnectionId *string     `json:"connection_id,omitempty"`
+	Done         bool        `json:"done"`
+	Id           SetupStepId `json:"id"`
+	Reason       *string     `json:"reason,omitempty"`
+	RepositoryId *string     `json:"repository_id,omitempty"`
+}
+type SetupStepId string
 type SignedArtifactProvenance struct {
 	Document  ArtifactProvenance `json:"document"`
 	Signature string             `json:"signature"`

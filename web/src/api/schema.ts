@@ -1857,6 +1857,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/usage/summary": {
         parameters: {
             query?: never;
@@ -4595,6 +4611,17 @@ export interface components {
         ConnectionUpdate: {
             name: string;
             namespace: string;
+        };
+        SetupStep: {
+
+            id: "forge" | "repository" | "scan" | "model" | "pricing" | "runner" | "assignment" | "policy" | "server";
+            done: boolean;
+            reason?: string;
+            repository_id?: string;
+            connection_id?: string;
+        };
+        Setup: {
+            steps: components["schemas"]["SetupStep"][];
         };
     };
     responses: never;
@@ -9553,6 +9580,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Overview"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Setup"];
                 };
             };
 

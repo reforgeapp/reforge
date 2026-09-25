@@ -21,6 +21,7 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/httpapi"
 	"reforge/internal/insights"
+	"reforge/internal/policy"
 	"reforge/internal/store"
 )
 
@@ -164,6 +165,12 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 	overview, e := service.Overview(ctx, viewer, org)
 	if e != nil || len(overview.Trend) != 14 {
 		t.Fatalf("overview trend: %d %v", len(overview.Trend), e)
+	}
+	setup, e := service.Setup(ctx, viewer, org, func(context.Context, pgx.Tx, string, string) (policy.Resolved, error) {
+		return policy.Resolved{Hash: "h"}, nil
+	}, false)
+	if e != nil || len(setup.Steps) != 9 || setup.Steps[0].Done || !setup.Steps[3].Done || !setup.Steps[7].Done || setup.Steps[8].Done {
+		t.Fatalf("setup: %+v %v", setup, e)
 	}
 	f.State = "unknown"
 	f.Provider = "compatible"

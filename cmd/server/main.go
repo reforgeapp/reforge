@@ -131,7 +131,9 @@ func run() error {
 		return campaigns.CheckScopeTx(ctx, tx, org, "campaign", id)
 	})
 	app.RegisterBudget(budgets)
-	app.RegisterInsights(insights.New(identity))
+	overview := insights.New(identity)
+	app.RegisterInsights(overview)
+	app.RegisterSetup(overview, policies.ResolveTx, len(cfg.RepairImages) > 0)
 	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
 	if err != nil {
 		return err

@@ -8447,6 +8447,48 @@
         }
       }
     },
+    "/api/v1/orgs/{orgID}/setup": {
+      "get": {
+        "operationId": "getSetup",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Setup"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/usage/summary": {
       "get": {
         "operationId": "summarizeUsage",
@@ -19251,6 +19293,57 @@
           },
           "namespace": {
             "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "SetupStep": {
+        "type": "object",
+        "required": [
+          "id",
+          "done"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "enum": [
+              "forge",
+              "repository",
+              "scan",
+              "model",
+              "pricing",
+              "runner",
+              "assignment",
+              "policy",
+              "server"
+            ]
+          },
+          "done": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      },
+      "Setup": {
+        "type": "object",
+        "required": [
+          "steps"
+        ],
+        "properties": {
+          "steps": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/SetupStep"
+            }
           }
         },
         "additionalProperties": false

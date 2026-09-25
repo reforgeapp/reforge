@@ -119,3 +119,15 @@ func (s *Server) RegisterInsights(service *insights.Service) {
 		})
 	}
 }
+
+func (s *Server) RegisterSetup(service *insights.Service, resolve insights.PolicyResolver, repairReady bool) {
+	s.Router.Group("/api/v1/orgs/:orgID", s.IdentitySession()).GET("/setup", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, e := service.Setup(c.Request.Context(), session, c.Param("orgID"), resolve, repairReady)
+		if e != nil {
+			IdentityFailure(c, e)
+			return
+		}
+		c.JSON(200, value)
+	})
+}
