@@ -16,6 +16,7 @@ import (
 	"reforge/internal/forge/gitlab"
 	"reforge/internal/privateconnector"
 	"reforge/internal/runner"
+	"reforge/internal/source"
 	"reforge/internal/store"
 )
 
@@ -28,10 +29,11 @@ type Service struct {
 	private      *privateconnector.Connector
 	runners      *runner.Service
 	factory      Factory
+	blobs        *source.BlobCache
 }
 
 func New(db *store.Store, connections *connections.Service, private *privateconnector.Connector, runners *runner.Service, development bool) *Service {
-	return &Service{db: db, connections: connections, private: private, runners: runners, factory: Factory{Development: development}}
+	return &Service{db: db, connections: connections, private: private, runners: runners, factory: Factory{Development: development}, blobs: source.NewBlobCache(256 << 20)}
 }
 
 func (s Service) ForExecution() *Service { s.exclusive = true; return &s }

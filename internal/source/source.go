@@ -28,6 +28,8 @@ type Reader struct {
 	Manifest func(context.Context, forge.RepoRef, string) (forge.SourceManifest, error)
 	File     func(context.Context, forge.RepoRef, string, string) (forge.File, error)
 	Files    func(context.Context, forge.RepoRef, []string, string) ([]forge.File, error)
+	Cache    *BlobCache
+	Scope    string
 }
 
 func ValidSHA(value, format string) bool {
@@ -190,47 +192,72 @@ func Fetch(ctx context.Context, reader Reader, repo forge.RepoRef, commit string
 			blobs = append(blobs, e)
 		}
 	}
-	var fetched []forge.File
-	if reader.Files != nil {
-		for len(fetched) < len(blobs) {
-			paths := []string{}
-			for _, e := range blobs[len(fetched):min(len(blobs), len(fetched)+50)] {
-				paths = append(paths, e.Path)
-			}
-			batch, err := reader.Files(ctx, repo, paths, commit)
-			if err != nil {
-				return zero, err
-			}
-			if len(batch) == 0 || len(batch) > len(paths) {
-				return zero, errors.New("invalid source file batch")
-			}
-			fetched = append(fetched, batch...)
+	contents := map[string][]byte{}
+	missing := []forge.SourceEntry{}
+	for _, e := range blobs {
+		if data, ok := reader.Cache.get(reader.Scope, manifest.ObjectFormat, e.SHA); ok {
+			contents[e.Path] = data
+		} else {
+			missing = append(missing, e)
 		}
 	}
-	files := make([]guest.File, 0, len(blobs))
-	total := 0
-	for i, e := range blobs {
-		if err := ctx.Err(); err != nil {
-			return zero, err
-		}
-		var f forge.File
-		if fetched != nil {
-			f = fetched[i]
-		} else if f, err = reader.File(ctx, repo, e.Path, commit); err != nil {
-			return zero, err
-		}
-		if err := ctx.Err(); err != nil {
-			return zero, err
-		}
-		if f.Path != e.Path || f.SHA != "" && f.SHA != e.SHA || len(f.Content) > MaxFileBytes || len(f.Content) > MaxTotalBytes-total {
-			return zero, errors.New("invalid or oversized source file")
+	accept := func(e forge.SourceEntry, f forge.File) error {
+		if f.Path != e.Path || f.SHA != "" && f.SHA != e.SHA || len(f.Content) > MaxFileBytes {
+			return errors.New("invalid or oversized source file")
 		}
 		content := bytes.Clone(f.Content)
 		if objectSHA(manifest.ObjectFormat, "blob", content) != e.SHA {
-			return zero, errors.New("source blob hash mismatch")
+			return errors.New("source blob hash mismatch")
+		}
+		contents[e.Path] = content
+		reader.Cache.put(reader.Scope, manifest.ObjectFormat, e.SHA, content)
+		return nil
+	}
+	for done := 0; done < len(missing); {
+		if err := ctx.Err(); err != nil {
+			return zero, err
+		}
+		if reader.Files == nil {
+			f, err := reader.File(ctx, repo, missing[done].Path, commit)
+			if err != nil {
+				return zero, err
+			}
+			if err = accept(missing[done], f); err != nil {
+				return zero, err
+			}
+			done++
+			continue
+		}
+		paths := []string{}
+		for _, e := range missing[done:min(len(missing), done+50)] {
+			paths = append(paths, e.Path)
+		}
+		batch, err := reader.Files(ctx, repo, paths, commit)
+		if err != nil {
+			return zero, err
+		}
+		if len(batch) == 0 || len(batch) > len(paths) {
+			return zero, errors.New("invalid source file batch")
+		}
+		for _, f := range batch {
+			if err = accept(missing[done], f); err != nil {
+				return zero, err
+			}
+			done++
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return zero, err
+	}
+	files := make([]guest.File, 0, len(blobs))
+	total := 0
+	for _, e := range blobs {
+		content := contents[e.Path]
+		if len(content) > MaxTotalBytes-total {
+			return zero, errors.New("invalid or oversized source file")
 		}
 		total += len(content)
-		files = append(files, guest.File{Path: e.Path, Content: content, Executable: e.Mode == "100755"})
+		files = append(files, guest.File{Path: e.Path, Content: bytes.Clone(content), Executable: e.Mode == "100755"})
 	}
 	digest, err := sandbox.SnapshotDigest(files)
 	if err != nil {

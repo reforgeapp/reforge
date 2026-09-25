@@ -13,6 +13,8 @@ import (
 
 func (s *Service) SourceReader(org, connection string, authorize func(context.Context, pgx.Tx, connections.Connection) error) source.Reader {
 	return source.Reader{
+		Cache: s.blobs,
+		Scope: org,
 		Manifest: func(ctx context.Context, repo forge.RepoRef, commit string) (forge.SourceManifest, error) {
 			result, err := s.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeSourceManifest, Source: &privateconnector.ChecksArgs{Repository: repo, CommitSHA: commit}}, authorize)
 			if err != nil {

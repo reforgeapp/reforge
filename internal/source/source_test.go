@@ -193,3 +193,27 @@ func TestBatchedFilesContinueFromPartialBatches(t *testing.T) {
 		t.Fatal("out-of-order batch accepted")
 	}
 }
+
+func TestBlobCacheAvoidsRepeatReads(t *testing.T) {
+	m, data := fixture("sha1")
+	reader := readerFor(m, data)
+	reads := 0
+	file := reader.File
+	reader.File = func(ctx context.Context, r forge.RepoRef, p, c string) (forge.File, error) {
+		reads++
+		return file(ctx, r, p, c)
+	}
+	reader.Cache, reader.Scope = NewBlobCache(1<<20), "org"
+	for range 2 {
+		if _, err := Fetch(context.Background(), reader, m.Repository, m.CommitSHA); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if reads != 3 {
+		t.Fatalf("reads=%d", reads)
+	}
+	reader.Scope = "other"
+	if _, err := Fetch(context.Background(), reader, m.Repository, m.CommitSHA); err != nil || reads != 6 {
+		t.Fatalf("scope not isolated: reads=%d %v", reads, err)
+	}
+}
