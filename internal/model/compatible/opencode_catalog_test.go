@@ -14,14 +14,16 @@ import (
 )
 
 type gatewayRecorder struct {
-	mu    sync.Mutex
-	paths []string
-	body  string
+	mu       sync.Mutex
+	paths    []string
+	body     string
+	sessions []string
 }
 
 func (g *gatewayRecorder) RoundTrip(r *http.Request) (*http.Response, error) {
 	g.mu.Lock()
 	g.paths = append(g.paths, r.URL.Host+r.URL.Path)
+	g.sessions = append(g.sessions, r.Header.Get("x-opencode-session"))
 	g.mu.Unlock()
 	status := http.StatusInternalServerError
 	if g.body != "" {
@@ -124,5 +126,19 @@ func TestOpenCodeProbeUsesCatalogMetadataOnly(t *testing.T) {
 	}
 	if models, err := lister.ListModels(context.Background()); err != nil || len(models) != 2 {
 		t.Fatalf("catalog-only listing: %v %v", models, err)
+	}
+}
+
+func TestOpenCodeGoSendsStableSession(t *testing.T) {
+	recorder := &gatewayRecorder{}
+	p, err := New(gatewayConfig(OpenCodeGo, "deepseek-v4.1-flash", recorder))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for range 2 {
+		_ = p.StreamTurn(context.Background(), model.TurnRequest{Model: "deepseek-v4.1-flash", MaxOutputTokens: 16, Session: "attempt-1", Messages: []model.Message{{Role: "user", Text: "hi"}}}, func(model.Event) error { return nil })
+	}
+	if len(recorder.sessions) != 2 || recorder.sessions[0] != "attempt-1" || recorder.sessions[1] != "attempt-1" {
+		t.Fatalf("sessions %v", recorder.sessions)
 	}
 }

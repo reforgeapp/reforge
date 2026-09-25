@@ -103,7 +103,7 @@ func (p *Provider) Probe(ctx context.Context) (model.Capabilities, error) {
 		caps.Provider, caps.BillingRoute = "compatible", "customer_endpoint"
 		return caps, err
 	}
-	response, err := p.do(ctx, http.MethodGet, "/models", nil)
+	response, err := p.do(ctx, http.MethodGet, "/models", nil, "")
 	if err != nil {
 		return model.Capabilities{}, classifyTransport(ctx, err, false)
 	}
@@ -150,7 +150,7 @@ func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
 	if p.delegate != nil && !p.gateway {
 		return p.delegate.ListModels(ctx)
 	}
-	response, err := p.do(ctx, http.MethodGet, "/models", nil)
+	response, err := p.do(ctx, http.MethodGet, "/models", nil, "")
 	if err != nil {
 		return nil, classifyTransport(ctx, err, false)
 	}
@@ -230,7 +230,7 @@ func (p *Provider) StreamTurn(ctx context.Context, request model.TurnRequest, em
 	if contextLimit > 0 && estimateInputTokens(body)+request.MaxOutputTokens > contextLimit {
 		return &domain.ProviderError{Kind: "invalid_request", Message: "request exceeds the qualified model context limit"}
 	}
-	response, err := p.do(ctx, http.MethodPost, "/chat/completions", body)
+	response, err := p.do(ctx, http.MethodPost, "/chat/completions", body, request.Session)
 	if err != nil {
 		return classifyTransport(ctx, err, true)
 	}
@@ -625,7 +625,7 @@ func (entry modelEntry) outputLimit() int {
 	return 0
 }
 
-func (p *Provider) do(ctx context.Context, method, path string, body []byte) (*http.Response, error) {
+func (p *Provider) do(ctx context.Context, method, path string, body []byte, session string) (*http.Response, error) {
 	u := *p.base
 	u.Path = strings.TrimRight(p.base.Path, "/") + path
 	request, err := http.NewRequestWithContext(ctx, method, u.String(), bytes.NewReader(body))
@@ -636,6 +636,10 @@ func (p *Provider) do(ctx context.Context, method, path string, body []byte) (*h
 		request.Header.Set("Authorization", "Bearer "+p.config.APIKey)
 	}
 	request.Header.Set("Accept", "application/json")
+	request.Header.Set("User-Agent", "reforge/1.0")
+	if session != "" && IsOpenCode(p.config.Profile) {
+		request.Header.Set("x-opencode-session", session)
+	}
 	if method == http.MethodPost {
 		request.Header.Set("Accept", "text/event-stream")
 		request.Header.Set("Content-Type", "application/json")

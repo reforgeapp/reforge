@@ -51,6 +51,7 @@ type TurnRequest struct {
 	Tools           []Tool
 	MaxOutputTokens int
 	Continuation    json.RawMessage
+	Session         string
 }
 type Usage struct {
 	InputTokens         int64  `json:"input_tokens"`

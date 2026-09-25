@@ -261,6 +261,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 				if err != nil {
 					return model.TurnResult{}, err
 				}
+				in.Session = lease.AttemptID
 				return model.CollectTurn(callctx, provider, in)
 			})
 		}

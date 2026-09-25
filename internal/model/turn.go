@@ -16,13 +16,14 @@ type Turn struct {
 	MaxOutputTokens int             `json:"max_output_tokens"`
 	Continuation    json.RawMessage `json:"continuation,omitempty"`
 	TimeoutMS       int64           `json:"timeout_ms"`
+	Session         string          `json:"-"`
 }
 
 func (Turn) String() string         { return "model turn [redacted]" }
 func (t Turn) GoString() string     { return t.String() }
 func (t Turn) LogValue() slog.Value { return slog.StringValue(t.String()) }
 func (t Turn) Request() TurnRequest {
-	return TurnRequest{OperationID: t.OperationID, Model: t.Model, System: t.System, Messages: t.Messages, Tools: t.Tools, MaxOutputTokens: t.MaxOutputTokens, Continuation: t.Continuation}
+	return TurnRequest{OperationID: t.OperationID, Model: t.Model, System: t.System, Messages: t.Messages, Tools: t.Tools, MaxOutputTokens: t.MaxOutputTokens, Continuation: t.Continuation, Session: t.Session}
 }
 func (t Turn) Valid() bool {
 	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > 300000 || len(t.Messages) == 0 || len(t.Messages) > 100 || len(t.Tools) > 32 {
