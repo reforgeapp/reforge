@@ -1,8 +1,13 @@
 package source
 
 import (
+	"bytes"
 	"container/list"
+	"context"
+	"errors"
 	"sync"
+
+	"reforge/internal/forge"
 )
 
 type BlobCache struct {
@@ -55,4 +60,20 @@ func (c *BlobCache) put(scope, format, sha string, data []byte) {
 		delete(c.items, blob.key)
 		c.size -= len(blob.data)
 	}
+}
+
+func (r Reader) Blob(ctx context.Context, repo forge.RepoRef, entry forge.SourceEntry, format, commit string) ([]byte, error) {
+	if data, ok := r.Cache.get(r.Scope, format, entry.SHA); ok {
+		return data, nil
+	}
+	f, err := r.File(ctx, repo, entry.Path, commit)
+	if err != nil {
+		return nil, err
+	}
+	if f.Path != entry.Path || f.SHA != "" && f.SHA != entry.SHA || len(f.Content) > MaxFileBytes || !VerifyBlob(format, entry.SHA, f.Content) {
+		return nil, errors.New("invalid source file")
+	}
+	content := bytes.Clone(f.Content)
+	r.Cache.put(r.Scope, format, entry.SHA, content)
+	return content, nil
 }

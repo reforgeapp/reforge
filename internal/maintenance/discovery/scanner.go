@@ -178,18 +178,15 @@ func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef
 		if len(files) >= 100 {
 			return nil, errors.New("manifest count exceeds discovery bound")
 		}
-		f, err := reader.File(ctx, repo, entry.Path, commit)
+		content, err := reader.Blob(ctx, repo, entry, m.ObjectFormat, commit)
 		if err != nil {
 			return nil, err
 		}
-		if f.Path != entry.Path || f.SHA != "" && f.SHA != entry.SHA || len(f.Content) > 1<<20 || total+len(f.Content) > 4<<20 {
+		if len(content) > 1<<20 || total+len(content) > 4<<20 {
 			return nil, ErrStale
 		}
-		if !source.VerifyBlob(m.ObjectFormat, entry.SHA, f.Content) {
-			return nil, ErrStale
-		}
-		total += len(f.Content)
-		files[entry.Path] = f.Content
+		total += len(content)
+		files[entry.Path] = content
 	}
 	return files, nil
 }
