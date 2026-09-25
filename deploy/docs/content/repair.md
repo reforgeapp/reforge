@@ -26,9 +26,17 @@ Cancel terminates the sandbox process group and explains that already-published 
 actions remain visible. Resume is only available for a blocked run and re-checks current
 authority. Reconcile resolves an unknown provider outcome before any retry; the same
 request identity is reused so a lost response cannot create a second change.
+On a stopped run, Reconcile also settles each model call with an unknown outcome at its
+reserved maximum and frees the finding for a new run. A call the provider refused outright
+is recorded as failed with no spend.
 
 ## Recipes
 
 Go, JavaScript and Python validation recipes run in the sandbox. Recipe images are pinned
 by digest and registered by an operator. Model usage is accounted before dispatch; an
 unknown provider outcome holds the reservation instead of reporting zero cost.
+
+The sandbox has no network. For Go, the runner downloads modules listed in `go.mod` and
+`go.sum` from the public Go proxy before the run, without executing repository code, and
+mounts them read-only. Private modules are not fetched. JavaScript and Python recipes use
+only `node --test` and `unittest` and receive no third-party packages.

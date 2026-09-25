@@ -35,3 +35,9 @@ A successful command can leave background processes inside its attempt. They hav
 Runner enrollment, lease fencing, artifact authorization and private source/model routes are supervisor/control-plane responsibilities. Private Git transport qualification remains with T11/T19; no network access is granted to repository commands. Production delegation and hostile multi-tenant qualification require a dedicated runner fixture in T27.
 
 Sources: [gVisor rootless lifecycle](https://gvisor.dev/docs/user_guide/rootless/), [gVisor security architecture](https://gvisor.dev/docs/architecture_guide/intro/), [Linux cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html), and the pinned runtime's command help.
+
+## Dependencies
+
+`WorkspaceRequest.Dependencies` names a directory under `RuntimeConfig.DependencyRoot` (`dependency_root`); the runtime rejects any other path. It is bind-mounted read-only, `nosuid,nodev,noexec`, at `/opt/deps` with `GOMODCACHE=/opt/deps/go`, `GOPROXY=off`, `GOSUMDB=off`, `GOFLAGS=-mod=mod` and `GOTOOLCHAIN=local`. Images include the `/opt/deps` mount point.
+
+The runner fills `<dependency_root>/<org>/go` before a Go repair. It copies only `go.mod`, `go.sum`, `go.work` and `go.work.sum` from the baseline and target snapshots and runs the image's `go mod download` per module as uid 65532 when root, with `GOPROXY=https://proxy.golang.org` and a 10-minute limit. No repository code runs. The cache persists per organisation. The built-in runner uses `/var/cache/reforge-deps`.
