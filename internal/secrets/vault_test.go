@@ -2,6 +2,7 @@ package secrets
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"testing"
 )
@@ -50,5 +51,27 @@ func TestEnvelopeBindingAndRotation(t *testing.T) {
 	}
 	if _, err := newOnly.Open(b, e); err == nil {
 		t.Fatal("missing wrapping key accepted")
+	}
+}
+
+func TestRecordsExceedCredentialLimit(t *testing.T) {
+	v, err := New("k", map[string]string{"k": base64.StdEncoding.EncodeToString(bytes.Repeat([]byte{3}, 32))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	b := Binding{OrgID: "org-a", ConnectionID: "turn-a", Version: 1}
+	record := bytes.Repeat([]byte("x"), 100<<10)
+	if _, err = v.SealContext(context.Background(), b, record); err == nil {
+		t.Fatal("credential seal accepted a record-sized value")
+	}
+	e, err := v.SealRecord(context.Background(), b, record)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = v.OpenContext(context.Background(), b, e); err == nil {
+		t.Fatal("credential open accepted a record-sized value")
+	}
+	if got, err := v.OpenRecord(context.Background(), b, e); err != nil || !bytes.Equal(got, record) {
+		t.Fatalf("record round trip: %v", err)
 	}
 }

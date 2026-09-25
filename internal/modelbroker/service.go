@@ -64,7 +64,7 @@ func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id,
 	if err = json.Unmarshal(raw, &envelope); err != nil {
 		return nil, err
 	}
-	data, err := s.vault.OpenContext(ctx, binding(l.OrgID, id), envelope)
+	data, err := s.vault.OpenRecord(ctx, binding(l.OrgID, id), envelope)
 	if err != nil {
 		return nil, err
 	}
@@ -302,7 +302,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			}
 			return e
 		}
-		envelope, e := s.vault.SealContext(finalctx, binding(lease.OrgID, in.OperationID), body)
+		envelope, e := s.vault.SealRecord(finalctx, binding(lease.OrgID, in.OperationID), body)
 		if e != nil {
 			return e
 		}

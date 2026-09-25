@@ -98,8 +98,18 @@ func (v *Vault) Rewrap(b Binding, e Envelope) (Envelope, error) {
 	return v.RewrapContext(context.Background(), b, e)
 }
 
+const maxRecord = 4 << 20
+
 func (v *Vault) SealContext(ctx context.Context, b Binding, value []byte) (Envelope, error) {
-	if !validBinding(b) || len(value) == 0 || len(value) > 65536 {
+	return v.sealWithin(ctx, b, value, 65536)
+}
+
+func (v *Vault) SealRecord(ctx context.Context, b Binding, value []byte) (Envelope, error) {
+	return v.sealWithin(ctx, b, value, maxRecord)
+}
+
+func (v *Vault) sealWithin(ctx context.Context, b Binding, value []byte, limit int) (Envelope, error) {
+	if !validBinding(b) || len(value) == 0 || len(value) > limit {
 		return Envelope{}, errors.New("invalid credential binding or size")
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
@@ -124,7 +134,15 @@ func (v *Vault) SealContext(ctx context.Context, b Binding, value []byte) (Envel
 }
 
 func (v *Vault) OpenContext(ctx context.Context, b Binding, e Envelope) ([]byte, error) {
-	if !validBinding(b) || len(e.Ciphertext) > 65564 {
+	return v.openWithin(ctx, b, e, 65536)
+}
+
+func (v *Vault) OpenRecord(ctx context.Context, b Binding, e Envelope) ([]byte, error) {
+	return v.openWithin(ctx, b, e, maxRecord)
+}
+
+func (v *Vault) openWithin(ctx context.Context, b Binding, e Envelope, limit int) ([]byte, error) {
+	if !validBinding(b) || len(e.Ciphertext) > limit+28 {
 		return nil, ErrInvalid
 	}
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
