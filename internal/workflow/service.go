@@ -209,7 +209,7 @@ func (s *Service) Get(ctx context.Context, session auth.Session, orgID, id strin
 }
 func validTaskState(state string) bool {
 	switch domain.TaskState(state) {
-	case "", domain.TaskQueued, domain.TaskReproducing, domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating, domain.TaskPublishing, domain.TaskCompleted, domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelling, domain.TaskCancelled, domain.TaskReconciling:
+	case "", "active", domain.TaskQueued, domain.TaskReproducing, domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating, domain.TaskPublishing, domain.TaskCompleted, domain.TaskBlocked, domain.TaskFailed, domain.TaskCancelling, domain.TaskCancelled, domain.TaskReconciling:
 		return true
 	}
 	return false
@@ -221,7 +221,7 @@ func (s *Service) List(ctx context.Context, session auth.Session, orgID, state s
 		return page, auth.ErrInvalid
 	}
 	err := s.auth.WithActor(ctx, session, orgID, func(tx pgx.Tx, a domain.Actor) error {
-		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id::text>$2 AND ($3 OR repository_id::text=ANY($4::text[])) AND ($5='' OR state=$5) ORDER BY id LIMIT $6`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, state, limit+1)
+		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id::text>$2 AND ($3 OR repository_id::text=ANY($4::text[])) AND ($5='' OR state=$5 OR $5='active' AND state IN ('queued','reproducing','planning','repairing','validating','publishing')) ORDER BY id LIMIT $6`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, state, limit+1)
 		if err != nil {
 			return err
 		}
