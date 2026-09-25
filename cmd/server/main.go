@@ -133,7 +133,7 @@ func run() error {
 	app.RegisterBudget(budgets)
 	overview := insights.New(identity)
 	app.RegisterInsights(overview)
-	app.RegisterSetup(overview, policies.ResolveTx, len(cfg.RepairImages) > 0)
+	app.RegisterSetup(overview, policies.ResolveTx, len(cfg.RepairImages) > 0, cfg.BuiltinRunnerToken != "")
 	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
 	if err != nil {
 		return err

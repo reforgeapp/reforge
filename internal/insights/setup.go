@@ -24,7 +24,7 @@ type Setup struct {
 
 type PolicyResolver func(context.Context, pgx.Tx, string, string) (policy.Resolved, error)
 
-func (s *Service) Setup(ctx context.Context, session auth.Session, org string, resolve PolicyResolver, repairReady bool) (Setup, error) {
+func (s *Service) Setup(ctx context.Context, session auth.Session, org string, resolve PolicyResolver, repairReady, builtin bool) (Setup, error) {
 	out := Setup{}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		var forge, model, priced, repository, scanned, runner, assigned string
@@ -65,6 +65,9 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			{ID: "assignment", Done: assigned != "", RepositoryID: repository},
 			{ID: "policy", Done: allowed},
 			{ID: "server", Done: repairReady},
+		}
+		if builtin {
+			out.Steps = slices.DeleteFunc(out.Steps, func(step SetupStep) bool { return step.ID == "assignment" || step.ID == "server" })
 		}
 		return nil
 	})
