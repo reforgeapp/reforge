@@ -3,6 +3,21 @@
 Policy controls automatic actions. Policies are immutable versions scoped to the
 organisation, team or repository.
 
+## Mode
+
+**Mode** sets the organisation policy in one step. It saves, simulates and activates a new
+organisation version.
+
+| Mode | Permits |
+| --- | --- |
+| Observe | Read only |
+| Propose fixes | Repair and publish changes |
+| Merge eligible fixes | Also merge changes that pass every gate |
+| Deliver to approved environments | Also deploy |
+
+Mode permits actions; it does not start them. Repairs start from **Findings** or a
+[campaign](campaigns.md); merges from **Changes**.
+
 ## Select a policy
 
 Open **Policies**, choose a repository, then choose **Organisation**, **Team** or
