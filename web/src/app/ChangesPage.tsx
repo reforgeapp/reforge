@@ -48,6 +48,12 @@ export function ChangesPage({ orgID }: { orgID: string }) {
     ? [deepLinkedRepository.data, ...repositoryItems]
     : repositoryItems
   useEffect(() => {
+    setRepositoryID(search.repository ?? '')
+    setRepositoryQuery('')
+    setChangeID(search.change ?? '')
+    setShowSettings(false)
+  }, [orgID, search.repository, search.change])
+  useEffect(() => {
     if (repositoryID && (repositoryItems.some(item => item.id === repositoryID) || deepLinkedRepository.isLoading)) return
     const next = repositoryOptions[0]?.id ?? ''
     if (next !== repositoryID) {
@@ -69,12 +75,6 @@ export function ChangesPage({ orgID }: { orgID: string }) {
   useEffect(() => {
     if (changeID && !changeItems.some(item => item.id === changeID) && changes.hasNextPage && !changePageLimitReached && !changes.isFetchingNextPage && !changes.isFetchNextPageError) void changes.fetchNextPage()
   }, [changeID, changeItems, changePageLimitReached, changes.hasNextPage, changes.isFetchingNextPage, changes.isFetchNextPageError, changes.fetchNextPage])
-  useEffect(() => {
-    setRepositoryID(search.repository ?? '')
-    setRepositoryQuery('')
-    setChangeID(search.change ?? '')
-    setShowSettings(false)
-  }, [orgID, search.repository, search.change])
   if (repositories.isLoading && !repositoryQuery && !repositoryID) return <StatePanel kind="loading" title="Loading repositories" detail="Fetching repositories with observed changes." />
   if (repositories.error) return <StatePanel kind="error" title="Repositories unavailable" detail={text(repositories.error)} action={<Button onClick={() => repositories.refetch()}>Retry</Button>} />
   const list = <>

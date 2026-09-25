@@ -129,3 +129,13 @@ test('merged companion still requires fresh original native gate', async ({ page
   await expect(page.getByText('Original update · requires fresh native gate validation after companion merges.')).toBeVisible()
   await expect(page.getByText(/already validated/i)).toHaveCount(0)
 })
+
+test('returning from another route keeps the repository changes', async ({ page }) => {
+  await session(page); await fixture(page)
+  await page.route(`**${base}/maintenance/runs**`, route => route.fulfill({ json: { items: [], complete: true } }))
+  await page.goto(`/org/${org}/changes`)
+  await expect(page.getByRole('button', { name: 'Repair dependency' })).toBeVisible()
+  await page.getByRole('link', { name: 'Runs', exact: true }).click()
+  await page.getByRole('link', { name: 'Changes', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Repair dependency' })).toBeVisible()
+})
