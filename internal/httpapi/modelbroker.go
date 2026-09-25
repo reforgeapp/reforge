@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"strings"
@@ -42,6 +43,7 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		decoder := json.NewDecoder(strings.NewReader(string(body)))
 		decoder.DisallowUnknownFields()
 		if decoder.Decode(&in) != nil || decoder.Decode(new(any)) != io.EOF || !in.Valid() {
+			slog.WarnContext(c.Request.Context(), "model turn request rejected", "bytes", len(body), "messages", len(in.Messages), "continuation_bytes", len(in.Continuation))
 			IdentityFailure(c, auth.ErrInvalid)
 			return
 		}
