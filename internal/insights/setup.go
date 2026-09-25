@@ -27,7 +27,7 @@ type PolicyResolver func(context.Context, pgx.Tx, string, string) (policy.Resolv
 func (s *Service) Setup(ctx context.Context, session auth.Session, org string, resolve PolicyResolver, repairReady, builtin bool) (Setup, error) {
 	out := Setup{}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
-		var forge, model, priced, repository, scanned, runner, assigned, readOnly string
+		var forge, model, priced, repository, scanned, runner, assigned string
 		var budgeted bool
 		var scanReason, scanRepository string
 		err := tx.QueryRow(ctx, `SELECT
@@ -40,9 +40,8 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			coalesce((SELECT r.repository_id::text FROM runner_pool_repositories r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND p.state='active' LIMIT 1),''),
 			coalesce((SELECT reason FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
 			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
-			EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND caps->>'micro_usd' IS NOT NULL),
-			coalesce((SELECT c.id::text FROM repositories r JOIN connections c ON c.org_id=r.org_id AND c.id=r.connection_id WHERE r.org_id=$1 AND r.accessible AND c.provider='github' AND c.settings->>'auth_kind'='token' AND ($2 OR r.id=ANY($3::uuid[])) LIMIT 1),'')`,
-			org, a.AllRepositories, a.RepositoryIDs).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository, &budgeted, &readOnly)
+			EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND caps->>'micro_usd' IS NOT NULL)`,
+			org, a.AllRepositories, a.RepositoryIDs).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository, &budgeted)
 		if err != nil {
 			return err
 		}
@@ -68,7 +67,6 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			{ID: "runner", Done: runner != ""},
 			{ID: "assignment", Done: assigned != "", RepositoryID: repository},
 			{ID: "policy", Done: allowed},
-			{ID: "publish", Done: repository != "" && readOnly == "", ConnectionID: readOnly},
 			{ID: "server", Done: repairReady},
 		}
 		if builtin {
