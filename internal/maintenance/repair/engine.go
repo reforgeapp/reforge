@@ -280,7 +280,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 				out.Candidate = candidate
 				checkedRevision = patchRevision
 				body, _ := json.Marshal(candidate)
-				reply = string(body)
+				reply = bounded(string(body))
 				verified = Verified(p, out.Baseline, candidate)
 			default:
 				return fail("Unsupported model tool", ErrHandoff)
@@ -301,7 +301,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			verified = Verified(p, out.Baseline, candidate)
 			if !verified && len(result.ToolCalls) > 0 {
 				body, _ := json.Marshal(candidate)
-				messages = append(messages, model.Message{Role: "user", Text: "Supervisor validation of the current patch:\n" + string(body)})
+				messages = append(messages, model.Message{Role: "user", Text: "Supervisor validation of the current patch:\n" + bounded(string(body))})
 			}
 		}
 		if !verified && len(result.ToolCalls) == 0 {
@@ -481,4 +481,11 @@ func compact(messages []model.Message) []model.Message {
 		}
 	}
 	return messages
+}
+
+func bounded(text string) string {
+	if len(text) <= 32<<10 {
+		return text
+	}
+	return text[:32<<10] + "\n[truncated]"
 }

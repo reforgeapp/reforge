@@ -36,6 +36,7 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(5 * time.Second))
 		body, err := io.ReadAll(http.MaxBytesReader(c.Writer, c.Request.Body, model.MaxRequestBytes/2))
 		if err != nil {
+			slog.WarnContext(c.Request.Context(), "model turn request rejected", "bytes", len(body), "error", err)
 			IdentityFailure(c, auth.ErrInvalid)
 			return
 		}
