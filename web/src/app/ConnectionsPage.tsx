@@ -6,7 +6,7 @@ import { api, ReforgeAPIError, type Connection } from '../api/client'
 import { inventoryAPI } from '../api/inventory'
 import { connectionQuery, connectionsListQuery, useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
-import { DataTable, EmptyTable } from '../components/DataTable'
+import { DataTable, EmptyTable, useSort } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { SplitView, DetailPanel } from '../components/Workspace'
@@ -214,6 +214,7 @@ type ConnectionListProps = {
 }
 
 function ConnectionList(props: ConnectionListProps) {
+  const connectionSort = useSort(props.rows, { name: connection => connection.name, provider: connection => connectionProviderLabel(connection.provider, connection.settings.profile), state: connection => connection.state, credential: connection => connection.credential_version }, { key: 'name', dir: 'asc' })
   if (props.loading) {
     return <StatePanel kind="loading" title="Loading connections" detail="Loading connections…" />
   }
@@ -251,8 +252,8 @@ function ConnectionList(props: ConnectionListProps) {
     </div>
     <DataTable caption={`${category} connections`}>
       <table className="connections-table">
-        <thead><tr><th>Name</th><th>Provider</th><th>State</th><th>Credential</th><th><span className="sr-only">Actions</span></th></tr></thead>
-        <tbody>{props.rows.map(connection => <ConnectionRow key={connection.id} connection={connection} onSelect={props.onSelect} />)}</tbody>
+        <thead><tr>{connectionSort.header('name', 'Name')}{connectionSort.header('provider', 'Provider')}{connectionSort.header('state', 'State')}{connectionSort.header('credential', 'Credential')}<th><span className="sr-only">Actions</span></th></tr></thead>
+        <tbody>{connectionSort.rows.map(connection => <ConnectionRow key={connection.id} connection={connection} onSelect={props.onSelect} />)}</tbody>
       </table>
       {!props.rows.length && <EmptyTable label={props.hasMore && (props.query.trim() || props.state) ? 'No matches in loaded results; more may be available.' : props.query.trim() || props.state ? 'No connections match these filters.' : `No ${category.toLowerCase()} found.`} />}
       {props.hasMore && <div className="table-note"><Button disabled={props.loadingMore} onClick={props.onLoadMore}>{props.loadingMore ? 'Loading…' : 'Load more'}</Button></div>}

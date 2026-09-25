@@ -338,3 +338,7 @@ legend { float: left; width: 100%; padding: 0; color: var(--text); font-size: 14
   .connections-page .connections-table .link-button { max-width: 100%; white-space: normal; overflow-wrap: anywhere; }
   .connections-page .connections-table td:nth-child(5) .button { min-height: 28px; padding: 3px 7px; }
 }
+.sort-button { display: inline-flex; align-items: center; gap: 5px; padding: 0; color: inherit; font: inherit; text-transform: inherit; letter-spacing: inherit; }
+.sort-button:hover { color: var(--text); }
+.sort-indicator { color: var(--text-subtle); font-size: 9px; opacity: .55; }
+.sort-button.sorted .sort-indicator { color: var(--primary); opacity: 1; }

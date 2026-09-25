@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useSearch } from '@tanstack/react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
-import { DataTable, EmptyTable } from '../components/DataTable'
+import { DataTable, EmptyTable, useSort } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { SplitView, SplitPlaceholder, Toolbar } from '../components/Workspace'
@@ -69,7 +69,8 @@ function PreviewCard({ preview, canCreate, csrf, busy, onCreate }: { preview: Pr
 }
 
 function CampaignList({ rows, complete, loading, onMore, onSelect }: { rows: Campaign[]; complete: boolean; loading: boolean; onMore: () => void; onSelect: (id: string) => void }) {
-  return <><DataTable caption="Campaign history"><table><thead><tr><th>Campaign</th><th>Kind</th><th>State</th><th>Progress</th><th>Updated</th></tr></thead><tbody>{rows.map(row => <tr key={row.id}><td><button className="link-button" onClick={() => onSelect(row.id)}>{row.name || row.id}</button></td><td>{row.kind}</td><td><StatusBadge label={stateLabel(row.state)} tone={tone(row.state)} /></td><td>{row.counts.succeeded}/{row.counts.total} succeeded · {row.counts.unknown} unknown</td><td>{new Date(row.updated_at).toLocaleString()}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No campaigns recorded." />}</DataTable>{!complete && <Button disabled={loading} onClick={onMore}>{loading ? 'Loading…' : 'Load more campaigns'}</Button>}</>
+  const campaignSort = useSort(rows, { name: row => row.name || row.id, kind: row => row.kind, state: row => row.state, updated: row => Date.parse(row.updated_at) }, { key: 'updated', dir: 'desc' })
+  return <><DataTable caption="Campaign history"><table><thead><tr>{campaignSort.header('name', 'Campaign')}{campaignSort.header('kind', 'Kind')}{campaignSort.header('state', 'State')}<th>Progress</th>{campaignSort.header('updated', 'Updated')}</tr></thead><tbody>{campaignSort.rows.map(row => <tr key={row.id}><td><button className="link-button" onClick={() => onSelect(row.id)}>{row.name || row.id}</button></td><td>{row.kind}</td><td><StatusBadge label={stateLabel(row.state)} tone={tone(row.state)} /></td><td>{row.counts.succeeded}/{row.counts.total} succeeded · {row.counts.unknown} unknown</td><td>{new Date(row.updated_at).toLocaleString()}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No campaigns recorded." />}</DataTable>{!complete && <Button disabled={loading} onClick={onMore}>{loading ? 'Loading…' : 'Load more campaigns'}</Button>}</>
 }
 
 function CampaignDetail({ orgID, campaign, csrf, canMutate, busy, onControl }: { orgID: string; campaign: Campaign; csrf: string; canMutate: boolean; busy: boolean; onControl: (action: 'start' | 'pause' | 'resume' | 'cancel', value: Campaign, reason: string) => void }) {

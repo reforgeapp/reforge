@@ -7,7 +7,7 @@ import { inventoryAPI } from '../api/inventory'
 import { ForgeLink, forgeName } from '../components/ForgeLink'
 import { useSession } from './query'
 import { Button, Dialog } from '../components/Accessible'
-import { DataTable, EmptyTable } from '../components/DataTable'
+import { DataTable, EmptyTable, useSort } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { Toolbar, SplitView, DetailPanel, SplitPlaceholder, Tabs } from '../components/Workspace'
@@ -24,12 +24,13 @@ export function FindingsPage({ orgID }: { orgID: string }) {
   useEffect(() => { setQ(search.q ?? ''); setState(search.finding_state ?? ''); setSeverity(search.finding_severity ?? ''); setCategory(search.finding_category ?? ''); setRepositoryID(search.repository ?? '') }, [search.q, search.finding_state, search.finding_severity, search.finding_category, search.repository])
   const result = useInfiniteQuery({ queryKey: ['org', orgID, 'findings', 'list', { q, state, severity, category, repositoryID }], queryFn: ({ pageParam, signal }) => discoveryAPI.findings(orgID, { q, state, severity, category, repository_id: repositoryID, cursor: pageParam, limit: 50, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor })
   const rows = [...new Map((result.data?.pages.flatMap(page => page.items) ?? []).map(item => [item.id, item])).values()]
+  const findingSort = useSort(rows, { title: finding => finding.title, severity: finding => ['info', 'low', 'medium', 'high', 'critical'].indexOf(finding.severity), source: finding => finding.source, age: finding => Date.parse(finding.last_seen), state: finding => finding.state, owner: finding => finding.assigned_to ?? '' }, { key: 'severity', dir: 'desc' })
   const reset = (setter: (value: string) => void, key: string, value: string, replace = false) => { setter(value); void navigate({ search: { ...search, [key]: value || undefined }, replace }) }
   const select = (id: string) => { void navigate({ search: { ...search, finding: id }, replace: false }) }
   const clear = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.finding; return next } }) }
   const refresh = () => { void client.invalidateQueries({ queryKey: ['org', orgID, 'findings'] }) }
 
-  const list = <DataTable caption="Finding queue"><table><thead><tr><th>Finding</th><th>Severity</th><th>Source</th><th>Evidence age</th><th>State</th><th>Owner</th></tr></thead><tbody>{rows.map(finding => <tr key={finding.id}><td><button className="link-button" onClick={() => select(finding.id)}>{finding.title}</button><small className="table-meta">{finding.category}</small></td><td><StatusBadge label={finding.severity} tone={tone(finding.severity)} /></td><td>{finding.source}</td><td>{age(finding.last_seen)}</td><td><StatusBadge label={finding.state} tone={tone(finding.state)} /></td><td>{finding.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No findings match these filters." />}{result.hasNextPage && <div className="table-note"><Button disabled={result.isFetching} onClick={() => void result.fetchNextPage()}>{result.isFetchingNextPage ? 'Loading…' : 'Load more findings'}</Button></div>}</DataTable>
+  const list = <DataTable caption="Finding queue"><table><thead><tr>{findingSort.header('title', 'Finding')}{findingSort.header('severity', 'Severity')}{findingSort.header('source', 'Source')}{findingSort.header('age', 'Evidence age')}{findingSort.header('state', 'State')}{findingSort.header('owner', 'Owner')}</tr></thead><tbody>{findingSort.rows.map(finding => <tr key={finding.id}><td><button className="link-button" onClick={() => select(finding.id)}>{finding.title}</button><small className="table-meta">{finding.category}</small></td><td><StatusBadge label={finding.severity} tone={tone(finding.severity)} /></td><td>{finding.source}</td><td>{age(finding.last_seen)}</td><td><StatusBadge label={finding.state} tone={tone(finding.state)} /></td><td>{finding.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!rows.length && <EmptyTable label="No findings match these filters." />}{result.hasNextPage && <div className="table-note"><Button disabled={result.isFetching} onClick={() => void result.fetchNextPage()}>{result.isFetchingNextPage ? 'Loading…' : 'Load more findings'}</Button></div>}</DataTable>
 
   return <div className="stack">
     <Toolbar label="Finding filters">
