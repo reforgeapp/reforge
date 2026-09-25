@@ -29,6 +29,11 @@ plane. The runner:
   cleanup of process groups;
 - cannot upload artifacts or publish results after its lease is fenced.
 
+The built-in runner enrols with a token generated on first start and shared with the server
+through the `builtin` volume. It runs privileged on the control-plane host, so gVisor
+is the only boundary between repository code and the database and encryption key. Use
+an enrolled runner on a separate host for untrusted repositories.
+
 Private network routes are fixed-operation and pinned to an enrolled runner and explicit
 CIDRs. Redirects, DNS rebinding and metadata destinations are rejected.
 

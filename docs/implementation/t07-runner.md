@@ -63,3 +63,18 @@ Real PostgreSQL race tests cover 20 competing one-use enrollments, expired enrol
 No paid API, live private provider, external publication or production sandbox certification was used for these checks.
 
 Verification: all 11 runner tests passed with `go test -race -count=1 ./internal/runner -v` against PostgreSQL 18.6 (2.489s). Artifact race tests passed (1.046s); all six affected workflow race tests passed (2.514s). `go vet ./internal/runner ./internal/artifact ./internal/httpapi` and `git diff --check` passed.
+
+## Built-in runner
+
+`REFORGE_BUILTIN_RUNNER_DIR` (self-hosted only) holds `token` and `repair-images.json`, written by `reforge-runner builtin-init` with mode 0640. The server loads both at startup; `repair-images.json` applies only when `REFORGE_REPAIR_IMAGES` is unset. It then mounts:
+
+| Route | Credential and input | Result |
+|---|---|---|
+| `GET /runner/v1/builtin/orgs` | Built-in token | Every organisation ID |
+| `POST /runner/v1/builtin/enroll` | Built-in token; `{org_id,name}` | Supervisor credential in the org's Built-in pool |
+
+Enrolment creates the pool on first use, grants all repositories and revokes the pool's previous runners. Migration 038 adds `runner_pools.builtin` (one per org) and a trigger granting new repositories to it. `PutPool` keeps a built-in pool's name and repositories and rejects `revoked`.
+
+`reforge-runner builtin` moves container processes to a `supervisor` leaf, enables memory/pids/cpu on `/sys/fs/cgroup/reforge`, verifies the production runtime (rootless gVisor, 2 GiB, 2 CPUs, 512 pids, 512 MiB disk), then loops over organisations with one job at a time. It reaches the server over loopback with the public Host header. Failed steps drop the org credential and re-enrol after 10 seconds; failed enrolment retries after a minute.
+
+Verification: `TestBuiltinPoolCoversRepositoriesAndReplacesRunner` against PostgreSQL. A throwaway probe in the runner image under a privileged private cgroup namespace ran an untrusted Go workspace with `go build` and read back `memory.max=2147483648` from the delegated cgroup. No repair job ran end to end.

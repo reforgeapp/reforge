@@ -2,6 +2,15 @@
 
 Runners execute repository and model work outside the control plane.
 
+## Built-in runner
+
+Compose starts a built-in runner with the stack. It joins every organisation's
+**Built-in** pool, which covers all repositories, including newly imported ones. The
+pool cannot be edited or revoked; **Drain** pauses it and **Activate** resumes it.
+
+The built-in runner handles one job at a time. Enrol extra runners in other pools for
+more capacity, private networks or isolation from the control-plane host.
+
 ## Pools
 
 A pool may start empty. Create a pool, then enrol a runner. Pool updates invalidate
@@ -24,7 +33,12 @@ revoking it and enrolling a replacement; revocation fences any late upload or pu
 
 ## Host prerequisites
 
-The runner needs an OCI runtime and, for untrusted repositories, a sandbox with working
+The built-in runner runs privileged with its own cgroup namespace and needs cgroup v2.
+Without it the container exits with `built-in runner needs a privileged container with
+cgroup v2 delegation`; stop it with `docker compose stop runner` and enrol a runner
+elsewhere.
+
+An enrolled runner needs an OCI runtime and, for untrusted repositories, a sandbox with working
 resource enforcement. On hosts without cgroup delegation the sandbox reports unavailable
 and hostile repositories must not be admitted. See
 [Support matrix and limitations](support-matrix.md).

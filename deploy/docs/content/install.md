@@ -10,6 +10,8 @@ required.
 - Two CPU cores and 4 GB RAM for a small evaluation; size production from repository count
   and concurrent runs.
 - HTTPS reverse proxy and DNS name for the browser-visible origin.
+- Linux with cgroup v2 and permission to run a privileged container, for the built-in
+  runner.
 - PostgreSQL 18 container storage with backups for the `pgdata` volume.
 - Secret storage for database credentials, the OIDC client secret and the base64-encoded
   credential encryption key.
@@ -42,7 +44,8 @@ required.
    ```
 
    Compose creates or updates the non-superuser migration and runtime roles, runs schema
-   migrations, applies runtime grants, then starts the server. Both role passwords must be
+   migrations, applies runtime grants, then starts the server and the
+   [built-in runner](runners.md#built-in-runner). Both role passwords must be
    non-empty and match their URLs. The database service account is used only by the one-shot
    role bootstrap; Reforge server connects as `reforge_runtime`.
 4. Open `REFORGE_PUBLIC_URL`, sign in through OIDC and use the self-hosted one-time

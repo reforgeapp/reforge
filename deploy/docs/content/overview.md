@@ -19,6 +19,9 @@ Shown until every step is done; each step links to where it is fixed.
 | Allow Reforge to propose fixes | The effective policy permits repair |
 | Enable fixes on this server | The operator configured `REFORGE_REPAIR_IMAGES` |
 
+With the built-in runner, **Give a runner your repositories** and **Enable fixes on this
+server** are not shown.
+
 ## Counts
 
 | Tile | Counts |
