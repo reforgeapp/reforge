@@ -29,6 +29,11 @@ lists.
 
 ## Scan and runners
 
+The play button on a repository row scans it and fixes its open findings one at a time,
+even when automatic fixing is off. It follows Mode, the budget and blocked findings the same
+way as automatic fixing, never merges, and stops when nothing is left. Progress appears in
+**Runs**.
+
 **Start scan** on the repository Summary tab reads the default branch, dependency
 manifests, open changes and check results. A failed scan names the access the forge token
 lacks. **Settings → Runner pools** selects which active pools may run fixes for the
