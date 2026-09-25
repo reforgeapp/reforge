@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"path"
 	"strings"
 	"time"
@@ -198,7 +199,8 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	}
 	read := func(op privateconnector.Operation) (privateconnector.Result, error) {
 		op.ID = domain.NewID()
-		return s.reader.Read(ctx, lease.Org, lease.Connection, op, authorize)
+		result, err := s.reader.Read(ctx, lease.Org, lease.Connection, op, authorize)
+		return result, readFailure(op.Kind, err)
 	}
 	resolved, err := read(privateconnector.Operation{Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: lease.Ref, Ref: lease.Branch}})
 	if err != nil {
@@ -210,7 +212,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	sourceReader := s.reader.SourceReader(lease.Org, lease.Connection, authorize)
 	base, err := manifestFiles(ctx, sourceReader, lease.Ref, resolved.SHA)
 	if err != nil {
-		return nil, err
+		return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 	}
 	botConfig := detectors.BotConfiguration(base)
 	var cfg Config
@@ -297,12 +299,12 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		if change.TargetSHA != resolved.SHA {
 			baseline, err = manifestFiles(ctx, sourceReader, lease.Ref, change.TargetSHA)
 			if err != nil {
-				return nil, err
+				return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 			}
 		}
 		head, err := manifestFiles(ctx, sourceReader, change.HeadRepository, change.HeadSHA)
 		if err != nil {
-			return nil, err
+			return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 		}
 		deps := detectors.Compare(baseline, head)
 		e := initial
@@ -337,10 +339,49 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	}
 	return out, nil
 }
+
+type scanReadError struct {
+	kind privateconnector.Kind
+	err  error
+}
+
+func (e *scanReadError) Error() string { return string(e.kind) + ": " + e.err.Error() }
+func (e *scanReadError) Unwrap() error { return e.err }
+func (e *scanReadError) access() string {
+	switch e.kind {
+	case privateconnector.ForgeResolveRef, privateconnector.ForgeSourceManifest, privateconnector.ForgeReadFile:
+		return "repository contents"
+	case privateconnector.ForgeChecks:
+		return "check results"
+	case privateconnector.ForgeReadChange:
+		return "pull requests"
+	}
+	return ""
+}
+func readFailure(kind privateconnector.Kind, err error) error {
+	if err == nil {
+		return nil
+	}
+	return &scanReadError{kind: kind, err: err}
+}
 func (s *Service) step(ctx context.Context, lease scanLease) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 	observations, readErr := s.collect(ctx, lease)
+	if readErr != nil {
+		code, detail, operation := "internal", "", ""
+		var providerError *domain.ProviderError
+		var failed *scanReadError
+		if errors.As(readErr, &providerError) {
+			code, detail = providerError.Kind, providerError.Message
+		} else if errors.Is(readErr, ErrStale) {
+			code = "stale"
+		}
+		if errors.As(readErr, &failed) {
+			operation = string(failed.kind)
+		}
+		slog.WarnContext(ctx, "discovery scan failed", "org_id", lease.Org, "repository_id", lease.Repo, "operation", operation, "code", code, "detail", detail)
+	}
 	persistCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer stop()
 	persistErr := s.db.Tenant(persistCtx, lease.Org, "", func(tx pgx.Tx) error {
@@ -359,9 +400,13 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 			state := "stale"
 			reason := "Provider read failed; verify connection and refresh inventory before retrying discovery"
 			var providerError *domain.ProviderError
-			if errors.As(readErr, &providerError) && (providerError.Kind == "unauthenticated" || providerError.Kind == "forbidden" || providerError.Kind == "unsupported") {
+			if errors.As(readErr, &providerError) && (providerError.Kind == "unauthenticated" || providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "auth" || providerError.Kind == "scope") {
 				state = "failed"
 				reason = "Provider access or capability unavailable; verify connection permissions and supported server version, then restart discovery"
+				var failed *scanReadError
+				if errors.As(readErr, &failed) && failed.access() != "" {
+					reason = "The forge token cannot read " + failed.access() + "; give it read access to " + failed.access() + ", then start the scan again"
+				}
 			}
 			if errors.Is(readErr, auth.ErrForbidden) {
 				state = "failed"
