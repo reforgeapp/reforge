@@ -187,7 +187,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		}
 		switch err := s.budgets.HeadroomTx(ctx, tx, org); {
 		case errors.Is(err, budget.ErrUnknown):
-			headroom = "Set a spend and concurrency limit in Usage → Budgets"
+			headroom = "Set a spend limit in Usage → Budgets"
 			return nil
 		case errors.Is(err, budget.ErrRevoked):
 			headroom = "Budget is paused"

@@ -5,6 +5,8 @@ import (
 	"time"
 )
 
+var defaultConcurrency int64 = 1
+
 var (
 	ErrCapacity = errors.New("budget capacity unavailable")
 	ErrUnknown  = errors.New("budget or pricing not configured")

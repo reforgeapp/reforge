@@ -173,8 +173,11 @@ func (s *Service) ReserveTx(ctx context.Context, tx pgx.Tx, l Lease, q Quote) (R
 		if limit.Paused {
 			return Reservation{}, ErrRevoked
 		}
-		if scope.Kind == "organisation" && (limit.Caps.Concurrency == nil || route.Mode == "priced" && limit.Caps.MicroUSD == nil || route.Mode == "quota" && !quotaCaps(limit.Caps)) {
+		if scope.Kind == "organisation" && (route.Mode == "priced" && limit.Caps.MicroUSD == nil || route.Mode == "quota" && !quotaCaps(limit.Caps)) {
 			return Reservation{}, ErrUnknown
+		}
+		if scope.Kind == "organisation" && limit.Caps.Concurrency == nil {
+			limit.Caps.Concurrency = &defaultConcurrency
 		}
 		start, err := periodStart(limit, now)
 		if err != nil {

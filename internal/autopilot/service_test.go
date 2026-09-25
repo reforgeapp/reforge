@@ -81,9 +81,9 @@ func TestAutopilotReportsWhyItWaits(t *testing.T) {
 			t.Fatalf("status %q, want %q", got.Status, want)
 		}
 	}
-	status("Set a spend and concurrency limit in Usage → Budgets")
-	usd, concurrency := int64(5_000_000), int64(1)
-	if _, e = budgets.PutLimit(ctx, owner, org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: org}, Period: "daily", Caps: budget.Caps{MicroUSD: &usd, Concurrency: &concurrency}}, 0, "test"); e != nil {
+	status("Set a spend limit in Usage → Budgets")
+	usd := int64(5_000_000)
+	if _, e = budgets.PutLimit(ctx, owner, org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: org}, Period: "daily", Caps: budget.Caps{MicroUSD: &usd}}, 0, "test"); e != nil {
 		t.Fatal(e)
 	}
 	status("Add an AI model with pricing")

@@ -40,7 +40,7 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			coalesce((SELECT r.repository_id::text FROM runner_pool_repositories r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND p.state='active' LIMIT 1),''),
 			coalesce((SELECT reason FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
 			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
-			EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND caps->>'micro_usd' IS NOT NULL AND caps->>'concurrency' IS NOT NULL)`,
+			EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND caps->>'micro_usd' IS NOT NULL)`,
 			org, a.AllRepositories, a.RepositoryIDs).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository, &budgeted)
 		if err != nil {
 			return err

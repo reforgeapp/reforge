@@ -300,7 +300,7 @@ func (s *Service) RouteTx(ctx context.Context, tx pgx.Tx, org, connection, model
 
 func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
 	limit, err := loadLimit(ctx, tx, org, Scope{Kind: "organisation", ID: org})
-	if errors.Is(err, pgx.ErrNoRows) || err == nil && (limit.Caps.MicroUSD == nil || limit.Caps.Concurrency == nil) {
+	if errors.Is(err, pgx.ErrNoRows) || err == nil && limit.Caps.MicroUSD == nil {
 		return ErrUnknown
 	}
 	if err != nil {
@@ -321,7 +321,11 @@ func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
 	if err != nil {
 		return err
 	}
-	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD || limit.Held.Concurrency >= *limit.Caps.Concurrency {
+	concurrency := defaultConcurrency
+	if limit.Caps.Concurrency != nil {
+		concurrency = *limit.Caps.Concurrency
+	}
+	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD || limit.Held.Concurrency >= concurrency {
 		return ErrCapacity
 	}
 	return nil

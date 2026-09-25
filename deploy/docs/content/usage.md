@@ -35,8 +35,8 @@ The **Usage** tab keeps ledger filters separate from budget editing. USD caps ac
 decimal places and preserve zero explicitly. Each saved non-zero cap shows settled spend
 and current holds against the cap.
 
-The organisation budget needs a USD cap and a concurrency cap before any model call runs.
-New organisation budgets start with concurrency 1.
+The organisation budget needs a USD cap before any model call runs. It allows one model
+call at a time.
 
 Contending jobs cannot overspend a configured ceiling. When provider usage is unknown the
 reservation is held as unknown until reconciled, which can pause affected automation.
