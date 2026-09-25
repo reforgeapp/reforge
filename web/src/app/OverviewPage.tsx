@@ -7,6 +7,7 @@ import { StatusBadge } from '../components/Status'
 import { overviewAPI } from '../overview-api'
 import { Tabs } from '../components/Workspace'
 import { BarList, TrendChart } from '../components/Charts'
+import { SetupChecklist } from './SetupChecklist'
 import '../styles/overview.css'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
@@ -28,6 +29,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
   const trend = value.trend ?? []
   const severity = value.severity ?? []
   return <div className="stack">
+    <SetupChecklist orgID={orgID} />
     <section className="overview-metrics" aria-label="Portfolio counts">
       <div className="metric-grid">
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/findings`}><span className="metric-label">Needs decision</span><strong>{c.needs_decision}</strong><span className="metric-muted">{c.needs_decision ? 'Open findings' : 'Nothing open'}</span></a>

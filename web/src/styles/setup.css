@@ -1,0 +1,11 @@
+.setup-progress { height: 6px; overflow: hidden; border-radius: var(--radius-pill); background: var(--surface-3); }
+.setup-progress span { display: block; height: 100%; border-radius: var(--radius-pill); background: var(--green); }
+.setup-steps { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 8px 16px; margin: 0; padding: 0; list-style: none; }
+.setup-steps li { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 8px; border-radius: var(--radius); }
+.setup-steps li.next { background: var(--primary-soft); }
+.setup-mark { display: grid; width: 24px; height: 24px; flex: 0 0 auto; place-items: center; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--text-muted); font-size: 12px; font-weight: 700; }
+.setup-steps li.done .setup-mark { border-color: var(--green); color: var(--on-primary); background: var(--green); }
+.setup-steps li.done .setup-text { color: var(--text-subtle); }
+.setup-text { display: grid; flex: 1; gap: 1px; min-width: 0; font-size: 13px; font-weight: 600; }
+.setup-text small { color: var(--amber); font-size: 12px; font-weight: 500; }
+.setup-steps .button { flex: 0 0 auto; }
