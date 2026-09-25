@@ -26,7 +26,7 @@ func (t Turn) Request() TurnRequest {
 	return TurnRequest{OperationID: t.OperationID, Model: t.Model, System: t.System, Messages: t.Messages, Tools: t.Tools, MaxOutputTokens: t.MaxOutputTokens, Continuation: t.Continuation, Session: t.Session}
 }
 func (t Turn) Valid() bool {
-	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > 300000 || len(t.Messages) == 0 || len(t.Messages) > 100 || len(t.Tools) > 32 {
+	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > 300000 || len(t.Messages) == 0 || len(t.Messages) > 400 || len(t.Tools) > 32 {
 		return false
 	}
 	b, err := json.Marshal(t)
