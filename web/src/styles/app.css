@@ -99,9 +99,15 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .panel-grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(260px, 1fr); gap: 14px; align-items: stretch; }
 .segmented { display: inline-flex; padding: 2px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface-2); }
 .segmented .button { min-height: 28px; padding: 3px 10px; border: 0; border-radius: var(--radius-sm); background: transparent; box-shadow: none; font-size: 12px; }
-.segmented .button[aria-pressed="true"] { color: var(--text); background: var(--surface); box-shadow: var(--shadow-sm); }
+.segmented .button { color: var(--text-muted); }
+.segmented .button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); box-shadow: inset 0 0 0 1px var(--primary-border); }
 .stack > * { min-width: 0; }
 .detail-section { display: grid; gap: 10px; min-width: 0; }
+.detail-panel [role="tabpanel"]:not([hidden]) { display: grid; gap: 20px; align-content: start; min-width: 0; }
+.detail-panel [role="tabpanel"] > * + :is(.detail-section, fieldset) { padding-top: 20px; border-top: 1px solid var(--border); }
+.detail-panel :is(.stack, .detail-section, fieldset, [role="tabpanel"]) > .button { justify-self: start; }
+.detail-panel .row-actions .button { min-height: 32px; padding: 4px 12px; font-size: 12.5px; }
+.detail-panel h3 { font-size: 14px; font-weight: 650; }
 .subsection-actions { display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
 .row-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; }
 .row-actions > input, .row-actions > select { width: auto; max-width: 260px; }
@@ -125,7 +131,7 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .toolbar label, .repository-toolbar label { flex: 1 1 168px; max-width: 340px; min-width: 0; }
 .toolbar .button, .repository-toolbar .button { flex: 0 0 auto; margin-left: auto; }
 .toolbar-meta { align-self: center; color: var(--text-subtle); font-size: 12px; }
-.tabs { display: flex; gap: 4px; overflow-x: auto; border-bottom: 1px solid var(--border); }
+.tabs { display: flex; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; border-bottom: 1px solid var(--border); }
 .tabs .tab { flex: 0 0 auto; }
 .tab { min-height: 38px; margin-bottom: -1px; padding: 8px 12px; border-bottom: 2px solid transparent; color: var(--text-muted); font-size: 13px; font-weight: 600; }
 .tab:hover { color: var(--text); border-bottom-color: var(--border-strong); }
@@ -192,7 +198,7 @@ td small, .table-meta { color: var(--text-subtle); }
 .link-button:hover { text-decoration: underline; }
 .forge-link { display: inline-flex; align-items: center; gap: 4px; color: var(--primary); font-weight: 600; }
 .forge-link:hover { text-decoration: underline; }
-.forge-link-icon { margin-left: 6px; color: var(--text-subtle); vertical-align: middle; }
+.forge-link-icon { display: inline-flex; margin-left: 6px; color: var(--text-subtle); vertical-align: -2px; }
 .forge-link-icon:hover { color: var(--primary); }
 .forge-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .form-stack { display: grid; gap: 13px; }
@@ -206,8 +212,8 @@ input, select, textarea { width: 100%; min-width: 0; min-height: 36px; padding: 
 textarea { min-height: 70px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px var(--focus-ring); }
 input:disabled, select:disabled, textarea:disabled { color: var(--text-subtle); background: var(--surface-inset); }
-fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 12px 0; border: 0; border-top: 1px solid var(--border); background: transparent; }
-legend { padding: 0 6px 0 0; color: var(--text); font-size: 13px; font-weight: 650; }
+fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
+legend { float: left; width: 100%; padding: 0; color: var(--text); font-size: 14px; font-weight: 650; }
 .checkbox-label { display: flex; align-items: center; gap: 7px; font-weight: 500; }
 .checkbox-label input { width: auto; min-height: auto; }
 .checkbox-list { display: grid; gap: 4px; max-height: 220px; overflow: auto; }
