@@ -42,10 +42,11 @@ type Service struct {
 	merges   *mergecontrol.Service
 	budgets  *budget.Service
 	policies *policy.Service
+	Scan     func(context.Context, auth.Session, string, string, string) error
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
-	return &Service{db, identity, repairs, merges, budgets, policies}
+	return &Service{db: db, auth: identity, repairs: repairs, merges: merges, budgets: budgets, policies: policies}
 }
 
 func read(ctx context.Context, tx pgx.Tx, org string) (Settings, error) {
@@ -97,11 +98,44 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, ena
 	return out, err
 }
 
+func (s *Service) Request(ctx context.Context, session auth.Session, org, repo, request string) error {
+	if !auth.ValidID(repo) {
+		return auth.ErrInvalid
+	}
+	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if !auth.CanReadRepository(a, repo) || a.Role != domain.Owner && a.Role != domain.Admin && a.Role != domain.Maintainer {
+			return auth.ErrForbidden
+		}
+		var exists bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repositories WHERE org_id=$1 AND id=$2 AND accessible AND NOT archived)`, org, repo).Scan(&exists); err != nil || !exists {
+			return errors.Join(err, auth.ErrForbidden)
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO autopilot_requests(org_id,repository_id,requested_by) VALUES($1,$2,$3) ON CONFLICT(org_id,repository_id) DO UPDATE SET requested_by=EXCLUDED.requested_by,requested_at=clock_timestamp()`, org, repo, a.UserID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO autopilot_settings(org_id) VALUES($1) ON CONFLICT DO NOTHING`, org); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM autopilot_attempts a USING maintenance_findings f WHERE a.org_id=$1 AND f.org_id=a.org_id AND f.id=a.finding_id AND f.repository_id=$2 AND NOT EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=a.org_id AND t.id=a.task_id AND t.state IN `+active+`)`, org, repo); err != nil {
+			return err
+		}
+		data, _ := json.Marshal(map[string]string{"repository_id": repo})
+		_, err := tx.Exec(ctx, `INSERT INTO audit_events(id,org_id,actor_id,action,object_id,request_id,data) VALUES($1,$2,$3,'autopilot.run_requested',$4,$5,$6)`, domain.NewID(), org, a.UserID, repo, request, data)
+		return err
+	})
+	if err == nil && s.Scan != nil {
+		if scanErr := s.Scan(ctx, session, org, repo, request); scanErr != nil {
+			slog.WarnContext(ctx, "autopilot run scan not started", "org_id", org, "repository_id", repo, "error", scanErr)
+		}
+	}
+	return err
+}
+
 func (s *Service) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		var orgs []string
 		err := pgx.BeginFunc(ctx, s.db.Pool, func(tx pgx.Tx) error {
-			rows, err := tx.Query(ctx, `SELECT org_id::text FROM autopilot_settings WHERE enabled ORDER BY org_id`)
+			rows, err := tx.Query(ctx, `SELECT org_id::text FROM autopilot_settings WHERE enabled UNION SELECT org_id::text FROM autopilot_requests ORDER BY 1`)
 			if err != nil {
 				return err
 			}
@@ -148,14 +182,37 @@ func (s *Service) record(ctx context.Context, org string, c candidate, task, out
 	})
 }
 
-func (s *Service) session(ctx context.Context, org string) (auth.Session, error) {
+type scope struct {
+	enabled   bool
+	requested []string
+}
+
+func (s *Service) session(ctx context.Context, org string) (auth.Session, scope, error) {
 	var user string
+	var sc scope
 	var repos []string
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT enabled_by::text FROM autopilot_settings WHERE org_id=$1 AND enabled`, org).Scan(&user); err != nil {
+		err := tx.QueryRow(ctx, `SELECT enabled,coalesce(enabled_by::text,'') FROM autopilot_settings WHERE org_id=$1`, org).Scan(&sc.enabled, &user)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text FROM repositories WHERE org_id=$1 AND accessible AND NOT archived ORDER BY id LIMIT 2000`, org)
+		if !sc.enabled {
+			if err = tx.QueryRow(ctx, `SELECT requested_by::text FROM autopilot_requests WHERE org_id=$1 AND requested_at>clock_timestamp()-interval '1 day' ORDER BY requested_at DESC LIMIT 1`, org).Scan(&user); err != nil {
+				return err
+			}
+		}
+		rows, err := tx.Query(ctx, `SELECT repository_id::text FROM autopilot_requests WHERE org_id=$1 AND requested_at>clock_timestamp()-interval '1 day' AND ($2 OR requested_by=$3::uuid) ORDER BY repository_id`, org, sc.enabled, user)
+		if err != nil {
+			return err
+		}
+		if sc.requested, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
+			return err
+		}
+		if !sc.enabled {
+			repos = sc.requested
+			return nil
+		}
+		rows, err = tx.Query(ctx, `SELECT id::text FROM repositories WHERE org_id=$1 AND accessible AND NOT archived ORDER BY id LIMIT 2000`, org)
 		if err != nil {
 			return err
 		}
@@ -163,27 +220,34 @@ func (s *Service) session(ctx context.Context, org string) (auth.Session, error)
 		return err
 	})
 	if err != nil {
-		return auth.Session{}, err
+		return auth.Session{}, sc, err
 	}
-	return auth.NewAutomationSession(org, user, org, repos, func(ctx context.Context, tx pgx.Tx) error {
-		var enabled bool
-		if err := tx.QueryRow(ctx, `SELECT enabled FROM autopilot_settings WHERE org_id=$1 AND enabled_by=$2 FOR SHARE`, org, user).Scan(&enabled); err != nil || !enabled {
+	session, err := auth.NewAutomationSession(org, user, org, repos, func(ctx context.Context, tx pgx.Tx) error {
+		var allowed bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled AND enabled_by=$2) OR EXISTS(SELECT 1 FROM autopilot_requests WHERE org_id=$1 AND requested_by=$2)`, org, user).Scan(&allowed); err != nil || !allowed {
 			return auth.ErrForbidden
 		}
 		return nil
 	})
+	return session, sc, err
 }
 
 func (s *Service) Step(ctx context.Context, org string) error {
-	session, err := s.session(ctx, org)
+	session, sc, err := s.session(ctx, org)
 	if err != nil {
 		return s.status(ctx, org, "Import a repository to start")
 	}
-	if err = s.merge(ctx, session, org); err != nil {
-		return err
+	if sc.enabled {
+		if err = s.merge(ctx, session, org); err != nil {
+			return err
+		}
 	}
 	if err = s.reconcile(ctx, session, org); err != nil {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
+	}
+	var filter []string
+	if !sc.enabled {
+		filter = sc.requested
 	}
 	var busy bool
 	var model, route, headroom, blocked string
@@ -213,7 +277,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var c candidate
-		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<3 AND a.updated_at<clock_timestamp()-interval '10 minutes')) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) ORDER BY f.first_seen,f.id LIMIT 1`, org).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs)
+		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<3 AND a.updated_at<clock_timestamp()-interval '10 minutes')) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs)
 		if errors.Is(err, pgx.ErrNoRows) {
 			var count int
 			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(f.evidence->'blockers'->>0),'') FROM maintenance_findings f WHERE f.org_id=$1 AND f.state='open' AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0`, org).Scan(&count, &blocked)
@@ -235,10 +299,15 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		return s.status(ctx, org, headroom)
 	case model == "":
 		return s.status(ctx, org, "Add an AI model with pricing")
-	case next == nil && blocked != "":
-		return s.status(ctx, org, blocked)
 	case next == nil:
-		return s.status(ctx, org, "No findings to fix")
+		message := "No findings to fix"
+		if blocked != "" {
+			message = blocked
+		}
+		return errors.Join(s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `DELETE FROM autopilot_requests WHERE org_id=$1 AND repository_id::text=ANY($2)`, org, sc.requested)
+			return err
+		}), s.status(ctx, org, message))
 	}
 	return s.queue(ctx, session, org, *next, model, route)
 }

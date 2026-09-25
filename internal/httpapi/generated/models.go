@@ -3282,6 +3282,9 @@ type PutMergeConfigurationParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
 }
+type RunRepositoryParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListRunnerPoolsParams struct {
 	Limit  *int                        `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string                     `form:"cursor,omitempty" json:"cursor,omitempty"`

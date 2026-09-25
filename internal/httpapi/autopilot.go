@@ -36,4 +36,12 @@ func (s *Server) RegisterAutopilot(service *autopilot.Service) {
 		}
 		c.JSON(200, value)
 	})
+	s.Router.Group("/api/v1/orgs/:orgID/repositories", s.IdentitySession()).POST("/:repositoryID/run", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		if err := service.Request(c.Request.Context(), session, c.Param("orgID"), c.Param("repositoryID"), c.GetString("request_id")); err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.Status(204)
+	})
 }

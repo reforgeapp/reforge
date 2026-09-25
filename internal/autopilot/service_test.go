@@ -87,4 +87,20 @@ func TestAutopilotReportsWhyItWaits(t *testing.T) {
 		t.Fatal(e)
 	}
 	status("Add an AI model with pricing")
+	if _, e = service.Put(ctx, owner, org, false, 1, "test"); e != nil {
+		t.Fatal(e)
+	}
+	var repo string
+	if e = db.Tenant(ctx, org, owner.User.ID, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT id::text FROM repositories WHERE org_id=$1`, org).Scan(&repo)
+	}); e != nil {
+		t.Fatal(e)
+	}
+	if e = service.Request(ctx, owner, org, repo, "test"); e != nil {
+		t.Fatal(e)
+	}
+	status("Add an AI model with pricing")
+	if e = service.Request(ctx, owner, org, domain.NewID(), "test"); !errors.Is(e, auth.ErrForbidden) {
+		t.Fatalf("unknown repository accepted: %v", e)
+	}
 }
