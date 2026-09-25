@@ -163,7 +163,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			if route.Mode != "priced" {
 				return ErrUnavailable
 			}
-			quote := budget.Quote{OperationID: in.OperationID, Model: in.Model, Route: t.ModelRoute, RouteVersion: route.Version, InputTokens: int64(len(raw))*4 + 4096, MaxOutputTokens: int64(in.MaxOutputTokens), MaxMilliseconds: in.TimeoutMS, MaxRequests: 1}
+			quote := budget.Quote{OperationID: in.OperationID, Model: in.Model, Route: t.ModelRoute, RouteVersion: route.Version, InputTokens: int64(len(raw)) + 4096, MaxOutputTokens: int64(in.MaxOutputTokens), MaxMilliseconds: in.TimeoutMS, MaxRequests: 1}
 			reservation, err = s.budgets.ReserveTx(ctx, tx, budget.Lease(l), quote)
 			if err != nil {
 				return err
