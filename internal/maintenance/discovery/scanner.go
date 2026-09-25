@@ -380,7 +380,7 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 		if errors.As(readErr, &failed) {
 			operation = string(failed.kind)
 		}
-		slog.WarnContext(ctx, "discovery scan failed", "org_id", lease.Org, "repository_id", lease.Repo, "operation", operation, "code", code, "detail", detail)
+		slog.WarnContext(ctx, "discovery scan failed", "org_id", lease.Org, "repository_id", lease.Repo, "operation", operation, "code", code, "detail", detail, "error", readErr.Error())
 	}
 	persistCtx, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer stop()

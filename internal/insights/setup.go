@@ -35,7 +35,7 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 			coalesce((SELECT id::text FROM connections WHERE org_id=$1 AND kind='model' AND state='healthy' ORDER BY created_at LIMIT 1),''),
 			coalesce((SELECT c.id::text FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) LIMIT 1),''),
 			coalesce((SELECT id::text FROM repositories WHERE org_id=$1 AND accessible AND ($2 OR id=ANY($3::uuid[])) ORDER BY name LIMIT 1),''),
-			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND state='complete' AND ($2 OR repository_id=ANY($3::uuid[])) LIMIT 1),''),
+			coalesce((SELECT repository_id::text FROM maintenance_scans WHERE org_id=$1 AND observed_at IS NOT NULL AND ($2 OR repository_id=ANY($3::uuid[])) LIMIT 1),''),
 			coalesce((SELECT id::text FROM runners WHERE org_id=$1 AND state='active' AND last_seen_at>now()-interval '5 minutes' LIMIT 1),''),
 			coalesce((SELECT r.repository_id::text FROM runner_pool_repositories r JOIN runner_pools p ON p.org_id=r.org_id AND p.id=r.pool_id WHERE r.org_id=$1 AND p.state='active' LIMIT 1),''),
 			coalesce((SELECT reason FROM maintenance_scans WHERE org_id=$1 AND state<>'complete' AND reason<>'' AND ($2 OR repository_id=ANY($3::uuid[])) ORDER BY available_at DESC LIMIT 1),''),
