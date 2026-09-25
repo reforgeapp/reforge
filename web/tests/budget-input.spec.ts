@@ -10,7 +10,7 @@ test('USD budget input preserves sequential micro precision', async ({ page }) =
   await page.route(`**${base}/teams**`, route => route.fulfill({ json: { items: [], complete: true } }))
   await page.route(`**${base}/connections**`, route => route.fulfill({ json: { items: [], complete: true } }))
   await page.route(`**${base}/campaigns**`, route => route.fulfill({ json: { items: [], complete: true } }))
-  await page.route(`**${base}/budgets/organisation/${org}`, route => route.fulfill({ json: { scope: { kind: 'organisation', id: org }, period: 'daily', caps: {}, paused: false, version: 0, held: amount, spent: amount } }))
+  await page.route(`**${base}/budgets/organisation/${org}`, route => route.fulfill({ json: { scope: { kind: 'organisation', id: org }, period: 'daily', caps: { micro_usd: null, tokens: null, milliseconds: null, requests: null, concurrency: null }, paused: false, version: 0, held: amount, spent: amount } }))
   let payload: any
   await page.route(`**${base}/budgets/organisation/${org}`, async route => { if (route.request().method() === 'PUT') { payload = await route.request().postDataJSON(); await route.fulfill({ json: payload }) } else await route.fallback() })
   await page.goto(`/org/${org}/usage`)

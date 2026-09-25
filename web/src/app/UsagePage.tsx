@@ -44,7 +44,7 @@ export function UsagePage({ orgID }: { orgID: string }) {
   useEffect(() => { setBudget(undefined); setSaveError('') }, [scope.kind, scope.id])
   const currentBudget = budget?.scope.kind === scope.kind && budget.scope.id === scope.id ? budget : budgetQuery.data
   const applyFilters = (event: FormEvent) => { event.preventDefault(); setFilters({ ...draft, since: dateTime(draft.since ?? '', false), until: dateTime(draft.until ?? '', true), cursor: undefined }) }
-  const validLimit = (limit: Limit) => Object.values(limit.caps).every(value => value === undefined || (Number.isSafeInteger(value) && value >= 0)) && (limit.caps.micro_usd === undefined || limit.caps.micro_usd <= Number.MAX_SAFE_INTEGER)
+  const validLimit = (limit: Limit) => Object.values(limit.caps).every(value => value == null || (Number.isSafeInteger(value) && value >= 0)) && (limit.caps.micro_usd === undefined || limit.caps.micro_usd <= Number.MAX_SAFE_INTEGER)
   const save = async () => { if (!currentBudget || saving) return; if (!validLimit(currentBudget)) { setSaveError('Budget caps must be finite, non-negative safe integers.'); return } setSaving(true); setSaveError(''); try { await usageAPI.saveBudget(orgID, currentBudget, csrf); setBudget(undefined); await budgetQuery.refetch() } catch (reason) { setSaveError(errorText(reason)) } finally { setSaving(false) } }
   const scopeChanged = (kind: string) => setScope({ kind, id: kind === 'organisation' ? orgID : '' }); const createBudget = () => { if (scope.id) setBudget(emptyLimit(scope.kind, scope.id)) }; const canCreateBudget = !budgetQuery.error || budgetQuery.error instanceof ReforgeAPIError && budgetQuery.error.code === 'budget_unconfigured'
   const scopeOptions = scope.kind === 'organisation' ? [{ id: orgID, name: 'Current organisation' }] : scope.kind === 'repository' ? repositoryItems.map(item => ({ id: item.id, name: item.name })) : scope.kind === 'team' ? teamItems.map(item => ({ id: item.id, name: item.name })) : scope.kind === 'connection' ? connectionItems.map(item => ({ id: item.id, name: `${item.name} · ${item.provider}` })) : campaignItems.map(item => ({ id: item.id, name: item.name || item.id })); const selectedScope = scope.id && !scopeOptions.some(item => item.id === scope.id) ? [{ id: scope.id, name: 'Selected scope unavailable' }] : []
@@ -72,8 +72,8 @@ export function UsagePage({ orgID }: { orgID: string }) {
 
 function BudgetEditor({ limit, editable, csrf, saving, onChange, onSave, error }: { limit: Limit; editable: boolean; csrf: string; saving: boolean; onChange: (limit: Limit) => void; onSave: () => void; error: string }) {
   const cap = (key: keyof Caps, value: string) => onChange({ ...limit, caps: { ...limit.caps, [key]: value === '' ? undefined : Number(value) } })
-  const [usdText, setUSDText] = useState(limit.caps.micro_usd === undefined ? '' : (limit.caps.micro_usd / 1_000_000).toFixed(6))
-  useEffect(() => { setUSDText(limit.caps.micro_usd === undefined ? '' : (limit.caps.micro_usd / 1_000_000).toFixed(6)) }, [limit.caps.micro_usd])
+  const [usdText, setUSDText] = useState(limit.caps.micro_usd == null ? '' : (limit.caps.micro_usd / 1_000_000).toFixed(6))
+  useEffect(() => { setUSDText(limit.caps.micro_usd == null ? '' : (limit.caps.micro_usd / 1_000_000).toFixed(6)) }, [limit.caps.micro_usd])
   const usdCap = (value: string) => setUSDText(value)
   const commitUSD = () => { if (usdText === '') { onChange({ ...limit, caps: { ...limit.caps, micro_usd: undefined } }); return }; const parsed = Number(usdText); if (!Number.isFinite(parsed) || parsed < 0 || parsed * 1_000_000 > Number.MAX_SAFE_INTEGER) { onChange({ ...limit, caps: { ...limit.caps, micro_usd: Number.NaN } }); return }; onChange({ ...limit, caps: { ...limit.caps, micro_usd: Math.round(parsed * 1_000_000) } }) }
   const localDate = (value?: string) => value?.slice(0, 16) ?? ''
