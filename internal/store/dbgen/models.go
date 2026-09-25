@@ -56,6 +56,13 @@ type AutopilotAttempt struct {
 	Runs           int32              `json:"runs"`
 }
 
+type AutopilotRequest struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	RequestedBy  pgtype.UUID        `json:"requested_by"`
+	RequestedAt  pgtype.Timestamptz `json:"requested_at"`
+}
+
 type AutopilotSetting struct {
 	OrgID     pgtype.UUID        `json:"org_id"`
 	Enabled   bool               `json:"enabled"`
