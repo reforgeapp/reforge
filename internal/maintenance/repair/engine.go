@@ -204,7 +204,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		messages = compact(messages)
 		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
-			return fail("Model route stopped; review budget, authorization or unresolved usage", err)
+			return fail(modelFailure(err), err)
 		}
 		out.Turns++
 		if result.FinishReason == "length" {
@@ -488,4 +488,18 @@ func bounded(text string) string {
 		return text
 	}
 	return text[:32<<10] + "\n[truncated]"
+}
+
+func modelFailure(err error) string {
+	if strings.Contains(err.Error(), "invalid model turn") {
+		return "Model conversation grew past the request limit"
+	}
+	message := strings.TrimPrefix(err.Error(), "runner control plane unavailable or rejected request: ")
+	if message == err.Error() {
+		return "Model call failed; review budget, authorization or unresolved usage"
+	}
+	if len(message) > 200 {
+		message = message[:200]
+	}
+	return "Model call failed: " + message
 }

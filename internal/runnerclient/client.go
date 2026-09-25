@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net"
 	"net/http"
@@ -264,6 +265,12 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		var failure struct {
+			Message string `json:"message"`
+		}
+		if json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil && failure.Message != "" && len(failure.Message) <= 300 {
+			return response.StatusCode, fmt.Errorf("%w: %s", ErrControlPlane, failure.Message)
+		}
 		return response.StatusCode, ErrControlPlane
 	}
 	if response.StatusCode == 204 {
