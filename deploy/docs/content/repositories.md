@@ -23,6 +23,10 @@ changes, deployment environments and branch-rule capabilities. Protection data c
 timestamp and a refresh control; an unavailable rule is shown as unknown, never as
 disabled.
 
+Repository, pull request, check and finding views link to the item on the forge. The
+repository detail also links to the forge's pull request (merge request on GitLab) and issue
+lists.
+
 ## Scan and runners
 
 **Start scan** on the repository Summary tab reads the default branch, dependency
