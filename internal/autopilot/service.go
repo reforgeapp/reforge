@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -179,7 +180,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		return err
 	}
 	var busy bool
-	var model, route, headroom string
+	var model, route, headroom, blocked string
 	var next *candidate
 	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN `+active+`)`, org).Scan(&busy); err != nil || busy {
@@ -206,9 +207,14 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var c candidate
-		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND (a.outcome<>'retry' OR a.retry_after>clock_timestamp())) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) ORDER BY f.first_seen,f.id LIMIT 1`, org).Scan(&c.finding, &c.version, &c.repository, &c.name)
+		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND (a.outcome<>'retry' OR a.retry_after>clock_timestamp())) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) ORDER BY f.first_seen,f.id LIMIT 1`, org).Scan(&c.finding, &c.version, &c.repository, &c.name)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
+			var count int
+			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(f.evidence->'blockers'->>0),'') FROM maintenance_findings f WHERE f.org_id=$1 AND f.state='open' AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0`, org).Scan(&count, &blocked)
+			if count > 0 {
+				blocked = strconv.Itoa(count) + " blocked: " + blocked
+			}
+			return err
 		}
 		next = &c
 		return err
@@ -223,6 +229,8 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		return s.status(ctx, org, headroom)
 	case model == "":
 		return s.status(ctx, org, "Add an AI model with pricing")
+	case next == nil && blocked != "":
+		return s.status(ctx, org, blocked)
 	case next == nil:
 		return s.status(ctx, org, "No findings to fix")
 	}
