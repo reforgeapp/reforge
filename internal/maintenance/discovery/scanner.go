@@ -147,12 +147,20 @@ func validChecks(checks []forge.Check, sha string) bool {
 }
 func failedChecks(checks []forge.Check) bool {
 	for _, c := range checks {
+		if botUpdateJob(c.Name) {
+			continue
+		}
 		switch c.Conclusion {
 		case "failure", "failed", "timed_out", "action_required", "startup_failure":
 			return true
 		}
 	}
 	return false
+}
+
+func botUpdateJob(name string) bool {
+	name = strings.ToLower(strings.TrimSpace(name))
+	return name == "dependabot" || name == "renovate" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
 }
 func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, error) {
 	m, err := reader.Manifest(ctx, repo, commit)
