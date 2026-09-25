@@ -217,6 +217,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
 		}
 		verified := checkedRevision == patchRevision && Verified(p, out.Baseline, out.Candidate)
+		returned := 0
 		for _, call := range result.ToolCalls {
 			var input struct {
 				Path    string `json:"path"`
@@ -284,6 +285,10 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			default:
 				return fail("Unsupported model tool", ErrHandoff)
 			}
+			if returned+len(reply) > turnReplyBudget {
+				reply = "Not returned: this turn already returned its output budget. Request it in a later turn."
+			}
+			returned += len(reply)
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
 		}
 		if !verified && checkedRevision != patchRevision && len(patches) > 0 && CheckPatch(p, files, ordered()) == nil {
@@ -461,6 +466,7 @@ func targetPlan(p Plan, files map[string][]byte) (Plan, error) {
 }
 
 const historyBudget = 384 << 10
+const turnReplyBudget = 128 << 10
 
 func compact(messages []model.Message) []model.Message {
 	size := 0
