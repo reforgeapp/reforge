@@ -200,6 +200,10 @@ td small, .table-meta { color: var(--text-subtle); }
 .forge-link:hover { text-decoration: underline; }
 .forge-link-icon { display: inline-flex; margin-left: 6px; color: var(--text-subtle); vertical-align: -2px; }
 .forge-link-icon:hover { color: var(--primary); }
+.run-button { color: var(--primary); }
+.run-button:hover:not(:disabled) { background: var(--primary-soft); }
+.run-notice { padding: 10px 14px; border: 1px solid var(--primary-border); border-radius: var(--radius); color: var(--text); background: var(--primary-soft); }
+.run-notice a { color: var(--primary); font-weight: 600; }
 .forge-links { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 .form-stack { display: grid; gap: 13px; }
 .form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }

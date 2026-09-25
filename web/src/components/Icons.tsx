@@ -23,6 +23,7 @@ const paths: Record<string, string[]> = {
   refresh: ['M4 12a8 8 0 1 0 2.4-5.7', 'M4 4.5V9h4.5'],
   warning: ['M12 4 3 19h18z', 'M12 10v4', 'M12 16.6v.2'],
   external: ['M14 4h6v6', 'M20 4l-9 9', 'M18 14v5H5V6h5'],
+  play: ['M8 5.5v13l10.5-6.5z'],
 }
 
 export type IconName = keyof typeof paths
