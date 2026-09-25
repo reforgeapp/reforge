@@ -14,6 +14,8 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/budget"
 	"reforge/internal/domain"
+	"reforge/internal/inventory"
+	"reforge/internal/maintenance/discovery"
 	"reforge/internal/maintenance/recipes"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/mergecontrol"
@@ -264,7 +266,11 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 			continue
 		}
 		if err != nil {
-			return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not prepare a fix for "+c.name))
+			wait, message := 15*time.Minute, "Could not prepare a fix for "+c.name
+			if errors.Is(err, discovery.ErrStale) || errors.Is(err, inventory.ErrStale) {
+				wait, message = time.Minute, "Waiting for fresh data from "+c.name
+			}
+			return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), wait), s.status(ctx, org, message))
 		}
 		if len(preview.Blockers) > 0 {
 			return s.record(ctx, org, c, "", "skipped", preview.Blockers[0], 0)
