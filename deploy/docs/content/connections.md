@@ -188,7 +188,8 @@ when the endpoint is reached over a private route.
 
 The catalogue lists the account- and key-scoped models for native providers. The OpenCode
 catalogue is public and does not verify the key or exercise inference, so a saved OpenCode
-gateway is shown as **Key untested** until its first use. A catalogue entry the provider marks
+gateway is shown as **Key untested** until a model call through it succeeds, then as
+**Key verified**. A catalogue entry the provider marks
 unavailable is disabled and cannot be saved, and an unrecognised OpenCode model family stays
 disabled with its reason. If the post-create probe fails, the connection is retained but its
 state is unknown until **Retry verification** reads the latest state; retry on the same

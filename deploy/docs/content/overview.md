@@ -50,4 +50,4 @@ Hover or focus the chart and use the arrow keys to read a single day.
 
 ## Open findings
 
-Open findings grouped by severity, highest first.
+A donut of open findings by severity, with counts and shares in the legend.
