@@ -486,7 +486,7 @@ func (s *Service) Get(ctx context.Context, session auth.Session, org, id string)
 
 func (s *Service) SettleUnknownAtMaximumTx(ctx context.Context, tx pgx.Tx, org, id, reference string) error {
 	r, err := loadReservation(ctx, tx, org, id)
-	if err != nil || r.State != "unknown" {
+	if err != nil || r.State != "unknown" && r.State != "dispatched" {
 		return err
 	}
 	actual := r.Maximum

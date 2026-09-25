@@ -95,7 +95,7 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 		if err := recoveryReady(ctx, tx, org, id); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state='unknown'`, org, id)
+		rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns m WHERE org_id=$1 AND task_id=$2 AND (state='unknown' OR state='dispatched' AND EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=m.org_id AND t.id=m.task_id AND t.state IN ('failed','cancelled')))`, org, id)
 		if err != nil {
 			return err
 		}

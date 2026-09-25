@@ -293,7 +293,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 func (s *Service) reconcile(ctx context.Context, session auth.Session, org string) error {
 	var tasks []string
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT a.task_id::text FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN ('failed','cancelled') AND (EXISTS(SELECT 1 FROM model_turns m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND m.state='unknown') OR EXISTS(SELECT 1 FROM maintenance_repairs r WHERE r.org_id=a.org_id AND r.task_id=a.task_id AND r.active))`, org)
+		rows, err := tx.Query(ctx, `SELECT a.task_id::text FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN ('failed','cancelled') AND (EXISTS(SELECT 1 FROM model_turns m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND m.state IN ('unknown','dispatched')) OR EXISTS(SELECT 1 FROM maintenance_repairs r WHERE r.org_id=a.org_id AND r.task_id=a.task_id AND r.active))`, org)
 		if err != nil {
 			return err
 		}
