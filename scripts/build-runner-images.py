@@ -151,6 +151,21 @@ def python_toolchain(root, binary):
     return subprocess.run([binary, "--version"], check=True, capture_output=True, text=True).stdout.strip()
 
 
+def git_tool(root):
+    shell = command_path("dash")
+    copy_file(root, shell, "/bin/sh")
+    copy_binary_dependencies(root, shell)
+    binary = command_path("git")
+    copy_file(root, binary, "/usr/bin/git")
+    copy_binary_dependencies(root, binary)
+    copy_tree(root, "/usr/share/git-core/templates", "/usr/share/git-core/templates")
+    core = "/usr/lib/git-core"
+    builtin = os.path.realpath(os.path.join(core, "git"))
+    for name in sorted(os.listdir(core)):
+        if os.path.realpath(os.path.join(core, name)) == builtin and file_digest(builtin) == file_digest(binary):
+            os.symlink("/usr/bin/git", destination(root, os.path.join(core, name)))
+
+
 def make_layout(root):
     for mount in MOUNTS:
         os.makedirs(os.path.join(root, mount), mode=0o755, exist_ok=True)
@@ -175,6 +190,7 @@ def main():
         if args.stack == "go": version = go_toolchain(output, binary)
         elif args.stack == "javascript": version = node_toolchain(output, binary)
         else: version = python_toolchain(output, binary)
+        git_tool(output)
         print("imagepath=" + output)
         print("toolchainversion=" + version)
     except Exception:

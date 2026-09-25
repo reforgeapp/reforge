@@ -39,7 +39,7 @@ unknown provider outcome holds the reservation instead of reporting zero cost.
 The sandbox has no network. For Go, the runner downloads modules listed in `go.mod` and
 `go.sum` from the public Go proxy before the run, without executing repository code, and
 mounts them read-only. Private modules are not fetched. JavaScript and Python recipes use
-only `node --test` and `unittest` and receive no third-party packages.
+only `node --test` and `unittest` and receive no third-party packages. Every recipe image includes `git` and `/bin/sh` for tests that create local repositories.
 
 ## CI-only failures
 
