@@ -16,6 +16,7 @@ import (
 	"reforge/internal/forge"
 	"reforge/internal/maintenance/discovery"
 	"reforge/internal/policy"
+	"reforge/internal/privateconnector"
 	"reforge/internal/runner"
 	"reforge/internal/sandbox"
 	"reforge/internal/source"
@@ -204,6 +205,10 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		context.MaxOutputTokens = 0
 		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000
 	}
+	context.CILogs = s.ciLogs(ctx, org, f, check)
+	if len(context.CILogs) > 0 {
+		context.OpenFixes = s.openFixes(ctx, org, f.RepositoryID)
+	}
 	out.Context = context
 	if !plan.Valid() {
 		out.Blockers = append(out.Blockers, "Effective policy permits no source changes")
@@ -292,6 +297,53 @@ func (s *Service) enqueue(ctx context.Context, session auth.Session, org string,
 	}
 	return out, err
 }
+func (s *Service) ciLogs(ctx context.Context, org string, f discovery.Finding, check func(context.Context, pgx.Tx, connections.Connection) error) []CILog {
+	logs := []CILog{}
+	for _, c := range f.Evidence.Checks {
+		name := strings.ToLower(c.Name)
+		if len(logs) == 3 || c.Conclusion != "failure" && c.Conclusion != "failed" && c.Conclusion != "timed_out" || name == "dependabot" || name == "renovate" {
+			continue
+		}
+		repo := f.Evidence.Change
+		ref := forge.RepoRef{}
+		if repo != nil {
+			ref = repo.Repository
+		}
+		if ref.NativeID == "" {
+			if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `SELECT native_id,name FROM repositories WHERE org_id=$1 AND id=$2`, org, f.RepositoryID).Scan(&ref.NativeID, &ref.FullName)
+			}); err != nil {
+				continue
+			}
+		}
+		result, err := s.reader.Read(ctx, org, f.Evidence.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCheckLog, CheckLog: &privateconnector.CheckLogArgs{Repository: ref, CheckID: c.ID}}, check)
+		if err != nil || result.Log == "" {
+			continue
+		}
+		logs = append(logs, CILog{Name: c.Name, URL: c.URL, Log: result.Log})
+	}
+	return logs
+}
+
+func (s *Service) openFixes(ctx context.Context, org, repository string) []string {
+	fixes := []string{}
+	_ = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT branch,coalesce(report->>'reason',''),coalesce(report->'dependencies','[]')::text FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND bot_revalidation_state NOT IN ('merged','closed') ORDER BY created_at DESC LIMIT 20`, org, repository)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var branch, reason, deps string
+			if rows.Scan(&branch, &reason, &deps) == nil {
+				fixes = append(fixes, bounded(branch+": "+reason+" "+deps))
+			}
+		}
+		return rows.Err()
+	})
+	return fixes
+}
+
 func loadRun(ctx context.Context, tx pgx.Tx, org, id string) (Run, error) {
 	var out Run
 	var body, report, checks, change, artifactIDs []byte
@@ -417,13 +469,29 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 	if err != nil || len(raw) > 1<<20 {
 		return out, auth.ErrInvalid
 	}
+	ci := in.Mode == "ci"
+	if in.Mode != "" && !ci || len(in.Dependencies) > 10 {
+		return out, auth.ErrInvalid
+	}
+	for _, u := range in.Dependencies {
+		if !u.Valid() {
+			return out, auth.ErrInvalid
+		}
+	}
 	var original map[string][]byte
 	if in.State == "validated" {
 		c, err := s.Context(ctx, credential)
 		if err != nil {
 			return out, err
 		}
-		snapshot, err := s.Snapshot(ctx, credential, c.Plan.BaselineSHA)
+		sha := c.Plan.BaselineSHA
+		if ci {
+			if len(c.CILogs) == 0 {
+				return out, ErrValidation
+			}
+			sha = c.Plan.TargetSHA
+		}
+		snapshot, err := s.Snapshot(ctx, credential, sha)
 		if err != nil {
 			return out, err
 		}
@@ -431,7 +499,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if err != nil {
 			return out, err
 		}
-		if CheckPatch(c.Plan, original, in.Patches) != nil {
+		if ci && CheckCIPatch(c.Plan, original, in.Patches, in.Dependencies) != nil || !ci && CheckPatch(c.Plan, original, in.Patches) != nil {
 			return out, ErrPatch
 		}
 		in.Diff = SourceDiff(original, in.Patches)
@@ -458,7 +526,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
-			if t.State != domain.TaskValidating || !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
+			if t.State != domain.TaskValidating || !ci && !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
 				return ErrValidation
 			}
 		} else if in.State != "handoff" {

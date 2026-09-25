@@ -40,3 +40,19 @@ The sandbox has no network. For Go, the runner downloads modules listed in `go.m
 `go.sum` from the public Go proxy before the run, without executing repository code, and
 mounts them read-only. Private modules are not fetched. JavaScript and Python recipes use
 only `node --test` and `unittest` and receive no third-party packages.
+
+## CI-only failures
+
+When the recipe's checks pass but the forge's CI failed (for example a dependency scanner),
+the run fetches the tail of up to three failed CI job logs, redacted of tokens and keys, and
+works on the target branch. The model can:
+
+- update a dependency; the runner regenerates `package.json`/`package-lock.json` or
+  `go.mod`/`go.sum` with the package manager from the public registry, with install scripts
+  disabled;
+- patch source files;
+- skip, when an open Reforge fix already covers the failure or it cannot be fixed from the
+  repository (missing secret, CI configuration). Skipped findings are not retried.
+
+Tests and CI configuration stay protected. The recipe's checks must pass before publication,
+and the forge's required checks still gate the merge.

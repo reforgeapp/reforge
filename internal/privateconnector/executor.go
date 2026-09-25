@@ -390,6 +390,12 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		result.File = &v
 	case ForgeReadFiles:
 		result.Files, err = readFiles(ctx, provider, *op.Files)
+	case ForgeCheckLog:
+		reader, ok := provider.(forge.CheckLogReader)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		result.Log, err = reader.ReadCheckLog(ctx, op.CheckLog.Repository, op.CheckLog.CheckID)
 	case ForgeReadChange:
 		var v forge.Change
 		v, err = provider.ReadChange(ctx, op.Change.Repository, op.Change.ChangeID)

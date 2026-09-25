@@ -222,3 +222,41 @@ func snapshotForEngine(t *testing.T, commit string, files map[string][]byte) san
 	}
 	return sandbox.Snapshot{CommitSHA: commit, Complete: true, ManifestSHA256: digest, Files: entries}
 }
+
+type passRuntime struct{ retryRuntime }
+
+func (r *passRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {
+	return sandbox.CommandResult{Output: []byte("ok 1 - adds\n")}, nil
+}
+
+func TestEngineRepairsFromCILogsWithDependencyUpdate(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Recipe.MaxTurns = 3
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: "js-yaml 5.2.1 HIGH fixed 5.2.2"}}, Progress: func(context.Context, string) error { return nil },
+		UpdateDependency: func(_ context.Context, in map[string][]byte, u DependencyUpdate) (map[string][]byte, error) {
+			return map[string][]byte{"package.json": in["package.json"], "package-lock.json": []byte(`{"js-yaml":"` + u.Version + `"}`)}, nil
+		},
+		Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+			turns++
+			switch turns {
+			case 1:
+				if !strings.Contains(in.Messages[0].Text, "js-yaml 5.2.1") {
+					t.Fatal("CI log missing from prompt")
+				}
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "edit", Name: "apply_patch", Arguments: []byte(`{"path":"package.json","content":"{}"}`)}, {ID: "dep", Name: "update_dependency", Arguments: []byte(`{"ecosystem":"npm","directory":".","package":"js-yaml","version":"5.2.2","strategy":"update"}`)}, {ID: "early", Name: "finish", Arguments: []byte(`{"summary":"x"}`)}}}, nil
+			case 2:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+			}
+			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "done", Name: "finish", Arguments: []byte(`{"summary":"Bump js-yaml to 5.2.2"}`)}}}, nil
+		}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || report.Mode != "ci" || len(report.Patches) != 1 || report.Patches[0].Path != "package-lock.json" || len(report.Dependencies) != 1 {
+		t.Fatalf("report=%+v error=%v", report, err)
+	}
+	if CheckCIPatch(plan, files, report.Patches, nil) == nil || CheckCIPatch(plan, files, report.Patches, report.Dependencies) != nil {
+		t.Fatal("dependency files must be admissible only with a declared update")
+	}
+}

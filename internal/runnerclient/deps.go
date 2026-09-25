@@ -105,9 +105,17 @@ func download(ctx context.Context, root, goBinary, dir, cache string) error {
 			return err
 		}
 	}
-	cmd := exec.CommandContext(ctx, goBinary, "mod", "download")
+	env := []string{"PATH=" + filepath.Dir(goBinary) + ":/usr/bin:/bin", "HOME=" + home, "GOROOT=" + filepath.Join(root, "usr/local/go"), "GOMODCACHE=" + cache, "GOCACHE=" + filepath.Join(home, "build"), "GOPATH=" + filepath.Join(home, "gopath"), "GOPROXY=https://proxy.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "CGO_ENABLED=0"}
+	if err = runTool(ctx, dir, env, goBinary, "mod", "download"); err != nil {
+		return fmt.Errorf("go mod download failed in %s: %w", filepath.Base(dir), err)
+	}
+	return nil
+}
+
+func runTool(ctx context.Context, dir string, env []string, name string, args ...string) error {
+	cmd := exec.CommandContext(ctx, name, args...)
 	cmd.Dir = dir
-	cmd.Env = []string{"PATH=" + filepath.Dir(goBinary) + ":/usr/bin:/bin", "HOME=" + home, "GOROOT=" + filepath.Join(root, "usr/local/go"), "GOMODCACHE=" + cache, "GOCACHE=" + filepath.Join(home, "build"), "GOPATH=" + filepath.Join(home, "gopath"), "GOPROXY=https://proxy.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "CGO_ENABLED=0"}
+	cmd.Env = env
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	if os.Getuid() == 0 {
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: sandboxUser, Gid: sandboxUser}
@@ -115,12 +123,12 @@ func download(ctx context.Context, root, goBinary, dir, cache string) error {
 	cmd.Cancel = func() error { return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL) }
 	var output bytes.Buffer
 	cmd.Stdout, cmd.Stderr = &output, &output
-	if err = cmd.Run(); err != nil {
+	if err := cmd.Run(); err != nil {
 		tail := output.Bytes()
 		if len(tail) > 2000 {
 			tail = tail[len(tail)-2000:]
 		}
-		return errors.Join(fmt.Errorf("go mod download failed in %s", filepath.Base(dir)), errors.New(string(tail)))
+		return errors.New(string(tail))
 	}
 	return nil
 }

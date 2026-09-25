@@ -18,29 +18,34 @@ import (
 )
 
 type Report struct {
-	Diff       string          `json:"diff,omitempty"`
-	PlanDigest string          `json:"plan_digest"`
-	State      string          `json:"state"`
-	Reason     string          `json:"reason"`
-	Baseline   []CheckResult   `json:"baseline"`
-	Candidate  []CheckResult   `json:"candidate"`
-	Target     []CheckResult   `json:"target"`
-	Patches    []sandbox.Patch `json:"patches"`
-	Artifacts  []string        `json:"artifacts"`
-	Turns      int             `json:"turns"`
+	Diff         string             `json:"diff,omitempty"`
+	PlanDigest   string             `json:"plan_digest"`
+	State        string             `json:"state"`
+	Reason       string             `json:"reason"`
+	Baseline     []CheckResult      `json:"baseline"`
+	Candidate    []CheckResult      `json:"candidate"`
+	Target       []CheckResult      `json:"target"`
+	Patches      []sandbox.Patch    `json:"patches"`
+	Artifacts    []string           `json:"artifacts"`
+	Turns        int                `json:"turns"`
+	Mode         string             `json:"mode,omitempty"`
+	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
 }
 type Engine struct {
-	Runtime         sandbox.SandboxRuntime
-	Turn            func(context.Context, model.Turn) (model.TurnResult, error)
-	Artifact        func(context.Context, string, []byte) (string, error)
-	Progress        func(context.Context, string) error
-	Model           string
-	JobID           string
-	AttemptID       string
-	Trust           string
-	Dependencies    string
-	MaxOutputTokens int
-	TurnTimeout     time.Duration
+	Runtime          sandbox.SandboxRuntime
+	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
+	Artifact         func(context.Context, string, []byte) (string, error)
+	Progress         func(context.Context, string) error
+	Model            string
+	JobID            string
+	AttemptID        string
+	Trust            string
+	Dependencies     string
+	CILogs           []CILog
+	OpenFixes        []string
+	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
+	MaxOutputTokens  int
+	TurnTimeout      time.Duration
 }
 
 var ErrHandoff = errors.New("repair requires human review")
@@ -67,6 +72,12 @@ func Protected(p Plan, files map[string][]byte) bool {
 		}
 	}
 	return true
+}
+func (e Engine) turnTimeout() time.Duration {
+	if e.TurnTimeout <= 0 || e.TurnTimeout > 5*time.Minute {
+		return 60 * time.Second
+	}
+	return e.TurnTimeout
 }
 func (e Engine) stage(ctx context.Context, state string) error {
 	if e.Progress != nil {
@@ -156,6 +167,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		return fail("Baseline environment unavailable or protected files changed", err)
 	}
 	if !Reproduced(out.Baseline) {
+		if len(e.CILogs) > 0 {
+			return e.runCI(ctx, p, out, targetFiles)
+		}
 		return fail("Original failure was not reproduced by complete frozen checks", ErrHandoff)
 	}
 	if err = e.stage(ctx, "planning"); err != nil {
@@ -193,10 +207,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	if tokens <= 0 {
 		tokens = 4096
 	}
-	timeout := e.TurnTimeout
-	if timeout <= 0 || timeout > 5*time.Minute {
-		timeout = 60 * time.Second
-	}
+	timeout := e.turnTimeout()
 	for turn := 0; turn < p.Recipe.MaxTurns; turn++ {
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
@@ -382,6 +393,9 @@ func (e Engine) ValidateCustom(ctx context.Context, p Plan, baseline, target san
 		return fail("Baseline environment unavailable or protected files changed", err)
 	}
 	if !Reproduced(out.Baseline) {
+		if len(e.CILogs) > 0 {
+			return e.runCI(ctx, p, out, targetFiles)
+		}
 		return fail("Original failure was not reproduced by complete frozen checks", ErrHandoff)
 	}
 	if err = e.stage(ctx, "validating"); err != nil {
@@ -426,7 +440,8 @@ func sensitiveSource(name string, body []byte) bool {
 	return strings.Contains(lower, ".pem") || strings.Contains(lower, ".key") || bytes.Contains(body, []byte("PRIVATE KEY-----"))
 }
 
-func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target sandbox.Snapshot, baseline []CheckResult) (Publication, error) {
+func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target sandbox.Snapshot, repaired Report) (Publication, error) {
+	baseline := repaired.Baseline
 	out := Publication{HeadSHA: sha, PlanDigest: p.Digest, ArtifactIDs: []string{}}
 	files, err := Files(target)
 	if err != nil || target.CommitSHA != p.TargetSHA {
@@ -435,6 +450,12 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 	next, err := targetPlan(p, files)
 	if err != nil {
 		return out, err
+	}
+	if len(repaired.Dependencies) > 0 {
+		for _, patch := range repaired.Patches {
+			files[patch.Path] = patch.Content
+		}
+		next = withDependencyHashes(next, files, repaired.Dependencies)
 	}
 	report := Report{Artifacts: []string{}}
 	out.Checks, err = e.validate(ctx, next, sha, nil, "native", &report)

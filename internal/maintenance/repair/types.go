@@ -35,6 +35,13 @@ type ExecutionContext struct {
 	CustomProfile      *customcmd.ProfileSpec `json:"custom_profile,omitempty"`
 	Finding            discovery.Finding      `json:"finding"`
 	PolicyHash         string                 `json:"policy_hash"`
+	CILogs             []CILog                `json:"ci_logs,omitempty"`
+	OpenFixes          []string               `json:"open_fixes,omitempty"`
+}
+type CILog struct {
+	Name string `json:"name"`
+	URL  string `json:"url"`
+	Log  string `json:"log"`
 }
 type Preview struct {
 	Context   ExecutionContext `json:"context"`

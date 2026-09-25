@@ -152,7 +152,7 @@ func TestRepairEngineRealModelAndGVisor(t *testing.T) {
 		t.Fatal("engine changed unexpected source or protected test")
 	}
 	candidate = makeSnapshot(t, candidateSHA, map[string][]byte{"value.js": append([]byte(nil), report.Patches[0].Content...), "value.test.js": append([]byte(nil), targetFiles["value.test.js"]...)})
-	publication, err := engine.ValidateNative(ctx, plan, candidateSHA, target, report.Baseline)
+	publication, err := engine.ValidateNative(ctx, plan, candidateSHA, target, report)
 	if err != nil || publication.HeadSHA != candidateSHA || len(publication.Checks) == 0 {
 		t.Fatalf("native validation failed: %+v error=%v", publication, err)
 	}
