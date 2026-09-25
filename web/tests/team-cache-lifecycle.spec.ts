@@ -28,7 +28,7 @@ test('repository to organisation keeps warmed team cache usable', async ({ page 
   await expect(page.getByRole('tab', { name: 'Teams', selected: true })).toBeVisible()
   await expect(page.getByRole('textbox', { name: `Team name ${team}` })).toHaveValue('Platform')
   await page.getByRole('link', { name: 'Repositories', exact: true }).click()
-  await expect(page.getByRole('button', { name: 'payments' })).toBeVisible()
+  await expect(page.getByRole('button', { name: 'payments', exact: true })).toBeVisible()
   await expect(page.getByLabel('Team')).toContainText('Platform')
 })
 
