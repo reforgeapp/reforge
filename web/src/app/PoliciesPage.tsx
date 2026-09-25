@@ -5,6 +5,7 @@ import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
+import { PolicyMode, presets } from './PolicyMode'
 import { policyAPI, type Action, type Binding, type Input, type Limits, type Policy, type Scope, type Simulation, type Version } from '../policy-api'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
@@ -30,12 +31,6 @@ const normalisePolicy = (value?: Partial<Policy> | null): Policy => {
 const split = (value: string) => value.split(',').map(item => item.trim()).filter(Boolean)
 const parseJSON = <T,>(value: string, fallback: T) => value.trim() ? JSON.parse(value) as T : fallback
 const shortID = (value: string) => value.length > 14 ? `${value.slice(0, 8)}…${value.slice(-4)}` : value
-const presets = [
-  { id: 'observe', label: 'Observe', deny: ['repair', 'publish', 'merge', 'deploy', 'recover'] as Action[] },
-  { id: 'propose', label: 'Propose fixes', deny: ['merge', 'deploy', 'recover'] as Action[] },
-  { id: 'merge', label: 'Merge eligible fixes', deny: ['deploy', 'recover'] as Action[] },
-  { id: 'deliver', label: 'Deliver to approved environments', deny: ['recover'] as Action[], allow: { environments: [] as string[], workflows: [] as string[] } },
-] as const
 
 export function PoliciesPage({ orgID }: { orgID: string }) {
   const session = useSession()
@@ -102,6 +97,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
         {!effective.isLoading && !effective.error && !effective.data ? <p>Select a repository.</p> : null}
       </section>
       </div>
+      <PolicyMode orgID={orgID} repositoryID={repositoryID} effective={effective.data} base={normalisePolicy(effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.policy)} currentVersion={effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.binding_version ?? 0} csrf={csrf} canWrite={role === 'owner'} onChanged={() => { void effective.refetch(); void versions.refetch() }} />
       <div className="policy-layout">
         <section className="policy-editor-surface" aria-label="Policy editor">
           <Tabs
