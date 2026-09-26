@@ -122,7 +122,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		}
 		if followUp != "" {
 			var owned bool
-			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published'),(SELECT count(*) FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND context->>'follow_up_branch'=$3)`, org, f.RepositoryID, followUp).Scan(&owned, &rounds); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published'),(SELECT count(*) FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND context->>'follow_up_branch'=$3 AND candidate_sha<>'')`, org, f.RepositoryID, followUp).Scan(&owned, &rounds); err != nil {
 				return err
 			}
 			if !owned {
