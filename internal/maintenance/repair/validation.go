@@ -198,6 +198,9 @@ func Reproduced(results []CheckResult) bool {
 	return len(results) > 0 && failed
 }
 func Verified(p Plan, baseline, candidate []CheckResult) bool {
+	if p.Owner {
+		return ownerVerified(p, candidate)
+	}
 	if !p.Valid() || len(baseline) != len(p.Recipe.Commands) || len(candidate) != len(baseline) {
 		return false
 	}

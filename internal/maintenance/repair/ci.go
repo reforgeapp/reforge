@@ -450,7 +450,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			case "finish":
 				var in struct{ Summary string }
 				_ = json.Unmarshal(call.Arguments, &in)
-				if checked != revision || len(current()) == 0 || !owner && !Verified(p, out.Baseline, candidate) || owner && !ownerVerified(p, candidate) {
+				if checked != revision || len(current()) == 0 || !Verified(p, out.Baseline, candidate) {
 					reply = "Not finished: stage a change and pass run_checks on the current changes first"
 					break
 				}

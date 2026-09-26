@@ -527,7 +527,7 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 	if err != nil {
 		return out, err
 	}
-	if repaired.Mode == "owner" && !ownerVerified(p, out.Checks) || repaired.Mode != "owner" && !Verified(p, baseline, out.Checks) {
+	if !Verified(p, baseline, out.Checks) {
 		return out, ErrValidation
 	}
 	return out, nil
