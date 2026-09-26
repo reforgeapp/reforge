@@ -341,3 +341,4 @@ legend { float: left; width: 100%; padding: 0; color: var(--text); font-size: 14
 .sort-button:hover { color: var(--text); }
 .sort-indicator { color: var(--text-subtle); font-size: 9px; opacity: .55; }
 .sort-button.sorted .sort-indicator { color: var(--primary); opacity: 1; }
+.pager { display: flex; align-items: center; gap: 10px; margin-top: 12px; }

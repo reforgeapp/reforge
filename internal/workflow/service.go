@@ -232,7 +232,7 @@ func (s *Service) List(ctx context.Context, session auth.Session, orgID, state s
 		return page, auth.ErrInvalid
 	}
 	err := s.auth.WithActor(ctx, session, orgID, func(tx pgx.Tx, a domain.Actor) error {
-		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id::text>$2 AND ($3 OR repository_id::text=ANY($4::text[])) AND ($5='' OR state=$5 OR $5='active' AND state IN ('queued','reproducing','planning','repairing','validating','publishing')) ORDER BY id LIMIT $6`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, state, limit+1)
+		rows, err := tx.Query(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND ($2='' OR (created_at,id)<(SELECT c.created_at,c.id FROM workflow_tasks c WHERE c.org_id=$1 AND c.id=nullif($2,'')::uuid)) AND ($3 OR repository_id::text=ANY($4::text[])) AND ($5='' OR state=$5 OR $5='active' AND state IN ('queued','reproducing','planning','repairing','validating','publishing')) ORDER BY created_at DESC,id DESC LIMIT $6`, orgID, cursor, a.AllRepositories, a.RepositoryIDs, state, limit+1)
 		if err != nil {
 			return err
 		}
