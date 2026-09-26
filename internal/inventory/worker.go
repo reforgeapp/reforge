@@ -332,7 +332,7 @@ func (s *Service) changePage(ctx context.Context, tx pgx.Tx, j Job, page domain.
 			if err != nil {
 				return err
 			}
-			return queueRefresh(ctx, tx, c, j.RepositoryID)
+			return queueRefresh(ctx, tx, c, j.RepositoryID, true)
 		}
 	}
 	return nil

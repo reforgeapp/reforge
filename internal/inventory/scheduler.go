@@ -68,7 +68,7 @@ func (s *Service) Maintain(ctx context.Context, org string) error {
 			if err != nil {
 				return err
 			}
-			if err = queueRefresh(ctx, tx, c, p[0]); err != nil {
+			if err = queueRefresh(ctx, tx, c, p[0], false); err != nil {
 				if errors.Is(err, ErrBusy) {
 					return nil
 				}
@@ -78,7 +78,7 @@ func (s *Service) Maintain(ctx context.Context, org string) error {
 		return nil
 	})
 }
-func queueRefresh(ctx context.Context, tx pgx.Tx, c connections.Connection, repo string) error {
+func queueRefresh(ctx context.Context, tx pgx.Tx, c connections.Connection, repo string, invalidate bool) error {
 	var inScope bool
 	if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory_repository_state WHERE org_id=$1 AND repository_id=$2 AND connection_id=$3 AND namespace=$4)`, c.OrgID, repo, c.ID, c.Settings.Namespace).Scan(&inScope); err != nil {
 		return err
@@ -94,12 +94,16 @@ func queueRefresh(ctx context.Context, tx pgx.Tx, c connections.Connection, repo
 		if _, err := enqueue(ctx, tx, c, "refresh", repo, "", "", nil); err != nil {
 			return err
 		}
-	} else {
+	} else if invalidate {
 		if _, err := tx.Exec(ctx, `UPDATE inventory_jobs SET input=jsonb_set(input,'{dirty}','true'::jsonb) WHERE org_id=$1 AND repository_id=$2 AND kind='refresh' AND state IN ('queued','running')`, c.OrgID, repo); err != nil {
 			return err
 		}
 	}
-	_, err := tx.Exec(ctx, `UPDATE inventory_repository_state SET refresh_due=clock_timestamp()+interval '5 minutes',changes_observed_at=NULL WHERE org_id=$1 AND repository_id=$2`, c.OrgID, repo)
+	if invalidate {
+		_, err := tx.Exec(ctx, `UPDATE inventory_repository_state SET refresh_due=clock_timestamp()+interval '5 minutes',changes_observed_at=NULL WHERE org_id=$1 AND repository_id=$2`, c.OrgID, repo)
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE inventory_repository_state SET refresh_due=clock_timestamp()+interval '5 minutes' WHERE org_id=$1 AND repository_id=$2`, c.OrgID, repo)
 	return err
 }
 func (s *Service) nextTenant(ctx context.Context) (string, error) {
@@ -196,5 +200,5 @@ func RequestRefreshTx(ctx context.Context, tx pgx.Tx, org, repo string) error {
 	if err != nil {
 		return err
 	}
-	return queueRefresh(ctx, tx, c, repo)
+	return queueRefresh(ctx, tx, c, repo, true)
 }

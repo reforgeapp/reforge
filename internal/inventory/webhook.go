@@ -274,5 +274,5 @@ func (s *Service) ingestWebhook(ctx context.Context, tx pgx.Tx, org, endpointID,
 	if err != nil {
 		return err
 	}
-	return queueRefresh(ctx, tx, c, repo)
+	return queueRefresh(ctx, tx, c, repo, true)
 }
