@@ -83,6 +83,9 @@ func CheckCIPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch, u
 			return ErrPatch
 		}
 	}
+	if p.MaxChangedLines > 0 && PatchLines(baseline, patches) > p.MaxChangedLines {
+		return ErrPatch
+	}
 	if len(source) == 0 {
 		if len(patches) == 0 {
 			return ErrPatch
@@ -90,6 +93,16 @@ func CheckCIPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch, u
 		return nil
 	}
 	return CheckPatch(p, baseline, source)
+}
+
+func PatchLines(baseline map[string][]byte, patches []sandbox.Patch) int {
+	lines := 0
+	for _, patch := range patches {
+		if name := path.Base(patch.Path); name != "package-lock.json" && name != "go.sum" {
+			lines += changedLines(baseline[patch.Path], patch.Content)
+		}
+	}
+	return lines
 }
 
 func withUpdatedHashes(p Plan, files map[string][]byte, allowed map[string]bool) Plan {

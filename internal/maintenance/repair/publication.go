@@ -69,7 +69,7 @@ func (s *Service) CheckPublish(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	if err = tx.QueryRow(ctx, `SELECT count(*) FROM maintenance_repairs WHERE org_id=$1 AND active`, t.OrgID).Scan(&open); err != nil {
 		return err
 	}
-	files, lines := int64(len(r.Report.Patches)), int64(r.Context.Plan.MaxChangedLines)
+	files, lines := int64(len(r.Report.Patches)), int64(r.Report.ChangedLines)
 	paths := []string{}
 	for _, patch := range r.Report.Patches {
 		paths = append(paths, patch.Path)

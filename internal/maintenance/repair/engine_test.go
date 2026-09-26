@@ -298,6 +298,18 @@ func TestCheckCIPatchAllowsExistingWorkflowOnly(t *testing.T) {
 	if CheckCIPatch(plan, files, []sandbox.Patch{{Path: ".github/workflows/new.yml", Content: []byte("x")}}, nil) == nil {
 		t.Fatal("new workflow accepted")
 	}
+	plan.MaxChangedLines = 3
+	large := sandbox.Patch{Path: ".github/workflows/ci.yml", Content: []byte(strings.Repeat("step\n", 10))}
+	if CheckCIPatch(plan, files, []sandbox.Patch{large}, nil) == nil {
+		t.Fatal("workflow edit bypassed changed-line limit")
+	}
+	lock := sandbox.Patch{Path: "package-lock.json", Content: []byte(strings.Repeat("{}\n", 50))}
+	if PatchLines(files, []sandbox.Patch{workflow, lock}) != 2 {
+		t.Fatal("regenerated lockfile counted or workflow change miscounted")
+	}
+	if sensitiveSource(".github/workflows/ci.yml", nil) || !sensitiveSource(".env", nil) {
+		t.Fatal("CI configuration unreadable or dotfile readable")
+	}
 }
 
 func TestDuplicatesMatchesContainedFix(t *testing.T) {

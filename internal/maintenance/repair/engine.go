@@ -30,6 +30,7 @@ type Report struct {
 	Artifacts    []string           `json:"artifacts"`
 	Turns        int                `json:"turns"`
 	Mode         string             `json:"mode,omitempty"`
+	ChangedLines int                `json:"changed_lines,omitempty"`
 	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
 }
 type Engine struct {
@@ -468,7 +469,7 @@ func (e Engine) ValidateCustom(ctx context.Context, p Plan, baseline, target san
 func sensitiveSource(name string, body []byte) bool {
 	lower := strings.ToLower(name)
 	for _, part := range strings.Split(lower, "/") {
-		if strings.HasPrefix(part, ".") || part == "secrets" || part == "credentials" {
+		if strings.HasPrefix(part, ".") && !ciConfigPath(name) || part == "secrets" || part == "credentials" {
 			return true
 		}
 	}

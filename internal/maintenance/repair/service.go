@@ -528,6 +528,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return out, ErrPatch
 		}
 		in.Diff = SourceDiff(original, in.Patches)
+		in.ChangedLines = PatchLines(original, in.Patches)
 		raw, err = json.Marshal(in)
 		if err != nil || len(raw) > 1<<20 {
 			return out, auth.ErrInvalid
