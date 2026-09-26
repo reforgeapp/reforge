@@ -54,7 +54,7 @@ func (s *Service) settleOrphansTx(ctx context.Context, tx pgx.Tx, l workflow.Lea
 		if err = s.budgets.SettleUnknownAtMaximumTx(ctx, tx, l.OrgID, turn.Reservation, "orphaned-attempt:"+turn.ID); err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `UPDATE model_turns SET state='failed',completed_at=coalesce(completed_at,clock_timestamp()) WHERE org_id=$1 AND id=$2`, l.OrgID, turn.ID); err != nil {
+		if _, err = tx.Exec(ctx, `UPDATE model_turns SET state='failed',failure='orphaned',completed_at=coalesce(completed_at,clock_timestamp()) WHERE org_id=$1 AND id=$2`, l.OrgID, turn.ID); err != nil {
 			return err
 		}
 	}
@@ -312,6 +312,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		}
 		slog.WarnContext(ctx, "model turn outcome unknown", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "reason", reason)
 	}
+	if rejected && !privateconnector.ContainsSecret([]byte(providerError.Message), resolved.Secret) {
+		slog.WarnContext(ctx, "model turn rejected", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "kind", providerError.Kind, "message", providerError.Message)
+	}
 	persistErr := s.db.Tenant(finalctx, lease.OrgID, "", func(tx pgx.Tx) error {
 		if rejected {
 			if _, e := s.budgets.SettleTx(finalctx, tx, lease.OrgID, reservation.ID, budget.Settlement{Known: true, Reference: "model-turn:" + in.OperationID}); e != nil {
@@ -327,7 +330,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 					return e
 				}
 			}
-			_, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
+			_, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',failure=$3,completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID, providerError.Kind)
 			return e
 		}
 		if !known {

@@ -339,7 +339,7 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	if largest {
 		order = turnCost + " DESC"
 	}
-	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) AND NOT coalesce((SELECT m.state='failed' FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '30 minutes' ORDER BY m.created_at DESC LIMIT 1),false) ORDER BY `+order+`,c.created_at,r.name`, org)
+	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) AND NOT coalesce((SELECT m.state='failed' AND m.failure<>'orphaned' FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '30 minutes' ORDER BY m.created_at DESC LIMIT 1),false) ORDER BY `+order+`,c.created_at,r.name`, org)
 	if err != nil {
 		return "", "", "", err
 	}
