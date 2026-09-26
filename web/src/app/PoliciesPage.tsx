@@ -5,7 +5,7 @@ import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
-import { PolicyMode, presets } from './PolicyMode'
+import { PolicyMode } from './PolicyMode'
 import { policyAPI, type Action, type Binding, type Input, type Limits, type Policy, type Scope, type Simulation, type Version } from '../policy-api'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
@@ -353,7 +353,6 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
   })
   const [showSimulation, setShowSimulation] = useState(false)
   const [impactAction, setImpactAction] = useState<Action>('repair')
-  const [presetID, setPresetID] = useState('observe')
 
   useEffect(() => {
     setPolicy(normalisePolicy(selected?.policy))
@@ -384,25 +383,6 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
   }
 
   const numberValue = (value: string) => value === '' ? undefined : Number(value)
-
-  const applyPreset = () => {
-    if (!canWrite || !csrf || rawJSON.trim()) return
-    const preset = presets.find(item => item.id === presetID) ?? presets[0]
-    const allow = 'allow' in preset
-      ? {
-          environments: policy.allow.environments ?? [],
-          workflows: policy.allow.workflows ?? [],
-        }
-      : {}
-    update({
-      ...policy,
-      deny: Array.from(new Set([
-        ...policy.deny.filter(item => item === 'read'),
-        ...preset.deny,
-      ])) as Action[],
-      allow: { ...policy.allow, ...allow },
-    })
-  }
 
   const savedPolicy = normalisePolicy(selected?.policy)
   const draftPolicy = rawJSON.trim()
@@ -542,16 +522,6 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
               </select>
             </label>
           )}
-          <div className="wide policy-preset">
-            <label>
-              Draft preset
-              <select aria-label="Draft preset" value={presetID} disabled={!canWrite || busy} onChange={event => setPresetID(event.target.value)}>
-                {presets.map(preset => <option key={preset.id} value={preset.id}>{preset.label}</option>)}
-              </select>
-            </label>
-            <Button disabled={!canWrite || !csrf || busy || !!rawJSON.trim()} onClick={applyPreset}>Apply preset</Button>
-            {rawJSON.trim() && <span className="table-meta">Clear JSON override to use preset.</span>}
-          </div>
           <label className="wide policy-pause">
             <input type="checkbox" checked={policy.paused} disabled={!canWrite || busy} onChange={event => update({ ...policy, paused: event.target.checked })} />
             Pause this scope

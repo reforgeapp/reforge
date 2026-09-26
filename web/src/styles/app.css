@@ -286,10 +286,6 @@ legend { float: left; width: 100%; padding: 0; color: var(--text); font-size: 14
 .policy-editor-actions > label { flex: 1 1 220px; }
 .policy-editor-actions > .button { flex: 0 0 auto; }
 .policy-version-status span { overflow: hidden; color: var(--text-subtle); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
-.policy-preset { display: grid; grid-template-columns: minmax(180px, 260px) auto; align-items: end; gap: 8px; }
-.policy-preset > label { max-width: none; }
-.policy-preset > .button { justify-self: start; }
-.policy-preset > .table-meta { grid-column: 1 / -1; }
 .policy-simulation { display: grid; gap: 10px; padding-top: 12px; border-top: 1px solid var(--border); }
 .policy-simulation fieldset { padding: 12px 14px; border-radius: var(--radius); background: var(--surface-2); }
 .policy-simulation > fieldset > .button { justify-self: start; }

@@ -127,21 +127,6 @@
   gap: 14px 18px;
 }
 
-.policy-preset {
-  display: grid;
-  grid-template-columns: minmax(180px, 270px) auto;
-  align-items: end;
-  gap: 10px;
-}
-
-.policy-preset > label {
-  max-width: none;
-}
-
-.policy-preset > .button {
-  justify-self: start;
-}
-
 .policy-pause {
   align-self: center;
 }
@@ -357,10 +342,6 @@
 
   .policy-review .policy-editor-actions > .button {
     justify-self: start;
-  }
-
-  .policy-preset {
-    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .policy-review-stages .policy-impact-preview .subsection-actions {
