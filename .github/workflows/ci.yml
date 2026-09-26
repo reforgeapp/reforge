@@ -1,16 +1,19 @@
 name: CI
 
 on:
-  push:
-    branches: [master]
   pull_request:
+  workflow_call:
+    inputs:
+      release-version:
+        type: string
+        default: ""
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   lint:
@@ -28,6 +31,9 @@ jobs:
             echo "$unformatted"
             exit 1
           fi
+
+      - name: Release version fixtures
+        run: python3 scripts/test-release-version.py
 
   vulnerabilities:
     runs-on: ubuntu-latest
@@ -78,15 +84,17 @@ jobs:
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302
         with:
           images: ghcr.io/${{ github.repository_owner }}/${{ matrix.image }}
+          flavor: latest=false
           tags: |
-            type=sha
-            type=raw,value=latest,enable=${{ github.ref == 'refs/heads/master' }}
+            type=sha,format=long
+            type=raw,value=${{ inputs.release-version }},enable=${{ inputs.release-version != '' }},priority=1000
       - uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
           load: true
           tags: ${{ matrix.image }}:scan
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
@@ -98,18 +106,28 @@ jobs:
           ignore-unfixed: true
           skip-dirs: /app/gvisor
           exit-code: "1"
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+      - if: github.event_name == 'push' && github.ref == 'refs/heads/master' && inputs.release-version != ''
         uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc
-        with:
-          context: ${{ matrix.context }}
-          file: ${{ matrix.dockerfile }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha,scope=${{ matrix.image }}
+      - name: Publish scanned image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master' && inputs.release-version != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_VERSION: ${{ inputs.release-version }}
+          IMAGE_NAME: ${{ matrix.image }}
+          IMAGE_TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          refs="$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/v$RELEASE_VERSION" --jq '.[].ref')"
+          while IFS= read -r ref; do
+            if [ "$ref" = "refs/tags/v$RELEASE_VERSION" ]; then
+              echo "Release v$RELEASE_VERSION already tagged; preserving published images"
+              exit 0
+            fi
+          done <<< "$refs"
+          while IFS= read -r tag; do
+            docker tag "$IMAGE_NAME:scan" "$tag"
+            docker push "$tag"
+          done <<< "$IMAGE_TAGS"

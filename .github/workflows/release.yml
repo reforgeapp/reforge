@@ -1,0 +1,92 @@
+name: Release
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-master
+  cancel-in-progress: false
+  queue: max
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      published: ${{ steps.version.outputs.published }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="$(bash scripts/release-version.sh "$GITHUB_RUN_NUMBER" "$GITHUB_SHA")"
+          tag="v$version"
+          published=false
+          if git show-ref --verify --quiet "refs/tags/$tag"; then
+            if [ "$(git rev-parse "$tag^{commit}")" != "$GITHUB_SHA" ]; then
+              echo "Release tag $tag already points to another commit" >&2
+              exit 1
+            fi
+            draft="$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json isDraft --jq '.isDraft')"
+            if [ "$draft" != false ]; then
+              echo "Release $tag exists but is not published" >&2
+              exit 1
+            fi
+            published=true
+          fi
+          printf 'version=%s\npublished=%s\n' "$version" "$published" >> "$GITHUB_OUTPUT"
+
+  ci:
+    needs: version
+    if: needs.version.outputs.published != 'true'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/ci.yml
+    with:
+      release-version: ${{ needs.version.outputs.version }}
+
+  release:
+    needs: [version, ci]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      packages: write
+    steps:
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          VERSION: ${{ needs.version.outputs.version }}
+        run: |
+          latest=false
+          master="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq '.object.sha')"
+          if [ "$master" = "$GITHUB_SHA" ]; then
+            for image in reforge reforge-runner reforge-docs; do
+              repository="ghcr.io/$GITHUB_REPOSITORY_OWNER/$image"
+              docker buildx imagetools create --prefer-index=false --tag "$repository:latest" "$repository:$VERSION"
+            done
+            latest=true
+          fi
+          notes="$RUNNER_TEMP/release-notes.md"
+          {
+            printf 'Container images for %s:\n\n' "$GITHUB_SHA"
+            for image in reforge reforge-runner reforge-docs; do
+              printf -- '- ghcr.io/%s/%s:%s\n' "$GITHUB_REPOSITORY_OWNER" "$image" "$VERSION"
+            done
+          } > "$notes"
+          gh release create "v$VERSION" --target "$GITHUB_SHA" --title "v$VERSION" --generate-notes --notes-file "$notes" --latest="$latest"
