@@ -150,7 +150,7 @@ test('organisation policy simulation excludes the repository primary team', asyn
   await page.getByRole('button', { name: 'Open simulation' }).click()
   await page.getByRole('button', { name: 'Simulate candidate rollout' }).click()
   await expect.poll(() => primary).toBe('')
-  await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('repository')
+  await page.getByRole('group', { name: 'Policy scope' }).getByRole('button', { name: 'Repository' }).click()
   await page.getByRole('tab', { name: 'Scope' }).click()
   await expect(page.getByRole('combobox', { name: 'Primary team' })).toHaveValue(team)
 })

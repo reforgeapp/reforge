@@ -54,7 +54,7 @@ test('organisation team mutation refreshes repository team options', async ({ pa
 test('organisation team rename refreshes policy and usage team pickers', async ({ page }) => {
   await fixture(page)
   await page.goto(`/org/${org}/policies`)
-  await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('team')
+  await page.getByRole('group', { name: 'Policy scope' }).getByRole('button', { name: 'Team' }).click()
   await expect(page.getByLabel('Policy team')).toContainText('Platform')
   await page.getByRole('link', { name: 'Usage', exact: true }).click()
   await expect(page.getByRole('combobox', { name: 'Team', exact: true })).toContainText('Platform')
@@ -68,7 +68,7 @@ test('organisation team rename refreshes policy and usage team pickers', async (
   await refresh
 
   await page.getByRole('link', { name: 'Policies', exact: true }).click()
-  await page.getByRole('combobox', { name: 'Policy scope' }).selectOption('team')
+  await page.getByRole('group', { name: 'Policy scope' }).getByRole('button', { name: 'Team' }).click()
   await expect(page.getByLabel('Policy team')).toContainText('Core Platform')
   await page.getByRole('link', { name: 'Usage', exact: true }).click()
   await expect(page.getByRole('combobox', { name: 'Team', exact: true })).toContainText('Core Platform')

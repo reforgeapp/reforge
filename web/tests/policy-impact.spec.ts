@@ -124,7 +124,7 @@ test('honors team and repository scope boundaries and forwards repository primar
   const simulations: Array<Record<string, unknown>> = []
   await page.route(`**${base}/repositories**`, route => { const url = new URL(route.request().url()); if (url.pathname.endsWith(`/repositories/${repoA}`)) return route.fulfill({ json: { id: repoA, name: 'payments' } }); const teamID = url.searchParams.get('team_id'); if (teamID) teamRequests.push(teamID); return route.fulfill({ json: { items: [{ id: repoA, name: 'payments' }], complete: true } }) })
   await page.route(`**${base}/policies/versions/${version.id}/simulate`, async route => { const body = route.request().postDataJSON() as Record<string, unknown>; simulations.push(body); await route.fulfill({ json: { hash: 'proof', resolved: { hash: 'effective', layers: [], repository_id: body.repository_id, paused: false, scope_paused: false, problems: [], missing_defaults: [], policy }, decision: { outcome: 'allow', blockers: [], bindings: [], evidence_references: [], starting_policy_hash: 'effective' } } }) })
-  await page.getByRole('group', { name: 'Policy scope' }).getByLabel('Policy scope').selectOption('team')
+  await page.getByRole('group', { name: 'Policy scope' }).getByRole('button', { name: 'Team' }).click()
   await page.getByLabel('Policy team').selectOption('team-1')
   await page.getByRole('button', { name: version.id }).click()
   await page.getByRole('button', { name: 'Open simulation' }).click()
@@ -135,7 +135,7 @@ test('honors team and repository scope boundaries and forwards repository primar
 
   simulations.length = 0
   await page.getByLabel('Policy repository').selectOption(repoA)
-  await page.getByRole('group', { name: 'Policy scope' }).getByLabel('Policy scope').selectOption('repository')
+  await page.getByRole('group', { name: 'Policy scope' }).getByRole('button', { name: 'Repository' }).click()
   await page.getByRole('button', { name: version.id }).click()
   await page.getByRole('button', { name: 'Open simulation' }).click()
   await page.getByRole('region', { name: 'Policy impact preview' }).getByRole('button', { name: 'Run impact preview' }).click()

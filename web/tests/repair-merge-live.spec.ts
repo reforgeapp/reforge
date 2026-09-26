@@ -197,7 +197,7 @@ test('merges a real validated repair through native protection and Reforge autho
     await page.getByLabel('Policy repository').selectOption(fixture.repositoryID)
     await page.getByTitle(repairVersion).click()
     await page.getByRole('tab', { name: 'Merge', exact: true }).click()
-    await page.getByLabel('Allowed merge methods').selectOption('explicit')
+    await page.getByRole('group', { name: 'Allowed merge methods' }).getByRole('button', { name: 'Allow list' }).click()
     await page.getByLabel('merge methods values').fill(method)
     await page.getByRole('tab', { name: 'Review', exact: true }).click()
     await page.getByLabel('Reason', { exact: true }).fill('Allow protected fast-forward merges')

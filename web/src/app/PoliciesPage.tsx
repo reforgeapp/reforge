@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { api } from '../api/client'
 import { Button } from '../components/Accessible'
-import { DataTable, EmptyTable } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { PolicyMode } from './PolicyMode'
@@ -90,7 +89,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
         versions={versions}
         selectedVersion={selectedVersion}
         />
-        <section className="policy-effective" aria-label="Effective policy summary">
+        <section className="panel policy-effective" aria-label="Effective policy summary">
         {effective.isLoading ? <p className="table-meta">Loading effective policy…</p> : null}
         {effective.error ? <p className="error-text" role="alert">Effective policy unavailable: {text(effective.error)}</p> : null}
         {effective.data ? <EffectivePolicy value={effective.data} /> : null}
@@ -99,7 +98,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
       </div>
       <PolicyMode orgID={orgID} repositoryID={repositoryID} effective={effective.data} base={normalisePolicy(effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.policy)} currentVersion={effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.binding_version ?? 0} csrf={csrf} canWrite={role === 'owner'} onChanged={() => { void effective.refetch(); void versions.refetch() }} />
       <div className="policy-layout">
-        <section className="policy-editor-surface" aria-label="Policy editor">
+        <section className="panel policy-editor-surface" aria-label="Policy editor">
           <Tabs
             id="policy"
             label="Policy editor"
@@ -173,7 +172,7 @@ function VersionHistoryRail(props: {
   }, [])
 
   return (
-    <details ref={rail} className="policy-version-rail" open={!compact}>
+    <details ref={rail} className="panel policy-version-rail" open={!compact}>
       <summary>Version history</summary>
       <VersionHistory {...props} onSelect={id => {
         props.onSelect(id)
@@ -195,33 +194,30 @@ function PolicyScopeBar({ repos, teams, repositoryID, scopeKind, scopeID, canWri
   onTeamChange: (value: string) => void
 }) {
   return (
-    <div className="policy-scope-controls" role="group" aria-label="Policy scope">
-      <label>
-        Repository
-        <select aria-label="Policy repository" value={repositoryID} onChange={event => onRepositoryChange(event.target.value)}>
-          <option value="">Choose repository</option>
-          {repos.map(repo => <option key={repo.id} value={repo.id}>{repo.name ?? repo.id}</option>)}
-        </select>
-      </label>
-      <label>
-        Version scope
-        <select aria-label="Policy scope" value={scopeKind} onChange={event => onScopeChange(event.target.value)}>
-          <option value="organisation">Organisation</option>
-          <option value="repository">Repository</option>
-          <option value="team">Team</option>
-        </select>
-      </label>
-      {scopeKind === 'team' && (
+    <section className="panel policy-scope" aria-label="Scope">
+      <div className="panel-head"><h2>Scope</h2>{!canWrite && <StatusBadge label="Read only" />}</div>
+      <div className="policy-scope-controls">
         <label>
-          Team
-          <select aria-label="Policy team" value={scopeID} onChange={event => onTeamChange(event.target.value)}>
-            <option value="">Choose team</option>
-            {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+          Repository
+          <select aria-label="Policy repository" value={repositoryID} onChange={event => onRepositoryChange(event.target.value)}>
+            <option value="">Choose repository</option>
+            {repos.map(repo => <option key={repo.id} value={repo.id}>{repo.name ?? repo.id}</option>)}
           </select>
         </label>
-      )}
-      {!canWrite && <span className="policy-access-state">Read only</span>}
-    </div>
+        <div className="pill-switch" role="group" aria-label="Policy scope">
+          {[['organisation', 'Organisation'], ['repository', 'Repository'], ['team', 'Team']].map(([id, label]) => <button key={id} type="button" className="pill" aria-pressed={scopeKind === id} onClick={() => onScopeChange(id)}>{label}</button>)}
+        </div>
+        {scopeKind === 'team' && (
+          <label>
+            Team
+            <select aria-label="Policy team" value={scopeID} onChange={event => onTeamChange(event.target.value)}>
+              <option value="">Choose team</option>
+              {teams.map(team => <option key={team.id} value={team.id}>{team.name}</option>)}
+            </select>
+          </label>
+        )}
+      </div>
+    </section>
   )
 }
 
@@ -279,8 +275,8 @@ function EffectivePolicy({ value }: { value: {
 
   return (
     <section className="policy-effective-content" aria-label="Effective policy evidence">
+      <div className="panel-head"><h2>Effective policy</h2><StatusBadge label={paused ? 'Paused' : 'Active'} tone={paused ? 'amber' : 'green'} /></div>
       <div className="policy-effective-heading">
-        <StatusBadge label={paused ? 'Paused' : 'Active'} tone={paused ? 'amber' : 'green'} />
         <span>{layers.length ? `${layers.length} inherited layer${layers.length === 1 ? '' : 's'}` : 'Organisation baseline'}</span>
         <span>{issues.length ? `${issues.length} constraint${issues.length === 1 ? '' : 's'}` : 'No constraints'}</span>
       </div>
@@ -522,8 +518,8 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
               </select>
             </label>
           )}
-          <label className="wide policy-pause">
-            <input type="checkbox" checked={policy.paused} disabled={!canWrite || busy} onChange={event => update({ ...policy, paused: event.target.checked })} />
+          <label className="wide switch">
+            <input type="checkbox" role="switch" checked={policy.paused} disabled={!canWrite || busy} onChange={event => update({ ...policy, paused: event.target.checked })} />
             Pause this scope
           </label>
           <details className="wide">
@@ -542,10 +538,12 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
       {panel('recipes', <div className="form-grid">{list('recipes')}</div>)}
       {panel('changes', (
         <div className="form-grid">
-          <label className="wide">
-            Denied actions
-            <input value={policy.deny.join(', ')} disabled={!canWrite || busy} onChange={event => update({ ...policy, deny: split(event.target.value) as Action[] })} />
-          </label>
+          <div className="wide field">
+            <span className="field-label">Denied actions</span>
+            <div className="pill-switch" role="group" aria-label="Denied actions">
+              {actions.map(item => <button key={item} type="button" className="pill" aria-pressed={policy.deny.includes(item)} disabled={!canWrite || busy} onClick={() => update({ ...policy, deny: policy.deny.includes(item) ? policy.deny.filter(value => value !== item) : [...policy.deny, item] })}>{item}</button>)}
+            </div>
+          </div>
           <label className="wide">
             Forbidden paths
             <input value={policy.forbidden_paths.join(', ')} disabled={!canWrite || busy} onChange={event => update({ ...policy, forbidden_paths: split(event.target.value) })} />
@@ -697,18 +695,19 @@ function SimulationResult({ simulation, onActivate, canActivate }: { simulation:
 
 function VersionHistory({ rows, selectedID, complete, loading, onMore, onSelect }: { rows: Version[]; selectedID: string; complete: boolean; loading: boolean; onMore: () => void; onSelect: (id: string) => void }) {
   return <>
-    <DataTable caption="Version history">
-      <table>
-        <thead><tr><th>Version</th><th>Change</th></tr></thead>
-        <tbody>{rows.map(row => <tr key={row.id} aria-current={row.id === selectedID ? 'true' : undefined}><td><button className="link-button" aria-pressed={row.id === selectedID} title={row.id} onClick={() => onSelect(row.id)}>{shortID(row.id)}</button><small>{new Date(row.created_at).toLocaleDateString()}</small></td><td>{row.reason || '—'}</td></tr>)}</tbody>
-      </table>
-      {!rows.length && <EmptyTable label="No policy versions recorded." />}
-    </DataTable>
+    {rows.length ? <ul className="version-list">{rows.map(row => <li key={row.id}><button type="button" className="version-item" aria-pressed={row.id === selectedID} title={row.id} onClick={() => onSelect(row.id)}><span>{row.reason || '—'}</span><small>{shortID(row.id)} · {new Date(row.created_at).toLocaleDateString()}</small></button></li>)}</ul> : <p className="table-meta">No policy versions recorded.</p>}
     {!complete && <Button disabled={loading} onClick={onMore}>{loading ? 'Loading…' : 'Load more versions'}</Button>}
   </>
 }
 
 function AllowList({ name, value, disabled, onChange }: { name: string; value: string[] | null; disabled: boolean; onChange: (value: string[] | null) => void }) {
   const label = name.replaceAll('_', ' ')
-  return <div><label>Allowed {label}<select value={value === null ? 'inherit' : 'explicit'} disabled={disabled} onChange={event => onChange(event.target.value === 'inherit' ? null : [])}><option value="inherit">Inherit</option><option value="explicit">Explicit list</option></select></label>{value !== null && <label>{label} values<input value={value.join(', ')} disabled={disabled} onChange={event => onChange(split(event.target.value))} /></label>}</div>
+  return <div className="field">
+    <span className="field-label">Allowed {label}</span>
+    <div className="pill-switch" role="group" aria-label={`Allowed ${label}`}>
+      <button type="button" className="pill" aria-pressed={value === null} disabled={disabled} onClick={() => onChange(null)}>Inherit</button>
+      <button type="button" className="pill" aria-pressed={value !== null} disabled={disabled} onClick={() => { if (value === null) onChange([]) }}>Allow list</button>
+    </div>
+    {value !== null && <label>{label} values<input value={value.join(', ')} disabled={disabled} onChange={event => onChange(split(event.target.value))} /></label>}
+  </div>
 }
