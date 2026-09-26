@@ -147,7 +147,7 @@ func run() error {
 	if cfg.BuiltinRunnerToken != "" {
 		app.RegisterBuiltinRunner(runners, cfg.BuiltinRunnerToken)
 	}
-	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 8})
+	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 256})
 	if err != nil {
 		return err
 	}

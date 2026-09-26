@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"time"
 
@@ -82,7 +83,24 @@ func (c *Connector) pruneUsed() {
 	}
 }
 func targetKey(t Target) string { return t.OrgID + "/" + t.RunnerID }
-func (c *Connector) signal()    { close(c.changed); c.changed = make(chan struct{}) }
+
+const perOrgLimit = 16
+
+func (c *Connector) orgSlots(org string) int {
+	n := 0
+	for key := range c.ready {
+		if strings.HasPrefix(key, org+"/") {
+			n++
+		}
+	}
+	for key := range c.active {
+		if strings.HasPrefix(key, org+"/") {
+			n++
+		}
+	}
+	return n
+}
+func (c *Connector) signal() { close(c.changed); c.changed = make(chan struct{}) }
 func (c *Connector) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -117,7 +135,7 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 		c.mu.Unlock()
 		return Grant{}, ErrConflict
 	}
-	if len(c.ready)+len(c.active) >= c.limit {
+	if len(c.ready)+len(c.active) >= c.limit || c.orgSlots(identity.OrgID) >= perOrgLimit {
 		c.mu.Unlock()
 		return Grant{}, ErrUnavailable
 	}
