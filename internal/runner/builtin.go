@@ -55,7 +55,7 @@ func (s *Service) EnrollBuiltin(ctx context.Context, org, name string) (Credenti
 		if _, err = tx.Exec(ctx, `INSERT INTO runner_pool_repositories(org_id,pool_id,repository_id) SELECT org_id,$2,id FROM repositories WHERE org_id=$1 ON CONFLICT DO NOTHING`, org, pool); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text FROM runners WHERE org_id=$1 AND pool_id=$2 AND state='active'`, org, pool)
+		rows, err := tx.Query(ctx, `SELECT id::text FROM runners WHERE org_id=$1 AND pool_id=$2 AND state='active' AND (name=$3 OR name='built-in')`, org, pool, strings.TrimSpace(name))
 		if err != nil {
 			return err
 		}
