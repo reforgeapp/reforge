@@ -104,6 +104,15 @@ func (s *Service) claim(ctx context.Context, org string) (*scanLease, error) {
 			if !errors.Is(err, inventory.ErrStale) {
 				return err
 			}
+			var refreshActive bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory_jobs WHERE org_id=$1 AND repository_id=$2 AND kind='refresh' AND state IN ('queued','running'))`, org, lease.Repo).Scan(&refreshActive); err != nil {
+				return err
+			}
+			if !refreshActive {
+				if err = inventory.RequestRefreshTx(ctx, tx, org, lease.Repo); err != nil {
+					return err
+				}
+			}
 			_, err = tx.Exec(ctx, `UPDATE maintenance_scans SET state='queued',available_at=clock_timestamp()+interval '5 seconds',reason='Waiting for a fresh native inventory observation',version=version+1 WHERE org_id=$1 AND repository_id=$2`, org, lease.Repo)
 			return err
 		}
@@ -571,7 +580,7 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 				return err
 			}
 		}
-		tag, err := tx.Exec(persistCtx, `UPDATE maintenance_scans SET state='complete',reason='',lease_until=NULL,observed_at=clock_timestamp(),available_at=clock_timestamp()+interval '15 minutes',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND fence=$3 AND state='running' AND lease_until>clock_timestamp()`, lease.Org, lease.Repo, lease.Fence)
+		tag, err := tx.Exec(persistCtx, `UPDATE maintenance_scans SET state='complete',reason='',lease_until=NULL,observed_at=clock_timestamp(),available_at=clock_timestamp()+interval '5 minutes',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND fence=$3 AND state='running' AND lease_until>clock_timestamp()`, lease.Org, lease.Repo, lease.Fence)
 		if err == nil && tag.RowsAffected() != 1 {
 			return ErrStale
 		}
