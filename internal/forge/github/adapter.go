@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"sort"
@@ -659,6 +660,7 @@ func (p *Provider) requestToken(ctx context.Context, method string, segments []s
 	}
 	response, err := p.config.Client.Do(req)
 	if err != nil {
+		slog.WarnContext(ctx, "github request failed", "method", method, "path", target.Path, "error", err)
 		return 0, nil, nil, transportFailure(method, "github request failed")
 	}
 	if response == nil || response.Body == nil {
