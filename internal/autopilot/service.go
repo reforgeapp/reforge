@@ -546,11 +546,13 @@ func (s *Service) rebase(ctx context.Context, org string) error {
 }
 
 func (s *Service) merge(ctx context.Context, session auth.Session, org string) error {
-	var finding, repo, change, task string
+	var finding, repo, change, task, head string
+	var adopted bool
 	var version int64
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT a.finding_id::text,a.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text FROM autopilot_attempts a JOIN repair_runs rr ON rr.org_id=a.org_id AND rr.task_id=a.task_id WHERE a.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND (a.merge_after IS NULL OR a.merge_after<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id') ORDER BY a.updated_at LIMIT 1`, org).Scan(&finding, &version, &repo, &change, &task)
+		candidate, err := selectMergeCandidate(ctx, tx, org)
+		finding, version, repo, change, task, head, adopted = candidate.finding, candidate.version, candidate.repository, candidate.change, candidate.task, candidate.head, candidate.adopted
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -565,6 +567,10 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	}
 	later := func(reason string, after time.Duration) error {
 		return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			if adopted {
+				_, err := tx.Exec(ctx, `INSERT INTO autopilot_bot_merges(org_id,repository_id,change_id,head_sha,reason,merge_after) VALUES($1,$2,$3,$4,'Adopted existing Reforge repair: '||$5,clock_timestamp()+make_interval(secs=>$6::bigint)) ON CONFLICT(org_id,repository_id,change_id) DO UPDATE SET head_sha=EXCLUDED.head_sha,reason=EXCLUDED.reason,merge_after=EXCLUDED.merge_after,updated_at=clock_timestamp()`, org, repo, change, head, reason, int64(after.Seconds()))
+				return err
+			}
 			_, err := tx.Exec(ctx, `UPDATE autopilot_attempts SET merge_reason=$4,merge_after=clock_timestamp()+make_interval(secs=>$5::bigint),updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=$3`, org, finding, version, reason, int64(after.Seconds()))
 			return err
 		})
@@ -596,6 +602,18 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		return later(err.Error(), 5*time.Minute)
 	}
 	return later("Merge requested", 24*time.Hour)
+}
+
+type mergeCandidate struct {
+	finding, repository, change, task, head string
+	version                                 int64
+	adopted                                 bool
+}
+
+func selectMergeCandidate(ctx context.Context, tx pgx.Tx, org string) (mergeCandidate, error) {
+	var candidate mergeCandidate
+	err := tx.QueryRow(ctx, `SELECT rr.finding_id::text,rr.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text,coalesce(rr.native_change->>'head_sha',''),a.task_id IS NULL FROM repair_runs rr JOIN repositories r ON r.org_id=rr.org_id AND r.id=rr.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.finding_id=rr.finding_id AND a.finding_version=rr.finding_version AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND r.accessible AND NOT r.archived AND NOT r.paused AND (CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END IS NULL OR CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id') ORDER BY coalesce(a.updated_at,d.updated_at,rr.created_at),rr.created_at,rr.task_id LIMIT 1`, org).Scan(&candidate.finding, &candidate.version, &candidate.repository, &candidate.change, &candidate.task, &candidate.head, &candidate.adopted)
+	return candidate, err
 }
 
 func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string) error {
