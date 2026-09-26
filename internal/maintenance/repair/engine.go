@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"slices"
 	"sort"
 	"strings"
@@ -99,6 +100,14 @@ func advance(continuation json.RawMessage, messages []model.Message, result mode
 
 func AttemptTimeout(p Plan) time.Duration {
 	return 4 * time.Duration(p.Recipe.TimeoutSeconds) * time.Second
+}
+
+func (e Engine) logTurn(ctx context.Context, turn int, result model.TurnResult) {
+	calls := make([]string, 0, len(result.ToolCalls))
+	for _, call := range result.ToolCalls {
+		calls = append(calls, call.Name)
+	}
+	slog.InfoContext(ctx, "repair turn", "attempt_id", e.AttemptID, "turn", turn, "finish", result.FinishReason, "tools", strings.Join(calls, ","))
 }
 
 func (e Engine) turnTimeout() time.Duration {
@@ -246,6 +255,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++
+		e.logTurn(ctx, out.Turns, result)
 		if result.FinishReason == "length" {
 			return fail("Model output limit reached; increase the authorized output limit or select a qualified model", ErrHandoff)
 		}

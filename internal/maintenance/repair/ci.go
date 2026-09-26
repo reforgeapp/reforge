@@ -230,6 +230,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++
+		e.logTurn(ctx, out.Turns, result)
 		continuation, messages = advance(continuation, messages, result)
 		if result.FinishReason == "length" {
 			continue
