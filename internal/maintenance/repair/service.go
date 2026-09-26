@@ -241,7 +241,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if followUp != "" {
 		targetSHA = f.Evidence.HeadSHA
 	}
-	plan, err := Freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths)
+	plan, err := freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths, in.Owner)
 	if err != nil {
 		return out, err
 	}

@@ -165,7 +165,8 @@ func ownerTools() []model.Tool {
 }
 
 func (e Engine) command(ctx context.Context, p Plan, patches []sandbox.Patch, args []string, dir string) (sandbox.CommandResult, error) {
-	w, err := e.Runtime.PreparePinnedWorkspace(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: p.TargetSHA, Image: p.Image, Trust: e.Trust, Timeout: 5 * time.Minute, Dependencies: e.Dependencies})
+	command := sandbox.Command{Args: commandArgs(args), Directory: dir, Timeout: 5 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"}
+	w, err := e.prepare(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: p.TargetSHA, Image: p.Image, Trust: e.Trust, Timeout: 5 * time.Minute, Dependencies: e.Dependencies}, patches, command)
 	if err != nil {
 		return sandbox.CommandResult{}, err
 	}
@@ -174,12 +175,7 @@ func (e Engine) command(ctx context.Context, p Plan, patches []sandbox.Patch, ar
 		defer cancel()
 		_ = e.Runtime.Destroy(cleanup, w)
 	}()
-	if len(patches) > 0 {
-		if err = e.Runtime.ApplyPatch(ctx, w, patches); err != nil {
-			return sandbox.CommandResult{}, err
-		}
-	}
-	return e.Runtime.ExecuteBoundedCommand(ctx, w, sandbox.Command{Args: args, Directory: dir, Timeout: 5 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
+	return e.Runtime.ExecuteBoundedCommand(ctx, w, command)
 }
 
 func clip(text string, n int) string {
@@ -374,7 +370,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					Directory string
 					Files     []struct{ Path, Content string }
 				}
-				if !owner || json.Unmarshal(call.Arguments, &in) != nil || len(in.Args) == 0 || in.Directory != "" && !guest.ValidPath(in.Directory) {
+				if !owner || json.Unmarshal(call.Arguments, &in) != nil || len(in.Args) == 0 || in.Directory != "" && in.Directory != "." && !guest.ValidPath(in.Directory) {
 					reply = "Command rejected"
 					break
 				}

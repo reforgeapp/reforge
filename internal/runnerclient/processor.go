@@ -63,7 +63,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		}
 		cfg := config
 		key := j.Lease.JobID + "/" + j.Lease.AttemptID
-		fetchers.Store(key, func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+		fetch := func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
 			if in.CommitSHA == baseline.CommitSHA {
 				return baseline, nil
 			}
@@ -71,7 +71,8 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 				return target, nil
 			}
 			return c.RepairSnapshot(ctx, j, in.CommitSHA)
-		})
+		}
+		fetchers.Store(key, fetch)
 		defer fetchers.Delete(key)
 		runtime, err := sharedRuntime()
 		if err != nil {
@@ -100,7 +101,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		if err != nil {
 			return failed, err
 		}
-		engine := repair.Engine{Dependencies: dependencies, CILogs: execution.CILogs, Goal: repair.Goal(execution.Finding), OpenFixes: execution.OpenFixes, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust}, target: targetFiles}.update, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
+		engine := repair.Engine{PrepareWorkspace: commandPreparer{cfg: cfg, runtime: runtime, org: j.Lease.OrgID, fetch: fetch}.prepare, Dependencies: dependencies, CILogs: execution.CILogs, Goal: repair.Goal(execution.Finding), OpenFixes: execution.OpenFixes, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust}, target: targetFiles}.update, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", data)
 			return m.ID, err
 		}, Progress: func(_ context.Context, next string) error { return progress(next) }}

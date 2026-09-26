@@ -37,6 +37,14 @@ type CommandResult struct {
 	Duration  time.Duration
 	TimedOut  bool
 }
+type CommandSetupError struct {
+	Result CommandResult
+}
+
+func (e *CommandSetupError) Error() string {
+	return "dependency preparation failed: " + string(e.Result.Output)
+}
+
 type Patch struct {
 	Path    string `json:"path"`
 	Content []byte `json:"content"`

@@ -40,11 +40,17 @@ type Plan struct {
 func hashBytes(body []byte) string { sum := sha256.Sum256(body); return hex.EncodeToString(sum[:]) }
 func planDigest(p Plan) string     { p.Digest = ""; body, _ := json.Marshal(p); return hashBytes(body) }
 func Freeze(name, image, baseline, target string, files map[string][]byte, forbidden []string) (Plan, error) {
+	return freeze(name, image, baseline, target, files, forbidden, false)
+}
+func freeze(name, image, baseline, target string, files map[string][]byte, forbidden []string, owner bool) (Plan, error) {
 	var p Plan
 	if !source.ValidSHA(baseline, "sha1") || !source.ValidSHA(target, "sha1") || !strings.HasPrefix(image, "sha256:") || !source.ValidSHA(strings.TrimPrefix(image, "sha256:"), "sha256") {
 		return p, ErrValidation
 	}
 	recipe, err := recipes.Build(name, files)
+	if owner {
+		recipe, err = recipes.BuildOwner(name, files)
+	}
 	if err != nil {
 		return p, err
 	}
@@ -142,6 +148,9 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 			out.Complete = false
 			out.Reason = "Execution environment or required dependency unavailable"
 		}
+	}
+	if command.ReportFormat == "exit" {
+		return out
 	}
 	for _, line := range strings.Split(body, "\n") {
 		switch command.ReportFormat {

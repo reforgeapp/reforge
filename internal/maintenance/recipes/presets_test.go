@@ -87,3 +87,71 @@ func TestBuildBoundsAndProtectedPaths(t *testing.T) {
 		}
 	}
 }
+
+func TestBuildOwnerAggregatesMixedRepositoryCommands(t *testing.T) {
+	files := map[string][]byte{
+		"go.mod":            []byte("module example.test\n"),
+		"app_test.go":       nil,
+		"tests/test_app.py": []byte("import unittest\nclass TestApp(unittest.TestCase): pass\n"),
+		"package.json":      []byte(`{"scripts":{"lint":"eslint .","typecheck":"vue-tsc --noEmit","build":"vite build","test:unit":"vitest"}}`),
+		"src/App.test.ts":   nil,
+	}
+	r, err := BuildOwner("go", files)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Name != "go" || r.Version != "v4" || len(r.Commands) != 6 {
+		t.Fatalf("recipe: %#v", r)
+	}
+	if r.Commands[0].ID != "go-01" || r.Commands[0].ReportFormat != "json" || r.Commands[1].ID != "baseline" || r.Commands[2].ID != "js-01" || r.Commands[5].Args[len(r.Commands[5].Args)-1] != "--run" {
+		t.Fatalf("commands: %#v", r.Commands)
+	}
+	if r.Commands[2].Args[0] != "node" || r.Commands[2].Args[1] != "/usr/local/lib/node_modules/npm/bin/npm-cli.js" || r.Commands[2].ReportFormat != "exit" {
+		t.Fatalf("package command: %#v", r.Commands[2])
+	}
+}
+
+func TestBuildOwnerJavaScriptOnlyVitestAndUnsupportedEmpty(t *testing.T) {
+	r, err := BuildOwner("go", map[string][]byte{
+		"package.json":     []byte(`{"scripts":{"test":"node ./node_modules/vitest/vitest.mjs run src/**/*.test.ts"}}`),
+		"src/view.test.ts": nil,
+	})
+	if err != nil || len(r.Commands) != 1 || r.Commands[0].Args[len(r.Commands[0].Args)-1] != "test" {
+		t.Fatalf("vitest recipe: %v %#v", err, r.Commands)
+	}
+	if _, err := BuildOwner("go", map[string][]byte{"package.json": []byte(`{"scripts":{}}`)}); err == nil {
+		t.Fatal("empty project accepted")
+	}
+	if _, err := BuildOwner("owner", map[string][]byte{"package.json": []byte(`{"scripts":{"test":"node ./node_modules/vitest/vitest.mjs run src/**/*.test.ts"}}`)}); err == nil {
+		t.Fatal("unsupported recipe name accepted")
+	}
+}
+
+func TestBuildOwnerBareJavaScriptTests(t *testing.T) {
+	t.Run("javascript only", func(t *testing.T) {
+		r, err := BuildOwner("javascript", map[string][]byte{"tests/app.test.js": nil})
+		if err != nil || len(r.Commands) != 1 || r.Commands[0].ID != "node-01" || r.Commands[0].ReportFormat != "tap" {
+			t.Fatalf("bare JavaScript recipe: %v %#v", err, r.Commands)
+		}
+	})
+	t.Run("mixed Go and JavaScript", func(t *testing.T) {
+		r, err := BuildOwner("go", map[string][]byte{
+			"go.mod":            []byte("module example.test\n"),
+			"app_test.go":       nil,
+			"tests/app.test.js": nil,
+		})
+		if err != nil || len(r.Commands) != 2 || r.Commands[0].ID != "go-01" || r.Commands[1].ID != "node-01" {
+			t.Fatalf("mixed recipe: %v %#v", err, r.Commands)
+		}
+	})
+}
+
+func TestBuildOwnerPackageRunnerOwnsJavaScriptTestTree(t *testing.T) {
+	r, err := BuildOwner("javascript", map[string][]byte{
+		"package.json":    []byte(`{"scripts":{"test":"jest"}}`),
+		"src/app.test.js": nil,
+	})
+	if err != nil || len(r.Commands) != 1 || r.Commands[0].Args[3] != "test" {
+		t.Fatalf("package test recipe: %v %#v", err, r.Commands)
+	}
+}

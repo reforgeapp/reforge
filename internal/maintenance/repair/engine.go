@@ -36,6 +36,7 @@ type Report struct {
 }
 type Engine struct {
 	Runtime          sandbox.SandboxRuntime
+	PrepareWorkspace func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
 	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
 	Artifact         func(context.Context, string, []byte) (string, error)
 	Progress         func(context.Context, string) error
@@ -124,24 +125,52 @@ func (e Engine) stage(ctx context.Context, state string) error {
 	}
 	return nil
 }
-func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, label string, report *Report) (checks []CheckResult, failure error) {
-	w, err := e.Runtime.PreparePinnedWorkspace(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: sha, Image: p.Image, Trust: e.Trust, Timeout: time.Duration(p.Recipe.TimeoutSeconds) * time.Second, Dependencies: e.Dependencies})
+func (e Engine) prepare(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {
+	if e.PrepareWorkspace != nil {
+		return e.PrepareWorkspace(ctx, request, patches, command)
+	}
+	w, err := e.Runtime.PreparePinnedWorkspace(ctx, request)
 	if err != nil {
-		return nil, err
+		return w, err
+	}
+	if len(patches) > 0 {
+		if err = e.Runtime.ApplyPatch(ctx, w, patches); err != nil {
+			cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
+			defer cancel()
+			return sandbox.Workspace{}, errors.Join(err, e.Runtime.Destroy(cleanup, w))
+		}
+	}
+	return w, nil
+}
+
+func commandArgs(args []string) []string {
+	if len(args) == 0 {
+		return args
+	}
+	if args[0] == "python" {
+		return append([]string{"python3"}, args[1:]...)
+	}
+	if args[0] == "npm" || args[0] == "npx" {
+		return append([]string{"node", "/usr/local/lib/node_modules/npm/bin/" + args[0] + "-cli.js"}, args[1:]...)
+	}
+	return args
+}
+
+func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, command sandbox.Command) (result sandbox.CommandResult, failure error) {
+	command.Args = commandArgs(command.Args)
+	w, err := e.prepare(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: sha, Image: p.Image, Trust: e.Trust, Timeout: command.Timeout, Dependencies: e.Dependencies}, patches, command)
+	if err != nil {
+		var setup *sandbox.CommandSetupError
+		if errors.As(err, &setup) {
+			return setup.Result, nil
+		}
+		return result, err
 	}
 	defer func() {
 		cleanup, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 		defer cancel()
-		if err := e.Runtime.Destroy(cleanup, w); err != nil {
-			checks = nil
-			failure = errors.Join(failure, err)
-		}
+		failure = errors.Join(failure, e.Runtime.Destroy(cleanup, w))
 	}()
-	if len(patches) > 0 {
-		if err = e.Runtime.ApplyPatch(ctx, w, patches); err != nil {
-			return nil, err
-		}
-	}
 	checkProtected := func() error {
 		for name, want := range p.ProtectedHashes {
 			file, err := e.Runtime.CollectArtifact(ctx, w, name)
@@ -152,15 +181,20 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 		return nil
 	}
 	if err = checkProtected(); err != nil {
-		return nil, err
+		return result, err
 	}
+	result, err = e.Runtime.ExecuteBoundedCommand(ctx, w, command)
+	if err != nil {
+		return result, err
+	}
+	return result, checkProtected()
+}
+
+func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, label string, report *Report) ([]CheckResult, error) {
 	results := make([]CheckResult, 0, len(p.Recipe.Commands))
 	for _, command := range p.Recipe.Commands {
-		result, err := e.Runtime.ExecuteBoundedCommand(ctx, w, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"})
+		result, err := e.checkedCommand(ctx, p, sha, patches, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"})
 		if err != nil {
-			return nil, err
-		}
-		if err = checkProtected(); err != nil {
 			return nil, err
 		}
 		if e.Artifact != nil {

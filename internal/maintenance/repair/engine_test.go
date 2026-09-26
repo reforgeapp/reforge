@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"reforge/internal/maintenance/recipes"
 	"reforge/internal/model"
 	"reforge/internal/sandbox"
 	"reforge/internal/sandbox/guest"
@@ -380,5 +381,57 @@ func TestEngineOwnerChangesAnyFileWithinPolicy(t *testing.T) {
 	}
 	if CheckOwnerPatch(plan, files, report.Patches) != nil {
 		t.Fatal("owner patch rejected on report")
+	}
+}
+
+func TestOwnerRequiresEveryStackAndPreparesCurrentPatch(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner = true
+	plan.Recipe.MaxTurns = 3
+	plan.Recipe.Commands = append(plan.Recipe.Commands, recipes.Command{ID: "web-typecheck", Args: []string{"npm", "run", "typecheck"}, Directory: ".", TimeoutSeconds: 30, ReportFormat: "exit"})
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, target: files, targetSHA: plan.TargetSHA}
+	turn, prepared := 0, 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture"}
+	engine.PrepareWorkspace = func(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {
+		prepared++
+		if command.Args[0] == "node" && len(command.Args) > 1 && strings.Contains(command.Args[1], "npm-cli") {
+			fixed := false
+			for _, patch := range patches {
+				fixed = fixed || strings.Contains(string(patch.Content), "fixed")
+			}
+			if !fixed {
+				return sandbox.Workspace{}, &sandbox.CommandSetupError{Result: sandbox.CommandResult{ExitCode: 1, Output: []byte("frontend dependency incompatible")}}
+			}
+		}
+		w, err := runtime.PreparePinnedWorkspace(ctx, request)
+		if err == nil && len(patches) > 0 {
+			err = runtime.ApplyPatch(ctx, w, patches)
+		}
+		return w, err
+	}
+	engine.Turn = func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+		turn++
+		content := "exports.add = (a,b) => a+b"
+		if turn == 2 {
+			sawFailure, refusedFinish := false, false
+			for _, message := range in.Messages {
+				sawFailure = sawFailure || strings.Contains(message.Text, "frontend dependency incompatible")
+				refusedFinish = refusedFinish || strings.Contains(message.Text, "Not finished:")
+			}
+			if !sawFailure || !refusedFinish {
+				t.Fatal("frontend failure did not prevent publication or reach model")
+			}
+			content = "exports.fixed = (a,b) => a+b"
+		}
+		return model.TurnResult{ToolCalls: []model.ToolCall{
+			{ID: "edit", Name: "write_file", Arguments: []byte(`{"path":"value.js","content":"` + content + `"}`)},
+			{ID: "check", Name: "run_checks", Arguments: []byte(`{}`)},
+			{ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Repair both stacks"}`)},
+		}}, nil
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || turn != 2 || prepared != 6 {
+		t.Fatalf("report=%+v err=%v turns=%d preparations=%d", report, err, turn, prepared)
 	}
 }
