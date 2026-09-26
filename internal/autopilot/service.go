@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"reforge/internal/heartbeat"
 	"slices"
 	"strconv"
 	"strings"
@@ -156,11 +157,13 @@ func (s *Service) Run(ctx context.Context) error {
 		}
 		for _, org := range orgs {
 			step, cancel := context.WithTimeout(ctx, 8*time.Minute)
-			if err := s.Step(step, org); err != nil && ctx.Err() == nil {
-				slog.WarnContext(ctx, "autopilot step failed", "org_id", org, "error", err)
+			if e := s.Step(step, org); e != nil && ctx.Err() == nil {
+				slog.WarnContext(ctx, "autopilot step failed", "org_id", org, "error", e)
+				err = errors.Join(err, e)
 			}
 			cancel()
 		}
+		heartbeat.Beat("autopilot", 10*time.Minute, err)
 		timer := time.NewTimer(20 * time.Second)
 		select {
 		case <-ctx.Done():

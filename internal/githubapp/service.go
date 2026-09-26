@@ -12,6 +12,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"reforge/internal/heartbeat"
 	"regexp"
 	"strconv"
 	"strings"
@@ -761,7 +762,9 @@ func (s *Service) Run(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			if err := s.Cleanup(ctx); err != nil {
+			err := s.Cleanup(ctx)
+			heartbeat.Beat("github-app", time.Minute, err)
+			if err != nil {
 				slog.WarnContext(ctx, "github app setup cleanup failed", "error", err)
 			}
 		}

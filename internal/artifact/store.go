@@ -11,6 +11,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"reforge/internal/heartbeat"
 	"regexp"
 	"strings"
 	"syscall"
@@ -261,6 +262,7 @@ func (s *Local) Run(ctx context.Context) {
 		if _, e := s.SweepOrphans(ctx, time.Now().Add(-24*time.Hour)); e != nil {
 			err = errors.Join(err, e)
 		}
+		heartbeat.Beat("artifacts", time.Hour, err)
 		if err != nil && ctx.Err() == nil {
 			slog.WarnContext(ctx, "artifact retention failed", "error", err)
 		}

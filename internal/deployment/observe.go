@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
+	"reforge/internal/heartbeat"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -277,6 +279,7 @@ func (s *Service) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 		}
+		heartbeat.Beat("deployments", time.Second, nil)
 		var org string
 		err := s.db.Pool.QueryRow(ctx, `SELECT org_id::text FROM inventory_tenants WHERE org_id>$1::uuid ORDER BY org_id LIMIT 1`, cursor).Scan(&org)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -295,7 +298,10 @@ func (s *Service) Run(ctx context.Context) error {
 			continue
 		}
 		bounded, cancel := context.WithTimeout(ctx, 45*time.Second)
-		_, _ = s.Observe(bounded, org, id)
+		if _, err = s.Observe(bounded, org, id); err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "deployment observation failed", "org_id", org, "deployment_id", id, "error", err)
+			heartbeat.Beat("deployments", time.Second, err)
+		}
 		cancel()
 	}
 }

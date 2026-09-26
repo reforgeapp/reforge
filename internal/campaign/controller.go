@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"reforge/internal/heartbeat"
 	"sync"
 	"time"
 
@@ -357,6 +358,7 @@ func (s *Service) Run(ctx context.Context) error {
 			continue
 		case <-ticker.C:
 		}
+		heartbeat.Beat("campaigns", 100*time.Millisecond, nil)
 		rows, e := s.db.Pool.Query(ctx, `SELECT org_id::text FROM inventory_tenants WHERE org_id>$1::uuid ORDER BY org_id LIMIT 64`, cursor)
 		if e != nil {
 			continue

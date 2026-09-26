@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"reforge/internal/auth"
+	"reforge/internal/heartbeat"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -162,6 +163,7 @@ func (s *Service) Run(ctx context.Context, worker string) error {
 			return ctx.Err()
 		}
 		worked, err := s.RunOnce(ctx, worker)
+		heartbeat.Beat("inventory", 5*time.Second, err)
 		if ctx.Err() != nil {
 			return ctx.Err()
 		}

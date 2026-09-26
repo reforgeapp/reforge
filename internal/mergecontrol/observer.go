@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"reforge/internal/heartbeat"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -161,6 +162,7 @@ func (s *Service) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-ticker.C:
 		}
+		heartbeat.Beat("merges", time.Second, nil)
 		var org string
 		err := s.db.Pool.QueryRow(ctx, `SELECT org_id::text FROM inventory_tenants WHERE org_id>$1::uuid ORDER BY org_id LIMIT 1`, cursor).Scan(&org)
 		if errors.Is(err, pgx.ErrNoRows) {

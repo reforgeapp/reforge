@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log/slog"
 	"path"
+	"reforge/internal/heartbeat"
 	"strings"
 	"time"
 
@@ -526,6 +527,7 @@ func (s *Service) RunOrganisationOnce(ctx context.Context, org string) (bool, er
 func (s *Service) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		worked, err := s.RunOnce(ctx)
+		heartbeat.Beat("discovery", 3*time.Second, err)
 		if worked && err == nil {
 			continue
 		}

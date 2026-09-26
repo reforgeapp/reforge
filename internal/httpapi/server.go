@@ -11,6 +11,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/config"
 	"reforge/internal/domain"
+	"reforge/internal/heartbeat"
 	"reforge/internal/store"
 	"strings"
 	"time"
@@ -40,6 +41,14 @@ func New(cfg config.Config, db *store.Store) *Server {
 			return
 		}
 		c.JSON(200, gin.H{"status": "ready"})
+	})
+	r.GET("/statusz", func(c *gin.Context) {
+		loops, healthy := heartbeat.Status()
+		status := 200
+		if !healthy {
+			status = 503
+		}
+		c.JSON(status, gin.H{"healthy": healthy, "loops": loops})
 	})
 	r.GET("/api/v1/meta", func(c *gin.Context) {
 		c.JSON(200, gin.H{"name": "Reforge", "version": "0.1.0-dev", "edition": cfg.Edition, "development": cfg.Development, "fixture_auth": cfg.FixtureAuth, "docs_url": cfg.DocsURL})

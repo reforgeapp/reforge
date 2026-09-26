@@ -6,6 +6,12 @@
 that the migrator has run with the schema owner URL. `/healthz` only reports that the
 process is up.
 
+## Automation stopped progressing
+
+`/statusz` lists each background loop (autopilot, discovery, inventory, merges,
+deployments, promotions, campaigns, artifacts) with its last cycle and last error. It
+returns `503` when a loop has not cycled for three times its interval; alert on it.
+
 ## Sign-in fails
 
 - In development fixture mode the sign-in button creates a local owner; this requires
