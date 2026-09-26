@@ -35,6 +35,7 @@ type ToolCall struct {
 	ID        string          `json:"id"`
 	Name      string          `json:"name"`
 	Arguments json.RawMessage `json:"arguments"`
+	Invalid   string          `json:"invalid,omitempty"`
 }
 type Message struct {
 	Role       string          `json:"role"`

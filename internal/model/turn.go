@@ -108,7 +108,7 @@ func CollectTurn(ctx context.Context, p ModelProvider, t Turn) (TurnResult, erro
 			if e.ToolCall == nil || e.ToolCall.ID == "" || seen[e.ToolCall.ID] || len(out.ToolCalls) >= 32 {
 				return errors.New("invalid model tool result")
 			}
-			if err := schemas.Validate(*e.ToolCall); err != nil {
+			if err := schemas.Check(e.ToolCall); err != nil {
 				return err
 			}
 			seen[e.ToolCall.ID] = true

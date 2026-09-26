@@ -565,7 +565,7 @@ func finalizeTool(ctx context.Context, state *toolState, validators model.ToolSc
 		return &domain.ProviderError{Kind: "protocol", Message: "incomplete tool call identity"}
 	}
 	arguments := []byte(state.args.String())
-	if err := validators.Validate(model.ToolCall{ID: state.callID, Name: state.name, Arguments: arguments}); err != nil {
+	if err := validators.Registered(model.ToolCall{ID: state.callID, Name: state.name, Arguments: arguments}); err != nil {
 		return err
 	}
 	state.emitted = true

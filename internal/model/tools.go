@@ -56,12 +56,37 @@ func CompileTools(tools []Tool) (ToolSchemas, error) {
 	return result, nil
 }
 
-func (s ToolSchemas) Validate(call ToolCall) error {
+func (s ToolSchemas) Registered(call ToolCall) error {
 	if call.ID == "" || len(call.ID) > 256 || s[call.Name] == nil {
 		return &domain.ProviderError{Kind: "protocol", Message: "unregistered tool or invalid call identity", Uncertain: true}
 	}
 	if len(call.Arguments) > MaxToolArguments {
 		return &domain.ProviderError{Kind: "protocol", Message: "tool arguments exceed limit", Uncertain: true}
+	}
+	return nil
+}
+
+func (s ToolSchemas) Check(call *ToolCall) error {
+	if err := s.Registered(*call); err != nil {
+		return err
+	}
+	value, err := decodeJSON(call.Arguments)
+	if err != nil {
+		call.Arguments, call.Invalid = json.RawMessage(`{}`), "arguments are not valid JSON"
+		return nil
+	}
+	if err = s[call.Name].Validate(value); err != nil {
+		call.Invalid = err.Error()
+		if len(call.Invalid) > 500 {
+			call.Invalid = call.Invalid[:500]
+		}
+	}
+	return nil
+}
+
+func (s ToolSchemas) Validate(call ToolCall) error {
+	if err := s.Registered(call); err != nil {
+		return err
 	}
 	value, err := decodeJSON(call.Arguments)
 	if err != nil || s[call.Name].Validate(value) != nil {

@@ -25,3 +25,21 @@ func TestToolSchemasRejectExternalReferencesAndValidateNestedLimits(t *testing.T
 		t.Fatal(err)
 	}
 }
+
+func TestCheckMarksMalformedArgumentsForTheModel(t *testing.T) {
+	schemas, err := CompileTools([]Tool{{Name: "edit", Schema: json.RawMessage(`{"type":"object","required":["path"],"additionalProperties":false,"properties":{"path":{"type":"string"}}}`)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	call := ToolCall{ID: "one", Name: "edit", Arguments: json.RawMessage(`{"file":"a"}`)}
+	if err = schemas.Check(&call); err != nil || call.Invalid == "" {
+		t.Fatalf("schema mismatch not returned to the model: %v %q", err, call.Invalid)
+	}
+	call = ToolCall{ID: "two", Name: "edit", Arguments: json.RawMessage(`{"path":`)}
+	if err = schemas.Check(&call); err != nil || call.Invalid == "" || string(call.Arguments) != "{}" {
+		t.Fatalf("broken JSON not replaced: %v %+v", err, call)
+	}
+	if schemas.Check(&ToolCall{ID: "three", Name: "shell", Arguments: json.RawMessage(`{}`)}) == nil {
+		t.Fatal("unregistered tool accepted")
+	}
+}

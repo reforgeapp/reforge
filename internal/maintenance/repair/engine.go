@@ -271,6 +271,10 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		verified := checkedRevision == patchRevision && Verified(p, out.Baseline, out.Candidate)
 		returned := 0
 		for _, call := range result.ToolCalls {
+			if call.Invalid != "" {
+				messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: "Rejected: arguments do not match the " + call.Name + " tool schema: " + call.Invalid})
+				continue
+			}
 			var input struct {
 				Path    string `json:"path"`
 				Content string `json:"content"`

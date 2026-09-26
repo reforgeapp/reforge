@@ -311,8 +311,8 @@ func parseStream(raw []byte, schemas model.ToolSchemas, historyIndex int) (*stre
 			return nil, protocolError("duplicate Google call identity")
 		}
 		seen[id] = true
-		if err := schemas.Validate(model.ToolCall{ID: id, Name: call.Name, Arguments: call.Args}); err != nil {
-			return nil, protocolError("Google tool arguments failed schema validation")
+		if err := schemas.Registered(model.ToolCall{ID: id, Name: call.Name, Arguments: call.Args}); err != nil {
+			return nil, protocolError("Google tool call is not registered")
 		}
 		state.calls = append(state.calls, &callState{ID: id, Name: call.Name, Arguments: call.Args})
 	}

@@ -525,7 +525,7 @@ func (s *streamState) validateTools() error {
 		if call.ID == "" || call.Name == "" || call.Arguments.Len() == 0 {
 			return &domain.ProviderError{Kind: "protocol", Message: "incomplete compatible tool call", Uncertain: true}
 		}
-		if err := s.schemas.Validate(model.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(call.Arguments.String())}); err != nil {
+		if err := s.schemas.Registered(model.ToolCall{ID: call.ID, Name: call.Name, Arguments: json.RawMessage(call.Arguments.String())}); err != nil {
 			return err
 		}
 	}

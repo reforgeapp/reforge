@@ -99,9 +99,15 @@ func TestMalformedIncompleteAndEmptyTools(t *testing.T) {
 		`data: {"id":"chat-2","choices":[{"delta":{"tool_calls":[{"index":0,"id":"call-a","type":"function","function":{"name":"lookup","arguments":"not-json"}}]},"finish_reason":"tool_calls"}]}`,
 		`data: [DONE]`,
 	}, "\n\n"))}
-	err = provider.StreamTurn(context.Background(), model.TurnRequest{Messages: []model.Message{{Role: "user", Text: "x"}}, Tools: []model.Tool{{Name: "lookup", Schema: []byte(`{"type":"object"}`)}}, MaxOutputTokens: 32}, func(model.Event) error { return nil })
-	if !errors.As(err, &providerErr) || providerErr.Kind != "protocol" || !providerErr.Uncertain {
-		t.Fatalf("unexpected malformed tool error: %#v", err)
+	var passed *model.ToolCall
+	err = provider.StreamTurn(context.Background(), model.TurnRequest{Messages: []model.Message{{Role: "user", Text: "x"}}, Tools: []model.Tool{{Name: "lookup", Schema: []byte(`{"type":"object"}`)}}, MaxOutputTokens: 32}, func(e model.Event) error {
+		if e.ToolCall != nil {
+			passed = e.ToolCall
+		}
+		return nil
+	})
+	if err != nil || passed == nil || string(passed.Arguments) != "not-json" {
+		t.Fatalf("malformed arguments not passed to the model layer: %v %+v", err, passed)
 	}
 	client.responses = []*http.Response{fixtureResponse(http.StatusOK, strings.Join([]string{
 		`data: {"id":"chat-3","choices":[{"delta":{"content":"ok"},"finish_reason":"stop"}]}`,

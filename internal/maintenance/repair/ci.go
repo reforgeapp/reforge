@@ -327,6 +327,10 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		}
 		returned := 0
 		for _, call := range result.ToolCalls {
+			if call.Invalid != "" {
+				messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: "Rejected: arguments do not match the " + call.Name + " tool schema: " + call.Invalid})
+				continue
+			}
 			reply := ""
 			switch call.Name {
 			case skills.ToolName:
