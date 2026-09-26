@@ -1,0 +1,1 @@
+ALTER TABLE runners ADD COLUMN slots integer NOT NULL DEFAULT 1 CHECK (slots BETWEEN 1 AND 16);

@@ -706,7 +706,7 @@ func TestRunnerInventoryPagination(t *testing.T) {
 func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()
-	first, err := f.service.EnrollBuiltin(ctx, f.org, "built-in")
+	first, err := f.service.EnrollBuiltin(ctx, f.org, "built-in", 1)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -727,7 +727,7 @@ func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 	if pool, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Renamed", State: "draining"}, pool.Version, "fixture"); err != nil || pool.Name != "Built-in" || len(pool.RepositoryIDs) != 3 {
 		t.Fatalf("built-in pool edit %+v: %v", pool, err)
 	}
-	if _, err = f.service.EnrollBuiltin(ctx, f.org, "built-in"); !errors.Is(err, auth.ErrForbidden) {
+	if _, err = f.service.EnrollBuiltin(ctx, f.org, "built-in", 1); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatalf("draining built-in pool enrolled: %v", err)
 	}
 	if _, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Built-in", State: "revoked"}, pool.Version, "fixture"); !errors.Is(err, auth.ErrInvalid) {
@@ -736,7 +736,7 @@ func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 	if _, err = f.service.PutPool(ctx, f.session, f.org, pool.ID, runner.PoolInput{Name: "Built-in", State: "active"}, pool.Version, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	second, err := f.service.EnrollBuiltin(ctx, f.org, "built-in")
+	second, err := f.service.EnrollBuiltin(ctx, f.org, "built-in", 1)
 	if err != nil || second.Runner.PoolID != pool.ID {
 		t.Fatalf("re-enrol: %v", err)
 	}

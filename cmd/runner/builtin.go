@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"errors"
 	"flag"
-	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -206,10 +205,10 @@ func runBuiltin(args []string) error {
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
 	httpClient := &http.Client{Transport: hostTransport{host: public.Host, base: transport}}
-	newClient := func(file, name string) (*runnerclient.Client, error) {
-		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: name, CredentialFile: filepath.Join(f.state, file+".json"), Client: httpClient})
+	newClient := func(name string) (*runnerclient.Client, error) {
+		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient})
 	}
-	control, err := newClient("control", "built-in")
+	control, err := newClient("control")
 	if err != nil {
 		return err
 	}
@@ -217,50 +216,59 @@ func runBuiltin(args []string) error {
 	defer cancel()
 	process := runnerclient.RepairProcessor(config)
 	var mu sync.Mutex
-	orgs := map[string][]*builtinOrg{}
-	slot := func(id string, n int) (*builtinOrg, error) {
-		client, err := newClient(fmt.Sprintf("%s-%d", id, n), fmt.Sprintf("built-in-%d", n+1))
+	orgs := map[string]*builtinOrg{}
+	fresh := func(id string) (*builtinOrg, error) {
+		client, err := newClient(id)
 		if err != nil {
 			return nil, err
 		}
 		_ = client.Load()
 		return &builtinOrg{client: client}, nil
 	}
+	ready := func(id string, org *builtinOrg) bool {
+		mu.Lock()
+		defer mu.Unlock()
+		if time.Now().Before(org.retry) {
+			return false
+		}
+		if _, credential := org.client.Supervisor(); credential == "" {
+			if err := org.client.EnrollBuiltin(ctx, token, id); err != nil {
+				org.retry = time.Now().Add(time.Minute)
+				return false
+			}
+		}
+		return true
+	}
 	var workers sync.WaitGroup
 	for n := 0; n < f.slots; n++ {
 		workers.Add(1)
-		go func(n int) {
+		go func() {
 			defer workers.Done()
 			for ctx.Err() == nil {
 				mu.Lock()
-				mine := map[string]*builtinOrg{}
-				for id, slots := range orgs {
-					mine[id] = slots[n]
+				current := map[string]*builtinOrg{}
+				for id, org := range orgs {
+					current[id] = org
 				}
 				mu.Unlock()
 				worked := false
-				for id, org := range mine {
-					if time.Now().Before(org.retry) {
+				for id, org := range current {
+					if !ready(id, org) {
 						continue
-					}
-					if _, credential := org.client.Supervisor(); credential == "" {
-						if err := org.client.EnrollBuiltin(ctx, token, id); err != nil {
-							org.retry = time.Now().Add(time.Minute)
-							continue
-						}
 					}
 					done, err := org.client.Step(ctx, process)
 					if err != nil && ctx.Err() == nil {
-						slog.Warn("built-in runner step failed", "org_id", id, "slot", n+1, "error", err)
-						_ = os.Remove(filepath.Join(f.state, fmt.Sprintf("%s-%d.json", id, n)))
-						if next, err := slot(id, n); err == nil {
-							next.retry = time.Now().Add(10 * time.Second)
-							mu.Lock()
-							if orgs[id] != nil {
-								orgs[id][n] = next
+						slog.Warn("built-in runner step failed", "org_id", id, "error", err)
+						mu.Lock()
+						org.retry = time.Now().Add(10 * time.Second)
+						if errors.Is(err, runnerclient.ErrUnauthorized) && orgs[id] == org {
+							_ = os.Remove(filepath.Join(f.state, id+".json"))
+							if next, err := fresh(id); err == nil {
+								next.retry = org.retry
+								orgs[id] = next
 							}
-							mu.Unlock()
 						}
+						mu.Unlock()
 					}
 					worked = worked || done
 				}
@@ -271,7 +279,7 @@ func runBuiltin(args []string) error {
 					}
 				}
 			}
-		}(n)
+		}()
 	}
 	slog.Info("built-in runner started", "recipes", images, "slots", f.slots)
 	for ctx.Err() == nil {
@@ -285,14 +293,12 @@ func runBuiltin(args []string) error {
 				if known {
 					continue
 				}
-				slots := make([]*builtinOrg, f.slots)
-				for n := range slots {
-					if slots[n], err = slot(id, n); err != nil {
-						return err
-					}
+				org, err := fresh(id)
+				if err != nil {
+					return err
 				}
 				mu.Lock()
-				orgs[id] = slots
+				orgs[id] = org
 				mu.Unlock()
 			}
 			mu.Lock()

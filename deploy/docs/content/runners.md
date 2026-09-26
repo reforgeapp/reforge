@@ -8,8 +8,7 @@ Compose starts a built-in runner with the stack. It joins every organisation's
 **Built-in** pool, which covers all repositories, including newly imported ones. The
 pool cannot be edited or revoked; **Drain** pauses it and **Activate** resumes it.
 
-The built-in runner runs two jobs at once (`--slots`, 1–16); each slot appears as its own
-runner. Each job's sandbox may use up to 6 GiB of memory. Enrol extra runners in other
+The built-in runner runs two jobs at once (`--slots`, 1–16). Each job's sandbox may use up to 6 GiB of memory. Enrol extra runners in other
 pools for more capacity, private networks or isolation from the control-plane host.
 
 ## Pools

@@ -276,11 +276,15 @@ func (s *Server) RegisterBuiltinRunner(service *runner.Service, secret string) {
 		var in struct {
 			OrgID string `json:"org_id"`
 			Name  string `json:"name"`
+			Slots int    `json:"slots"`
 		}
 		if !identityJSON(c, &in) {
 			return
 		}
-		value, err := service.EnrollBuiltin(c.Request.Context(), in.OrgID, in.Name)
+		if in.Slots == 0 {
+			in.Slots = 1
+		}
+		value, err := service.EnrollBuiltin(c.Request.Context(), in.OrgID, in.Name, in.Slots)
 		if err != nil {
 			runnerFailure(c, err)
 			return

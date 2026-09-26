@@ -27,9 +27,9 @@ func (s *Service) BuiltinOrgs(ctx context.Context) ([]string, error) {
 	return orgs, err
 }
 
-func (s *Service) EnrollBuiltin(ctx context.Context, org, name string) (Credential, error) {
+func (s *Service) EnrollBuiltin(ctx context.Context, org, name string, slots int) (Credential, error) {
 	var c Credential
-	if !auth.ValidID(org) || strings.TrimSpace(name) == "" || len(name) > 160 {
+	if !auth.ValidID(org) || strings.TrimSpace(name) == "" || len(name) > 160 || slots < 1 || slots > 16 {
 		return c, auth.ErrInvalid
 	}
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
@@ -55,7 +55,7 @@ func (s *Service) EnrollBuiltin(ctx context.Context, org, name string) (Credenti
 		if _, err = tx.Exec(ctx, `INSERT INTO runner_pool_repositories(org_id,pool_id,repository_id) SELECT org_id,$2,id FROM repositories WHERE org_id=$1 ON CONFLICT DO NOTHING`, org, pool); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text FROM runners WHERE org_id=$1 AND pool_id=$2 AND state='active' AND (name=$3 OR name='built-in')`, org, pool, strings.TrimSpace(name))
+		rows, err := tx.Query(ctx, `SELECT id::text FROM runners WHERE org_id=$1 AND pool_id=$2 AND state='active'`, org, pool)
 		if err != nil {
 			return err
 		}
@@ -71,7 +71,7 @@ func (s *Service) EnrollBuiltin(ctx context.Context, org, name string) (Credenti
 		c.Runner = Runner{ID: domain.NewID(), OrgID: org, PoolID: pool, Name: strings.TrimSpace(name), State: "active", Version: 1, CredentialExpiresAt: time.Now().UTC().Add(24 * time.Hour)}
 		c.ExpiresAt = c.Runner.CredentialExpiresAt
 		c.Token = token("sup", org, c.Runner.ID)
-		if _, err = tx.Exec(ctx, `INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at) VALUES($1,$2,$3,$4,$5,$6)`, org, c.Runner.ID, pool, c.Runner.Name, hash(c.Token), c.ExpiresAt); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at,slots) VALUES($1,$2,$3,$4,$5,$6,$7)`, org, c.Runner.ID, pool, c.Runner.Name, hash(c.Token), c.ExpiresAt, slots); err != nil {
 			return err
 		}
 		return audit(ctx, tx, org, builtinActor, "runner.enrolled", c.Runner.ID, "", map[string]string{"pool_id": pool})

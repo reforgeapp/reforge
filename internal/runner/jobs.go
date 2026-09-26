@@ -31,7 +31,7 @@ func (s *Service) Claim(ctx context.Context, raw string) (Assignment, error) {
 			return err
 		}
 		var busy bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM workflow_jobs WHERE org_id=$1 AND lease_owner=$2 AND state='running' AND lease_expires_at>clock_timestamp())`, org, id).Scan(&busy); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM workflow_jobs WHERE org_id=$1 AND lease_owner=$2 AND state='running' AND lease_expires_at>clock_timestamp())>=(SELECT slots FROM runners WHERE org_id=$1 AND id=$2::uuid)`, org, id).Scan(&busy); err != nil {
 			return err
 		}
 		if busy {

@@ -25,11 +25,13 @@ import (
 )
 
 var ErrControlPlane = errors.New("runner control plane unavailable or rejected request")
+var ErrUnauthorized = errors.New("runner credential rejected")
 
 type Config struct {
 	Endpoint       string       `json:"endpoint"`
 	Development    bool         `json:"development"`
 	Name           string       `json:"name"`
+	Slots          int          `json:"slots"`
 	CredentialFile string       `json:"credential_file"`
 	Client         *http.Client `json:"-"`
 }
@@ -268,10 +270,14 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 		var failure struct {
 			Message string `json:"message"`
 		}
-		if json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil && failure.Message != "" && len(failure.Message) <= 300 {
-			return response.StatusCode, fmt.Errorf("%w: %s", ErrControlPlane, failure.Message)
+		base := ErrControlPlane
+		if response.StatusCode == http.StatusUnauthorized {
+			base = fmt.Errorf("%w: %w", ErrControlPlane, ErrUnauthorized)
 		}
-		return response.StatusCode, ErrControlPlane
+		if json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil && failure.Message != "" && len(failure.Message) <= 300 {
+			return response.StatusCode, fmt.Errorf("%w: %s", base, failure.Message)
+		}
+		return response.StatusCode, base
 	}
 	if response.StatusCode == 204 {
 		return 204, nil
@@ -332,7 +338,7 @@ func (c *Client) BuiltinOrgs(ctx context.Context, secret string) ([]string, erro
 
 func (c *Client) EnrollBuiltin(ctx context.Context, secret, org string) error {
 	var next credential
-	if _, err := c.call(ctx, "POST", "/runner/v1/builtin/enroll", secret, map[string]string{"org_id": org, "name": c.config.Name}, &next); err != nil {
+	if _, err := c.call(ctx, "POST", "/runner/v1/builtin/enroll", secret, map[string]any{"org_id": org, "name": c.config.Name, "slots": max(c.config.Slots, 1)}, &next); err != nil {
 		return err
 	}
 	return c.save(next)
