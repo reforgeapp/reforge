@@ -41,7 +41,7 @@ func parseBuiltin(name string, args []string) (builtinFlags, error) {
 	flags.StringVar(&f.tool, "tool", "/app/reforge-sandbox-tool", "sandbox tool binary")
 	flags.StringVar(&f.state, "state", "/var/lib/reforge-runner", "private runner state directory")
 	flags.StringVar(&f.cgroup, "cgroup-root", "/sys/fs/cgroup/reforge", "delegated cgroup v2 root")
-	flags.StringVar(&f.endpoint, "endpoint", "http://127.0.0.1:8080", "loopback control-plane address")
+	flags.StringVar(&f.endpoint, "endpoint", "http://127.0.0.1:8080", "control-plane address on the host or its private container network")
 	flags.StringVar(&f.publicURL, "public-url", os.Getenv("REFORGE_PUBLIC_URL"), "control-plane public URL")
 	flags.IntVar(&f.slots, "slots", 2, "jobs run at once")
 	if err := flags.Parse(args); err != nil {
@@ -206,7 +206,7 @@ func runBuiltin(args []string) error {
 	transport.Proxy = nil
 	httpClient := &http.Client{Transport: hostTransport{host: public.Host, base: transport}}
 	newClient := func(name string) (*runnerclient.Client, error) {
-		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient})
+		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, Internal: true, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient})
 	}
 	control, err := newClient("control")
 	if err != nil {

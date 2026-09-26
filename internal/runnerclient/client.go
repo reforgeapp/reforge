@@ -32,6 +32,7 @@ type Config struct {
 	Development    bool         `json:"development"`
 	Name           string       `json:"name"`
 	Slots          int          `json:"slots"`
+	Internal       bool         `json:"internal"`
 	CredentialFile string       `json:"credential_file"`
 	Client         *http.Client `json:"-"`
 }
@@ -70,7 +71,7 @@ type Processor func(context.Context, *Client, Job) (workflow.Completion, error)
 
 func New(cfg Config) (*Client, error) {
 	u, err := url.Parse(cfg.Endpoint)
-	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || (u.Scheme != "https" && !(cfg.Development && u.Scheme == "http" && net.ParseIP(u.Hostname()).IsLoopback())) || !filepath.IsAbs(cfg.CredentialFile) || len(cfg.Name) == 0 || len(cfg.Name) > 160 {
+	if err != nil || u.Host == "" || u.User != nil || u.Path != "" || u.RawQuery != "" || u.Fragment != "" || u.Opaque != "" || (u.Scheme != "https" && !(cfg.Development && u.Scheme == "http" && (cfg.Internal || net.ParseIP(u.Hostname()).IsLoopback()))) || !filepath.IsAbs(cfg.CredentialFile) || len(cfg.Name) == 0 || len(cfg.Name) > 160 {
 		return nil, errors.New("invalid runner configuration")
 	}
 	client := cfg.Client

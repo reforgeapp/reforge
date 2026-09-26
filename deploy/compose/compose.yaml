@@ -126,8 +126,7 @@ services:
     privileged: true
     cgroup: private
     user: "0:0"
-    network_mode: service:server
-    command: ["builtin"]
+    command: ["builtin", "--endpoint", "http://server:8080"]
     environment:
       REFORGE_PUBLIC_URL: ${REFORGE_PUBLIC_URL:?set REFORGE_PUBLIC_URL}
     volumes:
