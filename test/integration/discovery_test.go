@@ -258,14 +258,8 @@ func TestDiscoveryGroupedOverlapAndExistingRepair(t *testing.T) {
 			return err
 		})
 	}
-	if err := prepare(); !errors.Is(err, discovery.ErrDuplicate) {
-		t.Fatalf("overlap accepted: %v", err)
-	}
-	if _, err := f.service.Update(ctx, f.owner, f.org, second.ID, discovery.Update{Action: "dismiss", Reason: "superseded upstream group"}, second.Version, "dedup"); err != nil {
-		t.Fatal(err)
-	}
 	if err := prepare(); err != nil {
-		t.Fatalf("resolved ambiguity still blocked: %v", err)
+		t.Fatalf("overlapping open finding without active repair blocked: %v", err)
 	}
 	task := domain.NewID()
 	err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
@@ -280,5 +274,11 @@ func TestDiscoveryGroupedOverlapAndExistingRepair(t *testing.T) {
 	}
 	if err = prepare(); !errors.Is(err, discovery.ErrDuplicate) {
 		t.Fatalf("existing completed repair duplicated: %v", err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := discovery.PrepareRepairTx(ctx, tx, f.org, second.ID, second.Version)
+		return err
+	}); !errors.Is(err, discovery.ErrDuplicate) {
+		t.Fatalf("overlap with active repair accepted: %v", err)
 	}
 }

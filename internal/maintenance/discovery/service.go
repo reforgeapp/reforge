@@ -283,7 +283,7 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 			overlaps.Close()
 			return f, err
 		}
-		if e.TargetBranch == f.Evidence.TargetBranch && Overlap(e.Dependencies, f.Evidence.Dependencies) {
+		if e.Bot != f.Evidence.Bot && e.TargetBranch == f.Evidence.TargetBranch && Overlap(e.Dependencies, f.Evidence.Dependencies) {
 			overlaps.Close()
 			return f, ErrDuplicate
 		}
