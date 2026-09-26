@@ -93,7 +93,14 @@ func (s *Service) claim(ctx context.Context, org string) (*scanLease, error) {
 		if err != nil {
 			return err
 		}
-		if err := inventory.RequireFreshTx(ctx, tx, org, lease.Repo); err != nil {
+		err = inventory.RequireFreshTx(ctx, tx, org, lease.Repo)
+		if err == nil {
+			var recent bool
+			if err = tx.QueryRow(ctx, `SELECT changes_observed_at>clock_timestamp()-interval '5 minutes' FROM inventory_repository_state WHERE org_id=$1 AND repository_id=$2`, org, lease.Repo).Scan(&recent); err == nil && !recent {
+				err = inventory.ErrStale
+			}
+		}
+		if err != nil {
 			if !errors.Is(err, inventory.ErrStale) {
 				return err
 			}
