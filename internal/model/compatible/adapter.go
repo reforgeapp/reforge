@@ -405,6 +405,7 @@ type streamState struct {
 	completed    bool
 	usage        *chatUsage
 	text         strings.Builder
+	reasoning    strings.Builder
 	calls        []*callState
 }
 
@@ -441,6 +442,7 @@ func (p *Provider) readStream(ctx context.Context, reader io.Reader, state *stre
 			if choice.Delta.Content != "" {
 				state.text.WriteString(choice.Delta.Content)
 			}
+			state.reasoning.WriteString(choice.Delta.Reasoning)
 			if choice.Delta.Content != "" {
 				if err := emit(model.Event{Type: "text_delta", ID: chunk.ID, Text: choice.Delta.Content}); err != nil {
 					return normalizeCallback(ctx, err)
@@ -532,6 +534,9 @@ func (s *streamState) validateTools() error {
 
 func (s *streamState) assistantMessage() json.RawMessage {
 	message := map[string]any{"role": "assistant", "content": s.text.String()}
+	if s.reasoning.Len() > 0 {
+		message["reasoning_content"] = s.reasoning.String()
+	}
 	if len(s.calls) > 0 {
 		calls := make([]map[string]any, 0, len(s.calls))
 		for _, call := range s.calls {
@@ -571,6 +576,7 @@ type chatChoice struct {
 
 type chatDelta struct {
 	Content   string              `json:"content"`
+	Reasoning string              `json:"reasoning_content"`
 	ToolCalls []chatToolCallDelta `json:"tool_calls"`
 }
 
