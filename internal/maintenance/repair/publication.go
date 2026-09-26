@@ -459,3 +459,64 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 		return err
 	})
 }
+
+func (s *Service) CISuperset(ctx context.Context, org, task string) (string, error) {
+	var r Run
+	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		var err error
+		r, err = loadRun(ctx, tx, org, task)
+		return err
+	}); err != nil {
+		return "", err
+	}
+	if r.Change == nil {
+		return "Pull request not recorded", nil
+	}
+	c := r.Context
+	authorize := func(ctx context.Context, tx pgx.Tx, connection connections.Connection) error {
+		if connection.ID != c.ConnectionID {
+			return auth.ErrConflict
+		}
+		return nil
+	}
+	read := func(op privateconnector.Operation) (privateconnector.Result, error) {
+		op.ID = domain.NewID()
+		return s.reader.Read(ctx, org, c.ConnectionID, op, authorize)
+	}
+	change, err := read(privateconnector.Operation{Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: c.Repository, ChangeID: r.Change.ID}})
+	if err != nil || change.Change == nil {
+		return "", errors.Join(err, privateconnector.ErrUnsupported)
+	}
+	target, err := read(privateconnector.Operation{Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: c.Repository, Ref: change.Change.TargetBranch}})
+	if err != nil {
+		return "", err
+	}
+	want, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: c.Repository, CommitSHA: target.SHA}})
+	if err != nil {
+		return "", err
+	}
+	have, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: change.Change.HeadRepository, CommitSHA: change.Change.HeadSHA}})
+	if err != nil {
+		return "", err
+	}
+	failing := []string{}
+	for _, check := range have.Checks {
+		switch check.Conclusion {
+		case "", "success", "neutral", "skipped":
+		default:
+			if !discovery.BotUpdateJob(check.Name) {
+				failing = append(failing, check.Name)
+			}
+		}
+	}
+	missing, pending := forge.MissingChecks(want.Checks, have.Checks, discovery.BotUpdateJob)
+	switch {
+	case len(failing) > 0:
+		return "CI failing: " + strings.Join(failing, ", "), nil
+	case pending:
+		return "Waiting for CI", nil
+	case len(missing) > 0:
+		return "Checks missing from the pull request: " + strings.Join(missing, ", "), nil
+	}
+	return "", nil
+}

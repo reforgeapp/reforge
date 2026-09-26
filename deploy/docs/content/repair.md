@@ -59,6 +59,11 @@ When CI fails on a Reforge pull request, the next scan turns it into a follow-up
 works on the pull request's own branch and pushes a new commit to it. After five follow-ups
 that still fail, Reforge closes the pull request with a comment naming the failing checks.
 
+A Reforge pull request counts as fixed, and autopilot merges it, only when every check that
+passes on the target branch also runs and passes on the pull request. A check that
+disappears, for example because a workflow edit removed it, is treated as a failure and
+followed up.
+
 Tests stay protected. Workflow edits on GitHub need a token with `workflow` scope, or the
 GitHub App's Workflows permission. The recipe's checks must pass before publication,
 and the forge's required checks still gate the merge.

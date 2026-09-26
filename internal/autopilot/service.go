@@ -499,11 +499,11 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 }
 
 func (s *Service) merge(ctx context.Context, session auth.Session, org string) error {
-	var finding, repo, change string
+	var finding, repo, change, task string
 	var version int64
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT a.finding_id::text,a.finding_version,rr.repository_id::text,rr.native_change->>'id' FROM autopilot_attempts a JOIN repair_runs rr ON rr.org_id=a.org_id AND rr.task_id=a.task_id WHERE a.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND (a.merge_after IS NULL OR a.merge_after<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id') ORDER BY a.updated_at LIMIT 1`, org).Scan(&finding, &version, &repo, &change)
+		err := tx.QueryRow(ctx, `SELECT a.finding_id::text,a.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text FROM autopilot_attempts a JOIN repair_runs rr ON rr.org_id=a.org_id AND rr.task_id=a.task_id WHERE a.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND (a.merge_after IS NULL OR a.merge_after<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id') ORDER BY a.updated_at LIMIT 1`, org).Scan(&finding, &version, &repo, &change, &task)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -524,6 +524,12 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	}
 	if slices.Contains(resolved.Policy.Deny, policy.Merge) {
 		return later("Mode does not allow merging", 10*time.Minute)
+	}
+	if reason, err := s.repairs.CISuperset(ctx, org, task); err != nil || reason != "" {
+		if err != nil {
+			reason = err.Error()
+		}
+		return later(reason, 5*time.Minute)
 	}
 	gate, err := s.merges.Inspect(ctx, session, org, repo, change, "merge", "autopilot")
 	if err == nil && !slices.Contains(gate.Snapshot.Rules.AllowedMergeMethods, "merge") && len(gate.Snapshot.Rules.AllowedMergeMethods) > 0 {

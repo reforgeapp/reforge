@@ -148,18 +148,18 @@ func validChecks(checks []forge.Check, sha string) bool {
 }
 func failedChecks(checks []forge.Check) bool {
 	for _, c := range checks {
-		if botUpdateJob(c.Name) {
+		if BotUpdateJob(c.Name) {
 			continue
 		}
 		switch c.Conclusion {
-		case "failure", "failed", "timed_out", "action_required", "startup_failure":
+		case "failure", "failed", "timed_out", "action_required", "startup_failure", "missing":
 			return true
 		}
 	}
 	return false
 }
 
-func botUpdateJob(name string) bool {
+func BotUpdateJob(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
 	return name == "dependabot" || name == "renovate" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
 }
@@ -276,6 +276,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		e.Checks = checks.Checks
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "native_ci", SourceID: lease.Branch, Category: "ci_failure", Severity: "medium", Title: "Default branch checks failed", Evidence: e})
 	}
+	targetChecks := checks.Checks
 	for _, candidate := range cached {
 		current, err := read(privateconnector.Operation{Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: lease.Ref, ChangeID: candidate.ID}})
 		if err != nil {
@@ -298,7 +299,17 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		if !validChecks(checks.Checks, change.HeadSHA) {
 			return nil, ErrStale
 		}
-		if !failedChecks(checks.Checks) {
+		observed := checks.Checks
+		if strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+			missing, pending := forge.MissingChecks(targetChecks, observed, BotUpdateJob)
+			if pending && !failedChecks(observed) {
+				continue
+			}
+			for _, name := range missing {
+				observed = append(observed, forge.Check{ID: "missing:" + name, Name: name, HeadSHA: change.HeadSHA, Status: "completed", Conclusion: "missing"})
+			}
+		}
+		if !failedChecks(observed) {
 			continue
 		}
 		baseline := base
@@ -318,7 +329,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		e.TargetSHA = change.TargetSHA
 		e.TargetBranch = change.TargetBranch
 		e.Change = &change
-		e.Checks = checks.Checks
+		e.Checks = observed
 		e.Dependencies = deps.Changes
 		e.Complete = deps.Complete
 		e.Blockers = deps.Reasons

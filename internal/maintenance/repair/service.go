@@ -321,6 +321,10 @@ func (s *Service) enqueue(ctx context.Context, session auth.Session, org string,
 func (s *Service) ciLogs(ctx context.Context, org string, f discovery.Finding, check func(context.Context, pgx.Tx, connections.Connection) error) []CILog {
 	logs := []CILog{}
 	for _, c := range f.Evidence.Checks {
+		if c.Conclusion == "missing" && len(logs) < 3 {
+			logs = append(logs, CILog{Name: c.Name, Log: "This check passes on the target branch but did not run or pass on this pull request. Restore it; the change must keep every existing CI check."})
+			continue
+		}
 		name := strings.ToLower(c.Name)
 		if len(logs) == 3 || c.Conclusion != "failure" && c.Conclusion != "failed" && c.Conclusion != "timed_out" || name == "dependabot" || name == "renovate" {
 			continue
