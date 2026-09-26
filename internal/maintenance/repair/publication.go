@@ -151,7 +151,7 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	for _, patch := range r.Report.Patches {
 		edits = append(edits, forge.FileEdit{Path: patch.Path, Content: patch.Content, Delete: patch.Delete})
 	}
-	op := privateconnector.Operation{ID: intent.OperationID, Kind: privateconnector.ForgeUpdateBranch, Branch: &forge.UpdateBranchRequest{Repository: r.Context.Repository, Branch: branch, BaseSHA: r.Context.Plan.TargetSHA, Message: "Repair compatibility for " + r.Context.Finding.Title, Edits: edits, OperationID: intent.OperationID}}
+	op := privateconnector.Operation{ID: intent.OperationID, Kind: privateconnector.ForgeUpdateBranch, Branch: &forge.UpdateBranchRequest{Repository: r.Context.Repository, Branch: branch, BaseSHA: r.Context.Plan.TargetSHA, Message: changeTitle(r), Edits: edits, OperationID: intent.OperationID}}
 	result, err := s.dispatch(ctx, credential, r, lease, intent, op)
 	if err != nil {
 		return r, err
@@ -170,6 +170,16 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	r.Branch = branch
 	r.Context.NativeHeadSHA = result.SHA
 	return r, nil
+}
+func changeTitle(r Run) string {
+	if r.Report == nil || r.Report.Mode != "ci" || strings.TrimSpace(r.Report.Reason) == "" {
+		return "Repair: " + r.Context.Finding.Title
+	}
+	title := []rune(strings.TrimSpace(strings.SplitN(strings.TrimSpace(r.Report.Reason), "\n", 2)[0]))
+	if len(title) > 100 {
+		title = append(title[:99], '…')
+	}
+	return string(title)
 }
 func (s *Service) dispatch(ctx context.Context, credential string, r Run, l workflow.Lease, intent workflow.Intent, op privateconnector.Operation) (privateconnector.Result, error) {
 	var out privateconnector.Result
@@ -316,7 +326,11 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 	if err != nil {
 		return r, err
 	}
-	request := forge.CreateChangeRequest{Repository: r.Context.Repository, Title: "Repair: " + r.Context.Finding.Title, Body: "Compatibility repair validated against pinned upgrade and target source.\n\nBaseline: " + r.Context.Plan.BaselineSHA + "\nTarget: " + r.Context.Plan.TargetSHA + "\nValidation plan: " + r.Context.Plan.Digest, HeadBranch: r.Branch, TargetBranch: r.Context.Finding.Evidence.TargetBranch, ExpectedHeadSHA: r.CandidateSHA, OperationID: intent.OperationID, Draft: false}
+	body := "Compatibility repair validated against pinned upgrade and target source."
+	if r.Report != nil && r.Report.Mode == "ci" && r.Report.Reason != "" {
+		body = r.Report.Reason + "\n\nFound on: " + r.Context.Finding.Title
+	}
+	request := forge.CreateChangeRequest{Repository: r.Context.Repository, Title: changeTitle(r), Body: body + "\n\nBaseline: " + r.Context.Plan.BaselineSHA + "\nTarget: " + r.Context.Plan.TargetSHA + "\nValidation plan: " + r.Context.Plan.Digest, HeadBranch: r.Branch, TargetBranch: r.Context.Finding.Evidence.TargetBranch, ExpectedHeadSHA: r.CandidateSHA, OperationID: intent.OperationID, Draft: false}
 	if len(request.Title) > 250 {
 		request.Title = request.Title[:250]
 	}
