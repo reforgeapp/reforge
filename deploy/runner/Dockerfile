@@ -22,7 +22,8 @@ RUN curl -fsSLo /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/relea
  && chmod -R go-w /out/gvisor
 
 FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
-RUN apk add --no-cache ca-certificates git \
+RUN apk upgrade --no-cache \
+ && apk add --no-cache ca-certificates git \
  && adduser -D -u 10002 runner \
  && mkdir -m 0750 /builtin \
  && chown 10002:10001 /builtin
