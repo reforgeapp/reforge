@@ -318,7 +318,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			message = blocked
 		}
 		return errors.Join(s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, `DELETE FROM autopilot_requests WHERE org_id=$1 AND repository_id::text=ANY($2)`, org, sc.requested)
+			_, err := tx.Exec(ctx, `DELETE FROM autopilot_requests q WHERE q.org_id=$1 AND q.repository_id::text=ANY($2) AND EXISTS(SELECT 1 FROM maintenance_scans s WHERE s.org_id=q.org_id AND s.repository_id=q.repository_id AND s.state='complete' AND s.observed_at>q.requested_at) AND NOT EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=q.org_id AND t.repository_id=q.repository_id AND t.state IN `+active+`) AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=q.org_id AND f.repository_id=q.repository_id AND f.state='open' AND (a.outcome='retry' OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$3))`, org, sc.requested, maxRuns)
 			return err
 		}), s.status(ctx, org, message))
 	}
