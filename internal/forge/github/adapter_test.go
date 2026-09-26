@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -369,5 +370,48 @@ func TestTokenConnectionOwnsOperationsAsTokenUser(t *testing.T) {
 	}
 	if _, err := provider.WriteExecutionCheck(context.Background(), forge.ExecutionCheckRequest{}); err == nil {
 		t.Fatal("check runs must stay App-only")
+	}
+}
+
+func TestRetryAfterParsesBoundedProviderDeadlines(t *testing.T) {
+	now := time.Date(2026, 9, 27, 12, 0, 0, 0, time.UTC)
+	for _, testCase := range []struct {
+		name   string
+		header string
+		want   time.Duration
+	}{
+		{name: "numeric seconds", header: "17", want: 17 * time.Second},
+		{name: "http date", header: now.Add(45 * time.Second).Format(http.TimeFormat), want: 45 * time.Second},
+		{name: "past date", header: now.Add(-time.Second).Format(http.TimeFormat)},
+		{name: "malformed", header: "later"},
+		{name: "bounded numeric", header: "999999999999999999999", want: maxProviderRetry},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			if got := parseRetryAfter(testCase.header, now); got != testCase.want {
+				t.Fatalf("retry delay = %s, want %s", got, testCase.want)
+			}
+		})
+	}
+
+	reset := strconv.FormatInt(now.Add(90*time.Second).Unix(), 10)
+	if got := retryAfterAt(http.Header{"X-Ratelimit-Remaining": {"0"}, "X-Ratelimit-Reset": {reset}}, now); got != 90*time.Second {
+		t.Fatalf("quota reset delay = %s", got)
+	}
+	if got := retryAfterAt(http.Header{"Retry-After": {"120"}, "X-Ratelimit-Remaining": {"0"}, "X-Ratelimit-Reset": {reset}}, now); got != 120*time.Second {
+		t.Fatalf("combined rate-limit delay = %s", got)
+	}
+	if got := retryAfterAt(http.Header{"X-Ratelimit-Reset": {reset}}, now); got != 0 {
+		t.Fatalf("non-exhausted quota used reset deadline: %s", got)
+	}
+}
+
+func TestForbiddenExhaustedQuotaUsesResetDeadline(t *testing.T) {
+	err := responseError(http.StatusForbidden, http.Header{
+		"X-Ratelimit-Remaining": {"0"},
+		"X-Ratelimit-Reset":     {strconv.FormatInt(time.Now().Add(time.Minute).Unix(), 10)},
+	})
+	providerError, ok := err.(*domain.ProviderError)
+	if !ok || providerError.Kind != "rate_limit" || providerError.RetryAfter < 30*time.Second || providerError.RetryAfter > time.Minute {
+		t.Fatalf("provider error = %#v", err)
 	}
 }

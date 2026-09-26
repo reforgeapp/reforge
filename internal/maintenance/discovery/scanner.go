@@ -498,6 +498,14 @@ func readFailure(kind privateconnector.Kind, err error) error {
 	}
 	return &scanReadError{kind: kind, err: err}
 }
+func rateLimitRetry(err error) (time.Duration, bool) {
+	var providerError *domain.ProviderError
+	if !errors.As(err, &providerError) || providerError.Kind != "rate_limit" && providerError.Kind != "rate_limited" {
+		return 0, false
+	}
+	return min(max(5*time.Minute, providerError.RetryAfter), 24*time.Hour), true
+}
+
 func (s *Service) step(ctx context.Context, lease scanLease) error {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Minute)
 	defer cancel()
@@ -533,6 +541,11 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 		if readErr != nil {
 			state := "stale"
 			reason := "Provider read failed; verify connection and refresh inventory before retrying discovery"
+			retryDelay := 5 * time.Minute
+			if delay, limited := rateLimitRetry(readErr); limited {
+				retryDelay = delay
+				reason = "Provider rate limit reached; retry scheduled"
+			}
 			var providerError *domain.ProviderError
 			if errors.As(readErr, &providerError) && (providerError.Kind == "unauthenticated" || providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "auth" || providerError.Kind == "scope") {
 				state = "failed"
@@ -546,7 +559,7 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 				state = "failed"
 				reason = "Discovery requester lost repository access"
 			}
-			_, err := tx.Exec(persistCtx, `UPDATE maintenance_scans SET state=$4,reason=$5,lease_until=NULL,available_at=clock_timestamp()+interval '5 minutes',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND fence=$3 AND state='running'`, lease.Org, lease.Repo, lease.Fence, state, reason)
+			_, err := tx.Exec(persistCtx, `UPDATE maintenance_scans SET state=$4,reason=$5,lease_until=NULL,available_at=clock_timestamp()+$6::double precision * interval '1 second',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND fence=$3 AND state='running'`, lease.Org, lease.Repo, lease.Fence, state, reason, int64(retryDelay/time.Second))
 			return err
 		}
 		seen := []string{}

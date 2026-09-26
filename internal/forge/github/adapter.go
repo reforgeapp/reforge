@@ -26,6 +26,7 @@ const (
 	maxPageSize      = 100
 	maxPages         = 1000
 	maxResponseBytes = 4 << 20
+	maxProviderRetry = 24 * time.Hour
 	apiVersion       = "2022-11-28"
 )
 
@@ -823,12 +824,57 @@ func responseError(status int, headers http.Header) error {
 }
 
 func retryAfter(headers http.Header) time.Duration {
-	value := headers.Get("Retry-After")
-	seconds, err := strconv.Atoi(value)
-	if err != nil || seconds < 0 {
+	return retryAfterAt(headers, time.Now())
+}
+
+func retryAfterAt(headers http.Header, now time.Time) time.Duration {
+	delay := parseRetryAfter(headers.Get("Retry-After"), now)
+	if headers.Get("X-RateLimit-Remaining") == "0" {
+		if reset, err := strconv.ParseInt(strings.TrimSpace(headers.Get("X-RateLimit-Reset")), 10, 64); err == nil {
+			if wait := boundedRetry(time.Unix(reset, 0).Sub(now)); wait > delay {
+				delay = wait
+			}
+		}
+	}
+	return delay
+}
+
+func parseRetryAfter(value string, now time.Time) time.Duration {
+	value = strings.TrimSpace(value)
+	if decimalSeconds(value) {
+		seconds, err := strconv.ParseInt(value, 10, 64)
+		if err != nil || seconds > int64(maxProviderRetry/time.Second) {
+			return maxProviderRetry
+		}
+		if seconds <= 0 {
+			return 0
+		}
+		return time.Duration(seconds) * time.Second
+	}
+	deadline, err := http.ParseTime(value)
+	if err != nil {
 		return 0
 	}
-	return time.Duration(seconds) * time.Second
+	return boundedRetry(deadline.Sub(now))
+}
+
+func decimalSeconds(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, c := range value {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
+func boundedRetry(delay time.Duration) time.Duration {
+	if delay <= 0 {
+		return 0
+	}
+	return min(delay, maxProviderRetry)
 }
 
 func singleRepository(namespace string) (string, bool) {
