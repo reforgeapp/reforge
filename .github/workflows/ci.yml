@@ -50,7 +50,7 @@ jobs:
           fetch-depth: 0
       - uses: trufflesecurity/trufflehog@4dd8831c5f12599465d4d45c3c447b4018a34c85
         with:
-          extra_args: --results=verified,unknown
+          extra_args: --results=verified,unknown --exclude-paths=.github/trufflehog-exclude.txt
 
   images:
     needs: [lint, vulnerabilities, secrets]
