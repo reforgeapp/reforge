@@ -33,6 +33,7 @@ type Plan struct {
 	Recipe          recipes.Recipe    `json:"recipe"`
 	ProtectedHashes map[string]string `json:"protected_hashes"`
 	ForbiddenPaths  []string          `json:"forbidden_paths"`
+	Owner           bool              `json:"owner,omitempty"`
 	Digest          string            `json:"digest"`
 }
 
@@ -218,6 +219,62 @@ func Verified(p Plan, baseline, candidate []CheckResult) bool {
 		}
 	}
 	return count >= p.Recipe.MinimumTests
+}
+
+func secretFile(name string, body []byte) bool {
+	lower := strings.ToLower(name)
+	base := path.Base(lower)
+	for _, part := range strings.Split(lower, "/") {
+		if part == "secrets" || part == "credentials" {
+			return true
+		}
+	}
+	return base == ".env" || strings.HasPrefix(base, ".env.") || strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") || bytes.Contains(body, []byte("PRIVATE KEY-----"))
+}
+
+func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch) error {
+	if !p.Valid() || !p.Owner || len(patches) == 0 || len(patches) > p.Recipe.MaxFiles {
+		return ErrPatch
+	}
+	seen := map[string]bool{}
+	size := 0
+	for _, patch := range patches {
+		_, exists := baseline[patch.Path]
+		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seen[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && (!exists || len(patch.Content) > 0) {
+			return ErrPatch
+		}
+		seen[patch.Path] = true
+		size += len(patch.Content)
+		if size > p.Recipe.MaxPatchBytes || bytes.IndexByte(patch.Content, 0) >= 0 || !utf8.Valid(patch.Content) {
+			return ErrPatch
+		}
+		for _, pattern := range p.ForbiddenPaths {
+			if policy.ForbiddenPath(pattern, patch.Path) {
+				return ErrPatch
+			}
+		}
+	}
+	if p.MaxChangedLines > 0 && PatchLines(baseline, patches) > p.MaxChangedLines {
+		return ErrPatch
+	}
+	return nil
+}
+
+func ownerVerified(p Plan, candidate []CheckResult) bool {
+	if !p.Valid() || len(candidate) != len(p.Recipe.Commands) {
+		return false
+	}
+	for i, result := range candidate {
+		if !result.Complete || result.ExitCode != 0 || result.CommandID != p.Recipe.Commands[i].ID {
+			return false
+		}
+		for _, state := range result.Cases {
+			if state != "pass" {
+				return false
+			}
+		}
+	}
+	return true
 }
 
 func changedLines(a, b []byte) int {

@@ -193,7 +193,7 @@ func stageBranch(r Run, task string) string {
 	return "reforge/repair/" + task
 }
 func changeTitle(r Run) string {
-	if r.Report == nil || r.Report.Mode != "ci" || strings.TrimSpace(r.Report.Reason) == "" {
+	if r.Report == nil || r.Report.Mode == "" || strings.TrimSpace(r.Report.Reason) == "" {
 		return "Repair: " + r.Context.Finding.Title
 	}
 	title := []rune(strings.TrimSpace(strings.SplitN(strings.TrimSpace(r.Report.Reason), "\n", 2)[0]))
@@ -354,7 +354,7 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 		return s.adoptChange(ctx, credential, r, lease, in.HeadSHA)
 	}
 	body := "Compatibility repair validated against pinned upgrade and target source."
-	if r.Report != nil && r.Report.Mode == "ci" && r.Report.Reason != "" {
+	if r.Report != nil && r.Report.Mode != "" && r.Report.Reason != "" {
 		body = r.Report.Reason + "\n\nFound on: " + r.Context.Finding.Title
 	}
 	request := forge.CreateChangeRequest{Repository: r.Context.Repository, Title: changeTitle(r), Body: body + "\n\nBaseline: " + r.Context.Plan.BaselineSHA + "\nTarget: " + r.Context.Plan.TargetSHA + "\nValidation plan: " + r.Context.Plan.Digest, HeadBranch: r.Branch, TargetBranch: r.Context.Finding.Evidence.TargetBranch, ExpectedHeadSHA: r.CandidateSHA, OperationID: intent.OperationID, Draft: false}

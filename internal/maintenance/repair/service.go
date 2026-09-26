@@ -205,6 +205,15 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		if attempts < 1 {
 			return workflow.ErrPolicy
 		}
+		if in.Owner {
+			var enabled bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&enabled); err != nil {
+				return err
+			}
+			if !enabled || spec != nil {
+				return auth.ErrForbidden
+			}
+		}
 		_, err = s.workflow.CheckProposalTx(ctx, tx, workflow.Task{OrgID: org, RepositoryID: f.RepositoryID, Recipe: in.Recipe, ModelConnectionID: in.ModelConnectionID, ModelRoute: in.ModelRoute, RunnerPoolID: in.RunnerPoolID, MaxAttempts: attempts, State: domain.TaskQueued})
 		if err != nil {
 			return err
@@ -236,6 +245,9 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if err != nil {
 		return out, err
 	}
+	if in.Owner {
+		plan.Owner, plan.MaxChangedLines, plan.Recipe.MaxFiles, plan.Recipe.MaxPatchBytes, plan.Recipe.MaxTurns = true, 3000, 60, 4<<20, 48
+	}
 	if resolved.Policy.Limits.ChangedFiles != nil {
 		plan.Recipe.MaxFiles = min(plan.Recipe.MaxFiles, int(min(int64(plan.Recipe.MaxFiles), *resolved.Policy.Limits.ChangedFiles)))
 	}
@@ -252,7 +264,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	}
 	context.FollowUpBranch = followUp
 	context.CILogs = s.ciLogs(ctx, org, f, check)
-	if len(context.CILogs) > 0 {
+	if len(context.CILogs) > 0 || plan.Owner {
 		context.OpenFixes, context.OpenFixFiles = s.openFixes(ctx, org, f.RepositoryID, followUp)
 	}
 	out.Context = context
@@ -523,8 +535,8 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 	if err != nil || len(raw) > 1<<20 {
 		return out, auth.ErrInvalid
 	}
-	ci := in.Mode == "ci"
-	if in.Mode != "" && !ci || len(in.Dependencies) > 10 {
+	ci, owner := in.Mode == "ci", in.Mode == "owner"
+	if in.Mode != "" && !ci && !owner || len(in.Dependencies) > 10 {
 		return out, auth.ErrInvalid
 	}
 	for _, u := range in.Dependencies {
@@ -545,6 +557,12 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			}
 			sha = c.Plan.TargetSHA
 		}
+		if owner != c.Plan.Owner {
+			return out, ErrValidation
+		}
+		if owner {
+			sha = c.Plan.TargetSHA
+		}
 		snapshot, err := s.Snapshot(ctx, credential, sha)
 		if err != nil {
 			return out, err
@@ -553,7 +571,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if err != nil {
 			return out, err
 		}
-		if ci && CheckCIPatch(c.Plan, original, in.Patches, in.Dependencies) != nil || !ci && CheckPatch(c.Plan, original, in.Patches) != nil {
+		if owner && CheckOwnerPatch(c.Plan, original, in.Patches) != nil || ci && CheckCIPatch(c.Plan, original, in.Patches, in.Dependencies) != nil || !ci && !owner && CheckPatch(c.Plan, original, in.Patches) != nil {
 			return out, ErrPatch
 		}
 		in.Diff = SourceDiff(original, in.Patches)

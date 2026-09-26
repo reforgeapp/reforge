@@ -382,7 +382,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
 	for _, recipe := range recipesFor(c.ecosystem) {
-		in := repair.Input{FindingID: c.finding, FindingVersion: c.version, Recipe: recipe, ModelConnectionID: model, ModelRoute: route, RunnerPoolID: pool}
+		in := repair.Input{FindingID: c.finding, FindingVersion: c.version, Recipe: recipe, ModelConnectionID: model, ModelRoute: route, RunnerPoolID: pool, Owner: true}
 		preview, err := s.repairs.Preview(ctx, session, org, in)
 		if errors.Is(err, recipes.ErrUnsupported) {
 			continue

@@ -230,6 +230,11 @@ type passRuntime struct {
 }
 
 func (r *passRuntime) CollectArtifact(ctx context.Context, w sandbox.Workspace, name string) (sandbox.Artifact, error) {
+	for _, patch := range r.patches[w.ID] {
+		if patch.Path == name {
+			return sandbox.Artifact{Name: name, Data: append([]byte(nil), patch.Content...)}, nil
+		}
+	}
 	if w.CommitSHA == r.targetSHA {
 		return sandbox.Artifact{Name: name, Data: append([]byte(nil), r.target[name]...)}, nil
 	}
@@ -339,5 +344,41 @@ func TestEngineCIEditFileChangesOneSnippet(t *testing.T) {
 	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
 	if err != nil || report.State != "validated" || len(report.Patches) != 1 || !strings.Contains(string(report.Patches[0].Content), "=> a+b") {
 		t.Fatalf("report=%+v err=%v", report, err)
+	}
+}
+
+func TestEngineOwnerChangesAnyFileWithinPolicy(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner, plan.Recipe.MaxTurns = true, 3
+	plan.Digest = planDigest(plan)
+	files["old.js"] = []byte("exports.old = 1")
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, files, plan.TargetSHA}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, Goal: "Add dependency automation", Progress: func(context.Context, string) error { return nil },
+		Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+			turns++
+			switch turns {
+			case 1:
+				if !strings.Contains(in.Messages[0].Text, "Add dependency automation") {
+					t.Fatal("goal missing from prompt")
+				}
+				return model.TurnResult{ToolCalls: []model.ToolCall{
+					{ID: "w", Name: "write_file", Arguments: []byte(`{"path":".github/dependabot.yml","content":"version: 2\n"}`)},
+					{ID: "t", Name: "edit_file", Arguments: []byte(`{"path":"value.test.js","old":"'adds'","new":"'sums'"}`)},
+					{ID: "d", Name: "delete_file", Arguments: []byte(`{"path":"old.js"}`)},
+					{ID: "s", Name: "write_file", Arguments: []byte(`{"path":"private/x.js","content":"x"}`)},
+					{ID: "k", Name: "write_file", Arguments: []byte(`{"path":".env","content":"TOKEN=x"}`)},
+				}}, nil
+			case 2:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "c", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+			}
+			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "f", Name: "finish", Arguments: []byte(`{"summary":"Add Dependabot"}`)}}}, nil
+		}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || report.Mode != "owner" || len(report.Patches) != 3 {
+		t.Fatalf("report=%+v err=%v", report, err)
+	}
+	if CheckOwnerPatch(plan, files, report.Patches) != nil {
+		t.Fatal("owner patch rejected on report")
 	}
 }

@@ -45,6 +45,7 @@ type Engine struct {
 	Trust            string
 	Dependencies     string
 	CILogs           []CILog
+	Goal             string
 	OpenFixes        []string
 	OpenFixFiles     []map[string]string
 	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
@@ -197,6 +198,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	}
 	ctx, cancel := context.WithTimeout(ctx, AttemptTimeout(p))
 	defer cancel()
+	if p.Owner {
+		return e.runCI(ctx, p, out, targetFiles)
+	}
 	if err = e.stage(ctx, "reproducing"); err != nil {
 		return fail("Run authorization changed", err)
 	}
@@ -495,7 +499,17 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 		return out, ErrValidation
 	}
 	next := retarget(p, files)
-	if repaired.Mode != "ci" {
+	switch repaired.Mode {
+	case "owner":
+		for _, patch := range repaired.Patches {
+			if patch.Delete {
+				delete(files, patch.Path)
+			} else {
+				files[patch.Path] = patch.Content
+			}
+		}
+		next = retarget(p, files)
+	case "":
 		if next, err = targetPlan(p, files); err != nil {
 			return out, err
 		}
@@ -513,7 +527,7 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 	if err != nil {
 		return out, err
 	}
-	if !Verified(p, baseline, out.Checks) {
+	if repaired.Mode == "owner" && !ownerVerified(p, out.Checks) || repaired.Mode != "owner" && !Verified(p, baseline, out.Checks) {
 		return out, ErrValidation
 	}
 	return out, nil

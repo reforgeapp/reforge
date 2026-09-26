@@ -19,6 +19,7 @@ type Input struct {
 	CustomProfileVersion int64  `json:"custom_profile_version,omitempty"`
 	PlanDigest           string `json:"plan_digest,omitempty"`
 	IdempotencyKey       string `json:"idempotency_key,omitempty"`
+	Owner                bool   `json:"owner,omitempty"`
 }
 type ExecutionContext struct {
 	MaxAttempts        int                    `json:"max_attempts"`
