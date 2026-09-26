@@ -112,4 +112,15 @@ func TestEvaluateReforgeEnforcedUnprotectedMerge(t *testing.T) {
 	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
 		t.Fatal("admin bypass accepted without Reforge enforcement")
 	}
+	authority.ReforgeEnforced = true
+	snapshot.Rules = forge.Rules{State: domain.Unknown, Hash: snapshot.Rules.Hash, AllowedMergeMethods: []string{"squash"}, ActorCanBypass: true, RequiredApprovals: 1}
+	snapshot.Approvals = nil
+	snapshot.Native.State, snapshot.Native.Blockers, snapshot.Native.Protection = "blocked", []string{"Current-head approvals are missing"}, []string{"Current-head approvals are missing"}
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome != "allow" || !got.ReforgeEnforced {
+		t.Fatalf("bypassable ruleset not governed by Reforge: %+v", got.Decision)
+	}
+	snapshot.Native.Blockers = append(snapshot.Native.Blockers, "Native review requested changes")
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
+		t.Fatal("requested changes waived by Reforge enforcement")
+	}
 }

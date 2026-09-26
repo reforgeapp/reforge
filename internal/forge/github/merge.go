@@ -125,17 +125,21 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if eligibility.HeadSHA != in.ExpectedHeadSHA || eligibility.TargetSHA != in.ExpectedTargetSHA {
 		return out, failure("conflict", "Native eligibility is for a different candidate")
 	}
-	if eligibility.State != "eligible" {
+	if eligibility.State != "eligible" && !(in.ReforgeEnforced && eligibility.OnlyProtection()) {
 		return out, failure("policy", "Native merge prerequisites are not satisfied")
 	}
 	rules, err := p.ReadEffectiveRules(ctx, in.Repository, change.TargetBranch)
 	if err != nil {
 		return out, err
 	}
-	if rules.State != domain.Supported || rules.Hash != in.RulesHash || rules.ActorCanBypass && !rules.Unprotected || rules.RequireQueue != in.Queue {
+	native := rules.State == domain.Supported && (!rules.ActorCanBypass || rules.Unprotected)
+	if in.ReforgeEnforced {
+		native = rules.Unprotected || rules.ActorCanBypass
+	}
+	if !native || rules.Hash != in.RulesHash || rules.RequireQueue != in.Queue {
 		return out, failure("conflict", "Native protections or merge path changed")
 	}
-	appGate := p.app == nil || rules.Unprotected
+	appGate := p.app == nil || in.ReforgeEnforced
 	for _, check := range rules.RequiredChecks {
 		if p.app != nil && check.PublisherID == p.appID() {
 			appGate = true
@@ -144,7 +148,7 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if !appGate {
 		return out, failure("unsupported", "A provider-required check bound to this App must enforce the execution policy")
 	}
-	if !in.Queue && rules.StrictTargetEnforced != domain.Supported && !rules.Unprotected {
+	if !in.Queue && rules.StrictTargetEnforced != domain.Supported && !in.ReforgeEnforced {
 		return out, failure("unsupported", "Direct merge requires provider-enforced strict target freshness")
 	}
 	allowed := false
@@ -163,7 +167,7 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if err != nil {
 		return out, err
 	}
-	target, err := p.ResolveRef(ctx, in.Repository, "heads/"+change.TargetBranch)
+	target, err := p.ResolveRef(ctx, in.Repository, change.TargetBranch)
 	if err != nil {
 		return out, err
 	}
@@ -225,8 +229,12 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if err = confirm(); err != nil {
 		return out, err
 	}
-	if rules.Unprotected {
-		behind, err := p.Behind(ctx, in.Repository, in.ExpectedTargetSHA, in.ExpectedHeadSHA)
+	if in.ReforgeEnforced {
+		target, err := p.ResolveRef(ctx, in.Repository, change.TargetBranch)
+		if err != nil {
+			return out, err
+		}
+		behind, err := p.Behind(ctx, in.Repository, target, in.ExpectedHeadSHA)
 		if err != nil {
 			return out, err
 		}

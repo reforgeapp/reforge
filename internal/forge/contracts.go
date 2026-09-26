@@ -150,11 +150,17 @@ type Rules struct {
 }
 
 type NativeEligibility struct {
-	State     string   `json:"state"`
-	Blockers  []string `json:"blockers"`
-	HeadSHA   string   `json:"head_sha"`
-	TargetSHA string   `json:"target_sha"`
+	State      string   `json:"state"`
+	Blockers   []string `json:"blockers"`
+	Protection []string `json:"protection,omitempty"`
+	HeadSHA    string   `json:"head_sha"`
+	TargetSHA  string   `json:"target_sha"`
 }
+
+func (e NativeEligibility) OnlyProtection() bool {
+	return len(e.Blockers) == len(e.Protection)
+}
+
 type QueueState struct {
 	ID        string `json:"id"`
 	State     string `json:"state"`
@@ -215,6 +221,7 @@ type MergeRequest struct {
 	Method            string
 	OperationID       string
 	Queue             bool
+	ReforgeEnforced   bool
 }
 type MergeResult struct {
 	State    string `json:"state"`

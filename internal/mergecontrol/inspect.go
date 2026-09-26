@@ -216,7 +216,7 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 		return out, err
 	}
 	out.MergeControlled = cfg.Enabled && mode == "reforge"
-	if !cfg.Enabled && snapshot.Rules.Unprotected {
+	if !cfg.Enabled && (snapshot.Rules.Unprotected || snapshot.Rules.ActorCanBypass) {
 		var autopilot bool
 		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&autopilot); err != nil {
 			return out, err

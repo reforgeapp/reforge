@@ -229,7 +229,7 @@ func (s *Service) validateGateTx(ctx context.Context, tx pgx.Tx, org string, gat
 	authority.CompanionsBlocked = !validCompanions
 	files := int64(len(gate.Paths))
 	authority.Usage.ChangedFiles, authority.Usage.ChangedLines = &files, &gate.ChangedLines
-	if Evaluate(gate.Snapshot, resolved, gate.Method, authority, time.Now().UTC()).Decision.Outcome != "allow" {
+	if current := Evaluate(gate.Snapshot, resolved, gate.Method, authority, time.Now().UTC()); current.Decision.Outcome != "allow" || current.ReforgeEnforced != gate.ReforgeEnforced {
 		return auth.ErrForbidden
 	}
 	return nil
@@ -285,7 +285,7 @@ func (s *Service) dispatch(ctx context.Context, session auth.Session, org string
 		}
 		return op.ID, nil
 	}
-	op := privateconnector.Operation{ID: operation.ID, Kind: privateconnector.ForgeMerge, Merge: &forge.MergeRequest{Repository: gate.Snapshot.Change.Repository, ChangeID: gate.Snapshot.Change.ID, ExpectedHeadSHA: gate.Binding.Head, ExpectedTargetSHA: gate.Binding.Target, RulesHash: gate.Binding.ProviderRules, GateID: gate.ID, Method: gate.Method, OperationID: operation.ID, Queue: gate.Snapshot.Rules.RequireQueue}}
+	op := privateconnector.Operation{ID: operation.ID, Kind: privateconnector.ForgeMerge, Merge: &forge.MergeRequest{Repository: gate.Snapshot.Change.Repository, ChangeID: gate.Snapshot.Change.ID, ExpectedHeadSHA: gate.Binding.Head, ExpectedTargetSHA: gate.Binding.Target, RulesHash: gate.Binding.ProviderRules, GateID: gate.ID, Method: gate.Method, OperationID: operation.ID, Queue: gate.Snapshot.Rules.RequireQueue, ReforgeEnforced: gate.ReforgeEnforced}}
 	result, writeErr := s.providers.ForProtection(cfg.InspectorConnectionID, cfg.CheckPublishers).Write(ctx, org, gate.ConnectionID, op, authorize, current)
 	persist, cancel := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer cancel()

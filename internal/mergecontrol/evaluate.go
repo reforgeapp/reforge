@@ -37,12 +37,12 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 		}
 		evidence = append(evidence, policy.Evidence{ID: id, State: state, Reference: reference, Binding: binding, ObservedAt: snapshot.ObservedAt, Approvals: approvals})
 	}
-	nativeCurrent := snapshot.Native.HeadSHA == change.HeadSHA && snapshot.Native.TargetSHA == change.TargetSHA && snapshot.Native.State == "eligible"
+	reforge := authority.ReforgeEnforced && (rules.Unprotected || rules.ActorCanBypass) && !rules.RequireQueue
+	nativeCurrent := snapshot.Native.HeadSHA == change.HeadSHA && snapshot.Native.TargetSHA == change.TargetSHA && (snapshot.Native.State == "eligible" || reforge && snapshot.Native.OnlyProtection())
 	ready := (change.State == "open" || change.State == "opened") && !change.Draft && change.AuthorID != "" && change.HeadBranch != "" && change.TargetBranch != "" && source.ValidSHA(change.HeadSHA, "sha1") && source.ValidSHA(change.TargetSHA, "sha1") && change.Repository.NativeID != "" && change.Repository == change.TargetRepository && change.HeadRepository.NativeID != ""
 	qualified := authority.Qualified && authority.QualificationReference != "" && snapshot.Capabilities.Provider != "" && snapshot.Capabilities.ServerVersion != "" && (!rules.RequireQueue || queueGate)
-	reforge := authority.ReforgeEnforced && rules.Unprotected
 	add("execution_authority", ready && nativeCurrent && qualified && authority.PathsVerified && (!rules.ActorCanBypass || reforge), authority.QualificationReference, 0)
-	add("native_rules", rules.State == domain.Supported && source.ValidSHA(rules.Hash, "sha256") && slices.Contains(rules.AllowedMergeMethods, method), "native-rules:"+rules.Hash, 0)
+	add("native_rules", (rules.State == domain.Supported || reforge) && source.ValidSHA(rules.Hash, "sha256") && slices.Contains(rules.AllowedMergeMethods, method), "native-rules:"+rules.Hash, 0)
 	trustedChecks, checked := true, 0
 	for _, requirement := range rules.RequiredChecks {
 		if queueGate && requirement == snapshot.ExecutionCheck {
@@ -83,7 +83,7 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 			reviewers[approval.ActorID] = true
 		}
 	}
-	reviews := len(reviewers) >= rules.RequiredApprovals && (!rules.RequireCodeOwners || rules.CodeOwnersEnforced == domain.Supported)
+	reviews := reforge || len(reviewers) >= rules.RequiredApprovals && (!rules.RequireCodeOwners || rules.CodeOwnersEnforced == domain.Supported)
 	add("native_reviews", nativeCurrent && reviews, "native-reviews:"+change.ID, len(reviewers))
 	local := authority.ValidationHead == change.HeadSHA && authority.ValidationTarget == change.TargetSHA && authority.ValidationReference != ""
 	if phase == "queue_execution" {
@@ -118,5 +118,5 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 		decision.Outcome = "deny"
 		decision.Blockers = append(decision.Blockers, authority.Blockers...)
 	}
-	return Gate{Phase: phase, Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
+	return Gate{ReforgeEnforced: reforge, Phase: phase, Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
 }

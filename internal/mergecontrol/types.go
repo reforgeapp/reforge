@@ -9,6 +9,7 @@ import (
 type Snapshot = forge.MergeEvidence
 
 type Gate struct {
+	ReforgeEnforced      bool           `json:"reforge_enforced,omitempty"`
 	Phase                string         `json:"phase"`
 	Companions           []Companion    `json:"companions"`
 	Paths                []string       `json:"paths"`

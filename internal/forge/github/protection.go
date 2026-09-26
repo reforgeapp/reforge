@@ -480,6 +480,10 @@ func (p *Provider) EvaluateQueuePrerequisites(ctx context.Context, r forge.RepoR
 
 func (p *Provider) evaluateEligibility(ctx context.Context, r forge.RepoRef, id string, executionCheck forge.CheckRule) (forge.NativeEligibility, error) {
 	out := forge.NativeEligibility{State: "blocked", Blockers: []string{}}
+	protection := func(reason string) {
+		out.Blockers = append(out.Blockers, reason)
+		out.Protection = append(out.Protection, reason)
+	}
 	change, err := p.ReadChange(ctx, r, id)
 	if err != nil {
 		return out, err
@@ -490,10 +494,10 @@ func (p *Provider) evaluateEligibility(ctx context.Context, r forge.RepoRef, id 
 		return out, err
 	}
 	if rules.State != domain.Supported {
-		out.Blockers = append(out.Blockers, rules.Reason)
+		protection(rules.Reason)
 	}
 	if rules.ActorCanBypass {
-		out.Blockers = append(out.Blockers, "Operational App can bypass protection")
+		protection("Operational App can bypass protection")
 	}
 	if executionCheck.Name != "" {
 		bound := false
@@ -504,8 +508,11 @@ func (p *Provider) evaluateEligibility(ctx context.Context, r forge.RepoRef, id 
 			out.Blockers = append(out.Blockers, "Native queue must require the execution check from this App")
 		}
 	}
-	if change.State != "open" || change.Draft || (change.MergeStatus != "clean" && !(rules.RequireQueue && (change.MergeStatus == "blocked" || change.MergeStatus == "behind"))) {
+	switch {
+	case change.State != "open" || change.Draft || change.MergeStatus == "dirty" || change.MergeStatus == "unknown" || change.MergeStatus == "draft":
 		out.Blockers = append(out.Blockers, "Native pull request state is not clean and open")
+	case change.MergeStatus != "clean" && !(rules.RequireQueue && (change.MergeStatus == "blocked" || change.MergeStatus == "behind")):
+		protection("Native pull request state is not clean and open")
 	}
 	head, err := p.ResolveRef(ctx, change.HeadRepository, "heads/"+change.HeadBranch)
 	if err != nil {
@@ -563,10 +570,10 @@ func (p *Provider) evaluateEligibility(ctx context.Context, r forge.RepoRef, id 
 		}
 	}
 	if approved < rules.RequiredApprovals {
-		out.Blockers = append(out.Blockers, "Current-head approvals are missing")
+		protection("Current-head approvals are missing")
 	}
 	if !rules.RequireQueue && rules.StrictTargetEnforced != domain.Supported {
-		out.Blockers = append(out.Blockers, "Native target freshness enforcement is not established")
+		protection("Native target freshness enforcement is not established")
 	}
 	if p.mergeGuard == nil {
 		out.Blockers = append(out.Blockers, "Persisted execution gate and live provider qualification are required")

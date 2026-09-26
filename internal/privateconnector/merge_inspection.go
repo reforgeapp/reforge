@@ -59,11 +59,15 @@ func inspectMerge(ctx context.Context, provider forge.Provider, args ChangeArgs)
 	if err != nil {
 		return evidence, err
 	}
-	if freshness, ok := provider.(forge.ForgeFreshness); ok && rules.Unprotected {
-		if evidence.TargetChecks, err = provider.ListChecks(ctx, change.TargetRepository, change.TargetSHA); err != nil {
+	if freshness, ok := provider.(forge.ForgeFreshness); ok && (rules.Unprotected || rules.ActorCanBypass) {
+		target, err := provider.ResolveRef(ctx, change.TargetRepository, change.TargetBranch)
+		if err != nil {
 			return evidence, err
 		}
-		behind, err := freshness.Behind(ctx, args.Repository, change.TargetSHA, change.HeadSHA)
+		if evidence.TargetChecks, err = provider.ListChecks(ctx, change.TargetRepository, target); err != nil {
+			return evidence, err
+		}
+		behind, err := freshness.Behind(ctx, args.Repository, target, change.HeadSHA)
 		if err != nil {
 			return evidence, err
 		}
