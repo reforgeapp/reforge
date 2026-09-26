@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Button } from '../components/Accessible'
+import { Icon } from '../components/Icons'
 import { autopilotAPI, policyAPI, type Action, type Policy, type Resolved } from '../policy-api'
 
 export const presets = [
-  { id: 'observe', label: 'Observe', deny: ['repair', 'publish', 'merge', 'deploy', 'recover'] as Action[] },
-  { id: 'propose', label: 'Propose fixes', deny: ['merge', 'deploy', 'recover'] as Action[] },
-  { id: 'merge', label: 'Merge eligible fixes', deny: ['deploy', 'recover'] as Action[] },
-  { id: 'deliver', label: 'Deliver to approved environments', deny: ['recover'] as Action[], allow: { environments: [] as string[], workflows: [] as string[] } },
+  { id: 'observe', label: 'Observe', title: 'Scan and report only', deny: ['repair', 'publish', 'merge', 'deploy', 'recover'] as Action[] },
+  { id: 'propose', label: 'Propose', title: 'Open fix pull requests', deny: ['merge', 'deploy', 'recover'] as Action[] },
+  { id: 'merge', label: 'Merge', title: 'Merge fixes that pass the gate', deny: ['deploy', 'recover'] as Action[] },
+  { id: 'deliver', label: 'Deliver', title: 'Merge and deploy to approved environments', deny: ['recover'] as Action[], allow: { environments: [] as string[], workflows: [] as string[] } },
 ] as const
 
 const text = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
@@ -16,47 +17,47 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
   const [busy, setBusy] = useState('')
   const [error, setError] = useState('')
   const autopilot = useQuery({ queryKey: ['org', orgID, 'autopilot'], queryFn: ({ signal }) => autopilotAPI.get(orgID, signal), refetchInterval: query => query.state.data?.enabled ? 15_000 : false })
-  const toggle = async (enabled: boolean) => {
-    if (!autopilot.data) return
-    if (enabled && !window.confirm('Fix every open finding automatically? Spending is limited by Usage → Budgets.')) return
-    setBusy('autopilot')
-    setError('')
-    try {
-      await autopilotAPI.put(orgID, autopilot.data.version, enabled, csrf)
-      await autopilot.refetch()
-    } catch (reason) {
-      setError(text(reason))
-    } finally {
-      setBusy('')
-    }
-  }
   const deny = effective?.policy.deny ?? []
   const current = !effective?.layers?.some(layer => layer.scope.kind === 'organisation') || deny.includes('repair') ? 'observe' : deny.includes('merge') ? 'propose' : deny.includes('deploy') ? 'merge' : 'deliver'
-  const apply = async (preset: typeof presets[number]) => {
-    if (!window.confirm(`Set the organisation to "${preset.label}"?`)) return
-    setBusy(preset.id)
+  const setPolicy = async (preset: typeof presets[number]) => {
+    const reason = `Mode: ${preset.label}`
+    const policy: Policy = { ...base, deny: [...new Set([...base.deny.filter(action => action === 'read'), ...preset.deny])], allow: 'allow' in preset ? { ...base.allow, environments: base.allow.environments ?? [], workflows: base.allow.workflows ?? [] } : base.allow }
+    const version = await policyAPI.createVersion(orgID, { kind: 'organisation', id: orgID }, policy, reason, csrf)
+    const simulation = await policyAPI.simulate(orgID, version.id, repositoryID, '', { action: 'read', recipe: '', model: '', route: '', merge_method: '', environment: '', workflow: '', paths: [], usage: {}, current: { head: '', target: '', tested: '', policy_hash: '', provider_rules: '', capability_version: '', source_sha: '', artifact: '' }, starting_policy_hash: effective?.hash ?? '', evidence: [], paused_scopes: [] }, csrf)
+    if (simulation.resolved.problems?.length) throw new Error(simulation.resolved.problems.join('; '))
+    await policyAPI.activate(orgID, version.id, repositoryID, '', currentVersion, simulation.hash, reason, csrf)
+  }
+  const auto = autopilot.data?.enabled ?? false
+  const selected = auto ? 'auto' : current
+  const choose = async (id: string) => {
+    if (id === selected || !autopilot.data) return
+    const preset = presets.find(item => item.id === (id === 'auto' ? 'deliver' : id))!
+    if (!window.confirm(id === 'auto' ? 'Let Reforge maintain repositories on its own, including merging and delivery? Spending is limited by Usage → Budgets.' : `Set the organisation to "${preset.label}"?`)) return
+    setBusy(id)
     setError('')
     try {
-      const reason = `Mode: ${preset.label}`
-      const policy: Policy = { ...base, deny: [...new Set([...base.deny.filter(action => action === 'read'), ...preset.deny])], allow: 'allow' in preset ? { ...base.allow, environments: base.allow.environments ?? [], workflows: base.allow.workflows ?? [] } : base.allow }
-      const version = await policyAPI.createVersion(orgID, { kind: 'organisation', id: orgID }, policy, reason, csrf)
-      const simulation = await policyAPI.simulate(orgID, version.id, repositoryID, '', { action: 'read', recipe: '', model: '', route: '', merge_method: '', environment: '', workflow: '', paths: [], usage: {}, current: { head: '', target: '', tested: '', policy_hash: '', provider_rules: '', capability_version: '', source_sha: '', artifact: '' }, starting_policy_hash: effective?.hash ?? '', evidence: [], paused_scopes: [] }, csrf)
-      if (simulation.resolved.problems?.length) throw new Error(simulation.resolved.problems.join('; '))
-      await policyAPI.activate(orgID, version.id, repositoryID, '', currentVersion, simulation.hash, reason, csrf)
-      onChanged()
+      if (preset.id !== current) {
+        await setPolicy(preset)
+        onChanged()
+      }
+      if ((id === 'auto') !== auto) {
+        await autopilotAPI.put(orgID, autopilot.data.version, id === 'auto', csrf)
+        await autopilot.refetch()
+      }
     } catch (reason) {
       setError(text(reason))
     } finally {
       setBusy('')
     }
   }
+  const disabled = !canWrite || !csrf || !repositoryID || !autopilot.data || !!busy
   return <section className="panel policy-mode" aria-label="Organisation mode">
     <div className="panel-head"><h2>Mode</h2></div>
-    <div className="segmented" role="group" aria-label="Organisation mode">
-      {presets.map(preset => <Button key={preset.id} aria-pressed={current === preset.id} disabled={!canWrite || !csrf || !repositoryID || !!busy} onClick={() => { if (current !== preset.id) void apply(preset) }}>{busy === preset.id ? 'Applying…' : preset.label}</Button>)}
+    <div className="mode-buttons" role="group" aria-label="Organisation mode">
+      {presets.map(preset => <Button key={preset.id} className="mode-button" title={preset.title} aria-pressed={selected === preset.id} disabled={disabled} onClick={() => void choose(preset.id)}><Icon name={preset.id} size={16} />{busy === preset.id ? 'Applying…' : preset.label}</Button>)}
+      <Button className="mode-button mode-auto" title="Reforge owns maintenance: fixes, merges and delivers on its own" aria-pressed={selected === 'auto'} disabled={disabled} onClick={() => void choose('auto')}><Icon name="auto" size={16} />{busy === 'auto' ? 'Applying…' : 'Auto-mode'}</Button>
     </div>
-    <label className="checkbox-label"><input type="checkbox" checked={autopilot.data?.enabled ?? false} disabled={!canWrite || !csrf || !autopilot.data || !!busy} onChange={event => void toggle(event.target.checked)} />Fix findings automatically</label>
-    {autopilot.data?.enabled && <p className="table-meta" role="status">{autopilot.data.status || 'Starting'} · {autopilot.data.queued} fixes started · {autopilot.data.skipped} skipped</p>}
+    {auto && <p className="table-meta" role="status">{autopilot.data?.status || 'Starting'} · {autopilot.data?.queued} fixes started · {autopilot.data?.skipped} skipped</p>}
     {error && <p className="error-text" role="alert">{error}</p>}
   </section>
 }
