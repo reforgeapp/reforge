@@ -488,13 +488,23 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 }
 
 func recipesFor(ecosystem string) []string {
+	first := ""
 	switch strings.ToLower(ecosystem) {
 	case "go", "gomod", "go_modules":
-		return []string{"go"}
+		first = "go"
 	case "npm", "yarn", "pnpm", "javascript":
-		return []string{"javascript"}
+		first = "javascript"
 	case "pip", "pypi", "python", "poetry":
-		return []string{"python"}
+		first = "python"
 	}
-	return []string{"go", "javascript", "python"}
+	out := []string{}
+	if first != "" {
+		out = append(out, first)
+	}
+	for _, recipe := range []string{"go", "javascript", "python"} {
+		if recipe != first {
+			out = append(out, recipe)
+		}
+	}
+	return out
 }
