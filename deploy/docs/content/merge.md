@@ -21,14 +21,26 @@ Decision                   Waiting for code owner review
 Unknown rules render as “Cannot verify protection; automatic merge blocked”. No merge
 control is enabled while a gate is pending or unknown.
 
-## Branches without native protection
+## Reforge-enforced gate
 
-When a GitHub branch has no protection or rulesets (including private repositories on plans
-without branch protection) and autopilot is on, Reforge enforces the gate itself, recorded
-as `reforge-enforced`: every check passing on the target branch must pass on the pull
-request, the pull request must not be behind the target, and the merge pins the tested
-head. Repository administrator rights do not count as a bypass in this mode. Protected
-branches always use the native rules.
+With autopilot on and no merge configuration, Reforge enforces the gate itself on GitHub
+branches that have no protection, or whose protection the connection's identity can bypass.
+The gate is recorded as `reforge-enforced`:
+
+- every check passing on the target branch must pass on the pull request;
+- the pull request must not be behind the current target branch;
+- the merge pins the tested head;
+- a native "changes requested" review, conflicts or a draft still block.
+
+Native review requirements are satisfied by this gate. Branches the identity cannot bypass
+use the native rules.
+
+## Dependency bots
+
+Autopilot merges open pull requests from trusted bots through the same gate. When a
+Dependabot pull request falls behind, Reforge comments `@dependabot rebase` and merges once
+the rebased pull request passes. When the default branch's own CI fails, bot pull requests
+failing the same checks wait while Reforge fixes the default branch first.
 
 ## Exact revisions
 
@@ -46,4 +58,4 @@ provider review, not an application approval, and the interface labels the diffe
 
 When a companion change must merge first, Reforge records the order and revalidates the
 original bot update after the companion merges, using fresh head, target and native gate
-evidence. Merge is never forced and branch protection is never bypassed.
+evidence. Merge is never forced.

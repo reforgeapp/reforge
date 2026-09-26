@@ -59,11 +59,22 @@ When CI fails on a Reforge pull request, the next scan turns it into a follow-up
 works on the pull request's own branch and pushes a new commit to it. After five follow-ups
 that still fail, Reforge closes the pull request with a comment naming the failing checks.
 
+## Autopilot runs
+
+Autopilot runs work on the target branch as the repository's owner. The model can read,
+edit, create and delete any file except secrets and policy-forbidden paths, including
+tests and CI workflows, run offline commands in the sandbox, and update dependencies. The
+recipe's checks must pass on the result. Changed files and lines are capped by policy.
+
+Autopilot also keeps dependency automation in place: a repository without Dependabot or
+Renovate gets a configuration, and a Dependabot configuration without groups is tuned to
+weekly grouped updates with a small pull request limit.
+
 A Reforge pull request counts as fixed, and autopilot merges it, only when every check that
 passes on the target branch also runs and passes on the pull request. A check that
 disappears, for example because a workflow edit removed it, is treated as a failure and
 followed up.
 
-Tests stay protected. Workflow edits on GitHub need a token with `workflow` scope, or the
+Outside autopilot, tests stay protected. Workflow edits on GitHub need a token with `workflow` scope, or the
 GitHub App's Workflows permission. The recipe's checks must pass before publication,
 and the forge's required checks still gate the merge.
