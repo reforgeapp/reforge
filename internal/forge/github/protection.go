@@ -108,7 +108,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		if classic.Admins == nil {
 			return out, failure("provider", "Incomplete classic protection document")
 		}
-	} else if status != 404 && status != 403 || *branchInfo.Protected {
+	} else if status != 404 && (status != 403 || *branchInfo.Protected) {
 		return out, responseError(status, headers)
 	}
 	out.State = domain.Supported
