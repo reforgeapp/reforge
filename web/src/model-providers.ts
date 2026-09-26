@@ -56,7 +56,10 @@ export type ConnectionStatus = {
   title?: string
 }
 
-export function connectionStateStatus(provider: string, profile: string | undefined, state: string, keyConfirmedAt?: string): ConnectionStatus {
+export function connectionStateStatus(provider: string, profile: string | undefined, state: string, keyConfirmedAt?: string, reason?: string): ConnectionStatus {
+  if (state === 'degraded') {
+    return { label: 'Failed', tone: 'red', title: reason || 'Recent calls failed. Test the connection after fixing the key or model.' }
+  }
   if (state === 'healthy' && provider === 'compatible' && (profile === 'opencode_zen' || profile === 'opencode_go') && keyConfirmedAt) {
     return { label: 'Key verified', tone: 'green', title: `A model call succeeded on ${new Date(keyConfirmedAt).toLocaleString()}.` }
   }

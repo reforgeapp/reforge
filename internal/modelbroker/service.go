@@ -317,6 +317,16 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			if _, e := s.budgets.SettleTx(finalctx, tx, lease.OrgID, reservation.ID, budget.Settlement{Known: true, Reference: "model-turn:" + in.OperationID}); e != nil {
 				return e
 			}
+			switch providerError.Kind {
+			case "auth", "unauthorized", "forbidden", "scope", "model_unsupported", "not_found":
+				reason := "Model calls rejected by the provider: " + providerError.Message
+				if privateconnector.ContainsSecret([]byte(reason), resolved.Secret) {
+					reason = "Model calls rejected by the provider"
+				}
+				if _, e := tx.Exec(finalctx, `UPDATE connections SET state='degraded',reason=$3 WHERE org_id=$1 AND id=$2 AND state='healthy'`, lease.OrgID, reservation.ConnectionID, reason[:min(len(reason), 500)]); e != nil {
+					return e
+				}
+			}
 			_, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
 			return e
 		}

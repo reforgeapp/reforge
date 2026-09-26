@@ -262,7 +262,7 @@ function ConnectionList(props: ConnectionListProps) {
 }
 
 function ConnectionRow({ connection, onSelect }: { connection: Connection; onSelect: (id: string) => void }) {
-  const status = connectionStateStatus(connection.provider, connection.settings.profile, connection.state, connection.key_confirmed_at)
+  const status = connectionStateStatus(connection.provider, connection.settings.profile, connection.state, connection.key_confirmed_at, connection.reason)
 
   return <tr>
     <td><button className="link-button" onClick={() => onSelect(connection.id)}>{connection.name}</button></td>
@@ -352,7 +352,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
 
   const connection = result.data
   const capabilities = Object.entries(connection.capabilities)
-  const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state, connection.key_confirmed_at)
+  const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state, connection.key_confirmed_at, connection.reason)
   const forgeLike = connection.kind === 'forge'
   const namespaceEditable = forgeLike && connection.settings.auth_kind !== 'github_app' && connection.settings.auth_kind !== 'github_app_platform'
   const revoked = connection.state === 'revoked'
