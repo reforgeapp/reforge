@@ -464,6 +464,22 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 	})
 }
 
+func (s *Service) RequestRebase(ctx context.Context, org string, f discovery.Finding) error {
+	w, ok := s.reader.(writer)
+	change := f.Evidence.Change
+	if !ok || change == nil || f.Evidence.Bot != "dependabot" {
+		return privateconnector.ErrUnsupported
+	}
+	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCommentChange, Comment: &forge.CommentChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadSHA: change.HeadSHA, Comment: "@dependabot rebase"}}
+	_, err := w.Write(ctx, org, f.Evidence.ConnectionID, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+		if c.ID != f.Evidence.ConnectionID {
+			return "", auth.ErrConflict
+		}
+		return op.ID, nil
+	}, func(context.Context, pgx.Tx, connections.Connection) error { return nil })
+	return err
+}
+
 func (s *Service) CISuperset(ctx context.Context, org, task string) (string, error) {
 	var r Run
 	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {

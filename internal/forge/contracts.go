@@ -349,6 +349,21 @@ func (r CloseChangeRequest) Valid() bool {
 	return r.Repository.NativeID != "" && r.ChangeID != "" && len(r.ChangeID) <= 32 && strings.HasPrefix(r.HeadBranch, "reforge/repair/") && r.Comment != "" && len(r.Comment) <= 4000
 }
 
+type CommentChangeRequest struct {
+	Repository RepoRef `json:"repository"`
+	ChangeID   string  `json:"change_id"`
+	HeadSHA    string  `json:"head_sha"`
+	Comment    string  `json:"comment"`
+}
+
+func (r CommentChangeRequest) Valid() bool {
+	return r.Repository.NativeID != "" && len(r.Repository.FullName) <= 1024 && r.ChangeID != "" && len(r.ChangeID) <= 32 && len(r.HeadSHA) == 40 && r.Comment != "" && len(r.Comment) <= 4000
+}
+
+type ForgeChangeCommenter interface {
+	CommentChange(context.Context, CommentChangeRequest) (Change, error)
+}
+
 type ForgeChangeCloser interface {
 	CloseChange(context.Context, CloseChangeRequest) (Change, error)
 }

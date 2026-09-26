@@ -448,7 +448,7 @@ func (r Result) valid(kind Kind) bool {
 		return count <= 1
 	case ForgeBehind:
 		return count == 1 && r.Behind != nil
-	case GiteaReadChange, ForgeCreateChange, ForgeCloseChange:
+	case GiteaReadChange, ForgeCreateChange, ForgeCloseChange, ForgeCommentChange:
 		return count == 1 && r.Change != nil
 	case GiteaChecks:
 		return count == 0 || count == 1 && r.Checks != nil
