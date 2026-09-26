@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"sort"
+	"sync"
 	"time"
 
 	"reforge/internal/customcmd"
@@ -17,6 +18,29 @@ import (
 )
 
 func RepairProcessor(config sandbox.RuntimeConfig) Processor {
+	var mu sync.Mutex
+	var shared *sandbox.Runtime
+	var fetchers sync.Map
+	sharedRuntime := func() (*sandbox.Runtime, error) {
+		mu.Lock()
+		defer mu.Unlock()
+		if shared != nil {
+			return shared, nil
+		}
+		cfg := config
+		cfg.Fetch = func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+			fetch, ok := fetchers.Load(in.JobID + "/" + in.AttemptID)
+			if !ok {
+				return sandbox.Snapshot{}, sandbox.ErrBoundary
+			}
+			return fetch.(func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error))(ctx, in)
+		}
+		runtime, err := sandbox.NewRuntime(cfg)
+		if err == nil {
+			shared = runtime
+		}
+		return runtime, err
+	}
 	return func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
 		failed := workflow.Completion{Outcome: "failed"}
 		run, err := c.RepairRun(ctx, j)
@@ -38,10 +62,8 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 		}
 		cfg := config
-		cfg.Fetch = func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
-			if in.JobID != j.Lease.JobID || in.AttemptID != j.Lease.AttemptID {
-				return sandbox.Snapshot{}, sandbox.ErrBoundary
-			}
+		key := j.Lease.JobID + "/" + j.Lease.AttemptID
+		fetchers.Store(key, func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
 			if in.CommitSHA == baseline.CommitSHA {
 				return baseline, nil
 			}
@@ -49,17 +71,12 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 				return target, nil
 			}
 			return c.RepairSnapshot(ctx, j, in.CommitSHA)
-		}
-		runtime, err := sandbox.NewRuntime(cfg)
+		})
+		defer fetchers.Delete(key)
+		runtime, err := sharedRuntime()
 		if err != nil {
 			return failed, err
 		}
-		defer func() {
-			if err := runtime.Close(); err != nil {
-				completion = failed
-				failure = errors.Join(failure, err)
-			}
-		}()
 		state := j.Task.State
 		trust := "untrusted"
 		if cfg.Development {
