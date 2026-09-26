@@ -284,7 +284,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			return nil, ErrStale
 		}
 		change := *current.Change
-		if change.State != "open" {
+		if change.State != "open" || strings.HasPrefix(change.HeadBranch, "reforge/") {
 			continue
 		}
 		if change.Repository != lease.Ref || change.HeadRepository.NativeID == "" || change.TargetRepository != lease.Ref || !source.ValidSHA(change.HeadSHA, "sha1") || !source.ValidSHA(change.TargetSHA, "sha1") {
