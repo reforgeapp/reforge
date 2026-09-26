@@ -22,6 +22,7 @@ const batchBytes = 3 << 20
 const MaxGrant = 1 << 20
 const MaxModelTTL = 5 * time.Minute
 const MaxTTL = 30 * time.Second
+const MaxMergeTTL = 2 * time.Minute
 const DefaultTTL = 10 * time.Second
 
 var ErrUnavailable = errors.New("private supervisor unavailable")
@@ -410,14 +411,20 @@ func DecodeGrant(b []byte) (Grant, error) {
 }
 
 func (o Operation) MaximumTTL() time.Duration {
-	if o.Kind == ModelTurn {
+	switch o.Kind {
+	case ModelTurn:
 		return MaxModelTTL
+	case ForgeMergeInspect, ForgeQueueInspect, ForgeMerge:
+		return MaxMergeTTL
 	}
 	return MaxTTL
 }
 func (o Operation) ttl(fallback time.Duration) time.Duration {
 	if o.Kind == ModelTurn && o.Turn != nil {
 		return time.Duration(o.Turn.TimeoutMS) * time.Millisecond
+	}
+	if o.MaximumTTL() == MaxMergeTTL {
+		return MaxMergeTTL
 	}
 	return fallback
 }
