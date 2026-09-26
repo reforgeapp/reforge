@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/url"
@@ -371,6 +372,9 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 		}
 	}()
 	result, err := process(jobctx, c, job)
+	if err != nil {
+		slog.WarnContext(ctx, "runner job failed", "task_id", job.Lease.TaskID, "attempt_id", job.Lease.AttemptID, "outcome", result.Outcome, "error", err)
+	}
 	if err != nil && result.Outcome == "" {
 		result = workflow.Completion{Outcome: "failed"}
 	}
