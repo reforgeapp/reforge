@@ -9,6 +9,7 @@ import { StatePanel } from '../components/StatePanel'
 import { Icon } from '../components/Icons'
 import { SignInPage } from './SignInPage'
 import { BootstrapPage } from './BootstrapPage'
+import { BrandMark } from '../components/BrandMark'
 
 export function AppShell() {
   const { data: meta, isLoading: metaLoading } = useMeta()
@@ -185,7 +186,7 @@ export function AppShell() {
   return <div className="app-shell">
     <a className="skip-link" href="#main-content">Skip to content</a>
     <header ref={topbarRef} className="topbar">
-      <div className="masthead-brand"><button ref={menuRef} className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button><div className="brand"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></div></div>
+      <div className="masthead-brand"><button ref={menuRef} className="menu-button" aria-expanded={navOpen} aria-controls="primary-navigation" aria-label="Menu" onClick={() => setNavOpen(open => !open)}><Icon name="menu" /></button><div className="brand"><BrandMark /><span>Reforge</span></div></div>
       <div className="org-switcher">
         <button ref={orgButtonRef} className="org-button" onClick={() => setOrgMenuOpen(open => !open)} aria-haspopup="menu" aria-expanded={orgMenuOpen} aria-controls="organisation-menu" aria-label="Switch organisation"><span className="org-dot" aria-hidden="true">{org.name.slice(0, 1)}</span><span>{org.name}</span><Icon name="chevron" size={15} /></button>
         {orgMenuOpen && <div ref={orgMenuRef} id="organisation-menu" className="org-menu" role="menu" aria-label="Quick switch organisation" onKeyDown={handleOrgMenuKeyDown}>

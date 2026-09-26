@@ -2,6 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { ReforgeAPIError } from '../api/client'
 import { organisationAPI } from '../organisation-api'
 import '../styles/invite.css'
+import { BrandMark } from '../components/BrandMark'
 
 function takeInvitationToken() {
   if (typeof window === 'undefined' || window.location.pathname !== '/invite') return ''
@@ -56,7 +57,7 @@ export function InviteLandingPage() {
 
   return <main className="invite-page">
     <section className="invite-card" aria-labelledby="invite-title">
-      <a className="invite-brand" href="/" aria-label="Reforge home"><span className="brand-mark" aria-hidden="true">R</span><span>Reforge</span></a>
+      <a className="invite-brand" href="/" aria-label="Reforge home"><BrandMark /><span>Reforge</span></a>
       <h1 id="invite-title">Join your organisation</h1>
       {!token ? <>
         <p role="alert">{status === 'invalid' ? 'Invitation is invalid, expired or already used.' : 'Invitation link is missing or invalid.'}</p>

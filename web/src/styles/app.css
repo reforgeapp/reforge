@@ -18,7 +18,10 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .brand { display: flex; align-items: center; gap: 10px; padding: 0; color: var(--text); font-size: 16px; font-weight: 700; letter-spacing: -.01em; }
 .brand small { display: none; }
 .brand-dark { padding: 0; }
-.brand-mark { display: grid; width: 28px; height: 28px; place-items: center; border-radius: var(--radius); color: var(--on-primary); background: var(--primary); box-shadow: var(--shadow-xs); font-size: 14px; font-weight: 800; }
+.brand-mark { display: grid; width: 28px; height: 28px; flex: none; }
+.brand-mark img { width: 100%; height: 100%; }
+.brand-mark-dark, :root[data-theme="dark"] .brand-mark-light { display: none; }
+:root[data-theme="dark"] .brand-mark-dark { display: block; }
 .nav-list { display: grid; gap: 2px; overflow-y: auto; }
 .nav-label { margin: 10px 10px 6px; color: var(--nav-text-muted); font-size: 11px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; }
 .nav-label-admin { margin-top: 18px; }
