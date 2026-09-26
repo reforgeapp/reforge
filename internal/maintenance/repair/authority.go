@@ -23,8 +23,8 @@ func (s *Service) CheckModelTx(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM model_turns WHERE org_id=$1 AND task_id=$2),(SELECT min(created_at) FROM model_turns WHERE org_id=$1 AND task_id=$2 AND attempt_id=$3)`, t.OrgID, t.ID, reservation.Lease.AttemptID).Scan(&turns, &started); err != nil {
 		return err
 	}
-	if turns >= p.Recipe.MaxTurns || started != nil && time.Since(*started) > time.Duration(p.Recipe.TimeoutSeconds)*time.Second {
-		return budget.ErrCapacity
+	if turns >= p.Recipe.MaxTurns || started != nil && time.Since(*started) > AttemptTimeout(p) {
+		return ErrRunLimit
 	}
 	var money, concurrency, attempts, open int64
 	if err = tx.QueryRow(ctx, `SELECT coalesce(sum(coalesce((record->'actual'->>'micro_usd')::bigint,(record->'maximum'->>'micro_usd')::bigint,0)),0) FROM budget_reservations WHERE org_id=$1 AND task_id=$2 AND state<>'cancelled'`, t.OrgID, t.ID).Scan(&money); err != nil {

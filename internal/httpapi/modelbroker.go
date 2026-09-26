@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"reforge/internal/maintenance/repair"
 	"strings"
 	"time"
 
@@ -53,6 +54,8 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		switch {
 		case errors.Is(err, modelbroker.ErrUncertain):
 			Fail(c, 409, "model_uncertain", "Model usage is unresolved; review held allowance before retrying", false)
+		case errors.Is(err, repair.ErrRunLimit):
+			Fail(c, 409, "run_limit", "Run reached its model turn or time limit", false)
 		case errors.Is(err, modelbroker.ErrUnavailable):
 			Fail(c, 409, "model_unavailable", "Use an approved direct API connection with a configured budget and assigned private runner", false)
 		case err != nil:

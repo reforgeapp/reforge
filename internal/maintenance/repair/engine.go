@@ -53,6 +53,7 @@ type Engine struct {
 }
 
 var ErrHandoff = errors.New("repair requires human review")
+var ErrRunLimit = errors.New("run reached its model turn or time limit")
 
 func (e Engine) turn(ctx context.Context, in model.Turn) (model.TurnResult, error) {
 	in, err := in.WithSkills()
