@@ -8,7 +8,7 @@ import stat
 import subprocess
 import sys
 
-MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge", "opt/deps")
+MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge", "opt/deps", "run", "run/reforge")
 SKIP_DIRS = {"__pycache__", "site-packages", "test", "tests", "doc", "docs"}
 
 
@@ -129,6 +129,7 @@ def go_toolchain(root, binary):
 
 def node_toolchain(root, binary):
     copy_file(root, binary, "/usr/local/bin/node")
+    copy_tree(root, "/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/npm", skip_nested=False)
     copy_binary_dependencies(root, binary)
     return subprocess.run([binary, "--version"], check=True, capture_output=True, text=True).stdout.strip()
 
@@ -152,6 +153,7 @@ def python_toolchain(root, binary):
 
 
 def git_tool(root):
+    copy_file(root, "/etc/ssl/certs/ca-certificates.crt", "/etc/ssl/certs/ca-certificates.crt")
     shell = command_path("dash")
     copy_file(root, shell, "/bin/sh")
     copy_binary_dependencies(root, shell)

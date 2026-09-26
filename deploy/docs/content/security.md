@@ -27,6 +27,9 @@ plane. The runner:
 - receives per-job credentials that are scoped to the job and expire;
 - executes commands inside a sandbox with no network by default, resource limits and
   cleanup of process groups;
+- runs dependency updates in the same sandbox; their only route out is a per-job proxy that
+  allows HTTPS to registry.npmjs.org, proxy.golang.org and sum.golang.org and refuses
+  loopback, private and link-local addresses;
 - cannot upload artifacts or publish results after its lease is fenced.
 
 The built-in runner enrols with a token generated on first start and shared with the server

@@ -64,6 +64,7 @@ type workspaceState struct {
 	workspace    Workspace
 	bundle       string
 	dependencies string
+	egress       string
 	cgroup       *os.File
 	cgroupPath   string
 	ctx          context.Context
@@ -225,6 +226,12 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in WorkspaceReques
 			return Workspace{}, ErrBoundary
 		}
 	}
+	if in.Egress != "" {
+		info, err := os.Lstat(in.Egress)
+		if filepath.Clean(in.Egress) != in.Egress || !strings.HasPrefix(in.Egress, filepath.Join(r.config.StateRoot, "egress")+"/") || err != nil || !info.IsDir() {
+			return Workspace{}, ErrBoundary
+		}
+	}
 	jobctx, cancel := context.WithTimeout(ctx, in.Timeout)
 	keep := false
 	defer func() {
@@ -251,7 +258,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in WorkspaceReques
 	if err != nil {
 		return Workspace{}, err
 	}
-	w := &workspaceState{mu: make(chan struct{}, 1), workspace: Workspace{ID: id, CommitSHA: in.CommitSHA, Root: "/workspace", Image: in.Image}, bundle: bundle, dependencies: in.Dependencies, ctx: jobctx, cancel: cancel}
+	w := &workspaceState{mu: make(chan struct{}, 1), workspace: Workspace{ID: id, CommitSHA: in.CommitSHA, Root: "/workspace", Image: in.Image}, bundle: bundle, dependencies: in.Dependencies, egress: in.Egress, ctx: jobctx, cancel: cancel}
 	if err = r.setupCgroup(w); err != nil {
 		cancel()
 		os.RemoveAll(bundle)
@@ -310,7 +317,7 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace Workspace
 	if err != nil {
 		return CommandResult{}, err
 	}
-	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" || len(command.Stdin) > 1<<20 {
+	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" && (command.NetworkProfile != "egress" || w.egress == "") || len(command.Stdin) > 1<<20 {
 		return CommandResult{}, ErrBoundary
 	}
 	for _, arg := range command.Args {
@@ -480,6 +487,9 @@ func (r *Runtime) spec(w *workspaceState, image string) any {
 		map[string]any{"destination": "/opt/reforge/tool", "type": "bind", "source": r.config.Tool, "options": []string{"ro", "rbind", "nosuid", "nodev"}},
 	}
 	env := []string{"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "TMPDIR=/tmp", "GOCACHE=/tmp/go-build", "GOPATH=/workspace/.reforge/gopath", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "CI=true"}
+	if w.egress != "" {
+		mounts = append(mounts, map[string]any{"destination": "/run/reforge", "type": "bind", "source": w.egress, "options": []string{"rbind", "nosuid", "nodev", "noexec"}})
+	}
 	if w.dependencies != "" {
 		mounts = append(mounts, map[string]any{"destination": "/opt/deps", "type": "bind", "source": w.dependencies, "options": []string{"ro", "rbind", "nosuid", "nodev", "noexec"}})
 		env = append(env, "GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local")

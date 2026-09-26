@@ -61,6 +61,9 @@ func (r *Runtime) command(ctx context.Context, w *workspaceState, confined bool,
 	if r.config.Rootless && len(args) > 0 && args[0] == "run" {
 		flags = append(flags, "--rootless")
 	}
+	if w != nil && w.egress != "" && len(args) > 0 && args[0] == "run" {
+		flags = append(flags, "--host-uds=open")
+	}
 	cmd := exec.CommandContext(ctx, r.config.Runsc, append(flags, args...)...)
 	cmd.Env = []string{"PATH=/usr/bin:/bin", "HOME=/nonexistent"}
 	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}

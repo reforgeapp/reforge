@@ -1,155 +1,171 @@
 package runnerclient
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"time"
 
+	"reforge/internal/egress"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/sandbox"
 )
 
-var npmCLI = "/app/npm/bin/npm-cli.js"
+const (
+	npmCLI      = "/usr/local/lib/node_modules/npm/bin/npm-cli.js"
+	npmRegistry = "https://registry.npmjs.org/"
+)
 
-const npmRegistry = "https://registry.npmjs.org/"
+type updater struct {
+	cfg     sandbox.RuntimeConfig
+	runtime sandbox.SandboxRuntime
+	request sandbox.WorkspaceRequest
+	target  map[string][]byte
+}
 
-func toolRoot(cfg sandbox.RuntimeConfig, binary string) string {
-	for _, root := range cfg.Images {
+func (u updater) image(binary string) string {
+	for digest, root := range u.cfg.Images {
 		if _, err := os.Stat(filepath.Join(root, binary)); err == nil {
-			return root
+			return digest
 		}
 	}
 	return ""
 }
 
-func updateDependency(cfg sandbox.RuntimeConfig) func(context.Context, map[string][]byte, repair.DependencyUpdate) (map[string][]byte, error) {
-	return func(ctx context.Context, files map[string][]byte, u repair.DependencyUpdate) (map[string][]byte, error) {
-		if !u.Valid() {
-			return nil, errors.New("invalid dependency update")
-		}
-		paths := u.Paths()
-		if _, ok := files[paths[0]]; !ok {
-			return nil, errors.New(paths[0] + " not found")
-		}
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
-		defer cancel()
-		work, err := os.MkdirTemp(cfg.DependencyRoot, "update-")
-		if err != nil {
-			return nil, err
-		}
-		defer os.RemoveAll(work)
-		for _, name := range paths {
-			if body, ok := files[name]; ok {
-				if err = os.WriteFile(filepath.Join(work, path.Base(name)), body, 0644); err != nil {
-					return nil, err
-				}
-			}
-		}
-		for _, dir := range []string{filepath.Join(work, "home"), filepath.Join(work, "cache")} {
-			if err = os.Mkdir(dir, 0755); err != nil {
-				return nil, err
-			}
-		}
-		if os.Getuid() == 0 {
-			err = filepath.Walk(work, func(name string, _ os.FileInfo, err error) error {
-				if err != nil {
-					return err
-				}
-				return os.Chown(name, sandboxUser, sandboxUser)
-			})
+func (u updater) update(ctx context.Context, files map[string][]byte, d repair.DependencyUpdate) (map[string][]byte, error) {
+	if !d.Valid() {
+		return nil, errors.New("invalid dependency update")
+	}
+	paths := d.Paths()
+	if _, ok := files[paths[0]]; !ok {
+		return nil, errors.New(paths[0] + " not found")
+	}
+	binary, args := "usr/local/go/bin/go", []string{"GOPROXY=https://proxy.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "GOMODCACHE=/tmp/gomod", "/usr/local/go/bin/go", "get", d.Package + "@" + goVersion(d.Version)}
+	if d.Ecosystem == "npm" {
+		binary = "usr/local/bin/node"
+		switch d.Strategy {
+		case "update":
+			args = []string{"update", d.Package}
+		case "override":
+			manifest, err := withOverride(files[paths[0]], d.Package, d.Version)
 			if err != nil {
 				return nil, err
 			}
+			files = copyFiles(files)
+			files[paths[0]] = manifest
+			args = []string{"install"}
+		default:
+			args = []string{"install", d.Package + "@" + d.Version}
 		}
-		switch u.Ecosystem {
-		case "npm":
-			err = npmUpdate(ctx, cfg, work, u)
-		case "go":
-			err = goUpdate(ctx, cfg, work, u)
-		}
-		if err != nil {
+		args = append([]string{"/usr/local/bin/node", npmCLI}, append(args, "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund", "--registry", npmRegistry)...)
+	}
+	image := u.image(binary)
+	if image == "" {
+		return nil, errors.New(d.Ecosystem + " tooling is not available on this runner")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	root := filepath.Join(u.cfg.StateRoot, "egress")
+	if err := os.MkdirAll(root, 0755); err != nil {
+		return nil, err
+	}
+	dir, err := os.MkdirTemp(root, "egress-")
+	if err != nil {
+		return nil, err
+	}
+	defer os.RemoveAll(dir)
+	if err = os.Chmod(dir, 0755); err != nil {
+		return nil, err
+	}
+	proxy, err := egress.Listen(filepath.Join(dir, "egress.sock"), egress.Registries)
+	if err != nil {
+		return nil, err
+	}
+	defer proxy.Close()
+	request := u.request
+	request.Image, request.Egress, request.Timeout, request.Dependencies = image, dir, 10*time.Minute, ""
+	workspace, err := u.runtime.PreparePinnedWorkspace(ctx, request)
+	if err != nil {
+		return nil, err
+	}
+	defer u.runtime.Destroy(context.WithoutCancel(ctx), workspace)
+	if patches := changed(u.target, files); len(patches) > 0 {
+		if err = u.runtime.ApplyPatch(ctx, workspace, patches); err != nil {
 			return nil, err
 		}
-		out := map[string][]byte{}
-		for _, name := range paths {
-			body, err := os.ReadFile(filepath.Join(work, path.Base(name)))
-			if err == nil {
-				out[name] = body
-			}
-		}
-		return out, nil
 	}
-}
-
-func npmUpdate(ctx context.Context, cfg sandbox.RuntimeConfig, work string, u repair.DependencyUpdate) error {
-	root := toolRoot(cfg, "usr/local/bin/node")
-	if _, err := os.Stat(npmCLI); root == "" || err != nil {
-		return errors.New("npm is not available on this runner")
-	}
-	spec := u.Package
-	if u.Version != "" {
-		spec += "@" + u.Version
-	}
-	var args []string
-	switch u.Strategy {
-	case "update":
-		args = []string{"update", u.Package}
-	case "override":
-		if u.Version == "" {
-			return errors.New("override requires a version")
-		}
-		if err := setOverride(filepath.Join(work, "package.json"), u.Package, u.Version); err != nil {
-			return err
-		}
-		args = []string{"install"}
-	default:
-		args = []string{"install", spec}
-	}
-	args = append(args, "--package-lock-only", "--ignore-scripts", "--no-audit", "--no-fund", "--registry", npmRegistry)
-	command := append([]string{"--library-path", filepath.Join(root, "lib/x86_64-linux-gnu") + ":" + filepath.Join(root, "lib64"), filepath.Join(root, "usr/local/bin/node"), npmCLI}, args...)
-	env := []string{"PATH=/usr/bin:/bin", "HOME=" + filepath.Join(work, "home"), "npm_config_cache=" + filepath.Join(work, "cache"), "npm_config_userconfig=" + filepath.Join(work, "home", ".npmrc"), "npm_config_globalconfig=" + filepath.Join(work, "global-npmrc"), "npm_config_update_notifier=false"}
-	return runTool(ctx, work, env, filepath.Join(root, "lib64/ld-linux-x86-64.so.2"), command...)
-}
-
-func setOverride(name, pkg, version string) error {
-	body, err := os.ReadFile(name)
+	result, err := u.runtime.ExecuteBoundedCommand(ctx, workspace, sandbox.Command{Args: append([]string{"/opt/reforge/tool", "egress"}, args...), Directory: path.Clean(d.Directory), Timeout: 5 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "egress"})
 	if err != nil {
-		return err
+		return nil, err
+	}
+	if result.ExitCode != 0 {
+		tail := result.Output
+		if len(tail) > 2000 {
+			tail = tail[len(tail)-2000:]
+		}
+		return nil, fmt.Errorf("%s exited %d: %s", d.Ecosystem, result.ExitCode, tail)
+	}
+	out := map[string][]byte{}
+	for _, name := range paths {
+		if artifact, err := u.runtime.CollectArtifact(ctx, workspace, name); err == nil {
+			out[name] = artifact.Data
+		}
+	}
+	return out, nil
+}
+
+func goVersion(version string) string {
+	if version == "" {
+		return "latest"
+	}
+	return version
+}
+
+func copyFiles(files map[string][]byte) map[string][]byte {
+	out := make(map[string][]byte, len(files))
+	for name, body := range files {
+		out[name] = body
+	}
+	return out
+}
+
+func changed(base, files map[string][]byte) []sandbox.Patch {
+	names := make([]string, 0, len(files))
+	for name, body := range files {
+		if old, ok := base[name]; !ok || !bytes.Equal(old, body) {
+			names = append(names, name)
+		}
+	}
+	sort.Strings(names)
+	out := make([]sandbox.Patch, 0, len(names))
+	for _, name := range names {
+		out = append(out, sandbox.Patch{Path: name, Content: files[name]})
+	}
+	return out
+}
+
+func withOverride(body []byte, pkg, version string) ([]byte, error) {
+	if version == "" {
+		return nil, errors.New("override requires a version")
 	}
 	var manifest map[string]json.RawMessage
-	if err = json.Unmarshal(body, &manifest); err != nil {
-		return err
+	if err := json.Unmarshal(body, &manifest); err != nil {
+		return nil, err
 	}
 	overrides := map[string]json.RawMessage{}
 	if raw, ok := manifest["overrides"]; ok {
-		if err = json.Unmarshal(raw, &overrides); err != nil {
-			return err
+		if err := json.Unmarshal(raw, &overrides); err != nil {
+			return nil, err
 		}
 	}
 	overrides[pkg], _ = json.Marshal(version)
 	manifest["overrides"], _ = json.Marshal(overrides)
-	body, err = json.MarshalIndent(manifest, "", "  ")
-	if err != nil {
-		return err
-	}
-	return os.WriteFile(name, append(body, '\n'), 0644)
-}
-
-func goUpdate(ctx context.Context, cfg sandbox.RuntimeConfig, work string, u repair.DependencyUpdate) error {
-	root := toolRoot(cfg, "usr/local/go/bin/go")
-	if root == "" {
-		return errors.New("go is not available on this runner")
-	}
-	version := u.Version
-	if version == "" {
-		version = "latest"
-	}
-	goBinary := filepath.Join(root, "usr/local/go/bin/go")
-	home := filepath.Join(work, "home")
-	env := []string{"PATH=" + filepath.Dir(goBinary) + ":/usr/bin:/bin", "HOME=" + home, "GOROOT=" + filepath.Join(root, "usr/local/go"), "GOMODCACHE=" + filepath.Join(work, "cache"), "GOCACHE=" + filepath.Join(home, "build"), "GOPATH=" + filepath.Join(home, "gopath"), "GOPROXY=https://proxy.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "CGO_ENABLED=0"}
-	return runTool(ctx, work, env, goBinary, "get", u.Package+"@"+version)
+	out, err := json.MarshalIndent(manifest, "", "  ")
+	return append(out, '\n'), err
 }

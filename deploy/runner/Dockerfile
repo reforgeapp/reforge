@@ -13,6 +13,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends binutils bzip2 python3 \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 /usr/local/bin/node /usr/local/bin/node
+COPY --from=node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
 COPY scripts/build-runner-images.py /src/build-runner-images.py
 RUN for stack in go javascript python; do python3 /src/build-runner-images.py --stack "$stack" --output "/out/images/$stack"; done
 RUN curl -fsSLo /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/releases/release/${GVISOR_RELEASE}/x86_64/gvisor.tar.bz2" \
@@ -31,7 +32,6 @@ WORKDIR /app
 COPY --from=build /out/reforge-runner /out/reforge-sandbox-tool /app/
 COPY --from=images /out/images /app/images
 COPY --from=images /out/gvisor /app/gvisor
-COPY --from=node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 /usr/local/lib/node_modules/npm /app/npm
 COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
 USER runner
 ENTRYPOINT ["/app/reforge-runner"]

@@ -47,9 +47,9 @@ When the recipe's checks pass but the forge's CI failed (for example a dependenc
 the run fetches the tail of up to three failed CI job logs, redacted of tokens and keys, and
 works on the target branch. The model can:
 
-- update a dependency; the runner regenerates `package.json`/`package-lock.json` or
-  `go.mod`/`go.sum` with the package manager from the public registry, with install scripts
-  disabled;
+- update a dependency; npm or `go get` regenerates the manifest and lockfile inside the
+  sandbox, with install scripts disabled, reaching only the public npm and Go registries
+  through the runner's egress proxy;
 - patch source files;
 - edit existing CI workflow files, for example a pinned toolchain version;
 - skip, when an open Reforge fix already covers the failure or it cannot be fixed from the
