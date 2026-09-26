@@ -521,7 +521,7 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		}
 		return later(reason, 5*time.Minute)
 	}
-	if _, err = s.merges.Request(ctx, session, org, gate.ID, "autopilot/"+finding+"/"+change, "autopilot"); err != nil {
+	if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-merge", finding, change, gate.ID), "autopilot"); err != nil {
 		return later(err.Error(), 5*time.Minute)
 	}
 	return later("Merge requested", 24*time.Hour)

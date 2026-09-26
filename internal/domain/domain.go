@@ -2,13 +2,24 @@ package domain
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 )
 
 type ID = string
+
+func StableID(parts ...string) ID {
+	sum := sha256.Sum256([]byte(strings.Join(parts, "\x00")))
+	b := sum[:16]
+	b[6] = (b[6] & 0x0f) | 0x50
+	b[8] = (b[8] & 0x3f) | 0x80
+	h := hex.EncodeToString(b)
+	return h[:8] + "-" + h[8:12] + "-" + h[12:16] + "-" + h[16:20] + "-" + h[20:]
+}
 
 func NewID() ID {
 	var b [16]byte
