@@ -37,6 +37,7 @@ type ExecutionContext struct {
 	PolicyHash         string                 `json:"policy_hash"`
 	CILogs             []CILog                `json:"ci_logs,omitempty"`
 	OpenFixes          []string               `json:"open_fixes,omitempty"`
+	FollowUpBranch     string                 `json:"follow_up_branch,omitempty"`
 }
 type CILog struct {
 	Name string `json:"name"`

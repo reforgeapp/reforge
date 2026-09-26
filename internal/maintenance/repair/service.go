@@ -74,6 +74,10 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if err != nil {
 		return out, err
 	}
+	followUp, rounds := "", 0
+	if f.Evidence.Change != nil && strings.HasPrefix(f.Evidence.Change.HeadBranch, "reforge/repair/") {
+		followUp = f.Evidence.Change.HeadBranch
+	}
 	image := s.images[in.Recipe]
 	if image == "" {
 		out.Blockers = append(out.Blockers, "Administrator must register a verified runner image for this recipe")
@@ -115,6 +119,18 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		}
 		if err := tx.QueryRow(ctx, `SELECT native_id,name FROM repositories WHERE org_id=$1 AND id=$2`, org, f.RepositoryID).Scan(&ref.NativeID, &ref.FullName); err != nil {
 			return err
+		}
+		if followUp != "" {
+			var owned bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published'),(SELECT count(*) FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND context->>'follow_up_branch'=$3)`, org, f.RepositoryID, followUp).Scan(&owned, &rounds); err != nil {
+				return err
+			}
+			if !owned {
+				out.Blockers = append(out.Blockers, "Branch is not a published Reforge fix")
+			}
+			if rounds >= 3 {
+				out.Blockers = append(out.Blockers, "Reforge fix still failing CI after 3 follow-ups")
+			}
 		}
 		var err error
 		resolved, err = s.policies.ResolveTx(ctx, tx, org, f.RepositoryID)
@@ -187,7 +203,11 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if err != nil {
 		return out, err
 	}
-	plan, err := Freeze(in.Recipe, image, f.Evidence.HeadSHA, f.Evidence.TargetSHA, files, resolved.Policy.ForbiddenPaths)
+	targetSHA := f.Evidence.TargetSHA
+	if followUp != "" {
+		targetSHA = f.Evidence.HeadSHA
+	}
+	plan, err := Freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths)
 	if err != nil {
 		return out, err
 	}
@@ -205,6 +225,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		context.MaxOutputTokens = 0
 		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000
 	}
+	context.FollowUpBranch = followUp
 	context.CILogs = s.ciLogs(ctx, org, f, check)
 	if len(context.CILogs) > 0 {
 		context.OpenFixes = s.openFixes(ctx, org, f.RepositoryID)

@@ -293,7 +293,11 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 	if err != nil {
 		return f, err
 	}
-	rows, err := tx.Query(ctx, `SELECT mf.id::text,mf.evidence FROM maintenance_repairs mr JOIN maintenance_findings mf ON mf.org_id=mr.org_id AND mf.id=mr.finding_id JOIN workflow_tasks t ON t.org_id=mr.org_id AND t.id=mr.task_id WHERE mr.org_id=$1 AND mr.repository_id=$2 AND mr.active`, org, f.RepositoryID)
+	head := ""
+	if f.Evidence.Change != nil {
+		head = f.Evidence.Change.HeadBranch
+	}
+	rows, err := tx.Query(ctx, `SELECT mf.id::text,mf.evidence FROM maintenance_repairs mr JOIN maintenance_findings mf ON mf.org_id=mr.org_id AND mf.id=mr.finding_id JOIN workflow_tasks t ON t.org_id=mr.org_id AND t.id=mr.task_id WHERE mr.org_id=$1 AND mr.repository_id=$2 AND mr.active AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=mr.org_id AND rr.task_id=mr.task_id AND rr.branch<>'' AND rr.branch=$3 AND rr.state='published')`, org, f.RepositoryID, head)
 	if err != nil {
 		return f, err
 	}

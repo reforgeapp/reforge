@@ -284,7 +284,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			return nil, ErrStale
 		}
 		change := *current.Change
-		if change.State != "open" || strings.HasPrefix(change.HeadBranch, "reforge/") {
+		if change.State != "open" || strings.HasPrefix(change.HeadBranch, "reforge/") && !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
 			continue
 		}
 		if change.Repository != lease.Ref || change.HeadRepository.NativeID == "" || change.TargetRepository != lease.Ref || !source.ValidSHA(change.HeadSHA, "sha1") || !source.ValidSHA(change.TargetSHA, "sha1") {
@@ -329,7 +329,9 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 				e.Ownership = "bot"
 			}
 		}
-		if strings.EqualFold(change.AuthorType, "Bot") && e.Bot == "" {
+		if strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+			e.Bot, e.Ownership = "", "reforge"
+		} else if strings.EqualFold(change.AuthorType, "Bot") && e.Bot == "" {
 			e.Ownership = "unknown"
 			e.Blockers = append(e.Blockers, "Confirm immutable dependency bot actor identity in repository maintenance settings")
 		}

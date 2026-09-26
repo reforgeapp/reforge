@@ -91,6 +91,16 @@ func (s *Service) checkNative(ctx context.Context, credential string, r Run) err
 			return nil
 		})
 	}
+	if c.FollowUpBranch != "" {
+		current, err := s.reader.Read(ctx, c.Finding.OrgID, c.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: c.Repository, Ref: c.FollowUpBranch}}, authorize)
+		if err != nil {
+			return err
+		}
+		if current.SHA != c.Plan.TargetSHA && (r.CandidateSHA == "" || current.SHA != r.CandidateSHA) {
+			return discoveryStale()
+		}
+		return nil
+	}
 	current, err := s.reader.Read(ctx, c.Finding.OrgID, c.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: c.Repository, Ref: c.Finding.Evidence.TargetBranch}}, authorize)
 	if err != nil {
 		return err
@@ -131,7 +141,10 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	if err = s.checkNative(ctx, credential, r); err != nil {
 		return r, err
 	}
-	branch := "reforge/repair/" + lease.TaskID
+	branch, expected := stageBranch(r, lease.TaskID), ""
+	if r.Context.FollowUpBranch != "" {
+		expected = r.Context.Plan.TargetSHA
+	}
 	patchBody, _ := json.Marshal(r.Report.Patches)
 	payload, _ := json.Marshal(map[string]string{"branch": branch, "base": r.Context.Plan.TargetSHA, "patch_sha256": hashBytes(patchBody)})
 	var intent workflow.Intent
@@ -151,7 +164,7 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	for _, patch := range r.Report.Patches {
 		edits = append(edits, forge.FileEdit{Path: patch.Path, Content: patch.Content, Delete: patch.Delete})
 	}
-	op := privateconnector.Operation{ID: intent.OperationID, Kind: privateconnector.ForgeUpdateBranch, Branch: &forge.UpdateBranchRequest{Repository: r.Context.Repository, Branch: branch, BaseSHA: r.Context.Plan.TargetSHA, Message: changeTitle(r), Edits: edits, OperationID: intent.OperationID}}
+	op := privateconnector.Operation{ID: intent.OperationID, Kind: privateconnector.ForgeUpdateBranch, Branch: &forge.UpdateBranchRequest{Repository: r.Context.Repository, Branch: branch, BaseSHA: r.Context.Plan.TargetSHA, ExpectedOldSHA: expected, Message: changeTitle(r), Edits: edits, OperationID: intent.OperationID}}
 	result, err := s.dispatch(ctx, credential, r, lease, intent, op)
 	if err != nil {
 		return r, err
@@ -170,6 +183,12 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	r.Branch = branch
 	r.Context.NativeHeadSHA = result.SHA
 	return r, nil
+}
+func stageBranch(r Run, task string) string {
+	if r.Context.FollowUpBranch != "" {
+		return r.Context.FollowUpBranch
+	}
+	return "reforge/repair/" + task
 }
 func changeTitle(r Run) string {
 	if r.Report == nil || r.Report.Mode != "ci" || strings.TrimSpace(r.Report.Reason) == "" {
@@ -318,6 +337,9 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 				return err
 			}
 		}
+		if r.Context.FollowUpBranch != "" {
+			return nil
+		}
 		payload, _ := json.Marshal(map[string]string{"head": r.CandidateSHA, "branch": r.Branch, "target": r.Context.Finding.Evidence.TargetBranch})
 		var err error
 		intent, err = s.workflow.PrepareIntentTx(ctx, tx, l, "publish", "companion", payload)
@@ -325,6 +347,9 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 	})
 	if err != nil {
 		return r, err
+	}
+	if r.Context.FollowUpBranch != "" {
+		return s.adoptChange(ctx, credential, r, lease, in.HeadSHA)
 	}
 	body := "Compatibility repair validated against pinned upgrade and target source."
 	if r.Report != nil && r.Report.Mode == "ci" && r.Report.Reason != "" {
@@ -347,6 +372,37 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 		return r, err
 	}
 	r.Change = result.Change
+	r.State = "published"
+	return r, nil
+}
+func (s *Service) adoptChange(ctx context.Context, credential string, r Run, lease workflow.Lease, head string) (Run, error) {
+	c := r.Context
+	current, err := s.reader.Read(ctx, c.Finding.OrgID, c.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: c.Repository, ChangeID: c.Finding.Evidence.Change.ID}}, func(ctx context.Context, tx pgx.Tx, connection connections.Connection) error {
+		if c.ConnectionID != connection.ID || c.ConnectionVersion != connection.Version {
+			return auth.ErrConflict
+		}
+		return s.runners.WithJobTx(ctx, tx, credential, "repair.report", func(tx pgx.Tx, l workflow.Lease, t workflow.Task) error {
+			if l.TaskID != lease.TaskID {
+				return workflow.ErrFence
+			}
+			return nil
+		})
+	})
+	if err != nil {
+		return r, err
+	}
+	if current.Change == nil || current.Change.State != "open" || current.Change.HeadBranch != c.FollowUpBranch || current.Change.HeadSHA != head {
+		return r, workflow.ErrReconciliation
+	}
+	raw, _ := json.Marshal(current.Change)
+	err = s.db.Tenant(ctx, lease.OrgID, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE repair_runs SET state='published',native_change=$3,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND candidate_sha=$4`, lease.OrgID, lease.TaskID, raw, head)
+		return err
+	})
+	if err != nil {
+		return r, err
+	}
+	r.Change = current.Change
 	r.State = "published"
 	return r, nil
 }

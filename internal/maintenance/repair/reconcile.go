@@ -167,13 +167,15 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 		var candidate string
 		var change *forge.Change
 		if intent.Kind == "stage" {
-			branch := "reforge/repair/" + id
+			branch := stageBranch(r, id)
 			ref, readErr := s.reader.Read(ctx, org, r.Context.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeResolveRef, Ref: &privateconnector.RefArgs{Repository: r.Context.Repository, Ref: branch}}, authorize)
 			var providerError *domain.ProviderError
 			if errors.As(readErr, &providerError) && providerError.Kind == "not_found" && intent.State != "succeeded" {
 				outcome, evidence = "absent", "App-owned branch absent after write expiry"
 			} else if readErr != nil {
 				return out, readErr
+			} else if r.Context.FollowUpBranch != "" && ref.SHA == r.Context.Plan.TargetSHA && intent.State != "succeeded" {
+				outcome, evidence = "absent", "Follow-up branch unchanged after write expiry"
 			} else {
 				proof, err := s.reader.Read(ctx, org, r.Context.ConnectionID, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCommitProof, Commit: &privateconnector.ChecksArgs{Repository: r.Context.Repository, CommitSHA: ref.SHA}}, authorize)
 				if err != nil {
@@ -233,7 +235,7 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 				return err
 			}
 			if candidate != "" {
-				if _, err = tx.Exec(ctx, `UPDATE repair_runs SET candidate_sha=$3,branch=$4,state='publishing',version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND (candidate_sha='' OR candidate_sha=$3)`, org, id, candidate, "reforge/repair/"+id); err != nil {
+				if _, err = tx.Exec(ctx, `UPDATE repair_runs SET candidate_sha=$3,branch=$4,state='publishing',version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND (candidate_sha='' OR candidate_sha=$3)`, org, id, candidate, stageBranch(r, id)); err != nil {
 					return err
 				}
 			}
