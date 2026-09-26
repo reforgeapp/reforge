@@ -11,22 +11,25 @@ organisation version.
 | Mode | Permits |
 | --- | --- |
 | Observe | Read only |
-| Propose fixes | Repair and publish changes |
-| Merge eligible fixes | Also merge changes that pass every gate |
-| Deliver to approved environments | Also deploy |
+| Propose | Repair and publish changes |
+| Merge | Also merge changes that pass every gate |
+| Deliver | Also deploy to approved environments |
+| Autopilot | Everything Deliver permits, and Reforge acts on its own |
 
-Mode permits actions. **Fix findings automatically** starts them: Reforge queues one repair
-at a time for every open finding, existing ones included, and with **Merge eligible fixes**
-requests a merge once every gate passes. It picks the priced model connection with the lowest
+The first four modes permit actions; people start them. **Autopilot** sets Deliver and has
+Reforge start the work: it queues one repair at a time for every open finding, existing
+ones included, and requests a merge once every gate passes. It picks the priced model connection with the lowest
 cost weighted by its active runs, skipping connections whose own budget is used up or
 whose latest call in the past 30 minutes failed, and uses the repository's runner pool, and waits while the organisation budget in
-[Usage](usage.md) has no headroom. Blocked findings wait until the blocker is cleared, and the line under the switch names it.
+[Usage](usage.md) has no headroom. Blocked findings wait until the blocker is cleared, and the status line under Mode names it.
 A failed fix is retried after ten minutes, up to six runs per finding version; the fifth and
 sixth runs use the most expensive priced model connection. A finding
-it cannot fix is skipped; a new version of the finding is tried again. The line under the switch shows what it is doing.
+it cannot fix is skipped; a new version of the finding is tried again. If a Reforge pull
+request is closed without merging, the finding is fixed again from scratch. The status line
+shows what it is doing.
 A blocked run is resumed, up to three attempts, then cancelled so the finding is queued again.
 
-Only an owner with access to all repositories can turn it on. Its actions are recorded
+Only an owner with access to all repositories can turn on Autopilot. Its actions are recorded
 under that owner.
 
 ## Select a policy
@@ -43,19 +46,12 @@ Use **Scope**, **Recipes**, **Changes**, **Models & spend**, **Merge** and **Dep
 Reason and **Save immutable version** remain available on every tab. Saving creates a new
 version; it does not overwrite history. Draft stays local until explicitly saved.
 
-Presets update draft only. They add draft denials while preserving existing read denials,
-allowlists and higher-scope constraints:
+**Changes** toggles each denied action. Allowlists on **Recipes**, **Models & spend**,
+**Merge** and **Deploy** either **Inherit** from the scope above or use an **Allow list**;
+an empty allow list denies all. **Pause this scope** stops automatic actions for the scope.
 
-- **Observe** allows read and blocks repair, publish, merge, deploy and recover.
-- **Propose fixes** allows read, repair and publish; blocks merge, deploy and recover.
-- **Merge eligible fixes** allows read, repair, publish and merge; blocks deploy and recover.
-- **Deliver to approved environments** allows read, repair, publish, merge and deploy;
-  blocks recover. Existing environment and workflow allowlists remain unchanged. Empty
-  explicit lists deny all.
-
-Provide a reason, choose a preset, select **Apply preset**, review the draft gate, then
-select **Save immutable version**. Raw policy JSON is available under **Advanced policy
-JSON import/export** for exceptional cases.
+Provide a reason, then select **Save immutable version**. Raw policy JSON is available
+under **Advanced policy JSON** for exceptional cases.
 
 ## Impact preview
 
