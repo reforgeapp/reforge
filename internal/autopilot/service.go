@@ -173,8 +173,8 @@ func (s *Service) Run(ctx context.Context) error {
 
 type candidate struct {
 	finding, repository, name, previous, ecosystem string
-	version                             int64
-	runs                                int
+	version                                        int64
+	runs                                           int
 }
 
 func (s *Service) status(ctx context.Context, org, message string) error {
