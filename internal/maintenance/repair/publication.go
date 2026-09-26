@@ -464,15 +464,14 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 	})
 }
 
-func (s *Service) RequestRebase(ctx context.Context, org string, f discovery.Finding) error {
+func (s *Service) RequestRebase(ctx context.Context, org, connection string, change forge.Change) error {
 	w, ok := s.reader.(writer)
-	change := f.Evidence.Change
-	if !ok || change == nil || f.Evidence.Bot != "dependabot" {
+	if !ok {
 		return privateconnector.ErrUnsupported
 	}
 	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCommentChange, Comment: &forge.CommentChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadSHA: change.HeadSHA, Comment: "@dependabot rebase"}}
-	_, err := w.Write(ctx, org, f.Evidence.ConnectionID, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
-		if c.ID != f.Evidence.ConnectionID {
+	_, err := w.Write(ctx, org, connection, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+		if c.ID != connection {
 			return "", auth.ErrConflict
 		}
 		return op.ID, nil

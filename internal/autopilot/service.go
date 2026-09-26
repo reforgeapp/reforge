@@ -259,6 +259,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		if err = s.rebase(ctx, org); err != nil {
 			slog.WarnContext(ctx, "autopilot rebase failed", "org_id", org, "error", err)
 		}
+		if err = s.mergeBot(ctx, session, org); err != nil {
+			slog.WarnContext(ctx, "autopilot bot merge failed", "org_id", org, "error", err)
+		}
 	}
 	if err = s.reconcile(ctx, session, org); err != nil {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
@@ -524,7 +527,10 @@ func (s *Service) rebase(ctx context.Context, org string) error {
 	})
 	for _, f := range waiting {
 		c := candidate{finding: f.ID, version: f.Version}
-		if e := s.repairs.RequestRebase(ctx, org, f); e != nil {
+		if f.Evidence.Change == nil {
+			continue
+		}
+		if e := s.repairs.RequestRebase(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change); e != nil {
 			err = errors.Join(err, e, s.record(ctx, org, c, "", "retry", e.Error(), 15*time.Minute))
 			continue
 		}
@@ -584,6 +590,58 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		return later(err.Error(), 5*time.Minute)
 	}
 	return later("Merge requested", 24*time.Hour)
+}
+
+func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string) error {
+	var repo, change, head, bot string
+	var resolved policy.Resolved
+	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		err := tx.QueryRow(ctx, `SELECT c.repository_id::text,c.snapshot->>'id',c.snapshot->>'head_sha',b->>'kind' FROM inventory_changes c JOIN maintenance_configs m ON m.org_id=c.org_id AND m.repository_id=c.repository_id CROSS JOIN LATERAL jsonb_array_elements(m.trusted_bots) b JOIN repositories r ON r.org_id=c.org_id AND r.id=c.repository_id LEFT JOIN autopilot_bot_merges d ON d.org_id=c.org_id AND d.repository_id=c.repository_id AND d.change_id=c.snapshot->>'id' WHERE c.org_id=$1 AND c.snapshot->>'state'='open' AND b->>'actor_id'=c.snapshot->>'author_id' AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT coalesce(d.head_sha=c.snapshot->>'head_sha' AND d.merge_after>clock_timestamp(),false) AND NOT EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=c.org_id AND o.repository_id=c.repository_id AND o.change_id=c.snapshot->>'id') AND NOT EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=c.org_id AND f.repository_id=c.repository_id AND f.source='forge_change' AND f.source_id=c.snapshot->>'id' AND f.state='open') ORDER BY d.updated_at NULLS FIRST,c.native_id LIMIT 1`, org).Scan(&repo, &change, &head, &bot)
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		resolved, err = s.policies.ResolveTx(ctx, tx, org, repo)
+		return err
+	})
+	if err != nil || change == "" {
+		return err
+	}
+	later := func(reason string, after time.Duration) error {
+		return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `INSERT INTO autopilot_bot_merges(org_id,repository_id,change_id,head_sha,reason,merge_after) VALUES($1,$2,$3,$4,$5,clock_timestamp()+make_interval(secs=>$6::bigint)) ON CONFLICT(org_id,repository_id,change_id) DO UPDATE SET head_sha=EXCLUDED.head_sha,reason=EXCLUDED.reason,merge_after=EXCLUDED.merge_after,updated_at=clock_timestamp()`, org, repo, change, head, reason, int64(after.Seconds()))
+			return err
+		})
+	}
+	if slices.Contains(resolved.Policy.Deny, policy.Merge) {
+		return later("Mode does not allow merging", 10*time.Minute)
+	}
+	gate, err := s.merges.Inspect(ctx, session, org, repo, change, "merge", "autopilot")
+	if err == nil && !slices.Contains(gate.Snapshot.Rules.AllowedMergeMethods, "merge") && len(gate.Snapshot.Rules.AllowedMergeMethods) > 0 {
+		gate, err = s.merges.Inspect(ctx, session, org, repo, change, gate.Snapshot.Rules.AllowedMergeMethods[0], "autopilot")
+	}
+	if err != nil {
+		return later(err.Error(), 10*time.Minute)
+	}
+	if gate.Decision.Outcome == "allow" {
+		if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-bot-merge", repo, change, head), "autopilot"); err != nil {
+			return later(err.Error(), 10*time.Minute)
+		}
+		return later("Merge requested", 24*time.Hour)
+	}
+	if bot == "dependabot" && gate.Snapshot.Rules.Unprotected && !gate.Snapshot.UpToDate {
+		if err = s.repairs.RequestRebase(ctx, org, gate.ConnectionID, gate.Snapshot.Change); err != nil {
+			return later(err.Error(), 10*time.Minute)
+		}
+		return later("Asked Dependabot to rebase", time.Hour)
+	}
+	reason := "Waiting for merge checks"
+	if len(gate.Decision.Blockers) > 0 {
+		reason = gate.Decision.Blockers[0]
+	}
+	return later(reason, 10*time.Minute)
 }
 
 func recipesFor(ecosystem string) []string {
