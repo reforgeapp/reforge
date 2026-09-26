@@ -390,7 +390,7 @@ func (s *Service) ciLogs(ctx context.Context, org string, f discovery.Finding, c
 func (s *Service) openFixes(ctx context.Context, org, repository, exclude string) ([]string, []map[string]string) {
 	fixes, files := []string{}, []map[string]string{}
 	_ = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT branch,coalesce(report->>'reason',''),coalesce(report->'dependencies','[]')::text,coalesce(report->'patches','[]') FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND bot_revalidation_state NOT IN ('merged','closed') AND branch<>$3 ORDER BY created_at DESC LIMIT 20`, org, repository, exclude)
+		rows, err := tx.Query(ctx, `SELECT r.branch,coalesce(r.report->>'reason',''),coalesce(r.report->'dependencies','[]')::text,coalesce(r.report->'patches','[]'),EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=r.org_id AND f.repository_id=r.repository_id AND f.source='forge_change' AND f.source_id=r.native_change->>'id' AND f.state='open') FROM repair_runs r WHERE r.org_id=$1 AND r.repository_id=$2 AND r.state='published' AND r.bot_revalidation_state NOT IN ('merged','closed') AND r.branch<>$3 AND NOT EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=r.org_id AND c.repository_id=r.repository_id AND c.snapshot->>'id'=r.native_change->>'id' AND c.snapshot->>'state'<>'open') ORDER BY r.created_at DESC LIMIT 20`, org, repository, exclude)
 		if err != nil {
 			return err
 		}
@@ -398,8 +398,13 @@ func (s *Service) openFixes(ctx context.Context, org, repository, exclude string
 		for rows.Next() {
 			var branch, reason, deps string
 			var raw []byte
+			var failing bool
 			var patches []sandbox.Patch
-			if rows.Scan(&branch, &reason, &deps, &raw) != nil || json.Unmarshal(raw, &patches) != nil {
+			if rows.Scan(&branch, &reason, &deps, &raw, &failing) != nil || json.Unmarshal(raw, &patches) != nil {
+				continue
+			}
+			if failing {
+				fixes = append(fixes, bounded(branch+" (CI failing): "+reason+" "+deps))
 				continue
 			}
 			fixes = append(fixes, bounded(branch+": "+reason+" "+deps))
