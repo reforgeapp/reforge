@@ -9,8 +9,6 @@
 .audit-query .button { min-height: 36px; }
 .audit-query .audit-query-text { min-width: 180px; }
 .audit-advanced { position: relative; align-self: center; }
-.audit-advanced summary { min-height: 36px; display: flex; align-items: center; color: var(--text-muted); cursor: pointer; font-size: 12px; white-space: nowrap; }
-.audit-advanced summary:hover { color: var(--text); }
 .audit-advanced-fields { position: absolute; z-index: 5; top: calc(100% + 6px); right: 0; display: grid; grid-template-columns: repeat(3, minmax(150px, 1fr)); gap: 12px; width: min(620px, calc(100vw - 36px)); padding: 14px; border: 1px solid var(--border-strong); background: var(--surface); box-shadow: 0 10px 28px rgb(0 0 0 / 18%); }
 .audit-results-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 48px; color: var(--text-muted); font-size: 12px; }
 .audit-results-bar .audit-export { display: flex; align-items: center; gap: 8px; padding: 0; border: 0; }
@@ -40,7 +38,6 @@
 .audit-detail dt { margin-bottom: 3px; color: var(--text-subtle); font-size: 10px; font-weight: 750; letter-spacing: .06em; text-transform: uppercase; }
 .audit-detail dd { margin: 0; overflow-wrap: anywhere; font-size: 12px; }
 .audit-detail details { border-top: 1px solid var(--border); padding-top: 12px; }
-.audit-detail summary { cursor: pointer; color: var(--text-muted); font-size: 12px; }
 .audit-detail pre { max-height: 360px; overflow: auto; margin: 10px 0 0; padding: 10px; background: var(--surface-inset); font-size: 11px; white-space: pre-wrap; overflow-wrap: anywhere; }
 
 @media (max-width: 900px) {

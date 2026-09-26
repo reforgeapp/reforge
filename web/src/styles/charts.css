@@ -40,7 +40,6 @@
 .usage-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); align-items: end; gap: 12px 14px; }
 .usage-filters details { grid-column: 1 / -1; }
 .usage-filters details .form-grid { margin-top: 10px; max-width: 520px; }
-.usage-filters summary { color: var(--primary); cursor: pointer; font-size: 13px; font-weight: 600; }
 .usage-filters > .button { justify-self: start; }
 .metric-grid.usage-kpis { grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
 @media (max-width: 1100px) { .metric-grid.usage-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

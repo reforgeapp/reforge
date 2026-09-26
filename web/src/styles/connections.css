@@ -45,8 +45,6 @@
 
 .connection-reason-help { margin: 0 0 8px; color: var(--amber); font-size: 12px; }
 .connection-capabilities { margin-top: 12px; }
-.connection-overview .connection-capabilities > summary { padding: 6px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-.connection-capabilities[open] > summary { margin-bottom: 4px; }
 .connection-capability-list { padding-left: 0; list-style: none; }
 .connection-capability-list > li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .connection-capability-list > li + li { padding-top: 5px; border-top: 1px solid var(--border); }
@@ -69,8 +67,6 @@
 
 .model-connection-form { min-width: 0; }
 .model-connection-form .model-advanced { padding: 0 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.model-connection-form .model-advanced > summary { padding: 10px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-.model-connection-form .model-advanced[open] > summary { margin-bottom: 4px; }
 .model-connection-created { min-width: 0; }
 
 .connections-notice { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 8px 12px; border: 1px solid var(--border); border-left: 3px solid var(--primary); border-radius: var(--radius-sm); background: var(--surface-2); }
@@ -78,8 +74,6 @@
 
 .forge-connection-form { min-width: 0; }
 .forge-connection-form .forge-advanced { padding: 0 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.forge-connection-form .forge-advanced > summary { padding: 10px 0; color: var(--text-muted); font-size: 12px; font-weight: 600; cursor: pointer; }
-.forge-connection-form .forge-advanced[open] > summary { margin-bottom: 4px; }
 .forge-connection-form textarea { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
 .forge-connection-form .row-actions { margin-top: var(--space-2); }
 .forge-connection-created { min-width: 0; }
