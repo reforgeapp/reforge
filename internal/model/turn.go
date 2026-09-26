@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+
+	"reforge/internal/skills"
 )
 
 type Turn struct {
@@ -24,6 +26,24 @@ func (t Turn) GoString() string     { return t.String() }
 func (t Turn) LogValue() slog.Value { return slog.StringValue(t.String()) }
 func (t Turn) Request() TurnRequest {
 	return TurnRequest{OperationID: t.OperationID, Model: t.Model, System: t.System, Messages: t.Messages, Tools: t.Tools, MaxOutputTokens: t.MaxOutputTokens, Continuation: t.Continuation, Session: t.Session}
+}
+func (t Turn) WithSkills() (Turn, error) {
+	var err error
+	t.System, err = skills.Apply(t.System)
+	if err != nil {
+		return Turn{}, err
+	}
+	tools := make([]Tool, 0, len(t.Tools)+1)
+	for _, tool := range t.Tools {
+		if tool.Name != skills.ToolName {
+			tools = append(tools, tool)
+		}
+	}
+	t.Tools = append(tools, Tool{Name: skills.ToolName, Description: skills.ToolDescription, Schema: json.RawMessage(skills.ToolSchema)})
+	if !t.Valid() {
+		return Turn{}, errors.New("invalid model turn after loading required skills")
+	}
+	return t, nil
 }
 func (t Turn) Valid() bool {
 	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > 300000 || len(t.Messages) == 0 || len(t.Messages) > 400 || len(t.Tools) > 32 {
@@ -62,14 +82,15 @@ func (t TurnResult) GoString() string     { return t.String() }
 func (t TurnResult) LogValue() slog.Value { return slog.StringValue(t.String()) }
 func CollectTurn(ctx context.Context, p ModelProvider, t Turn) (TurnResult, error) {
 	out := TurnResult{ToolCalls: []ToolCall{}}
-	if !t.Valid() {
-		return out, errors.New("invalid model turn")
+	t, err := t.WithSkills()
+	if err != nil {
+		return out, err
 	}
 	schemas, _ := CompileTools(t.Tools)
 	completed := false
 	bytes := 0
 	seen := map[string]bool{}
-	err := p.StreamTurn(ctx, t.Request(), func(e Event) error {
+	err = p.StreamTurn(ctx, t.Request(), func(e Event) error {
 		if completed {
 			return errors.New("model emitted after completion")
 		}

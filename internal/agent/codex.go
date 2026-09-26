@@ -12,6 +12,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/domain"
 	"reforge/internal/sandbox"
+	"reforge/internal/skills"
 )
 
 type threadResponse struct {
@@ -244,6 +245,10 @@ func (c *Codex) Start(ctx context.Context, request Request) (string, error) {
 	if !auth.ValidID(request.JobID) || !auth.ValidID(request.AttemptID) || request.PolicyHash == "" || request.Model != c.config.Binding.Model || request.Workspace.ID == "" || request.Workspace.CommitSHA == "" || request.Workspace.Image == "" || request.Prompt == "" || len(request.Prompt) > 256<<10 || request.MaxTurns != 1 || c.config.Sandbox == nil {
 		return "", ErrDenied
 	}
+	instructions, err := skills.Apply("Use only the reforge_read, reforge_patch and reforge_exec tools for repository work. Native commands and file modifications are denied.")
+	if err != nil {
+		return "", err
+	}
 	if err := c.qualify(ctx, false); err != nil {
 		return "", err
 	}
@@ -272,9 +277,9 @@ func (c *Codex) Start(ctx context.Context, request Request) (string, error) {
 		return "", err
 	}
 	effect := Effect{Binding: c.config.Binding, Request: request, OperationID: domain.NewID(), Kind: "turn/start"}
-	err := c.authorize(runctx, effect, func() error {
+	err = c.authorize(runctx, effect, func() error {
 		var result threadResponse
-		params := map[string]any{"model": request.Model, "modelProvider": "openai", "cwd": "/workspace", "approvalPolicy": "untrusted", "approvalsReviewer": "user", "sandbox": "read-only", "ephemeral": true, "dynamicTools": toolDefinitions(), "developerInstructions": "Use only the reforge_read, reforge_patch and reforge_exec tools for repository work. Native commands and file modifications are denied.", "config": map[string]any{"forced_login_method": "chatgpt", "web_search": "disabled", "features.shell_tool": false, "features.unified_exec": false, "features.multi_agent": false}}
+		params := map[string]any{"model": request.Model, "modelProvider": "openai", "cwd": "/workspace", "approvalPolicy": "untrusted", "approvalsReviewer": "user", "sandbox": "read-only", "ephemeral": true, "dynamicTools": toolDefinitions(), "developerInstructions": instructions, "config": map[string]any{"forced_login_method": "chatgpt", "web_search": "disabled", "features.shell_tool": false, "features.unified_exec": false, "features.multi_agent": false}}
 		if err := c.rpc.call(runctx, "thread/start", params, &result); err != nil {
 			return err
 		}

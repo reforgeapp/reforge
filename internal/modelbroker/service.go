@@ -101,13 +101,17 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	if !auth.ValidID(in.OperationID) || !in.Valid() {
 		return result, auth.ErrInvalid
 	}
+	in, err := in.WithSkills()
+	if err != nil {
+		return result, auth.ErrInvalid
+	}
 	raw, _ := json.Marshal(in)
 	sum := sha256.Sum256(raw)
 	hash := hex.EncodeToString(sum[:])
 	var initial connections.Connection
 	var lease workflow.Lease
 	var cached *model.TurnResult
-	err := s.runners.WithJob(ctx, credential, "model.turn", func(tx pgx.Tx, l workflow.Lease, t workflow.Task) error {
+	err = s.runners.WithJob(ctx, credential, "model.turn", func(tx pgx.Tx, l workflow.Lease, t workflow.Task) error {
 		lease = l
 		var err error
 		initial, err = s.connections.MetadataTx(ctx, tx, l.OrgID, t.ModelConnectionID)

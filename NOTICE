@@ -6,3 +6,12 @@ Licensed under the Apache License, Version 2.0.
 Third-party dependencies retain their respective copyright and licence terms.
 The dependency inventory and redistributable notices are maintained in
 docs/implementation/dependencies.md.
+
+Embedded agent skills include MIT-licensed material from:
+- Addy Osmani, agent-skills (Copyright 2025 Addy Osmani).
+- Julius Brussee, Caveman skills (Copyright 2026 Julius Brussee).
+
+Pinned revisions, source file hashes, and bundled scope are recorded in
+internal/skills/sources.json. Original licence texts are preserved in
+internal/skills/vendor/addyosmani/LICENSE and internal/skills/vendor/caveman/LICENSE.
+Only MIT-licensed Caveman skills are included; Engine-linked runtime is excluded.

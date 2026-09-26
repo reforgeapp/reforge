@@ -15,6 +15,7 @@ import (
 	"reforge/internal/model"
 	"reforge/internal/sandbox"
 	"reforge/internal/sandbox/guest"
+	"reforge/internal/skills"
 )
 
 type DependencyUpdate struct {
@@ -211,7 +212,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			return fail("Run authorization changed", err)
 		}
 		messages = compact(messages)
-		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Maintain the repository so its entire CI passes on the first run. Check every CI step your change affects before finishing, not only the one that failed. Prefer the smallest correct change. Never weaken tests or security checks.", Messages: messages, Tools: ciTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: e.turnTimeout().Milliseconds()})
+		result, err := e.turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Maintain the repository so its entire CI passes on the first run. Check every CI step your change affects before finishing, not only the one that failed. Prefer the smallest correct change. Never weaken tests or security checks.", Messages: messages, Tools: ciTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: e.turnTimeout().Milliseconds()})
 		if err != nil {
 			return fail(modelFailure(err), err)
 		}
@@ -228,6 +229,17 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		for _, call := range result.ToolCalls {
 			reply := ""
 			switch call.Name {
+			case skills.ToolName:
+				var input struct{ Path string }
+				if json.Unmarshal(call.Arguments, &input) != nil {
+					return fail("Malformed model tool call", ErrHandoff)
+				}
+				body, err := skills.Read(input.Path)
+				if err != nil {
+					reply = "Bundled skill resource unavailable; use an exact catalog path"
+				} else {
+					reply = body
+				}
 			case "read_file":
 				var in struct{ Path string }
 				_ = json.Unmarshal(call.Arguments, &in)

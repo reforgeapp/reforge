@@ -15,6 +15,7 @@ import (
 	"reforge/internal/model"
 	"reforge/internal/sandbox"
 	"reforge/internal/sandbox/guest"
+	"reforge/internal/skills"
 )
 
 type Report struct {
@@ -50,6 +51,14 @@ type Engine struct {
 }
 
 var ErrHandoff = errors.New("repair requires human review")
+
+func (e Engine) turn(ctx context.Context, in model.Turn) (model.TurnResult, error) {
+	in, err := in.WithSkills()
+	if err != nil {
+		return model.TurnResult{}, err
+	}
+	return e.Turn(ctx, in)
+}
 
 func Files(snapshot sandbox.Snapshot) (map[string][]byte, error) {
 	if !snapshot.Complete {
@@ -231,7 +240,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			return fail("Run authorization changed", err)
 		}
 		messages = compact(messages)
-		result, err := e.Turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
+		result, err := e.turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
 			return fail(modelFailure(err), err)
 		}
@@ -255,6 +264,13 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			}
 			reply := ""
 			switch call.Name {
+			case skills.ToolName:
+				body, err := skills.Read(input.Path)
+				if err != nil {
+					reply = "Bundled skill resource unavailable; use an exact catalog path"
+				} else {
+					reply = body
+				}
 			case "read_file", "read_target_file":
 				body, ok := files[input.Path]
 				if call.Name == "read_target_file" {

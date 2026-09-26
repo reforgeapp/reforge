@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"reforge/internal/sandbox"
+	"reforge/internal/skills"
 )
 
 const maxInputBytes = 1 << 20
@@ -22,12 +23,16 @@ func (e *Executor) RunSpec(ctx context.Context, spec ProfileSpec, in Input) (Res
 	if len(in.Request) > maxInputBytes || in.Workspace.ID == "" {
 		return Result{}, ErrInvalid
 	}
+	request, err := requestWithSkills(in.Request)
+	if err != nil {
+		return Result{}, err
+	}
 	spec2 := Spec{
 		Workspace:  in.Workspace,
 		Executable: spec.Executable,
 		Args:       append([]string{}, spec.Argv...),
 		Directory:  in.Workspace.Root,
-		Stdin:      in.Request,
+		Stdin:      request,
 		Timeout:    time.Duration(spec.MaxWallSeconds) * time.Second,
 		MaxOutput:  spec.MaxOutputBytes,
 	}
@@ -54,12 +59,16 @@ func (e *Executor) Run(ctx context.Context, profile Profile, in Input) (Result, 
 	if len(in.Request) > maxInputBytes || in.Workspace.ID == "" {
 		return Result{}, ErrInvalid
 	}
+	request, err := requestWithSkills(in.Request)
+	if err != nil {
+		return Result{}, err
+	}
 	spec := Spec{
 		Workspace:  in.Workspace,
 		Executable: profile.Executable,
 		Args:       append([]string{}, profile.Argv...),
 		Directory:  in.Workspace.Root,
-		Stdin:      in.Request,
+		Stdin:      request,
 		Timeout:    time.Duration(profile.MaxWallSeconds) * time.Second,
 		MaxOutput:  profile.MaxOutputBytes,
 	}
@@ -71,6 +80,27 @@ func (e *Executor) Run(ctx context.Context, profile Profile, in Input) (Result, 
 		return Result{State: "unknown", Reason: "Profile process outcome could not be confirmed; reconcile before retry"}, err
 	}
 	return e.classify(raw, profile)
+}
+
+func requestWithSkills(raw []byte) ([]byte, error) {
+	var request map[string]json.RawMessage
+	if len(raw) > maxInputBytes || json.Unmarshal(raw, &request) != nil || request == nil {
+		return nil, ErrInvalid
+	}
+	bundle, err := skills.Context()
+	if err != nil {
+		return nil, err
+	}
+	context, err := json.Marshal(bundle)
+	if err != nil {
+		return nil, err
+	}
+	request["reforge_skills"] = context
+	encoded, err := json.Marshal(request)
+	if err != nil || len(encoded) > maxInputBytes {
+		return nil, ErrInvalid
+	}
+	return encoded, nil
 }
 
 func (e *Executor) classify(raw sandbox.CommandResult, profile Profile) (Result, error) {

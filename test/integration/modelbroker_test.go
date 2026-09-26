@@ -87,7 +87,7 @@ func TestModelBrokerPrivateOllamaBudgetAndReplay(t *testing.T) {
 		stopClient()
 		t.Fatalf("local Ollama probe: %v %s", err, checked.State)
 	}
-	limits := budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(int64(0)), Tokens: ptr(int64(20000)), Milliseconds: ptr(int64(120000)), Requests: ptr(int64(2)), Concurrency: ptr(int64(1))}}
+	limits := budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(int64(0)), Tokens: ptr(int64(200000)), Milliseconds: ptr(int64(120000)), Requests: ptr(int64(2)), Concurrency: ptr(int64(1))}}
 	budgets := budget.New(f.db, f.identity, func(ctx context.Context, tx pgx.Tx, l budget.Lease) error {
 		_, err := policies.ValidateFenceTx(ctx, tx, workflow.Lease(l), "budget")
 		return err
@@ -97,7 +97,7 @@ func TestModelBrokerPrivateOllamaBudgetAndReplay(t *testing.T) {
 		stopClient()
 		t.Fatal(err)
 	}
-	_, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: "qwen3:0.6b", Name: "default", Mode: "priced", PricingVersion: "local-zero", MaxInputTokens: 10000, MaxOutputTokens: 512, MaxMilliseconds: 60000, MaxRequests: 1}, 0, "model-test")
+	_, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: "qwen3:0.6b", Name: "default", Mode: "priced", PricingVersion: "local-zero", MaxInputTokens: 65536, MaxOutputTokens: 512, MaxMilliseconds: 60000, MaxRequests: 1}, 0, "model-test")
 	if err != nil {
 		stopClient()
 		t.Fatal(err)

@@ -141,10 +141,44 @@ for record, notice_path in notice_sources:
         f"SHA-256: {digest}\n{text}"
     )
 
+skill_root = root / 'internal/skills'
+skill_vendor_root = (skill_root / 'vendor').resolve()
+skill_manifest = json.loads((skill_root / 'sources.json').read_text())
+for source in skill_manifest['sources']:
+    evidence = {}
+    for record in source['files']:
+        source_path = (skill_root / record['path']).resolve()
+        try:
+            source_path.relative_to(skill_vendor_root)
+        except ValueError as error:
+            raise ValueError(f"skill path escapes vendor root: {record['path']}") from error
+        data = source_path.read_bytes()
+        if hashlib.sha256(data).hexdigest() != record['sha256']:
+            raise ValueError(f"skill source hash mismatch: {record['path']}")
+        evidence[record['path']] = data
+    rows.append((
+        source['name'], source['revision'], 'embedded agent skills',
+        f"{source['license']}; internal/skills/{source['license_path']}",
+    ))
+    for key in ['license_path', 'license_scope_path']:
+        if key not in source:
+            continue
+        path = source[key]
+        data = evidence[path]
+        text = '\n'.join(line.rstrip() for line in data.decode('utf-8').splitlines()).rstrip()
+        scope = source.get('license_scope', source['scope'])
+        notices.append(
+            f"{source['name']} {source['revision']} / {path}\n"
+            f"Source: {source['repository']}/tree/{source['revision']}\n"
+            f"Scope: {scope}\n"
+            f"SHA-256: {hashlib.sha256(data).hexdigest()}\n{text}"
+        )
+
 inventory = [
     '# Dependency inventory',
     '',
-    'Generated from the Go module graph and npm lockfile. Go package scope comes from',
+    'Generated from the Go module graph, npm lockfile, and pinned agent skill sources.',
+    'Go package scope comes from',
     '`go list -deps` for shipped binaries and `go list -deps -test ./...`; npm scope',
     'comes from each locked package’s production/development install role. Exact-root',
     'licence and notice files are copied to `third-party-notices.txt` with trailing whitespace normalized. The Go',

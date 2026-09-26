@@ -9,10 +9,12 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/model"
 	"reforge/internal/sandbox"
+	"reforge/internal/skills"
 )
 
 func brokerTools() []model.Tool {
 	return []model.Tool{
+		{Name: skills.ToolName, Description: skills.ToolDescription, Schema: json.RawMessage(skills.ToolSchema)},
 		{Name: "reforge_read", Description: "Read a bounded file from the isolated repository workspace", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":1024}},"required":["path"],"additionalProperties":false}`)},
 		{Name: "reforge_patch", Description: "Apply bounded file changes in the isolated repository workspace", Schema: json.RawMessage(`{"type":"object","properties":{"patches":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"object","properties":{"path":{"type":"string","minLength":1,"maxLength":1024},"content":{"type":"string","maxLength":262144},"delete":{"type":"boolean"}},"required":["path"],"additionalProperties":false}}},"required":["patches"],"additionalProperties":false}`)},
 		{Name: "reforge_exec", Description: "Execute bounded argv without network inside the isolated repository workspace", Schema: json.RawMessage(`{"type":"object","properties":{"args":{"type":"array","minItems":1,"maxItems":64,"items":{"type":"string","maxLength":4096}},"directory":{"type":"string","maxLength":1024},"timeoutMillis":{"type":"integer","minimum":1,"maximum":60000},"maxOutputBytes":{"type":"integer","minimum":1,"maximum":262144}},"required":["args","timeoutMillis","maxOutputBytes"],"additionalProperties":false}`)},
@@ -68,6 +70,19 @@ func (c *Codex) tool(ctx context.Context, p packet) error {
 	var result any
 	var perform func() error
 	switch params.Tool {
+	case skills.ToolName:
+		var input struct {
+			Path string `json:"path"`
+		}
+		_ = json.Unmarshal(params.Arguments, &input)
+		perform = func() error {
+			body, err := skills.Read(input.Path)
+			if err != nil {
+				return err
+			}
+			result = map[string]string{"path": input.Path, "content": body}
+			return nil
+		}
 	case "reforge_read":
 		var input struct {
 			Path string `json:"path"`

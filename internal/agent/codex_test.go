@@ -16,7 +16,22 @@ import (
 
 	"reforge/internal/domain"
 	"reforge/internal/sandbox"
+	"reforge/internal/skills"
 )
+
+func fixtureSkillPath() string {
+	bundle, err := skills.Context()
+	if err != nil {
+		return ""
+	}
+	selected := ""
+	for path := range bundle.Files {
+		if strings.HasSuffix(path, "/SKILL.md") && !strings.Contains(path, "caveman") && (selected == "" || path < selected) {
+			selected = path
+		}
+	}
+	return selected
+}
 
 func TestAgentProcessFixture(t *testing.T) {
 	marker := -1
@@ -69,9 +84,20 @@ func TestAgentProcessFixture(t *testing.T) {
 				os.Exit(3)
 			}
 			if p.Method == "thread/start" {
-				var tools []any
-				if json.Unmarshal(params["dynamicTools"], &tools) != nil || len(tools) != 3 {
+				var tools []struct {
+					Name string `json:"name"`
+				}
+				if json.Unmarshal(params["dynamicTools"], &tools) != nil || len(tools) != 4 {
 					os.Exit(4)
+				}
+				found := false
+				for _, tool := range tools {
+					found = found || tool.Name == skills.ToolName
+				}
+				var instructions string
+				required, err := skills.Instructions()
+				if err != nil || json.Unmarshal(params["developerInstructions"], &instructions) != nil || !strings.Contains(instructions, required) || !found {
+					os.Exit(11)
 				}
 			} else if turns != 1 {
 				os.Exit(5)
@@ -110,6 +136,10 @@ func TestAgentProcessFixture(t *testing.T) {
 				if mode == "unknown_tool" {
 					tool = "shellCommand"
 				}
+				if mode == "skill" {
+					tool = skills.ToolName
+					args = map[string]string{"path": fixtureSkillPath()}
+				}
 				write(map[string]any{"id": 100, "method": "item/tool/call", "params": map[string]any{"threadId": "thread-1", "turnId": "turn-1", "callId": "call-1", "tool": tool, "arguments": args}})
 				if mode == "premature" {
 					complete("completed")
@@ -142,6 +172,21 @@ func TestAgentProcessFixture(t *testing.T) {
 				_ = json.Unmarshal(p.Result, &result)
 				if !result.Success {
 					os.Exit(9)
+				}
+				if mode == "skill" {
+					var reply struct {
+						ContentItems []struct {
+							Text string `json:"text"`
+						} `json:"contentItems"`
+					}
+					var resource struct {
+						Path    string `json:"path"`
+						Content string `json:"content"`
+					}
+					body, err := skills.Read(fixtureSkillPath())
+					if err != nil || json.Unmarshal(p.Result, &reply) != nil || len(reply.ContentItems) != 1 || json.Unmarshal([]byte(reply.ContentItems[0].Text), &resource) != nil || resource.Path != fixtureSkillPath() || resource.Content != body {
+						os.Exit(12)
+					}
 				}
 			}
 			if mode == "duplicate" {
@@ -227,6 +272,25 @@ func authID(id string) bool { return len(id) == 36 }
 func fixtureRequest(box *fixtureSandbox) Request {
 	return Request{JobID: domain.NewID(), AttemptID: domain.NewID(), Prompt: "inspect fixture", Workspace: box.workspace, Model: "fixture-model", PolicyHash: "policy-1", MaxTurns: 1}
 }
+func TestBrokerReadsBundledSkill(t *testing.T) {
+	if fixtureSkillPath() == "" {
+		t.Fatal("optional skill unavailable")
+	}
+	c, box, claims, mu := fixtureBridge(t, "skill")
+	session, err := c.Start(context.Background(), fixtureRequest(box))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = c.StreamEvents(context.Background(), session, func(Event) error { return nil }); err != nil {
+		t.Fatal(err)
+	}
+	mu.Lock()
+	defer mu.Unlock()
+	if len(*claims) != 2 || (*claims)[0] != "turn/start" || (*claims)[1] != skills.ToolName || box.calls.Load() != 0 {
+		t.Fatalf("skill read escaped trusted broker: claims=%v sandbox calls=%d", *claims, box.calls.Load())
+	}
+}
+
 func TestBrokerPreEffectClaimAndResume(t *testing.T) {
 	c, box, claims, mu := fixtureBridge(t, "broker")
 	session, err := c.Start(context.Background(), fixtureRequest(box))
