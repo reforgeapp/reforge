@@ -282,3 +282,35 @@ func TestDiscoveryGroupedOverlapAndExistingRepair(t *testing.T) {
 		t.Fatalf("overlap with active repair accepted: %v", err)
 	}
 }
+
+func TestDiscoveryOwnerRepairCanOverlapBotFindings(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	ctx := context.Background()
+	dep := []detectors.Dependency{{Ecosystem: "npm", Manifest: "web/package.json", Name: "typescript", From: "6.0.3", To: "5.9.3"}}
+	dependabotInput := f.observation("dependabot-change", "main", strings.Repeat("a", 40), dep)
+	dependabotInput.Evidence.Bot = "dependabot"
+	dependabotInput.Evidence.Ownership = "bot"
+	f.observe(t, dependabotInput)
+
+	ownerInput := f.observation("reforge-change", "main", strings.Repeat("c", 40), dep)
+	ownerInput.Evidence.Ownership = "reforge"
+	owner := f.observe(t, ownerInput)
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := discovery.PrepareRepairTx(ctx, tx, f.org, owner.ID, owner.Version)
+		return err
+	}); err != nil {
+		t.Fatalf("Reforge-owned repair blocked by open Dependabot finding: %v", err)
+	}
+
+	renovateInput := f.observation("renovate-change", "main", strings.Repeat("d", 40), dep)
+	renovateInput.Evidence.Bot = "renovate"
+	renovateInput.Evidence.Ownership = "bot"
+	renovate := f.observe(t, renovateInput)
+	err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := discovery.PrepareRepairTx(ctx, tx, f.org, renovate.ID, renovate.Version)
+		return err
+	})
+	if !errors.Is(err, discovery.ErrDuplicate) {
+		t.Fatalf("overlapping Renovate and Dependabot work accepted: %v", err)
+	}
+}

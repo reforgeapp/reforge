@@ -269,29 +269,31 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 	if current != f.Evidence.ConnectionVersion {
 		return f, ErrStale
 	}
-	overlaps, err := tx.Query(ctx, `SELECT evidence FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND id<>$3 AND state='open' AND evidence->>'bot' IN ('renovate','dependabot')`, org, f.RepositoryID, f.ID)
-	if err != nil {
-		return f, err
-	}
-	for overlaps.Next() {
-		var raw []byte
-		var e Evidence
-		if err = overlaps.Scan(&raw); err == nil {
-			err = json.Unmarshal(raw, &e)
-		}
+	if f.Evidence.Bot == "renovate" || f.Evidence.Bot == "dependabot" {
+		overlaps, err := tx.Query(ctx, `SELECT evidence FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND id<>$3 AND state='open' AND evidence->>'bot' IN ('renovate','dependabot')`, org, f.RepositoryID, f.ID)
 		if err != nil {
-			overlaps.Close()
 			return f, err
 		}
-		if e.Bot != f.Evidence.Bot && e.TargetBranch == f.Evidence.TargetBranch && Overlap(e.Dependencies, f.Evidence.Dependencies) {
-			overlaps.Close()
-			return f, ErrDuplicate
+		for overlaps.Next() {
+			var raw []byte
+			var e Evidence
+			if err = overlaps.Scan(&raw); err == nil {
+				err = json.Unmarshal(raw, &e)
+			}
+			if err != nil {
+				overlaps.Close()
+				return f, err
+			}
+			if e.Bot != f.Evidence.Bot && e.TargetBranch == f.Evidence.TargetBranch && Overlap(e.Dependencies, f.Evidence.Dependencies) {
+				overlaps.Close()
+				return f, ErrDuplicate
+			}
 		}
-	}
-	err = overlaps.Err()
-	overlaps.Close()
-	if err != nil {
-		return f, err
+		err = overlaps.Err()
+		overlaps.Close()
+		if err != nil {
+			return f, err
+		}
 	}
 	head := ""
 	if f.Evidence.Change != nil {
