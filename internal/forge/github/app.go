@@ -30,6 +30,11 @@ func (a AppConfig) String() string       { return "GitHub App credentials [redac
 func (a AppConfig) GoString() string     { return a.String() }
 func (a AppConfig) LogValue() slog.Value { return slog.StringValue(a.String()) }
 
+type tokenUser struct {
+	mu sync.Mutex
+	id string
+}
+
 type installationAuth struct {
 	mu                    sync.Mutex
 	appID, installationID string
@@ -177,7 +182,7 @@ func (p *Provider) installationToken(ctx context.Context) (string, error) {
 }
 func (p *Provider) authenticatedBot(ctx context.Context) (string, error) {
 	if p.app == nil {
-		return "", failure("auth", "Authenticated GitHub App installation required for owned operations")
+		return p.tokenUserID(ctx)
 	}
 	if _, err := p.installationToken(ctx); err != nil {
 		return "", err
@@ -200,4 +205,33 @@ func (p *Provider) invalidateToken(credential string) {
 		p.app.token = ""
 		p.app.expires = time.Time{}
 	}
+}
+
+func (p *Provider) tokenUserID(ctx context.Context) (string, error) {
+	if p.user == nil {
+		return "", failure("identity", "Authenticated GitHub identity missing")
+	}
+	p.user.mu.Lock()
+	defer p.user.mu.Unlock()
+	if p.user.id != "" {
+		return p.user.id, nil
+	}
+	var actor struct {
+		ID int64 `json:"id"`
+	}
+	if err := p.get(ctx, []string{"user"}, nil, &actor); err != nil {
+		return "", err
+	}
+	if actor.ID <= 0 {
+		return "", failure("identity", "Authenticated GitHub identity missing")
+	}
+	p.user.id = strconv.FormatInt(actor.ID, 10)
+	return p.user.id, nil
+}
+
+func (p *Provider) appID() string {
+	if p.app == nil {
+		return ""
+	}
+	return p.app.appID
 }

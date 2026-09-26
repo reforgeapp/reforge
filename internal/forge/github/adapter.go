@@ -39,6 +39,7 @@ type Provider struct {
 	authorizeChange func(context.Context, forge.CreateChangeRequest) error
 	mergeGuard      MergeGuard
 	authorizeReview func(context.Context, forge.RepoRef, string, []string) error
+	user            *tokenUser
 }
 
 func New(config forge.Config) (*Provider, error) {
@@ -65,7 +66,7 @@ func New(config forge.Config) (*Provider, error) {
 	}
 	base.Path = strings.TrimRight(base.Path, "/")
 	base.RawPath = ""
-	return &Provider{config: config, base: base}, nil
+	return &Provider{config: config, base: base, user: &tokenUser{}}, nil
 }
 
 func (p *Provider) ProbeCapabilities(ctx context.Context) (forge.Capabilities, error) {
@@ -514,7 +515,7 @@ func (p *Provider) FindChangeByOperation(ctx context.Context, reference forge.Re
 }
 
 func operationChangeMatches(change forge.Change, reference forge.RepoRef, operationID string, headBranch string, targetBranch string) bool {
-	if change.OperationID != operationID || !strings.EqualFold(change.AuthorType, "bot") {
+	if change.OperationID != operationID {
 		return false
 	}
 	if !sameRepoRef(change.Repository, reference) || !sameRepoRef(change.HeadRepository, reference) || !sameRepoRef(change.TargetRepository, reference) {

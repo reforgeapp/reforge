@@ -182,7 +182,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		out.DismissStaleReviews = v.Dismiss
 		out.RequireCodeOwners = v.Owners
 		for _, app := range v.Bypass.Apps {
-			if strconv.FormatInt(app.ID, 10) == p.app.appID {
+			if p.app != nil && strconv.FormatInt(app.ID, 10) == p.appID() {
 				out.ActorCanBypass = true
 			}
 		}
@@ -233,7 +233,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 					case "Integration":
 						if b.ActorID == nil {
 							out.State = domain.Unknown
-						} else if strconv.FormatInt(*b.ActorID, 10) == p.app.appID {
+						} else if p.app != nil && strconv.FormatInt(*b.ActorID, 10) == p.appID() {
 							out.ActorCanBypass = true
 						}
 					case "User":
@@ -463,10 +463,13 @@ func (p *Provider) EvaluateNativeEligibility(ctx context.Context, r forge.RepoRe
 }
 
 func (p *Provider) EvaluateQueuePrerequisites(ctx context.Context, r forge.RepoRef, id string) (forge.NativeEligibility, forge.CheckRule, error) {
+	if p.app == nil {
+		return forge.NativeEligibility{}, forge.CheckRule{}, failure("unsupported", "GitHub merge queue gating requires the GitHub App")
+	}
 	if _, err := p.authenticatedBot(ctx); err != nil {
 		return forge.NativeEligibility{}, forge.CheckRule{}, err
 	}
-	check := forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: p.app.appID}
+	check := forge.CheckRule{Name: forge.QueueExecutionCheckName, PublisherID: p.appID()}
 	state, err := p.evaluateEligibility(ctx, r, id, check)
 	return state, check, err
 }

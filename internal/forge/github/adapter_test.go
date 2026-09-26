@@ -343,3 +343,31 @@ func TestListRepositoriesAcceptsSingleRepositoryScope(t *testing.T) {
 		}
 	}
 }
+
+func TestTokenConnectionOwnsOperationsAsTokenUser(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		writer.Header().Set("Content-Type", "application/json")
+		switch request.URL.Path {
+		case "/user":
+			_, _ = writer.Write([]byte(`{"id":5,"login":"owner"}`))
+		case "/repos/acme/repo/git/ref/heads/main":
+			_, _ = writer.Write([]byte(`{"object":{"sha":"2222222222222222222222222222222222222222"}}`))
+		case "/repos/acme/repo/pulls":
+			_, _ = writer.Write([]byte(`[{"number":7,"title":"Repair","body":"<!-- reforge-operation-id:op-1 -->","state":"open","repository":{"id":1,"full_name":"acme/repo"},"user":{"id":5,"login":"owner","type":"User"},"head":{"ref":"reforge/repair/x","sha":"1111111111111111111111111111111111111111","repo":{"id":1,"full_name":"acme/repo"}},"base":{"ref":"main","sha":"base-1","repo":{"id":1,"full_name":"acme/repo"}}}]`))
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	provider, err := New(forge.Config{BaseURL: server.URL, Token: "token", Client: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	found, err := provider.FindChangeByOperation(context.Background(), forge.RepoRef{NativeID: "1", FullName: "acme/repo"}, "op-1", "reforge/repair/x", "main")
+	if err != nil || found == nil || found.ID != "7" {
+		t.Fatalf("found=%#v err=%v", found, err)
+	}
+	if _, err := provider.WriteExecutionCheck(context.Background(), forge.ExecutionCheckRequest{}); err == nil {
+		t.Fatal("check runs must stay App-only")
+	}
+}

@@ -28,13 +28,16 @@ func (p *Provider) WriteExecutionCheck(ctx context.Context, in forge.ExecutionCh
 	if err := validateExecutionCheck(in); err != nil {
 		return forge.ExecutionCheck{}, err
 	}
+	if p.app == nil {
+		return forge.ExecutionCheck{}, failure("unsupported", "GitHub check runs require the GitHub App")
+	}
 	if _, err := p.GetRepository(ctx, in.Repository); err != nil {
 		return forge.ExecutionCheck{}, err
 	}
 	if _, err := p.authenticatedBot(ctx); err != nil {
 		return forge.ExecutionCheck{}, err
 	}
-	appID := p.app.appID
+	appID := p.appID()
 	if in.CheckID != "" {
 		current, err := p.readExecutionCheck(ctx, in.Repository, in.CheckID)
 		if err != nil {
@@ -111,10 +114,13 @@ func (p *Provider) ReadExecutionCheck(ctx context.Context, repository forge.Repo
 	if _, err := p.GetRepository(ctx, repository); err != nil {
 		return forge.ExecutionCheck{}, err
 	}
+	if p.app == nil {
+		return forge.ExecutionCheck{}, failure("unsupported", "GitHub check runs require the GitHub App")
+	}
 	if _, err := p.authenticatedBot(ctx); err != nil {
 		return forge.ExecutionCheck{}, err
 	}
-	appID := p.app.appID
+	appID := p.appID()
 	check, err := p.readExecutionCheck(ctx, repository, id)
 	if err != nil {
 		return forge.ExecutionCheck{}, err

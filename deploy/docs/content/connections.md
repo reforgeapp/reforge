@@ -48,6 +48,11 @@ selected**. A failed test keeps the connection: paste a corrected token and sele
 create another. A test that returns an unhealthy state does not open the repository
 step; read the reason and retry after fixing it.
 
+With a token, Reforge pushes branches and opens pull requests as the token's user, and
+recognises its own work by that user plus the operation marker, as on GitLab and Gitea. The
+token needs write access to contents and pull requests. GitHub merge queue gating uses check
+runs, which need the GitHub App.
+
 #### GitHub Enterprise Server and manual App
 
 GHES keeps the manual App flow. Under **Authentication**, choose **GitHub App

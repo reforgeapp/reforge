@@ -135,9 +135,9 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if rules.State != domain.Supported || rules.Hash != in.RulesHash || rules.ActorCanBypass || rules.RequireQueue != in.Queue {
 		return out, failure("conflict", "Native protections or merge path changed")
 	}
-	appGate := false
+	appGate := p.app == nil
 	for _, check := range rules.RequiredChecks {
-		if check.PublisherID == p.app.appID {
+		if p.app != nil && check.PublisherID == p.appID() {
 			appGate = true
 		}
 	}
