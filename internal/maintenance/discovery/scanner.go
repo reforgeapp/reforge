@@ -412,10 +412,16 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		}
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_change", SourceID: change.ID, Category: category, Severity: "medium", Title: change.Title, Evidence: e})
 	}
-	return sharedBotFailures(out, initial, lease.Repo, lease.Branch, failedChecks(targetChecks)), nil
+	return sharedBotFailures(out, initial, lease.Repo, lease.Branch, targetChecks), nil
 }
 
-func sharedBotFailures(out []Observation, initial Evidence, repo, branch string, targetFailing bool) []Observation {
+func sharedBotFailures(out []Observation, initial Evidence, repo, branch string, target []forge.Check) []Observation {
+	passing := map[string]bool{}
+	for _, c := range target {
+		if c.Conclusion == "success" {
+			passing[c.Name] = true
+		}
+	}
 	seen := map[string]int{}
 	for _, o := range out {
 		if o.Evidence.Bot != "" && o.Evidence.Behind == 0 {
@@ -426,7 +432,7 @@ func sharedBotFailures(out []Observation, initial Evidence, repo, branch string,
 	}
 	shared := map[string]bool{}
 	for name, count := range seen {
-		if count >= 2 {
+		if count >= 2 && !passing[name] {
 			shared[name] = true
 		}
 	}
@@ -451,7 +457,7 @@ func sharedBotFailures(out []Observation, initial Evidence, repo, branch string,
 			}
 		}
 	}
-	if sample == nil || targetFailing {
+	if sample == nil || failedChecks(target) {
 		return out
 	}
 	e := initial
