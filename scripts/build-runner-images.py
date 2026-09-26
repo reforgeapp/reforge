@@ -8,6 +8,7 @@ import stat
 import subprocess
 import sys
 
+MAINTENANCE_TOOLS = ("env", "ls", "cat", "grep", "sed", "find", "head", "tail", "sort", "cut", "tr", "wc", "dirname", "basename", "mkdir", "cp", "mv", "rm", "chmod", "readlink", "tee", "xargs")
 MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge", "opt/deps", "run", "run/reforge")
 SKIP_DIRS = {"__pycache__", "site-packages", "test", "tests", "doc", "docs"}
 
@@ -127,9 +128,25 @@ def go_toolchain(root, binary):
     return version
 
 
+def maintenance_tools(root):
+    for name in MAINTENANCE_TOOLS:
+        binary = command_path(name)
+        copy_file(root, binary, "/usr/bin/" + name)
+        copy_binary_dependencies(root, binary)
+
+
+def write_launcher(root, name, cli):
+    target = destination(root, "/usr/local/bin/" + name)
+    with open(target, "w", encoding="utf-8") as stream:
+        stream.write("#!/bin/sh\nexec /usr/local/bin/node " + cli + " \"$@\"\n")
+    os.chmod(target, 0o755)
+
+
 def node_toolchain(root, binary):
     copy_file(root, binary, "/usr/local/bin/node")
     copy_tree(root, "/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/npm", skip_nested=False)
+    write_launcher(root, "npm", "/usr/local/lib/node_modules/npm/bin/npm-cli.js")
+    write_launcher(root, "npx", "/usr/local/lib/node_modules/npm/bin/npx-cli.js")
     copy_binary_dependencies(root, binary)
     return subprocess.run([binary, "--version"], check=True, capture_output=True, text=True).stdout.strip()
 
@@ -188,6 +205,7 @@ def main():
     os.makedirs(output, mode=0o755)
     try:
         make_layout(output)
+        maintenance_tools(output)
         binary = command_path({"go": "go", "javascript": "node", "python": "python3"}[args.stack])
         if args.stack == "go": version = go_toolchain(output, binary)
         elif args.stack == "javascript": version = node_toolchain(output, binary)
