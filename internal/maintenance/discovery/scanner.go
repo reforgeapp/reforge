@@ -7,6 +7,7 @@ import (
 	"log/slog"
 	"path"
 	"reforge/internal/heartbeat"
+	"slices"
 	"strings"
 	"time"
 
@@ -157,6 +158,34 @@ func failedChecks(checks []forge.Check) bool {
 		}
 	}
 	return false
+}
+
+const (
+	WaitingForTarget = "Waiting for the default branch to pass CI"
+	WaitingForRebase = "Waiting for the bot to rebase"
+)
+
+func failingChecks(checks []forge.Check) map[string]bool {
+	out := map[string]bool{}
+	for _, c := range checks {
+		if !BotUpdateJob(c.Name) && failedChecks([]forge.Check{c}) {
+			out[c.Name] = true
+		}
+	}
+	return out
+}
+
+func waitsForTarget(target, change []forge.Check) bool {
+	broken, failing := failingChecks(target), failingChecks(change)
+	if len(broken) == 0 || len(failing) == 0 {
+		return false
+	}
+	for name := range failing {
+		if !broken[name] {
+			return false
+		}
+	}
+	return true
 }
 
 func BotUpdateJob(name string) bool {
@@ -347,6 +376,19 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			e.Ownership = "unknown"
 			e.Blockers = append(e.Blockers, "Confirm immutable dependency bot actor identity in repository maintenance settings")
 		}
+		if e.Bot != "" {
+			compared, err := read(privateconnector.Operation{Kind: privateconnector.ForgeBehind, Compare: &privateconnector.CompareArgs{Repository: lease.Ref, Base: resolved.SHA, Head: change.HeadSHA}})
+			if err != nil {
+				return nil, err
+			}
+			e.Behind = *compared.Behind
+			switch {
+			case waitsForTarget(targetChecks, observed):
+				e.Blockers = append(e.Blockers, WaitingForTarget)
+			case e.Behind > 0:
+				e.Blockers = append(e.Blockers, WaitingForRebase)
+			}
+		}
 		if cfg.MergeAuthority == "reforge" && e.Bot != "" {
 			e.MergeBlockers = []string{"Verify bot automerge is disabled or constrained by a certified native Reforge gate before claiming merge authority"}
 		}
@@ -356,7 +398,51 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		}
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_change", SourceID: change.ID, Category: category, Severity: "medium", Title: change.Title, Evidence: e})
 	}
-	return out, nil
+	return sharedBotFailures(out, initial, lease.Repo, lease.Branch, failedChecks(targetChecks)), nil
+}
+
+func sharedBotFailures(out []Observation, initial Evidence, repo, branch string, targetFailing bool) []Observation {
+	seen := map[string]int{}
+	for _, o := range out {
+		if o.Evidence.Bot != "" && o.Evidence.Behind == 0 {
+			for name := range failingChecks(o.Evidence.Checks) {
+				seen[name]++
+			}
+		}
+	}
+	shared := map[string]bool{}
+	for name, count := range seen {
+		if count >= 2 {
+			shared[name] = true
+		}
+	}
+	if len(shared) == 0 {
+		return out
+	}
+	var sample *Observation
+	for i := range out {
+		o := &out[i]
+		if o.Evidence.Bot == "" || o.Evidence.Behind > 0 || slices.Contains(o.Evidence.Blockers, WaitingForTarget) {
+			continue
+		}
+		failing := failingChecks(o.Evidence.Checks)
+		covered := len(failing) > 0
+		for name := range failing {
+			covered = covered && shared[name]
+		}
+		if covered {
+			o.Evidence.Blockers = append(o.Evidence.Blockers, WaitingForTarget)
+			if sample == nil {
+				sample = o
+			}
+		}
+	}
+	if sample == nil || targetFailing {
+		return out
+	}
+	e := initial
+	e.Checks = sample.Evidence.Checks
+	return append(out, Observation{RepositoryID: repo, Source: "native_ci", SourceID: branch, Category: "ci_failure", Severity: "high", Title: "Default branch fails CI on every dependency update", Evidence: e})
 }
 
 type scanReadError struct {
@@ -368,7 +454,7 @@ func (e *scanReadError) Error() string { return string(e.kind) + ": " + e.err.Er
 func (e *scanReadError) Unwrap() error { return e.err }
 func (e *scanReadError) access() string {
 	switch e.kind {
-	case privateconnector.ForgeResolveRef, privateconnector.ForgeSourceManifest, privateconnector.ForgeReadFile:
+	case privateconnector.ForgeResolveRef, privateconnector.ForgeSourceManifest, privateconnector.ForgeReadFile, privateconnector.ForgeBehind:
 		return "repository contents"
 	case privateconnector.ForgeChecks:
 		return "check results"

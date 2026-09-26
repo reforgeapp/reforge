@@ -43,6 +43,7 @@ type Evidence struct {
 	Checks            []forge.Check          `json:"checks"`
 	Dependencies      []detectors.Dependency `json:"dependencies"`
 	Bot               string                 `json:"bot"`
+	Behind            int                    `json:"behind,omitempty"`
 	Ownership         string                 `json:"ownership"`
 	HeadOwnership     string                 `json:"head_ownership"`
 	MergeBlockers     []string               `json:"merge_blockers"`

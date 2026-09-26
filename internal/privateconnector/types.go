@@ -63,6 +63,7 @@ const (
 	ForgeReadFile            Kind = "forge.read_file"
 	ForgeReadFiles           Kind = "forge.read_files"
 	ForgeCheckLog            Kind = "forge.check_log"
+	ForgeBehind              Kind = "forge.behind"
 	ForgeSourceManifest      Kind = "forge.source_manifest"
 	ForgeReadChange          Kind = "forge.read_change"
 	ForgeChecks              Kind = "forge.checks"
@@ -115,6 +116,11 @@ type FilesArgs struct {
 	CommitSHA  string        `json:"commit_sha"`
 	Paths      []string      `json:"paths"`
 }
+type CompareArgs struct {
+	Repository forge.RepoRef `json:"repository"`
+	Base       string        `json:"base"`
+	Head       string        `json:"head"`
+}
 type CheckLogArgs struct {
 	Repository forge.RepoRef `json:"repository"`
 	CheckID    string        `json:"check_id"`
@@ -156,6 +162,7 @@ type Operation struct {
 	File           *FileArgs                    `json:"file,omitempty"`
 	Files          *FilesArgs                   `json:"files,omitempty"`
 	CheckLog       *CheckLogArgs                `json:"check_log,omitempty"`
+	Compare        *CompareArgs                 `json:"compare,omitempty"`
 	Change         *ChangeArgs                  `json:"change,omitempty"`
 	Checks         *ChecksArgs                  `json:"checks,omitempty"`
 }
@@ -167,7 +174,7 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Compare != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
@@ -224,6 +231,8 @@ func (o Operation) validate() error {
 		valid = o.Ref != nil && o.Ref.Ref != "" && len(o.Ref.Ref) <= 1024
 	case GiteaReadFile:
 		valid = o.File != nil && len(o.File.CommitSHA) <= 64 && o.File.Path != "" && len(o.File.Path) <= 1024
+	case ForgeBehind:
+		valid = o.Compare != nil && o.Compare.Repository.NativeID != "" && len(o.Compare.Base) == 40 && len(o.Compare.Head) == 40
 	case ForgeCheckLog:
 		valid = o.CheckLog != nil && o.CheckLog.CheckID != "" && len(o.CheckLog.CheckID) <= 32 && o.CheckLog.Repository.NativeID != ""
 	case ForgeReadFiles:
@@ -355,6 +364,7 @@ type Result struct {
 	File              *forge.File                    `json:"file,omitempty"`
 	Files             []forge.File                   `json:"files,omitempty"`
 	Log               string                         `json:"log,omitempty"`
+	Behind            *int                           `json:"behind,omitempty"`
 	Change            *forge.Change                  `json:"change,omitempty"`
 	Checks            []forge.Check                  `json:"checks,omitempty"`
 	Approvals         []forge.Approval               `json:"approvals,omitempty"`

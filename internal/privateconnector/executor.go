@@ -398,6 +398,14 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		result.File = &v
 	case ForgeReadFiles:
 		result.Files, err = readFiles(ctx, provider, *op.Files)
+	case ForgeBehind:
+		freshness, ok := provider.(forge.ForgeFreshness)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var behind int
+		behind, err = freshness.Behind(ctx, op.Compare.Repository, op.Compare.Base, op.Compare.Head)
+		result.Behind = &behind
 	case ForgeCheckLog:
 		reader, ok := provider.(forge.CheckLogReader)
 		if !ok {
