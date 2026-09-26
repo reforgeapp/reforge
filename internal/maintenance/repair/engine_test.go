@@ -318,3 +318,26 @@ func TestDuplicatesMatchesContainedFix(t *testing.T) {
 		t.Fatal("duplicate detection wrong")
 	}
 }
+
+func TestEngineCIEditFileChangesOneSnippet(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Recipe.MaxTurns = 3
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, files, plan.TargetSHA}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: "lint failed"}}, Progress: func(context.Context, string) error { return nil },
+		Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+			turns++
+			switch turns {
+			case 1:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "e", Name: "edit_file", Arguments: []byte(`{"path":"value.js","old":"a-b","new":"a+b"}`)}}}, nil
+			case 2:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "c", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+			}
+			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "f", Name: "finish", Arguments: []byte(`{"summary":"Swap operands"}`)}}}, nil
+		}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || len(report.Patches) != 1 || !strings.Contains(string(report.Patches[0].Content), "=> a+b") {
+		t.Fatalf("report=%+v err=%v", report, err)
+	}
+}

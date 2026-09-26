@@ -93,7 +93,7 @@ func advance(continuation json.RawMessage, messages []model.Message, result mode
 		messages = append(messages, model.Message{Role: "assistant", Text: result.Text, ToolCalls: result.ToolCalls})
 	}
 	if result.FinishReason == "length" {
-		messages = append(messages, model.Message{Role: "user", Text: "Your previous reply hit the output token limit and was discarded. Keep replies shorter: one file per apply_patch and no long explanations."})
+		messages = append(messages, model.Message{Role: "user", Text: "Your previous reply hit the output token limit and was discarded. Keep replies shorter: use edit_file for targeted changes where available, one file per call, and no long explanations."})
 	}
 	return continuation, messages
 }

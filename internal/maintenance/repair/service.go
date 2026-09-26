@@ -245,7 +245,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	authority, _ := json.Marshal([]any{resolved.Hash, modelConnection.ID, modelConnection.Version, route, spec, poolVersion, in.RunnerPoolID, f.ID, f.Version, f.EvidenceDigest, attempts})
 	plan.AuthorityHash = hashBytes(authority)
 	plan.Digest = planDigest(plan)
-	context := ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 4096)), TurnTimeoutMS: min(route.MaxMilliseconds, (5 * time.Minute).Milliseconds()), CustomProfile: spec, Finding: f, PolicyHash: resolved.Hash}
+	context := ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 16384)), TurnTimeoutMS: min(route.MaxMilliseconds, (5 * time.Minute).Milliseconds()), CustomProfile: spec, Finding: f, PolicyHash: resolved.Hash}
 	if spec != nil {
 		context.MaxOutputTokens = 0
 		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000
