@@ -41,6 +41,13 @@ CIDRs. Redirects, DNS rebinding and metadata destinations are rejected.
     The control plane does not give API or task containers a container socket. If your
     deployment mounts one, the isolation guarantees above do not apply.
 
+## Supply chain
+
+CI fails on HIGH or CRITICAL vulnerabilities with an available fix, in dependencies and in
+each published image, and on verified or unverifiable secrets in the git history. The
+runner's gVisor binaries are upstream releases pinned by SHA-512; their embedded Go runtime
+is patched by upgrading the pinned release, so the image scan excludes `/app/gvisor`.
+
 ## Subscription and provider terms
 
 Reforge never harvests CLI OAuth caches, never treats a successful login as entitlement,
