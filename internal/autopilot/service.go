@@ -436,6 +436,7 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 		version     int64
 		attempts    int
 		reconciling bool
+		paused      bool
 	}
 	var tasks []blockedTask
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
@@ -451,9 +452,21 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 			}
 			tasks = append(tasks, t)
 		}
-		return rows.Err()
+		if err = rows.Err(); err != nil {
+			return err
+		}
+		rows.Close()
+		for i := range tasks {
+			if tasks[i].paused, err = s.Tasks.PausedTx(ctx, tx, org, tasks[i].id); err != nil {
+				return err
+			}
+		}
+		return nil
 	})
 	for _, t := range tasks {
+		if t.paused {
+			continue
+		}
 		if t.reconciling {
 			run, e := s.repairs.Get(ctx, session, org, t.id)
 			if e == nil {
@@ -469,7 +482,9 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 			t.version = run.Task.Version
 		}
 		if t.attempts < 3 {
-			if _, e := s.Tasks.Resume(ctx, session, org, t.id, t.version, "autopilot"); e == nil {
+			_, e := s.Tasks.Resume(ctx, session, org, t.id, t.version, "autopilot")
+			if !errors.Is(e, workflow.ErrPolicy) {
+				err = errors.Join(err, e)
 				continue
 			}
 		}

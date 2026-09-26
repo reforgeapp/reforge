@@ -72,6 +72,17 @@ func scanTask(row pgx.Row) (Task, error) {
 	err := row.Scan(&t.ID, &t.OrgID, &t.RepositoryID, &t.OperationID, &t.Recipe, &t.RecipeVersion, &t.TargetBranch, &t.ModelConnectionID, &t.CampaignID, &t.RunnerPoolID, &t.PolicyHash, &t.StartingPolicyHash, &t.State, &t.Reason, &t.Version, &t.CancelVersion, &t.CancellationRequested, &t.MaxAttempts, &t.CreatedAt, &t.ModelRoute)
 	return t, hidden(err)
 }
+func (s *Service) PausedTx(ctx context.Context, tx pgx.Tx, orgID, id string) (bool, error) {
+	t, err := loadTask(ctx, tx, orgID, id)
+	if err != nil {
+		return false, err
+	}
+	if err = checkPauses(ctx, tx, t); errors.Is(err, ErrPaused) {
+		return true, nil
+	}
+	return false, err
+}
+
 func loadTask(ctx context.Context, tx pgx.Tx, orgID, id string) (Task, error) {
 	return scanTask(tx.QueryRow(ctx, `SELECT `+taskColumns+` FROM workflow_tasks WHERE org_id=$1 AND id=$2`, orgID, id))
 }
