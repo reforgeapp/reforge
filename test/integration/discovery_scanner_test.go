@@ -61,6 +61,9 @@ func (r *discoveryScanReader) Read(ctx context.Context, org, id string, op priva
 		out.Checks = []forge.Check{{ID: "check-1", Name: "required", HeadSHA: op.Checks.CommitSHA, Status: "completed", Conclusion: "failure"}}
 	case privateconnector.ForgeReadChange:
 		out.Change = &r.change
+	case privateconnector.ForgeBehind:
+		behind := 0
+		out.Behind = &behind
 	default:
 		return out, fmt.Errorf("unexpected discovery operation %s", op.Kind)
 	}
