@@ -209,6 +209,7 @@ func connectionResponse(c *gin.Context, status int, value connections.Connection
 	c.JSON(status, value)
 }
 func connectionFailure(c *gin.Context, err error) {
+	var inUse *connections.InUseError
 	switch {
 	case errors.Is(err, privateconnector.ErrUnavailable):
 		Fail(c, 503, "private_unavailable", "Start the enrolled connector and route its polling and this request to the same controller instance", true)
@@ -222,8 +223,8 @@ func connectionFailure(c *gin.Context, err error) {
 		Fail(c, 502, "catalog_unavailable", "Model list unavailable; check endpoint, credential and provider access, then retry", true)
 	case errors.Is(err, connections.ErrRepositoryEndpoint):
 		Fail(c, 400, "repository_endpoint", "Enter the provider API address, not a repository or web URL; choose repositories after connecting", false)
-	case errors.Is(err, connections.ErrInUse):
-		Fail(c, 409, "connection_in_use", "Connection is still used by repositories, tasks or billing routes; revoke it instead", false)
+	case errors.As(err, &inUse):
+		Fail(c, 409, "connection_in_use", inUse.Error(), false)
 	case errors.Is(err, connections.ErrRevoked):
 		Fail(c, 409, "connection_revoked", "Connection revoked; create a new connection", false)
 	case errors.Is(err, network.ErrDestination), errors.Is(err, network.ErrRequest):

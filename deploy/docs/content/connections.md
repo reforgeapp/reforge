@@ -88,8 +88,12 @@ CA and private-runner settings are secondary. A revoked connection disables **Te
 connection** and **Revoke** and shows the reason.
 
 **Edit** changes the name and, for token forges, the namespace; the next sync uses the
-new namespace. **Delete** removes a connection and its stored credential when no
-repository, task or billing route uses it; otherwise revoke it.
+new namespace. **Delete** removes a connection, its stored credential and its billing routes. It is
+refused only while repositories use it, runs are using it or model calls are in flight,
+and the message says which. Past runs keep their record of the deleted connection.
+
+A model connection whose calls the provider rejects outright (key, access or unknown model)
+is marked **Failed** with the provider's message and is not used until a test passes.
 
 ## Development and webhook limitation
 

@@ -5,6 +5,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"strconv"
@@ -26,7 +27,26 @@ var ErrRunnerRequired = errors.New("enrol a runner in this organisation before a
 var ErrRevoked = errors.New("connection revoked")
 var ErrRepositoryEndpoint = errors.New("API address is a repository URL")
 var ErrManaged = errors.New("connection is managed by a GitHub App setup")
-var ErrInUse = errors.New("connection is used by repositories, tasks or billing routes")
+var ErrInUse = errors.New("connection is in use")
+
+type InUseError struct {
+	Repositories, Runs, Calls int
+}
+
+func (e *InUseError) Error() string {
+	parts := []string{}
+	for _, part := range []struct {
+		count int
+		label string
+	}{{e.Repositories, "repositories use it"}, {e.Runs, "runs are using it"}, {e.Calls, "model calls are in flight or unresolved"}} {
+		if part.count > 0 {
+			parts = append(parts, fmt.Sprintf("%d %s", part.count, part.label))
+		}
+	}
+	return "Connection is in use: " + strings.Join(parts, ", ")
+}
+
+func (e *InUseError) Is(target error) bool { return target == ErrInUse }
 
 const PlatformAuthKind = "github_app_platform"
 const GitHubAPI = "https://api.github.com"
@@ -374,7 +394,7 @@ func (s *Service) List(ctx context.Context, session auth.Session, orgID, kind st
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
-		rows, err := tx.Query(ctx, `SELECT `+columns+` FROM connections c WHERE c.org_id=$1 AND ($2='' OR c.kind=$2) AND c.id::text>$3 ORDER BY c.id LIMIT $4`, orgID, kind, cursor, limit+1)
+		rows, err := tx.Query(ctx, `SELECT `+columns+` FROM connections c WHERE c.org_id=$1 AND c.deleted_at IS NULL AND ($2='' OR c.kind=$2) AND c.id::text>$3 ORDER BY c.id LIMIT $4`, orgID, kind, cursor, limit+1)
 		if err != nil {
 			return err
 		}
@@ -497,14 +517,25 @@ func (s *Service) Delete(ctx context.Context, session auth.Session, orgID, id st
 		if c.Version != expected {
 			return auth.ErrConflict
 		}
-		var used bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repositories WHERE org_id=$1 AND connection_id=$2) OR EXISTS(SELECT 1 FROM workflow_tasks WHERE org_id=$1 AND model_connection_id=$2) OR EXISTS(SELECT 1 FROM budget_routes WHERE org_id=$1 AND connection_id=$2)`, orgID, id).Scan(&used); err != nil {
+		var use InUseError
+		var history bool
+		if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM repositories WHERE org_id=$1 AND connection_id=$2),(SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND model_connection_id=$2 AND state IN ('queued','reproducing','planning','repairing','validating','publishing','reconciling','cancelling')),(SELECT count(*) FROM budget_reservations WHERE org_id=$1 AND record->>'connection_id'=$2::text AND state IN ('reserved','dispatched','unknown')),EXISTS(SELECT 1 FROM workflow_tasks WHERE org_id=$1 AND model_connection_id=$2)`, orgID, id).Scan(&use.Repositories, &use.Runs, &use.Calls, &history); err != nil {
 			return err
 		}
-		if used {
-			return ErrInUse
+		if use.Repositories+use.Runs+use.Calls > 0 {
+			return &use
 		}
-		if _, err = tx.Exec(ctx, `DELETE FROM connections WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
+		if _, err = tx.Exec(ctx, `DELETE FROM budget_routes WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
+			return err
+		}
+		if history {
+			if _, err = tx.Exec(ctx, `UPDATE connections SET state='revoked',reason='Connection deleted',secret_id=NULL,deleted_at=now(),revoked_at=coalesce(revoked_at,now()),version=version+1 WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, `DELETE FROM connection_secrets WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
+				return err
+			}
+		} else if _, err = tx.Exec(ctx, `DELETE FROM connections WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
 			return err
 		}
 		return record(ctx, tx, a, "connection.deleted", id, requestID, c.Version)
