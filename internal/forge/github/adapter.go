@@ -988,7 +988,7 @@ func mapRepository(raw githubRepository) forge.Repository {
 
 func mapChange(raw githubPullRequest) forge.Change {
 	state := raw.State
-	if raw.Merged {
+	if raw.Merged || raw.MergedAt != nil {
 		state = "merged"
 	}
 	body := raw.Body
@@ -1058,6 +1058,7 @@ type githubPullRequest struct {
 	State          string        `json:"state"`
 	Draft          bool          `json:"draft"`
 	Merged         bool          `json:"merged"`
+	MergedAt       *string       `json:"merged_at"`
 	MergeCommitSHA string        `json:"merge_commit_sha"`
 	MergeableState string        `json:"mergeable_state"`
 	Repository     githubRepoRef `json:"repository"`
