@@ -7,7 +7,6 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/connections"
 	"reforge/internal/privateconnector"
-	"time"
 )
 
 func (s *Service) Write(ctx context.Context, org, id string, op privateconnector.Operation, authorize func(context.Context, pgx.Tx, connections.Connection) (string, error), validate func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
@@ -118,7 +117,7 @@ func (s *Service) Write(ctx context.Context, org, id string, op privateconnector
 		}
 		return nil
 	}
-	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, op.MaximumTTL())
 	defer cancel()
 	var err error
 	if initial.Route == nil {

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
-	"time"
 
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
@@ -56,7 +55,7 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 		return result, auth.ErrConflict
 	}
 	read := func(ctx context.Context, ready *privateconnector.Ready, deliver privateconnector.Deliver) error {
-		ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+		ctx, cancel := context.WithTimeout(ctx, op.MaximumTTL())
 		defer cancel()
 		return s.db.Tenant(ctx, orgID, "", func(tx pgx.Tx) error {
 			var locked string
