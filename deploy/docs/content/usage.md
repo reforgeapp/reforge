@@ -35,8 +35,8 @@ The **Usage** tab keeps ledger filters separate from budget editing. USD caps ac
 decimal places and preserve zero explicitly. Each saved non-zero cap shows settled spend
 and current holds against the cap.
 
-The organisation budget needs a USD cap before any model call runs. It allows one model
-call at a time.
+The organisation budget needs a USD cap before any model call runs. **Advanced →
+Concurrent runs** sets how many fixes and model calls run at once (default 1).
 
 Contending jobs cannot overspend a configured ceiling. When provider usage is unknown the
 reservation is held as unknown until reconciled, which can pause affected automation.

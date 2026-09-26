@@ -321,11 +321,7 @@ func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
 	if err != nil {
 		return err
 	}
-	concurrency := defaultConcurrency
-	if limit.Caps.Concurrency != nil {
-		concurrency = *limit.Caps.Concurrency
-	}
-	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD || limit.Held.Concurrency >= concurrency {
+	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD {
 		return ErrCapacity
 	}
 	return nil

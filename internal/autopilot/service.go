@@ -259,7 +259,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	var model, route, headroom, blocked string
 	var next *candidate
 	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN `+active+`)`, org).Scan(&busy); err != nil || busy {
+		if err := tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM autopilot_attempts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND t.state IN `+active+`)>=coalesce((SELECT (caps->>'concurrency')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'),1)`, org).Scan(&busy); err != nil || busy {
 			return err
 		}
 		switch err := s.budgets.HeadroomTx(ctx, tx, org); {
