@@ -261,7 +261,7 @@ func runBuiltin(args []string) error {
 						slog.Warn("built-in runner step failed", "org_id", id, "error", err)
 						mu.Lock()
 						org.retry = time.Now().Add(10 * time.Second)
-						if errors.Is(err, runnerclient.ErrUnauthorized) && orgs[id] == org {
+						if !done && errors.Is(err, runnerclient.ErrUnauthorized) && orgs[id] == org {
 							_ = os.Remove(filepath.Join(f.state, id+".json"))
 							if next, err := fresh(id); err == nil {
 								next.retry = org.retry
