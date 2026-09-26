@@ -64,7 +64,9 @@ that still fail, Reforge closes the pull request with a comment naming the faili
 Autopilot runs work on the target branch as the repository's owner. The model can read,
 edit, create and delete any file except secrets and policy-forbidden paths, including
 tests and CI workflows, run offline commands in the sandbox, and update dependencies. The
-recipe's checks must pass on the result. Changed files and lines are capped by policy.
+recipe's checks must pass on the result. A pull request changes at most 20 files; policy can
+lower that and cap changed lines. Runs are otherwise bounded by the attempt time limit and
+budget. Each run keeps an `agent-transcript.log` artifact.
 
 Autopilot also keeps dependency automation in place: a repository without Dependabot or
 Renovate gets a configuration, and a Dependabot configuration without groups is tuned to
