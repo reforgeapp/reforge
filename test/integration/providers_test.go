@@ -289,7 +289,7 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 		t.Fatalf("actual private discovery: worked=%v state=%s error=%v state_error=%v", worked, discoveryState.State, discoveryErr, stateErr)
 	}
 	findings, findingsErr := discoveries.List(ctx, session, org, 20, "", discovery.Filter{RepositoryID: detail.ID})
-	if findingsErr != nil || len(findings.Items) != 1 || findings.Items[0].Category != "renovate_onboarding" || !findings.Items[0].Evidence.Complete {
+	if findingsErr != nil || len(findings.Items) != 1 || findings.Items[0].Category != "dependency_bots" || !findings.Items[0].Evidence.Complete {
 		t.Fatalf("canonical private discovery findings: %d %v", len(findings.Items), findingsErr)
 	}
 	read.ID = domain.NewID()

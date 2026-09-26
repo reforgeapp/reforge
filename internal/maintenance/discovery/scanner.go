@@ -188,6 +188,19 @@ func waitsForTarget(target, change []forge.Check) bool {
 	return true
 }
 
+func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
+	if !cfg.Renovate.Present && !cfg.Dependabot.Present {
+		return "Add automated dependency updates"
+	}
+	for name, body := range files {
+		base := path.Base(name)
+		if (base == "dependabot.yml" || base == "dependabot.yaml") && !strings.Contains(string(body), "groups:") {
+			return "Group Dependabot updates to cut pull request noise"
+		}
+	}
+	return ""
+}
+
 func BotUpdateJob(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
 	return name == "dependabot" || name == "renovate" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
@@ -284,14 +297,8 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	}
 	initial := Evidence{ConnectionID: lease.Connection, ConnectionVersion: lease.Version, ConfigVersion: lease.ConfigVersion, HeadSHA: resolved.SHA, TargetSHA: resolved.SHA, TargetBranch: lease.Branch, BotConfig: botConfig, Ownership: "unknown", Complete: true, Provenance: "canonical provider reads at pinned commits"}
 	out := []Observation{}
-	hasBot := len(cfg.TrustedBots) > 0
-	for _, change := range cached {
-		if strings.EqualFold(change.AuthorType, "Bot") {
-			hasBot = true
-		}
-	}
-	if !hasBot && !botConfig.Renovate.Present && !botConfig.Dependabot.Present {
-		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "renovate_onboarding", Severity: "info", Title: "Review Renovate onboarding", Evidence: initial})
+	if title := botConfigGap(base, botConfig); title != "" {
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
 	}
 	checks, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: lease.Ref, CommitSHA: resolved.SHA}})
 	if err != nil {

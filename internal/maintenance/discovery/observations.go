@@ -26,7 +26,7 @@ func validObservation(in Observation) bool {
 		return false
 	}
 	switch in.Category {
-	case "dependency_update", "ci_failure", "security_advisory", "renovate_onboarding":
+	case "dependency_update", "ci_failure", "security_advisory", "renovate_onboarding", "dependency_bots":
 	default:
 		return false
 	}
