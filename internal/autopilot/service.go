@@ -25,6 +25,12 @@ import (
 	"reforge/internal/workflow"
 )
 
+const (
+	escalateAfter = 4
+	maxRuns       = 6
+	turnCost      = "(coalesce((r.config->>'input_micro_usd_per_million')::numeric,0)*0.04+coalesce((r.config->>'output_micro_usd_per_million')::numeric,0)*0.001+coalesce((r.config->>'request_micro_usd')::numeric,0))"
+)
+
 const active = `('queued','reproducing','planning','repairing','validating','publishing','reconciling','cancelling')`
 
 type Settings struct {
@@ -276,12 +282,12 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var err error
-		model, route, headroom, err = s.pickModel(ctx, tx, org)
+		model, route, headroom, err = s.pickModel(ctx, tx, org, false)
 		if err != nil || model == "" {
 			return err
 		}
 		var c candidate
-		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),coalesce(f.evidence->'dependencies'->0->>'ecosystem','') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<3 AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%'))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.ecosystem)
+		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),coalesce(f.evidence->'dependencies'->0->>'ecosystem','') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '14 minutes' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$4 AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%'))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested, maxRuns).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.ecosystem)
 		if errors.Is(err, pgx.ErrNoRows) {
 			var count int
 			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(f.evidence->'blockers'->>0),'') FROM maintenance_findings f WHERE f.org_id=$1 AND f.state='open' AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0`, org).Scan(&count, &blocked)
@@ -291,6 +297,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		next = &c
+		if err == nil && c.runs >= escalateAfter {
+			model, route, headroom, err = s.pickModel(ctx, tx, org, true)
+		}
 		return err
 	})
 	if err != nil {
@@ -316,8 +325,12 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	return s.queue(ctx, session, org, *next, model, route)
 }
 
-func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string) (string, string, string, error) {
-	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) AND NOT coalesce((SELECT bool_and(recent.state='failed') FROM (SELECT m.state FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '30 minutes' ORDER BY m.created_at DESC LIMIT 3) recent HAVING count(*)=3),false) ORDER BY (coalesce((r.config->>'input_micro_usd_per_million')::numeric,0)*0.04+coalesce((r.config->>'output_micro_usd_per_million')::numeric,0)*0.001+coalesce((r.config->>'request_micro_usd')::numeric,0)+1)*(1+(SELECT count(*) FROM workflow_tasks t WHERE t.org_id=c.org_id AND t.model_connection_id=c.id AND t.state IN `+active+`)),c.created_at,r.name`, org)
+func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest bool) (string, string, string, error) {
+	order := "(" + turnCost + "+1)*(1+(SELECT count(*) FROM workflow_tasks t WHERE t.org_id=c.org_id AND t.model_connection_id=c.id AND t.state IN " + active + "))"
+	if largest {
+		order = turnCost + " DESC"
+	}
+	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) AND NOT coalesce((SELECT bool_and(recent.state='failed') FROM (SELECT m.state FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '30 minutes' ORDER BY m.created_at DESC LIMIT 3) recent HAVING count(*)=3),false) ORDER BY `+order+`,c.created_at,r.name`, org)
 	if err != nil {
 		return "", "", "", err
 	}
