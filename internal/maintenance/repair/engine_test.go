@@ -284,3 +284,18 @@ func TestAdvanceKeepsContinuationAfterTruncatedReply(t *testing.T) {
 		t.Fatalf("continuation=%s messages=%+v", continuation, messages)
 	}
 }
+
+func TestCheckCIPatchAllowsExistingWorkflowOnly(t *testing.T) {
+	plan, files := testPlan(t)
+	files[".github/workflows/ci.yml"] = []byte("go-version: 1.26.5\n")
+	workflow := sandbox.Patch{Path: ".github/workflows/ci.yml", Content: []byte("go-version: 1.26.6\n")}
+	if err := CheckCIPatch(plan, files, []sandbox.Patch{workflow}, nil); err != nil {
+		t.Fatalf("workflow edit rejected: %v", err)
+	}
+	if CheckCIPatch(plan, files, []sandbox.Patch{{Path: "value.test.js", Content: []byte("x")}}, nil) == nil {
+		t.Fatal("test edit accepted")
+	}
+	if CheckCIPatch(plan, files, []sandbox.Patch{{Path: ".github/workflows/new.yml", Content: []byte("x")}}, nil) == nil {
+		t.Fatal("new workflow accepted")
+	}
+}

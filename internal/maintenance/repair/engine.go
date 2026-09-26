@@ -471,11 +471,12 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 			return out, err
 		}
 	}
-	if len(repaired.Dependencies) > 0 {
+	if repaired.Mode == "ci" {
+		allowed := editable(files, repaired.Patches, repaired.Dependencies)
 		for _, patch := range repaired.Patches {
 			files[patch.Path] = patch.Content
 		}
-		next = withDependencyHashes(next, files, repaired.Dependencies)
+		next = withUpdatedHashes(next, files, allowed)
 	}
 	report := Report{Artifacts: []string{}}
 	out.Checks, err = e.validate(ctx, next, sha, nil, "native", &report)

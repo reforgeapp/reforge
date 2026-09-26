@@ -443,6 +443,7 @@ var Permissions = map[string]string{
 	"checks":         "write",
 	"statuses":       "read",
 	"actions":        "write",
+	"workflows":      "write",
 	"administration": "read",
 	"members":        "read",
 }

@@ -51,8 +51,10 @@ works on the target branch. The model can:
   `go.mod`/`go.sum` with the package manager from the public registry, with install scripts
   disabled;
 - patch source files;
+- edit existing CI workflow files, for example a pinned toolchain version;
 - skip, when an open Reforge fix already covers the failure or it cannot be fixed from the
-  repository (missing secret, CI configuration). Skipped findings are not retried.
+  repository (missing secret, provider permissions). Skipped findings are not retried.
 
-Tests and CI configuration stay protected. The recipe's checks must pass before publication,
+Tests stay protected. Workflow edits on GitHub need a token with `workflow` scope, or the
+GitHub App's Workflows permission. The recipe's checks must pass before publication,
 and the forge's required checks still gate the merge.
