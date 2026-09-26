@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"log/slog"
 	"reforge/internal/auth"
 	"reforge/internal/connections"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
+	"reforge/internal/maintenance/discovery"
 	"reforge/internal/policy"
 	"reforge/internal/privateconnector"
 	"reforge/internal/source"
@@ -418,4 +420,42 @@ func (s *Service) CheckCompletion(ctx context.Context, tx pgx.Tx, l workflow.Lea
 		return ErrValidation
 	}
 	return nil
+}
+
+const MaxFollowUps = 5
+
+var ErrFollowUpsExhausted = errors.New("Reforge fix still failing CI after 5 follow-ups")
+
+func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string, f discovery.Finding) error {
+	w, ok := s.reader.(writer)
+	change := f.Evidence.Change
+	if !ok || change == nil || !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+		return privateconnector.ErrUnsupported
+	}
+	failing := []string{}
+	for _, check := range f.Evidence.Checks {
+		if check.Conclusion == "failure" || check.Conclusion == "failed" || check.Conclusion == "timed_out" {
+			failing = append(failing, check.Name)
+		}
+	}
+	comment := fmt.Sprintf("Reforge could not get CI passing after %d follow-ups and is closing this pull request. Still failing: %s.", MaxFollowUps, strings.Join(failing, ", "))
+	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCloseChange, Close: &forge.CloseChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadBranch: change.HeadBranch, Comment: comment}}
+	if _, err := w.Write(ctx, org, f.Evidence.ConnectionID, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+		if c.ID != f.Evidence.ConnectionID {
+			return "", auth.ErrConflict
+		}
+		return op.ID, nil
+	}, func(context.Context, pgx.Tx, connections.Connection) error { return nil }); err != nil {
+		return err
+	}
+	return s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		if !manage(a, f.RepositoryID) {
+			return auth.ErrForbidden
+		}
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs r WHERE r.org_id=m.org_id AND r.task_id=m.task_id AND r.org_id=$1 AND r.repository_id=$2 AND r.branch=$3`, org, f.RepositoryID, change.HeadBranch); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE repair_runs SET bot_revalidation_state='closed',bot_revalidation_reason=$4,native_change=jsonb_set(native_change,'{state}','"closed"'),version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published' AND native_change IS NOT NULL`, org, f.RepositoryID, change.HeadBranch, comment)
+		return err
+	})
 }

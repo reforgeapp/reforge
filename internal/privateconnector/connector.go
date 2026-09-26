@@ -428,7 +428,7 @@ func (r Result) valid(kind Kind) bool {
 		return count == 1 && len(r.Files) > 0
 	case ForgeCheckLog:
 		return count <= 1
-	case GiteaReadChange, ForgeCreateChange:
+	case GiteaReadChange, ForgeCreateChange, ForgeCloseChange:
 		return count == 1 && r.Change != nil
 	case GiteaChecks:
 		return count == 0 || count == 1 && r.Checks != nil

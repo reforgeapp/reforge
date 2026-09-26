@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"net/http"
 	"reforge/internal/domain"
+	"strings"
 	"time"
 )
 
@@ -328,6 +329,25 @@ type ExecutionCheck struct {
 	State       string `json:"state"`
 	PublisherID string `json:"publisher_id"`
 	OperationID string `json:"operation_id"`
+}
+
+type CloseChangeRequest struct {
+	Repository RepoRef `json:"repository"`
+	ChangeID   string  `json:"change_id"`
+	HeadBranch string  `json:"head_branch"`
+	Comment    string  `json:"comment"`
+}
+
+func (r CloseChangeRequest) Valid() bool {
+	return r.Repository.NativeID != "" && r.ChangeID != "" && len(r.ChangeID) <= 32 && strings.HasPrefix(r.HeadBranch, "reforge/repair/") && r.Comment != "" && len(r.Comment) <= 4000
+}
+
+type ForgeChangeCloser interface {
+	CloseChange(context.Context, CloseChangeRequest) (Change, error)
+}
+
+func Closable(change Change, in CloseChangeRequest, actor string) bool {
+	return (change.State == "open" || change.State == "opened") && change.HeadBranch == in.HeadBranch && actor != "" && change.AuthorID == actor
 }
 
 type ForgeExecutionChecks interface {

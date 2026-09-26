@@ -321,6 +321,14 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		var queue forge.QueueState
 		queue, err = provider.ReadQueueState(ctx, op.Change.Repository, op.Change.ChangeID)
 		result.Queue = &queue
+	case ForgeCloseChange:
+		closer, ok := provider.(forge.ForgeChangeCloser)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		var change forge.Change
+		change, err = closer.CloseChange(ctx, *op.Close)
+		result.Change = &change
 	case ForgeCancelQueue:
 		control, ok := provider.(forge.ForgeQueueControl)
 		if !ok {

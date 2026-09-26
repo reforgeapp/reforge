@@ -56,7 +56,8 @@ works on the target branch. The model can:
   repository (missing secret, provider permissions). Skipped findings are not retried.
 
 When CI fails on a Reforge pull request, the next scan turns it into a follow-up: the run
-works on the pull request's own branch and pushes a new commit to it, up to three rounds.
+works on the pull request's own branch and pushes a new commit to it. After five follow-ups
+that still fail, Reforge closes the pull request with a comment naming the failing checks.
 
 Tests stay protected. Workflow edits on GitHub need a token with `workflow` scope, or the
 GitHub App's Workflows permission. The recipe's checks must pass before publication,

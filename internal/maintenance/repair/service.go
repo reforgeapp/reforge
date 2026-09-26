@@ -128,8 +128,8 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			if !owned {
 				out.Blockers = append(out.Blockers, "Branch is not a published Reforge fix")
 			}
-			if rounds >= 3 {
-				out.Blockers = append(out.Blockers, "Reforge fix still failing CI after 3 follow-ups")
+			if rounds >= MaxFollowUps {
+				out.Blockers = append(out.Blockers, ErrFollowUpsExhausted.Error())
 			}
 		}
 		var err error
