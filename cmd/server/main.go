@@ -273,6 +273,10 @@ func run() error {
 	go func() { defer close(discoveryDone); _ = discoveries.Run(discoveryContext) }()
 	go func() { defer close(autopilotDone); _ = autopilots.Run(autopilotContext) }()
 	defer func() { stopDiscovery(); <-discoveryDone }()
+	artifactContext, stopArtifacts := context.WithCancel(ctx)
+	artifactDone := make(chan struct{})
+	go func() { defer close(artifactDone); artifacts.Run(artifactContext) }()
+	defer func() { stopArtifacts(); <-artifactDone }()
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()

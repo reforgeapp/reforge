@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -135,7 +136,7 @@ func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID stri
 	m.CreatedAt = time.Now().UTC()
 	var used int64
 	var count int
-	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(size),0),count(*) FROM artifacts WHERE org_id=$1`, m.OrgID).Scan(&used, &count); err != nil {
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(size),0),count(*) FROM artifacts WHERE org_id=$1 AND expires_at>clock_timestamp()`, m.OrgID).Scan(&used, &count); err != nil {
 		return Metadata{}, err
 	}
 	if used+MaxSize > MaxTenantSize || count >= 4096 {
@@ -235,6 +236,39 @@ func (s *Local) DeleteByRetention(ctx context.Context, orgID string, before time
 		return nil
 	})
 	return n, err
+}
+
+func (s *Local) Run(ctx context.Context) {
+	for ctx.Err() == nil {
+		var orgs []string
+		err := pgx.BeginFunc(ctx, s.db.Pool, func(tx pgx.Tx) error {
+			rows, err := tx.Query(ctx, `SELECT org_id::text FROM inventory_tenants ORDER BY 1`)
+			if err != nil {
+				return err
+			}
+			orgs, err = pgx.CollectRows(rows, pgx.RowTo[string])
+			return err
+		})
+		for _, org := range orgs {
+			for ctx.Err() == nil {
+				n, e := s.DeleteByRetention(ctx, org, time.Now().Add(-time.Second))
+				err = errors.Join(err, e)
+				if e != nil || n < 200 {
+					break
+				}
+			}
+		}
+		if _, e := s.SweepOrphans(ctx, time.Now().Add(-24*time.Hour)); e != nil {
+			err = errors.Join(err, e)
+		}
+		if err != nil && ctx.Err() == nil {
+			slog.WarnContext(ctx, "artifact retention failed", "error", err)
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(time.Hour):
+		}
+	}
 }
 
 func (s *Local) SweepOrphans(ctx context.Context, before time.Time) (int, error) {
