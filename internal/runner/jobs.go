@@ -108,7 +108,10 @@ func (s *Service) withJob(ctx context.Context, raw, method, action string, fn fu
 	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error { return s.jobTx(ctx, tx, raw, org, id, method, action, fn) })
 	if errors.Is(err, workflow.ErrPolicy) && action != "policy-revocation" {
 		blockErr := s.withJob(ctx, raw, method, "policy-revocation", func(tx pgx.Tx, l workflow.Lease, _ workflow.Task, _ string) error {
-			return s.invalidateTx(ctx, tx, l.OrgID, l.WorkerID, false)
+			if _, err := tx.Exec(ctx, `UPDATE runner_job_credentials SET revoked_at=clock_timestamp() WHERE org_id=$1 AND runner_id=$2 AND job_id=$3 AND revoked_at IS NULL`, l.OrgID, l.WorkerID, l.JobID); err != nil {
+				return err
+			}
+			return s.workflow.InvalidateJobTx(ctx, tx, l.OrgID, l.WorkerID, l.JobID)
 		})
 		if blockErr != nil && !errors.Is(blockErr, auth.ErrUnauthenticated) && !errors.Is(blockErr, workflow.ErrFence) {
 			return blockErr

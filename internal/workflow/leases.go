@@ -423,13 +423,24 @@ func (s *Service) Recover(ctx context.Context, orgID string) error {
 }
 
 func (s *Service) InvalidateWorkerTx(ctx context.Context, tx pgx.Tx, orgID, workerID string) error {
+	return s.invalidateTx(ctx, tx, orgID, workerID, "")
+}
+
+func (s *Service) InvalidateJobTx(ctx context.Context, tx pgx.Tx, orgID, workerID, jobID string) error {
+	if !auth.ValidID(jobID) {
+		return auth.ErrInvalid
+	}
+	return s.invalidateTx(ctx, tx, orgID, workerID, jobID)
+}
+
+func (s *Service) invalidateTx(ctx context.Context, tx pgx.Tx, orgID, workerID, jobID string) error {
 	if !auth.ValidID(orgID) || workerID == "" {
 		return auth.ErrInvalid
 	}
 	if err := lockOrg(ctx, tx, orgID); err != nil {
 		return err
 	}
-	rows, err := tx.Query(ctx, `UPDATE workflow_jobs SET state='blocked',fence=fence+1,lease_owner='',lease_expires_at=NULL WHERE org_id=$1 AND lease_owner=$2 AND state='running' RETURNING id::text,task_id::text`, orgID, workerID)
+	rows, err := tx.Query(ctx, `UPDATE workflow_jobs SET state='blocked',fence=fence+1,lease_owner='',lease_expires_at=NULL WHERE org_id=$1 AND lease_owner=$2 AND state='running' AND ($3='' OR id::text=$3) RETURNING id::text,task_id::text`, orgID, workerID, jobID)
 	if err != nil {
 		return err
 	}
