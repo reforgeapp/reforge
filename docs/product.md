@@ -1,14 +1,12 @@
 # Product specification
 
-Updated: 2026-09-21. Proposed product decisions except where marked agreed in `../PLAN.md`. GUI authority: [product rebuild](implementation/product-rebuild.md); prototype has no visual authority.
-
 ## Product
 
 An OSS application for ongoing maintenance across repository portfolios. Teams connect forges and model accounts, choose policies, and supervise work from discovery through verified change and deployment in one GUI.
 
 The application supplies scheduling, evidence, policy decisions and continuity. Model execution is replaceable. The application is not an IDE, a generic agent chat workspace, or a new package-update resolver.
 
-Positioning hypothesis: the complete Apache-2.0 maintenance workflow for teams across GitHub, GitLab and Gitea, with model choice, dependency-bot cooperation and policy-controlled delivery. OpenHands is a close existing GUI/BYO/automation competitor; validate Reforge's workflow advantage during the private alpha. The [competition review](research/competition.md) separates documented capabilities from unverified gaps.
+Positioning hypothesis: the complete Apache-2.0 maintenance workflow for teams across GitHub, GitLab and Gitea, with model choice, dependency-bot cooperation and policy-controlled delivery. OpenHands is a close existing GUI/BYO/automation competitor; validate Reforge's workflow advantage during the private alpha.
 
 ## Users and outcomes
 

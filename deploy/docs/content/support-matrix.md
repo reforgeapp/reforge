@@ -54,7 +54,7 @@ These are control-plane measurements with a simulated provider. They measure cla
 lifecycles, not 100 fully executing runs, and 50 authenticated HTTP sessions, not 50 real
 browser sessions. They do not certify live providers or hosted execution. Bounded campaign
 fairness across a 1,000-member tenant and 100 competing runner claims are covered by the
-integration suite; a 100-executing-run and 50-browser-session gate remains open (T28).
+integration suite; a 100-executing-run and 50-browser-session gate remains open.
 
 ## Custom command profiles
 
@@ -70,8 +70,8 @@ must be updated. Missing, malformed, unknown, duplicate, misplaced and failed ou
 any `error` event, stop before extraction. The processor then extracts changed source, runs
 frozen baseline/candidate/target validation, and stages and publishes only after validation
 succeeds. Exit 0 alone never validates a repair. Independent validation and normal publication
-authority remain required. T31a is locally complete; external runtime/account/topology
-qualification remains open.
+authority remain required. External runtime, account and topology qualification remains
+open.
 Revocation fences later dispatches.
 
 ## Verification identity
@@ -94,8 +94,7 @@ under `deploy/gitops` renders manifests but does not certify a hosted cluster.
 
 Reforge is Apache-2.0. The generated source inventory still has 28 development-only
 package-root notice gaps. OCI image, OS-package, and Python runtime notices remain open. See
-`docs/implementation/t28c-inventory.md`; T28c remains open until those gaps and notices are
-resolved. Do not infer blanket GPL/AGPL/LGPL absence or Apache/MPL compatibility from the
+`third_party/dependencies.md`. Do not infer blanket GPL/AGPL/LGPL absence or Apache/MPL compatibility from the
 current inventory. Generated records are evidence inputs, not a completed legal review;
 confirm required notices before public release.
 

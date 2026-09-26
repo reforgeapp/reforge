@@ -31,6 +31,6 @@ COPY --from=build /out/reforge-runner /out/reforge-sandbox-tool /app/
 COPY --from=images /out/images /app/images
 COPY --from=images /out/gvisor /app/gvisor
 COPY --from=node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 /usr/local/lib/node_modules/npm /app/npm
-COPY docs/implementation/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
+COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
 USER runner
 ENTRYPOINT ["/app/reforge-runner"]

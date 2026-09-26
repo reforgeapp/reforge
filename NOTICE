@@ -5,7 +5,7 @@ Licensed under the Apache License, Version 2.0.
 
 Third-party dependencies retain their respective copyright and licence terms.
 The dependency inventory and redistributable notices are maintained in
-docs/implementation/dependencies.md.
+third_party/dependencies.md.
 
 Embedded agent skills include MIT-licensed material from:
 - Addy Osmani, agent-skills (Copyright 2025 Addy Osmani).

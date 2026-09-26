@@ -14,4 +14,3 @@ Set `REFORGE_ENCRYPTION_KEY` to an operator-owned random 32-byte base64 key. Pre
 
 This workspace has disposable PostgreSQL 18.6 on `127.0.0.1:55432`. Local credentials/key live in ignored mode-0600 `.local/development.env`; load with `set -a; source .local/development.env; set +a`. Database names are `reforge_dev` and `reforge_test`. The test runner validates both database URLs identify the same `reforge_test` database before applying migrations. `/tmp/reforge-postgres/bin/pg_ctl -D .local/postgres status` checks the local service; `stop -m fast` stops it. These paths describe this implementation environment, not the distributable install.
 
-Self-hosted installation, restore and operational commands are completed by T26. Live provider certification is tracked independently in `progress.md`.

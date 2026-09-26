@@ -1,7 +1,5 @@
 # Architecture
 
-Updated: 2026-09-21. Design targets; not implemented capabilities. T29–T31 planning constraints apply.
-
 ## Rebuild and runtime constraints
 
 All components are containerised: Go control plane/GUI, controllers, migrator, runner, approved agent profiles, validation images, docs and local dependencies. Compose clean install must not require host Go/Node/Python or repository-specific `/tmp` paths. Hosted deployment uses versioned GitOps. Chosen sandbox runtime host prerequisites and privilege model must be documented; Docker alone is never tenant isolation. API/task containers receive no Docker socket, and credentials are never baked into images. Official provider authentication and native approvals are required; unsupported or unverified capabilities remain disabled with reason.
@@ -170,4 +168,3 @@ Metrics: queue latency, eligible/blocked work, lease recovery, forge rate limits
 - [PostgreSQL SELECT locking/skip-locked semantics](https://www.postgresql.org/docs/current/sql-select.html)
 - [React](https://react.dev/learn), [TanStack Query](https://tanstack.com/query/latest/docs/framework/react/overview)
 - [gVisor execution boundary](https://gvisor.dev/docs/)
-- Forge and model-specific constraints: `research/forge-integrations.md`, `research/model-integrations.md`.

@@ -1,6 +1,7 @@
 # Dependency inventory
 
-Generated from the Go module graph and npm lockfile. Go package scope comes from
+Generated from the Go module graph, npm lockfile, and pinned agent skill sources.
+Go package scope comes from
 `go list -deps` for shipped binaries and `go list -deps -test ./...`; npm scope
 comes from each locked package’s production/development install role. Exact-root
 licence and notice files are copied to `third-party-notices.txt` with trailing whitespace normalized. The Go
@@ -259,3 +260,5 @@ licence name is not inferred from copyright text.
 | vite | 8.3.0 | frontend build/test only | MIT; LICENSE.md |
 | yaml-ast-parser | 0.0.43 | frontend build/test only | Apache-2.0; license.txt |
 | yargs-parser | 21.1.1 | frontend build/test only | ISC; LICENSE.txt |
+| addyosmani/agent-skills | bcab6a1b8503100e8618c3b4e32cc78de43de769 | embedded agent skills | MIT; internal/skills/vendor/addyosmani/LICENSE |
+| juliusbrussee/caveman | 2fd153c67988e980fb0b2455c90832159a6a5a25 | embedded agent skills | MIT; internal/skills/vendor/caveman/LICENSE |

@@ -1,12 +1,8 @@
 # Domain and API contracts
 
-Updated: 2026-09-21. Contract baseline to formalise in OpenAPI and Go during T01. T31 profile rules apply.
-
 ## Custom command and agent profile contract
 
-Contract status: **unfrozen**, by owner instruction on 2026-09-21. T31's record schema, interfaces, protocol and execution design may be revised; the definitions below are the current proposal, not a frozen implementation contract. Record material decisions and update dependent specifications together. Tenant isolation, secret custody, budget enforcement, provider terms and pre-effect authorisation remain requirements. Existing persisted profile versions and applied migrations remain immutable.
-
-T31 profiles are administrator-approved, versioned records. Each immutable version binds executable identity, fixed argv template, container image digest, protocol version, declared input/events/output/cancel/exit/usage semantics, approved runtime/version, entitlement evidence, policy binding and allowed run types. Tenant request data cannot provide arbitrary executable paths, shell text or image tags. Events preserve unknown usage and uncertain cancellation/exit outcomes. Secret custody stays outside command input/events/logs; approval occurs before effects.
+Custom command profiles are administrator-approved, versioned records. Each immutable version binds executable identity, fixed argv template, container image digest, protocol version, declared input/events/output/cancel/exit/usage semantics, approved runtime/version, entitlement evidence, policy binding and allowed run types. Tenant request data cannot provide arbitrary executable paths, shell text or image tags. Events preserve unknown usage and uncertain cancellation/exit outcomes. Secret custody stays outside command input/events/logs; approval occurs before effects.
 
 Agent identities remain distinct: Claude Code, Codex and Google Antigravity CLI `agy` (not Gemini CLI). `agy` headless JSON/NDJSON behavior is a technical qualification target only; authentication does not prove subscription entitlement, isolation or approval safety. Runtime enablement requires entitlement, headless, container topology and pre-effect approval evidence for exact version/topology. No subscription token becomes provider API key and no silent fallback occurs.
 
@@ -84,7 +80,7 @@ Events include `repository.synced`, `finding.upserted`, `task.queued`, `attempt.
 
 SSE is a view over durable events, not the job bus. Reconnect replays authorised events; expired cursors instruct the client to refetch. Membership revocation terminates subscriptions. Progress describes observed stages/tool results; do not manufacture percentage complete from model prose.
 
-## Go interfaces to freeze at T01
+## Go interfaces
 
 Use concrete request/result structs and small interfaces; avoid a generic map-based plugin bus. All methods accept `context.Context`, tenant-bound connection handles and typed errors.
 

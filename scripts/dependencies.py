@@ -4,12 +4,12 @@ import pathlib
 import subprocess
 
 root = pathlib.Path(__file__).resolve().parents[1]
-notice_manifest = root / 'docs/implementation/notice-sources/manifest.json'
+notice_manifest = root / 'third_party/notice-sources/manifest.json'
 manifest = json.loads(notice_manifest.read_text())
 lock_hash = hashlib.sha256((root / 'deploy/docs/requirements.lock').read_bytes()).hexdigest()
 if lock_hash != manifest['docs_requirements_lock_sha256']:
     raise ValueError('docs requirements lock hash mismatch')
-notice_source_root = (root / 'docs/implementation/notice-sources').resolve()
+notice_source_root = (root / 'third_party/notice-sources').resolve()
 notice_sources = []
 for record in manifest['records']:
     notice_path = (root / record['notice']).resolve()
@@ -191,7 +191,7 @@ inventory.extend(
     '| ' + ' | '.join(value.replace('|', '\\|') for value in row) + ' |'
     for row in rows
 )
-(root / 'docs/implementation/dependencies.md').write_text('\n'.join(inventory) + '\n')
+(root / 'third_party/dependencies.md').write_text('\n'.join(inventory) + '\n')
 notice_output = '\n\n'.join(notices).rstrip() + '\n'
-(root / 'docs/implementation/third-party-notices.txt').write_text(notice_output)
+(root / 'third_party/third-party-notices.txt').write_text(notice_output)
 (root / 'deploy/docs/content/third-party-notices.txt').write_text(notice_output)

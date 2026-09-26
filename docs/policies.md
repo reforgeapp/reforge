@@ -66,7 +66,7 @@ Default `bot_branch_writes=false`: publish an app-owned companion repair linked 
 
 In-place bot-branch repair is repository opt-in under organisation policy. Require trusted ownership, exact observed H, no unreviewed human edits, a branch lease and a certified exact old-ref guard. Append a descendant repair commit; never amend bot commits or rewrite someone else's work. Record that Reforge has taken responsibility for branch maintenance. A rejected guard stops the attempt and refreshes state.
 
-Renovate and Dependabot normally stop automatic rebasing after added commits; destructive regenerate/rebase controls can overwrite edits. Never apply those controls after a repair without explicit handoff authority. Do not include Dependabot skip markers that permit overwriting repair commits. See [documented bot behavior](research/forge-integrations.md).
+Renovate and Dependabot normally stop automatic rebasing after added commits; destructive regenerate/rebase controls can overwrite edits. Never apply those controls after a repair without explicit handoff authority. Do not include Dependabot skip markers that permit overwriting repair commits.
 
 A bot force-push, refreshed version/group, branch replacement or human commit invalidates all dependent combined-candidate tests, approvals and merge decisions. Companion changes become stale until rebuilt against the new bot head. Preserve unpublished repair artifacts; do not automatically replay them onto an unrelated update.
 
@@ -158,4 +158,4 @@ Pause cannot undo a published PR, completed merge, started irreversible job, dep
 | Recovery route not preauthorised or known-good artifact unavailable | Pause campaign/deployment progression; require authorised action, no direct Kubernetes mutation. |
 | Connection revoked, tenant mismatch or stale fencing token | No new mutation; reconcile previously dispatched operation under appropriate authority. |
 
-Provider evidence and limitations: [forge integration research](research/forge-integrations.md). Domain records/interfaces: [contracts](contracts.md). Execution isolation and leases: [architecture](architecture.md).
+Domain records/interfaces: [contracts](contracts.md). Execution isolation and leases: [architecture](architecture.md).

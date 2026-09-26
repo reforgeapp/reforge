@@ -1,6 +1,6 @@
 set -euo pipefail
 if [[ -f .local/development.env ]]; then set -a; source .local/development.env; set +a; fi
-: "${REFORGE_DATABASE_URL:?Set the non-privileged runtime database URL; see docs/implementation/local-development.md}"
+: "${REFORGE_DATABASE_URL:?Set the non-privileged runtime database URL; see docs/development.md}"
 : "${REFORGE_ENCRYPTION_KEY:?Set the base64 encryption key}"
 export REFORGE_MODE=development
 export REFORGE_FIXTURE_AUTH=true
