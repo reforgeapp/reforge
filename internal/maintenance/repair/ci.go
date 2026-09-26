@@ -182,7 +182,22 @@ func (e Engine) command(ctx context.Context, p Plan, patches []sandbox.Patch, ar
 	return e.Runtime.ExecuteBoundedCommand(ctx, w, sandbox.Command{Args: args, Directory: dir, Timeout: 5 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
 }
 
-func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string][]byte) (Report, error) {
+func clip(text string, n int) string {
+	if len(text) <= n {
+		return text
+	}
+	return text[:n] + "…"
+}
+
+func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string][]byte) (report Report, _ error) {
+	var transcript strings.Builder
+	defer func() {
+		if e.Artifact != nil && transcript.Len() > 0 {
+			if id, err := e.Artifact(context.WithoutCancel(ctx), "agent-transcript.log", []byte(transcript.String())); err == nil {
+				report.Artifacts = append(report.Artifacts, id)
+			}
+		}
+	}()
 	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
 	independent := retarget(p, files)
 	owner := p.Owner
@@ -296,6 +311,12 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		}
 		out.Turns++
 		e.logTurn(ctx, out.Turns, result)
+		if transcript.Len() < 2<<20 {
+			fmt.Fprintf(&transcript, "\n## turn %d (%s)\n%s\n", out.Turns, result.FinishReason, clip(result.Text, 2000))
+			for _, call := range result.ToolCalls {
+				fmt.Fprintf(&transcript, "> %s %s\n", call.Name, clip(string(call.Arguments), 2000))
+			}
+		}
 		continuation, messages = advance(continuation, messages, result)
 		if result.FinishReason == "length" {
 			continue
@@ -462,6 +483,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			returned += len(reply)
 			if reply == "" {
 				reply = "(empty)"
+			}
+			if transcript.Len() < 2<<20 {
+				fmt.Fprintf(&transcript, "< %s: %s\n", call.Name, clip(reply, 3000))
 			}
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
 		}
