@@ -6,6 +6,8 @@ metadata:
     app.kubernetes.io/name: reforge-control
 spec:
   replicas: 1
+  strategy:
+    type: Recreate
   selector:
     matchLabels:
       app.kubernetes.io/name: reforge-control
@@ -17,6 +19,11 @@ spec:
       securityContext:
         runAsNonRoot: true
         runAsUser: 10001
+        fsGroup: 10001
+      volumes:
+        - name: artifacts
+          persistentVolumeClaim:
+            claimName: reforge-artifacts
       containers:
         - name: control
           image: reforge-control:0.1.0
@@ -28,6 +35,9 @@ spec:
                 name: reforge-config
             - secretRef:
                 name: reforge-secrets
+          volumeMounts:
+            - name: artifacts
+              mountPath: /app/var/artifacts
           readinessProbe:
             httpGet:
               path: /readyz

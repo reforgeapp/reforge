@@ -21,6 +21,18 @@ migrations="$("$pg_bin/psql" "$REFORGE_DRILL_TARGET_URL" -tAc "SELECT count(*) F
 test "$tables" -ge 30
 test "$migrations" -ge 33
 
+if [ -n "${REFORGE_DRILL_ARTIFACTS:-}" ]; then
+  missing=0
+  while IFS='|' read -r org id size; do
+    file="$REFORGE_DRILL_ARTIFACTS/$org-$id.data"
+    if [ ! -f "$file" ] || [ "$(stat -c %s "$file")" != "$size" ]; then
+      echo "artifact missing or truncated: $org-$id" >&2
+      missing=$((missing + 1))
+    fi
+  done < <("$pg_bin/psql" "$REFORGE_DRILL_TARGET_URL" -tAc "SELECT org_id,id,size FROM artifacts WHERE expires_at>now()")
+  test "$missing" -eq 0
+fi
+
 REFORGE_ENCRYPTION_KEY="$REFORGE_ENCRYPTION_KEY" go test -count=1 -run TestRestoreDrillKeyRecovery ./internal/secrets/
 
 echo "restore drill complete: tables=$tables migrations=$migrations"

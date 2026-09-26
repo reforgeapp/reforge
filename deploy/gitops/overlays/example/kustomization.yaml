@@ -4,5 +4,5 @@ resources:
   - ../../base
 images:
   - name: reforge-control
-    newName: ghcr.io/example/reforge-control
+    newName: ghcr.io/reforgeapp/reforge
     newTag: 0.1.0

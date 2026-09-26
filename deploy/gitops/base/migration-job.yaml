@@ -18,4 +18,4 @@ spec:
             - configMapRef:
                 name: reforge-config
             - secretRef:
-                name: reforge-secrets
+                name: reforge-migration-secrets

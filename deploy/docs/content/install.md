@@ -12,7 +12,7 @@ required.
 - HTTPS reverse proxy and DNS name for the browser-visible origin.
 - Linux with cgroup v2 and permission to run a privileged container, for the built-in
   runner.
-- PostgreSQL 18 container storage with backups for the `pgdata` volume.
+- PostgreSQL 18 container storage with backups for the `pgdata` and `artifacts` volumes.
 - Secret storage for database credentials, the OIDC client secret and the base64-encoded
   credential encryption key.
 

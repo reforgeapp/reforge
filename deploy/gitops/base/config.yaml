@@ -15,8 +15,25 @@ metadata:
 type: Opaque
 stringData:
   REFORGE_DATABASE_URL: replace-with-runtime-database-url
-  REFORGE_MIGRATION_DATABASE_URL: replace-with-migration-database-url
   REFORGE_ENCRYPTION_KEY: replace-with-base64-32-byte-key
   REFORGE_OIDC_ISSUER: replace-with-oidc-issuer
   REFORGE_OIDC_CLIENT_ID: replace-with-oidc-client-id
   REFORGE_OIDC_CLIENT_SECRET: replace-with-oidc-client-secret
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: reforge-migration-secrets
+type: Opaque
+stringData:
+  REFORGE_MIGRATION_DATABASE_URL: replace-with-migration-database-url
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: reforge-artifacts
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 10Gi
