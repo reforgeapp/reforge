@@ -215,7 +215,8 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 						return err
 					})
 					cancelCheck()
-					if err != nil {
+					if err != nil && guarded.Err() == nil && !errors.Is(err, context.DeadlineExceeded) {
+						slog.WarnContext(ctx, "model turn authority lost", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", err)
 						stop()
 						cancel()
 						return
