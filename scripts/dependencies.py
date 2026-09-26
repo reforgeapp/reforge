@@ -192,6 +192,11 @@ inventory.extend(
     for row in rows
 )
 (root / 'third_party/dependencies.md').write_text('\n'.join(inventory) + '\n')
-notice_output = '\n\n'.join(notices).rstrip() + '\n'
+notice_output = '\n\n'.join(notices + [
+    'GNU C Library (glibc) runtime compatibility libraries / Debian libc6\n'
+    'Copyright notice and LGPL-2.1 text are included in runner images at\n'
+    '`/usr/share/doc/reforge/toolchain-licenses/libc6.copyright` and\n'
+    '`/usr/share/doc/reforge/toolchain-licenses/LGPL-2.1`.'
+]).rstrip() + '\n'
 (root / 'third_party/third-party-notices.txt').write_text(notice_output)
 (root / 'deploy/docs/content/third-party-notices.txt').write_text(notice_output)

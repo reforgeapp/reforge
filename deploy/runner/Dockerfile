@@ -20,6 +20,8 @@ RUN mkdir -p /out/toolchain-licenses \
  && cp /usr/share/doc/findutils/copyright /out/toolchain-licenses/findutils.copyright \
  && cp /usr/share/doc/grep/copyright /out/toolchain-licenses/grep.copyright \
  && cp /usr/share/doc/sed/copyright /out/toolchain-licenses/sed.copyright \
+ && cp /usr/share/doc/libc6/copyright /out/toolchain-licenses/libc6.copyright \
+ && cp /usr/share/common-licenses/LGPL-2.1 /out/toolchain-licenses/LGPL-2.1 \
  && cp /usr/share/common-licenses/GPL-3 /out/toolchain-licenses/GPL-3
 RUN for stack in go javascript python; do python3 /src/build-runner-images.py --stack "$stack" --output "/out/images/$stack"; done
 RUN curl -fsSLo /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/releases/release/${GVISOR_RELEASE}/x86_64/gvisor.tar.bz2" \

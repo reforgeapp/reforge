@@ -142,12 +142,29 @@ def write_launcher(root, name, cli):
     os.chmod(target, 0o755)
 
 
+def copy_glibc_compatibility_libraries(root, binary):
+    interpreter = elf_interpreter(binary)
+    if not interpreter:
+        return
+    libraries = linked_libraries(binary, interpreter)
+    libc = next((library for library in libraries if os.path.basename(library) == "libc.so.6"), None)
+    if not libc:
+        fail("Node toolchain has no glibc runtime")
+    directory = os.path.dirname(libc)
+    for name in ("librt.so.1", "libpthread.so.0", "libdl.so.2"):
+        source = os.path.join(directory, name)
+        if not os.path.exists(source):
+            fail("Node glibc compatibility library missing: " + source)
+        copy_file(root, source, source)
+
+
 def node_toolchain(root, binary):
     copy_file(root, binary, "/usr/local/bin/node")
     copy_tree(root, "/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/npm", skip_nested=False)
     write_launcher(root, "npm", "/usr/local/lib/node_modules/npm/bin/npm-cli.js")
     write_launcher(root, "npx", "/usr/local/lib/node_modules/npm/bin/npx-cli.js")
     copy_binary_dependencies(root, binary)
+    copy_glibc_compatibility_libraries(root, binary)
     return subprocess.run([binary, "--version"], check=True, capture_output=True, text=True).stdout.strip()
 
 

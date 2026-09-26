@@ -131,8 +131,15 @@ func TestSandboxedPreparedCommands(t *testing.T) {
 	goWorkspace := check("go", goSnapshot, nil, sandbox.Command{Args: []string{"/usr/local/go/bin/go", "test", "./..."}, Directory: ".", Timeout: 2 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
 	run(goWorkspace, sandbox.Command{Args: []string{"/usr/local/go/bin/go", "test", "./..."}, Directory: ".", Timeout: 2 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
 
-	nodeFiles := map[string][]byte{"package.json": []byte("{\"name\":\"prepared-fixture\",\"version\":\"1.0.0\",\"scripts\":{\"preinstall\":\"echo ran > repository-script-ran\"},\"dependencies\":{\"js-yaml\":\"^5.2.0\"}}\n")}
-	nodeSnapshot := addSnapshot("node", []guest.File{{Path: "package.json", Content: nodeFiles["package.json"]}})
+	nodeFiles := map[string][]byte{"package.json": []byte("{\"name\":\"prepared-fixture\",\"version\":\"1.0.0\",\"scripts\":{\"preinstall\":\"echo ran > repository-script-ran\",\"build\":\"vite build\",\"test:unit\":\"vitest run\"},\"dependencies\":{\"js-yaml\":\"^5.2.0\",\"vue\":\"^3.5.13\"},\"devDependencies\":{\"vite\":\"^8.1.4\",\"vitest\":\"^4.1.10\",\"@vitejs/plugin-vue\":\"^6.0.1\"}}\n")}
+	nodeSnapshot := addSnapshot("node", []guest.File{
+		{Path: "package.json", Content: nodeFiles["package.json"]},
+		{Path: "index.html", Content: []byte("<div id=\"app\"></div><script type=\"module\" src=\"/src/main.js\"></script>\n")},
+		{Path: "vite.config.js", Content: []byte("import { defineConfig } from 'vite'; import vue from '@vitejs/plugin-vue'; export default defineConfig({ plugins: [vue()] });\n")},
+		{Path: "src/App.vue", Content: []byte("<template><p>rolldown native smoke</p></template>\n")},
+		{Path: "src/main.js", Content: []byte("import { createApp } from 'vue'; import App from './App.vue'; createApp(App).mount('#app');\n")},
+		{Path: "src/basic.test.ts", Content: []byte("import { expect, it } from 'vitest'; import { createSSRApp } from 'vue'; import { renderToString } from 'vue/server-renderer'; import App from './App.vue'; it('renders compiled Vue component', async () => { const html = await renderToString(createSSRApp(App)); expect(html).toContain('<p>rolldown native smoke</p>'); });\n")},
+	})
 	updateOutput, err := (updater{cfg: cfg, runtime: runtime, request: request(nodeSnapshot), target: nodeFiles}).update(ctx, nodeFiles, repair.DependencyUpdate{Ecosystem: "npm", Directory: ".", Package: "js-yaml", Version: "5.2.2"})
 	if err != nil {
 		t.Fatalf("prepare npm lockfile: %v", err)
@@ -142,7 +149,15 @@ func TestSandboxedPreparedCommands(t *testing.T) {
 	if result := run(nodeWorkspace, sandbox.Command{Args: []string{"node", "-e", "const yaml=require('js-yaml'); if (yaml.load('answer: 42').answer !== 42) process.exit(1); console.log('js-yaml ok')"}, Directory: ".", Timeout: 2 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"}); !strings.Contains(string(result.Output), "js-yaml ok") {
 		t.Fatalf("npm dependency unavailable: %s", result.Output)
 	}
-	if len(nodeSnapshot.Files) != 1 || string(nodeSnapshot.Files[0].Content) != string(nodeFiles["package.json"]) {
+	buildResult := run(nodeWorkspace, sandbox.Command{Args: []string{"node", "/usr/local/lib/node_modules/npm/bin/npm-cli.js", "run", "build"}, Directory: ".", Timeout: 3 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
+	if !strings.Contains(string(buildResult.Output), "built in") {
+		t.Fatalf("Vite/Rolldown build did not complete: %s", buildResult.Output)
+	}
+	unitResult := run(nodeWorkspace, sandbox.Command{Args: []string{"node", "/usr/local/lib/node_modules/npm/bin/npm-cli.js", "run", "test:unit"}, Directory: ".", Timeout: 3 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "none"})
+	if !strings.Contains(string(unitResult.Output), "1 passed") {
+		t.Fatalf("Vitest native smoke failed: %s", unitResult.Output)
+	}
+	if len(nodeSnapshot.Files) != 6 || string(nodeSnapshot.Files[0].Content) != string(nodeFiles["package.json"]) {
 		t.Fatal("npm preparation mutated source snapshot")
 	}
 	if _, err := runtime.CollectArtifact(ctx, nodeWorkspace, "repository-script-ran"); err == nil {

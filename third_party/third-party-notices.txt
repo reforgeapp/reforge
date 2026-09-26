@@ -27377,3 +27377,8 @@ service, or fork in a way that implies Caveman sponsorship requires written
 permission.
 
 See `TRADEMARKS.md` for the full trademark policy.
+
+GNU C Library (glibc) runtime compatibility libraries / Debian libc6
+Copyright notice and LGPL-2.1 text are included in runner images at
+`/usr/share/doc/reforge/toolchain-licenses/libc6.copyright` and
+`/usr/share/doc/reforge/toolchain-licenses/LGPL-2.1`.
