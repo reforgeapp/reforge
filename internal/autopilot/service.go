@@ -631,7 +631,7 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 		}
 		return later("Merge requested", 24*time.Hour)
 	}
-	if bot == "dependabot" && gate.Snapshot.Rules.Unprotected && !gate.Snapshot.UpToDate {
+	if bot == "dependabot" && gate.ReforgeEnforced && !gate.Snapshot.UpToDate {
 		if err = s.repairs.RequestRebase(ctx, org, gate.ConnectionID, gate.Snapshot.Change); err != nil {
 			return later(err.Error(), 10*time.Minute)
 		}
