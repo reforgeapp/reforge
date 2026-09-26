@@ -24,7 +24,7 @@ whose latest call in the past 30 minutes failed, and uses the repository's runne
 [Usage](usage.md) has no headroom. Blocked findings wait until the blocker is cleared, and the status line under Mode names it.
 A failed fix is retried after ten minutes, up to six runs per finding version; the fifth and
 sixth runs use the most expensive priced model connection. A finding
-it cannot fix is skipped; a new version of the finding is tried again. If a Reforge pull
+it cannot fix is skipped and tried again after six hours or when the finding changes. If a Reforge pull
 request is closed without merging, the finding is fixed again from scratch. The status line
 shows what it is doing.
 A blocked run is resumed, up to three attempts, then cancelled so the finding is queued again.
