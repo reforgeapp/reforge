@@ -68,7 +68,7 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	}
 	if reforge {
 		missing, pending := forge.MissingChecks(snapshot.TargetChecks, snapshot.Checks, discovery.BotUpdateJob)
-		trustedChecks, checked = len(missing) == 0 && !pending, 1
+		trustedChecks, checked = len(missing) == 0 && !pending && !StaleChecks(snapshot.Checks, binding.Tested, now), 1
 		for _, check := range snapshot.Checks {
 			if check.HeadSHA != binding.Tested || !discovery.BotUpdateJob(check.Name) && check.Conclusion != "" && check.Conclusion != "success" && check.Conclusion != "neutral" && check.Conclusion != "skipped" {
 				trustedChecks = false
@@ -119,4 +119,15 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 		decision.Blockers = append(decision.Blockers, authority.Blockers...)
 	}
 	return Gate{ReforgeEnforced: reforge, Phase: phase, Method: method, Snapshot: snapshot, Decision: decision, Binding: binding, ExpiresAt: snapshot.ObservedAt.Add(time.Minute)}
+}
+
+const CheckFreshness = 24 * time.Hour
+
+func StaleChecks(checks []forge.Check, head string, now time.Time) bool {
+	for _, check := range checks {
+		if check.HeadSHA == head && !discovery.BotUpdateJob(check.Name) && (check.CompletedAt == nil || now.Sub(*check.CompletedAt) > CheckFreshness) {
+			return true
+		}
+	}
+	return false
 }

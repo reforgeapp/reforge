@@ -1011,7 +1011,7 @@ func mapCheck(raw githubCheckRun) forge.Check {
 	if raw.App.ID != 0 {
 		publisherID = strconv.FormatInt(raw.App.ID, 10)
 	}
-	return forge.Check{ID: strconv.FormatInt(raw.ID, 10), Name: raw.Name, PublisherID: publisherID, HeadSHA: raw.HeadSHA, Status: raw.Status, Conclusion: raw.Conclusion, URL: raw.HTMLURL}
+	return forge.Check{ID: strconv.FormatInt(raw.ID, 10), Name: raw.Name, PublisherID: publisherID, HeadSHA: raw.HeadSHA, Status: raw.Status, Conclusion: raw.Conclusion, URL: raw.HTMLURL, CompletedAt: raw.CompletedAt}
 }
 
 type githubRepository struct {
@@ -1038,13 +1038,14 @@ type githubCheckRuns struct {
 }
 
 type githubCheckRun struct {
-	ID         int64  `json:"id"`
-	Name       string `json:"name"`
-	HeadSHA    string `json:"head_sha"`
-	Status     string `json:"status"`
-	Conclusion string `json:"conclusion"`
-	HTMLURL    string `json:"html_url"`
-	App        struct {
+	ID          int64      `json:"id"`
+	Name        string     `json:"name"`
+	HeadSHA     string     `json:"head_sha"`
+	Status      string     `json:"status"`
+	Conclusion  string     `json:"conclusion"`
+	HTMLURL     string     `json:"html_url"`
+	CompletedAt *time.Time `json:"completed_at"`
+	App         struct {
 		ID int64 `json:"id"`
 	} `json:"app"`
 }

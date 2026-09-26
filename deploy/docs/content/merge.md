@@ -28,6 +28,9 @@ branches that have no protection, or whose protection the connection's identity 
 The gate is recorded as `reforge-enforced`:
 
 - every check passing on the target branch must pass on the pull request;
+- those checks must have completed in the last 24 hours, so time-sensitive scanners such as
+  vulnerability checks reflect current advisories; stale Dependabot pull requests are asked to
+  `@dependabot recreate`;
 - the pull request must not be behind the current target branch;
 - the merge pins the tested head;
 - a native "changes requested" review, conflicts or a draft still block.

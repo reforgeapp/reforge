@@ -93,10 +93,15 @@ func TestEvaluateReforgeEnforcedUnprotectedMerge(t *testing.T) {
 	snapshot, resolved, authority := evaluationFixture(now)
 	head := snapshot.Change.HeadSHA
 	snapshot.Rules = forge.Rules{State: domain.Supported, Hash: snapshot.Rules.Hash, AllowedMergeMethods: []string{"squash"}, ActorCanBypass: true, Unprotected: true}
-	snapshot.Checks = []forge.Check{{Name: "Validate", HeadSHA: head, Status: "completed", Conclusion: "success"}}
+	old := now.Add(-48 * time.Hour)
+	snapshot.Checks = []forge.Check{{Name: "Validate", HeadSHA: head, Status: "completed", Conclusion: "success", CompletedAt: &old}}
 	snapshot.TargetChecks = []forge.Check{{Name: "Validate", Conclusion: "success"}}
 	snapshot.UpToDate = true
 	authority.ReforgeEnforced, authority.ValidationReference = true, ""
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
+		t.Fatal("merge allowed on checks older than the freshness window")
+	}
+	snapshot.Checks[0].CompletedAt = &now
 	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome != "allow" {
 		t.Fatalf("reforge-enforced merge rejected: %+v", got.Decision)
 	}

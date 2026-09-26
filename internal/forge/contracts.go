@@ -88,13 +88,14 @@ type Event struct {
 	HeadSHA    string
 }
 type Check struct {
-	ID          string `json:"id"`
-	Name        string `json:"name"`
-	PublisherID string `json:"publisher_id"`
-	HeadSHA     string `json:"head_sha"`
-	Status      string `json:"status"`
-	Conclusion  string `json:"conclusion"`
-	URL         string `json:"url"`
+	ID          string     `json:"id"`
+	Name        string     `json:"name"`
+	PublisherID string     `json:"publisher_id"`
+	HeadSHA     string     `json:"head_sha"`
+	Status      string     `json:"status"`
+	Conclusion  string     `json:"conclusion"`
+	URL         string     `json:"url"`
+	CompletedAt *time.Time `json:"completed_at,omitempty"`
 }
 
 type Approval struct {

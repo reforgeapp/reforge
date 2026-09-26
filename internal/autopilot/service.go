@@ -530,7 +530,7 @@ func (s *Service) rebase(ctx context.Context, org string) error {
 		if f.Evidence.Change == nil {
 			continue
 		}
-		if e := s.repairs.RequestRebase(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change); e != nil {
+		if e := s.repairs.CommandBot(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change, "@dependabot rebase"); e != nil {
 			err = errors.Join(err, e, s.record(ctx, org, c, "", "retry", e.Error(), 15*time.Minute))
 			continue
 		}
@@ -632,10 +632,16 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 		return later("Merge requested", 24*time.Hour)
 	}
 	if bot == "dependabot" && gate.ReforgeEnforced && !gate.Snapshot.UpToDate {
-		if err = s.repairs.RequestRebase(ctx, org, gate.ConnectionID, gate.Snapshot.Change); err != nil {
+		if err = s.repairs.CommandBot(ctx, org, gate.ConnectionID, gate.Snapshot.Change, "@dependabot rebase"); err != nil {
 			return later(err.Error(), 10*time.Minute)
 		}
 		return later("Asked Dependabot to rebase", time.Hour)
+	}
+	if bot == "dependabot" && gate.ReforgeEnforced && mergecontrol.StaleChecks(gate.Snapshot.Checks, gate.Binding.Tested, time.Now()) {
+		if err = s.repairs.CommandBot(ctx, org, gate.ConnectionID, gate.Snapshot.Change, "@dependabot recreate"); err != nil {
+			return later(err.Error(), 10*time.Minute)
+		}
+		return later("Asked Dependabot to recreate for fresh checks", time.Hour)
 	}
 	reason := "Waiting for merge checks"
 	if len(gate.Decision.Blockers) > 0 {
