@@ -41,6 +41,26 @@ type Service struct {
 func New(db *store.Store, runners *runner.Service, connections *connections.Service, budgets *budget.Service, private *privateconnector.Connector, vault *secrets.Vault, development bool) *Service {
 	return &Service{db: db, runners: runners, connections: connections, budgets: budgets, private: private, vault: vault, factory: providers.Factory{Development: development}}
 }
+func (s *Service) settleOrphansTx(ctx context.Context, tx pgx.Tx, l workflow.Lease) error {
+	rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns WHERE org_id=$1 AND task_id=$2 AND attempt_id<>$3 AND state IN ('dispatched','unknown')`, l.OrgID, l.TaskID, l.AttemptID)
+	if err != nil {
+		return err
+	}
+	turns, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct{ ID, Reservation string }])
+	if err != nil {
+		return err
+	}
+	for _, turn := range turns {
+		if err = s.budgets.SettleUnknownAtMaximumTx(ctx, tx, l.OrgID, turn.Reservation, "orphaned-attempt:"+turn.ID); err != nil {
+			return err
+		}
+		if _, err = tx.Exec(ctx, `UPDATE model_turns SET state='failed',completed_at=coalesce(completed_at,clock_timestamp()) WHERE org_id=$1 AND id=$2`, l.OrgID, turn.ID); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func binding(org, id string) secrets.Binding {
 	return secrets.Binding{OrgID: org, ConnectionID: id, Version: 1}
 }
@@ -98,6 +118,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			return ErrUnavailable
 		}
 		cached, err = s.existing(ctx, tx, l, in.OperationID, hash)
+		if err == nil && cached == nil {
+			err = s.settleOrphansTx(ctx, tx, l)
+		}
 		if err == nil && cached == nil {
 			var unresolved bool
 			err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, l.OrgID, l.TaskID).Scan(&unresolved)
