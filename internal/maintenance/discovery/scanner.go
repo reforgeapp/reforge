@@ -105,7 +105,7 @@ func (s *Service) claim(ctx context.Context, org string) (*scanLease, error) {
 			return err
 		}
 		lease.ConfigVersion = cfg.Version
-		if err = tx.QueryRow(ctx, `UPDATE maintenance_scans SET state='running',fence=fence+1,lease_until=clock_timestamp()+interval '3 minutes',version=version+1 WHERE org_id=$1 AND repository_id=$2 RETURNING fence`, org, lease.Repo).Scan(&lease.Fence); err != nil {
+		if err = tx.QueryRow(ctx, `UPDATE maintenance_scans SET state='running',fence=fence+1,lease_until=clock_timestamp()+interval '10 minutes',version=version+1 WHERE org_id=$1 AND repository_id=$2 RETURNING fence`, org, lease.Repo).Scan(&lease.Fence); err != nil {
 			return err
 		}
 		out = &lease
@@ -477,7 +477,7 @@ func readFailure(kind privateconnector.Kind, err error) error {
 	return &scanReadError{kind: kind, err: err}
 }
 func (s *Service) step(ctx context.Context, lease scanLease) error {
-	ctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 8*time.Minute)
 	defer cancel()
 	observations, readErr := s.collect(ctx, lease)
 	if readErr != nil {
@@ -631,7 +631,7 @@ func (s *Service) RunOrganisationOnce(ctx context.Context, org string) (bool, er
 func (s *Service) Run(ctx context.Context) error {
 	for ctx.Err() == nil {
 		worked, err := s.RunOnce(ctx)
-		heartbeat.Beat("discovery", 3*time.Second, err)
+		heartbeat.Beat("discovery", 3*time.Minute, err)
 		if worked && err == nil {
 			continue
 		}
