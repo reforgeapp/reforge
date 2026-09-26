@@ -275,11 +275,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		case err != nil:
 			return err
 		}
-		err := tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY c.created_at,r.name LIMIT 1`, org).Scan(&model, &route)
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil
-		}
-		if err != nil {
+		var err error
+		model, route, headroom, err = s.pickModel(ctx, tx, org)
+		if err != nil || model == "" {
 			return err
 		}
 		var c candidate
@@ -316,6 +314,29 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		}), s.status(ctx, org, message))
 	}
 	return s.queue(ctx, session, org, *next, model, route)
+}
+
+func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string) (string, string, string, error) {
+	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) AND NOT coalesce((SELECT bool_and(recent.state='failed') FROM (SELECT m.state FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '30 minutes' ORDER BY m.created_at DESC LIMIT 3) recent HAVING count(*)=3),false) ORDER BY (coalesce((r.config->>'input_micro_usd_per_million')::numeric,0)*0.04+coalesce((r.config->>'output_micro_usd_per_million')::numeric,0)*0.001+coalesce((r.config->>'request_micro_usd')::numeric,0)+1)*(1+(SELECT count(*) FROM workflow_tasks t WHERE t.org_id=c.org_id AND t.model_connection_id=c.id AND t.state IN `+active+`)),c.created_at,r.name`, org)
+	if err != nil {
+		return "", "", "", err
+	}
+	candidates, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct{ Connection, Route string }])
+	if err != nil {
+		return "", "", "", err
+	}
+	for _, c := range candidates {
+		switch err := s.budgets.ConnectionHeadroomTx(ctx, tx, org, c.Connection); {
+		case err == nil:
+			return c.Connection, c.Route, "", nil
+		case !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked):
+			return "", "", "", err
+		}
+	}
+	if len(candidates) > 0 {
+		return "", "", "Model connection budgets used up", nil
+	}
+	return "", "", "", nil
 }
 
 func (s *Service) queue(ctx context.Context, session auth.Session, org string, c candidate, model, route string) error {

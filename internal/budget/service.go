@@ -299,8 +299,19 @@ func (s *Service) RouteTx(ctx context.Context, tx pgx.Tx, org, connection, model
 }
 
 func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
-	limit, err := loadLimit(ctx, tx, org, Scope{Kind: "organisation", ID: org})
+	return headroomTx(ctx, tx, org, Scope{Kind: "organisation", ID: org}, true)
+}
+
+func (s *Service) ConnectionHeadroomTx(ctx context.Context, tx pgx.Tx, org, connection string) error {
+	return headroomTx(ctx, tx, org, Scope{Kind: "connection", ID: connection}, false)
+}
+
+func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, required bool) error {
+	limit, err := loadLimit(ctx, tx, org, scope)
 	if errors.Is(err, pgx.ErrNoRows) || err == nil && limit.Caps.MicroUSD == nil {
+		if !required {
+			return nil
+		}
 		return ErrUnknown
 	}
 	if err != nil {

@@ -17,8 +17,9 @@ organisation version.
 
 Mode permits actions. **Fix findings automatically** starts them: Reforge queues one repair
 at a time for every open finding, existing ones included, and with **Merge eligible fixes**
-requests a merge once every gate passes. It uses the first priced model and the
-repository's runner pool, and waits while the organisation budget in
+requests a merge once every gate passes. It picks the priced model connection with the lowest
+cost weighted by its active runs, skipping connections whose own budget is used up or
+whose last three calls failed, and uses the repository's runner pool, and waits while the organisation budget in
 [Usage](usage.md) has no headroom. Blocked findings wait until the blocker is cleared, and the line under the switch names it.
 A failed fix is retried after ten minutes, up to three runs per finding version. A finding
 it cannot fix is skipped; a new version of the finding is tried again. The line under the switch shows what it is doing.
