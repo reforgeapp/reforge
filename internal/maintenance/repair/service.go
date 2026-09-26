@@ -131,6 +131,31 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			if rounds >= MaxFollowUps {
 				out.Blockers = append(out.Blockers, ErrFollowUpsExhausted.Error())
 			}
+			var own []byte
+			if err := tx.QueryRow(ctx, `SELECT coalesce(report->'patches','[]') FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND branch=$3 ORDER BY created_at LIMIT 1`, org, f.RepositoryID, followUp).Scan(&own); err != nil {
+				return err
+			}
+			rows, err := tx.Query(ctx, `SELECT coalesce(report->'patches','[]') FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND bot_revalidation_state NOT IN ('merged','closed') AND branch<>$3 AND created_at<(SELECT min(created_at) FROM repair_runs WHERE org_id=$1 AND branch=$3)`, org, f.RepositoryID, followUp)
+			if err != nil {
+				return err
+			}
+			older, err := pgx.CollectRows(rows, pgx.RowTo[[]byte])
+			if err != nil {
+				return err
+			}
+			var ownPatches []sandbox.Patch
+			if json.Unmarshal(own, &ownPatches) == nil && len(ownPatches) > 0 {
+				fixes := []map[string]string{}
+				for _, raw := range older {
+					var patches []sandbox.Patch
+					if json.Unmarshal(raw, &patches) == nil {
+						fixes = append(fixes, patchHashes(patches))
+					}
+				}
+				if duplicates(patchHashes(ownPatches), fixes) {
+					out.Blockers = append([]string{ErrDuplicateFix.Error()}, out.Blockers...)
+				}
+			}
 		}
 		var err error
 		resolved, err = s.policies.ResolveTx(ctx, tx, org, f.RepositoryID)

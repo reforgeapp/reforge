@@ -389,11 +389,11 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 			return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), wait), s.status(ctx, org, message))
 		}
 		if len(preview.Blockers) > 0 {
-			if preview.Blockers[0] == repair.ErrFollowUpsExhausted.Error() {
-				if err = s.repairs.CloseFix(ctx, session, org, preview.Context.Finding); err != nil {
-					return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not close a failing fix on "+c.name))
+			if duplicate := preview.Blockers[0] == repair.ErrDuplicateFix.Error(); duplicate || preview.Blockers[0] == repair.ErrFollowUpsExhausted.Error() {
+				if err = s.repairs.CloseFix(ctx, session, org, preview.Context.Finding, duplicate); err != nil {
+					return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not close a fix on "+c.name))
 				}
-				return s.record(ctx, org, c, "", "skipped", "Closed after "+strconv.Itoa(repair.MaxFollowUps)+" follow-ups", 0)
+				return s.record(ctx, org, c, "", "skipped", "Closed: "+preview.Blockers[0], 0)
 			}
 			return s.record(ctx, org, c, "", "skipped", preview.Blockers[0], 0)
 		}

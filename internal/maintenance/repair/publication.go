@@ -425,8 +425,9 @@ func (s *Service) CheckCompletion(ctx context.Context, tx pgx.Tx, l workflow.Lea
 const MaxFollowUps = 5
 
 var ErrFollowUpsExhausted = errors.New("Reforge fix still failing CI after 5 follow-ups")
+var ErrDuplicateFix = errors.New("Duplicate of an older open Reforge fix")
 
-func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string, f discovery.Finding) error {
+func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string, f discovery.Finding, duplicate bool) error {
 	w, ok := s.reader.(writer)
 	change := f.Evidence.Change
 	if !ok || change == nil || !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
@@ -439,6 +440,9 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 		}
 	}
 	comment := fmt.Sprintf("Reforge could not get CI passing after %d follow-ups and is closing this pull request. Still failing: %s.", MaxFollowUps, strings.Join(failing, ", "))
+	if duplicate {
+		comment = "Reforge is closing this pull request because an older open Reforge pull request makes the same change."
+	}
 	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCloseChange, Close: &forge.CloseChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadBranch: change.HeadBranch, Comment: comment}}
 	if _, err := w.Write(ctx, org, f.Evidence.ConnectionID, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
 		if c.ID != f.Evidence.ConnectionID {
