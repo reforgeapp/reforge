@@ -92,6 +92,7 @@ type Authority struct {
 	Qualified              bool
 	ExactHeadEnforced      bool
 	QualificationReference string
+	ReforgeEnforced        bool
 	Paths                  []string
 	Usage                  policy.Limits
 }

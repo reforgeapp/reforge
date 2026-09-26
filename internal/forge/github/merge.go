@@ -132,10 +132,10 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if err != nil {
 		return out, err
 	}
-	if rules.State != domain.Supported || rules.Hash != in.RulesHash || rules.ActorCanBypass || rules.RequireQueue != in.Queue {
+	if rules.State != domain.Supported || rules.Hash != in.RulesHash || rules.ActorCanBypass && !rules.Unprotected || rules.RequireQueue != in.Queue {
 		return out, failure("conflict", "Native protections or merge path changed")
 	}
-	appGate := p.app == nil
+	appGate := p.app == nil || rules.Unprotected
 	for _, check := range rules.RequiredChecks {
 		if p.app != nil && check.PublisherID == p.appID() {
 			appGate = true
@@ -144,7 +144,7 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if !appGate {
 		return out, failure("unsupported", "A provider-required check bound to this App must enforce the execution policy")
 	}
-	if !in.Queue && rules.StrictTargetEnforced != domain.Supported {
+	if !in.Queue && rules.StrictTargetEnforced != domain.Supported && !rules.Unprotected {
 		return out, failure("unsupported", "Direct merge requires provider-enforced strict target freshness")
 	}
 	allowed := false
@@ -225,6 +225,15 @@ func (p *Provider) RequestNativeMergeOrQueue(ctx context.Context, in forge.Merge
 	if err = confirm(); err != nil {
 		return out, err
 	}
+	if rules.Unprotected {
+		behind, err := p.Behind(ctx, in.Repository, in.ExpectedTargetSHA, in.ExpectedHeadSHA)
+		if err != nil {
+			return out, err
+		}
+		if behind > 0 {
+			return out, failure("conflict", "Pull request is behind its target branch")
+		}
+	}
 	if err = p.mergeGuard(ctx, in, change, rules); err != nil {
 		return out, err
 	}
@@ -268,3 +277,23 @@ func (p *Provider) WithReviewAuthorizer(fn func(context.Context, forge.RepoRef, 
 }
 
 var _ forge.Provider = (*Provider)(nil)
+
+func (p *Provider) Behind(ctx context.Context, r forge.RepoRef, base, head string) (int, error) {
+	if !validSHA(base) || !validSHA(head) {
+		return 0, failure("invalid", "Exact commits required")
+	}
+	route, err := repositoryPath(r)
+	if err != nil {
+		return 0, err
+	}
+	var compare struct {
+		BehindBy *int `json:"behind_by"`
+	}
+	if err = p.get(ctx, append(route, "compare", base+"..."+head), nil, &compare); err != nil {
+		return 0, err
+	}
+	if compare.BehindBy == nil {
+		return 0, failure("provider", "Missing comparison result")
+	}
+	return *compare.BehindBy, nil
+}

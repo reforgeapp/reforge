@@ -21,6 +21,15 @@ Decision                   Waiting for code owner review
 Unknown rules render as “Cannot verify protection; automatic merge blocked”. No merge
 control is enabled while a gate is pending or unknown.
 
+## Branches without native protection
+
+When a GitHub branch has no protection or rulesets (including private repositories on plans
+without branch protection) and autopilot is on, Reforge enforces the gate itself, recorded
+as `reforge-enforced`: every check passing on the target branch must pass on the pull
+request, the pull request must not be behind the target, and the merge pins the tested
+head. Repository administrator rights do not count as a bypass in this mode. Protected
+branches always use the native rules.
+
 ## Exact revisions
 
 Merge evaluation binds the head, target and tested revisions. If any of them move, the

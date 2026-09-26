@@ -108,7 +108,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		if classic.Admins == nil {
 			return out, failure("provider", "Incomplete classic protection document")
 		}
-	} else if status != 404 || *branchInfo.Protected {
+	} else if status != 404 && status != 403 || *branchInfo.Protected {
 		return out, responseError(status, headers)
 	}
 	out.State = domain.Supported
@@ -126,6 +126,9 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		status, headers, body, err := p.request(ctx, "GET", append(route, "rules", "branches", branch), url.Values{"per_page": {"100"}, "page": {strconv.Itoa(page)}}, nil)
 		if err != nil {
 			return out, err
+		}
+		if status == 403 && !*branchInfo.Protected {
+			break
 		}
 		if status != 200 {
 			return out, responseError(status, headers)
@@ -382,6 +385,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		return a.Name < b.Name
 	})
 	sort.Strings(out.AllowedMergeMethods)
+	out.Unprotected = !*branchInfo.Protected && classicRaw == nil && len(applied) == 0
 	material, _ := json.Marshal(struct {
 		Classic json.RawMessage
 		Applied []json.RawMessage

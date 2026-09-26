@@ -146,6 +146,7 @@ type Rules struct {
 	RequireQueue         bool                   `json:"require_queue"`
 	AllowedMergeMethods  []string               `json:"allowed_merge_methods"`
 	ActorCanBypass       bool                   `json:"actor_can_bypass"`
+	Unprotected          bool                   `json:"unprotected,omitempty"`
 }
 
 type NativeEligibility struct {
@@ -172,6 +173,12 @@ type MergeEvidence struct {
 	Queue          QueueState        `json:"queue"`
 	Capabilities   Capabilities      `json:"capabilities"`
 	ObservedAt     time.Time         `json:"observed_at"`
+	TargetChecks   []Check           `json:"target_checks,omitempty"`
+	UpToDate       bool              `json:"up_to_date,omitempty"`
+}
+
+type ForgeFreshness interface {
+	Behind(context.Context, RepoRef, string, string) (int, error)
 }
 
 type CreateChangeRequest struct {

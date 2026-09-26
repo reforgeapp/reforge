@@ -216,6 +216,16 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 		return out, err
 	}
 	out.MergeControlled = cfg.Enabled && mode == "reforge"
+	if !cfg.Enabled && snapshot.Rules.Unprotected {
+		var autopilot bool
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&autopilot); err != nil {
+			return out, err
+		}
+		if autopilot {
+			out.ReforgeEnforced, out.Qualified, out.ExactHeadEnforced, out.MergeControlled, out.CooperationVerified = true, true, true, true, true
+			out.QualificationReference = "reforge-enforced"
+		}
+	}
 	var task string
 	var rawContext, rawReport, rawChecks []byte
 	err = tx.QueryRow(ctx, `SELECT task_id::text,context,report,candidate_checks FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND candidate_sha=$3 AND native_change->>'id'=$4 ORDER BY created_at DESC LIMIT 1`, org, repo, snapshot.Change.HeadSHA, snapshot.Change.ID).Scan(&task, &rawContext, &rawReport, &rawChecks)

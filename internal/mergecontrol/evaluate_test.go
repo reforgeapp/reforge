@@ -87,3 +87,29 @@ func TestEvaluateAllowsCompleteQualifiedNativeMerge(t *testing.T) {
 		t.Fatalf("valid merge rejected: %+v", got.Decision)
 	}
 }
+
+func TestEvaluateReforgeEnforcedUnprotectedMerge(t *testing.T) {
+	now := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	snapshot, resolved, authority := evaluationFixture(now)
+	head := snapshot.Change.HeadSHA
+	snapshot.Rules = forge.Rules{State: domain.Supported, Hash: snapshot.Rules.Hash, AllowedMergeMethods: []string{"squash"}, ActorCanBypass: true, Unprotected: true}
+	snapshot.Checks = []forge.Check{{Name: "Validate", HeadSHA: head, Status: "completed", Conclusion: "success"}}
+	snapshot.TargetChecks = []forge.Check{{Name: "Validate", Conclusion: "success"}}
+	snapshot.UpToDate = true
+	authority.ReforgeEnforced, authority.ValidationReference = true, ""
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome != "allow" {
+		t.Fatalf("reforge-enforced merge rejected: %+v", got.Decision)
+	}
+	snapshot.TargetChecks = append(snapshot.TargetChecks, forge.Check{Name: "Security scan", Conclusion: "success"})
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
+		t.Fatal("merge allowed with a target check missing from the pull request")
+	}
+	snapshot.TargetChecks, snapshot.UpToDate = snapshot.TargetChecks[:1], false
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
+		t.Fatal("merge allowed while behind the target")
+	}
+	authority.ReforgeEnforced, snapshot.UpToDate = false, true
+	if got := Evaluate(snapshot, resolved, "squash", authority, now); got.Decision.Outcome == "allow" {
+		t.Fatal("admin bypass accepted without Reforge enforcement")
+	}
+}

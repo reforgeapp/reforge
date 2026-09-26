@@ -3,6 +3,7 @@ package mergecontrol
 import (
 	"reforge/internal/domain"
 	"reforge/internal/forge"
+	"reforge/internal/maintenance/discovery"
 	"reforge/internal/policy"
 	"reforge/internal/source"
 	"slices"
@@ -39,7 +40,8 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	nativeCurrent := snapshot.Native.HeadSHA == change.HeadSHA && snapshot.Native.TargetSHA == change.TargetSHA && snapshot.Native.State == "eligible"
 	ready := (change.State == "open" || change.State == "opened") && !change.Draft && change.AuthorID != "" && change.HeadBranch != "" && change.TargetBranch != "" && source.ValidSHA(change.HeadSHA, "sha1") && source.ValidSHA(change.TargetSHA, "sha1") && change.Repository.NativeID != "" && change.Repository == change.TargetRepository && change.HeadRepository.NativeID != ""
 	qualified := authority.Qualified && authority.QualificationReference != "" && snapshot.Capabilities.Provider != "" && snapshot.Capabilities.ServerVersion != "" && (!rules.RequireQueue || queueGate)
-	add("execution_authority", ready && nativeCurrent && qualified && authority.PathsVerified && !rules.ActorCanBypass, authority.QualificationReference, 0)
+	reforge := authority.ReforgeEnforced && rules.Unprotected
+	add("execution_authority", ready && nativeCurrent && qualified && authority.PathsVerified && (!rules.ActorCanBypass || reforge), authority.QualificationReference, 0)
 	add("native_rules", rules.State == domain.Supported && source.ValidSHA(rules.Hash, "sha256") && slices.Contains(rules.AllowedMergeMethods, method), "native-rules:"+rules.Hash, 0)
 	trustedChecks, checked := true, 0
 	for _, requirement := range rules.RequiredChecks {
@@ -63,6 +65,15 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 			}
 		}
 		trustedChecks = trustedChecks && matched && !failed
+	}
+	if reforge {
+		missing, pending := forge.MissingChecks(snapshot.TargetChecks, snapshot.Checks, discovery.BotUpdateJob)
+		trustedChecks, checked = len(missing) == 0 && !pending, 1
+		for _, check := range snapshot.Checks {
+			if check.HeadSHA != binding.Tested || !discovery.BotUpdateJob(check.Name) && check.Conclusion != "" && check.Conclusion != "success" && check.Conclusion != "neutral" && check.Conclusion != "skipped" {
+				trustedChecks = false
+			}
+		}
 	}
 	add("native_checks", nativeCurrent && trustedChecks, "native-checks:"+binding.Tested, 0)
 	trustedChecks = trustedChecks && (checked > 0 || queueGate && phase == "queue_execution" && train != nil && train.ChecksReady && train.SHA == binding.Tested && train.QueueID == snapshot.Queue.ID && train.JobID != "" && train.PipelineID != "")
@@ -95,6 +106,9 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	}
 	if queueGate && train != nil && phase == "queue_execution" {
 		strict = strict && train.State == "manual" && train.ChecksReady && train.SHA == snapshot.Queue.TestedSHA
+	}
+	if reforge {
+		strict = snapshot.UpToDate
 	}
 	add("target_enforcement", strict, "target-enforcement:"+rules.Hash, 0)
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)
