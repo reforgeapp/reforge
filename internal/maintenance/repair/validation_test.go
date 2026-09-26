@@ -1,9 +1,11 @@
 package repair
 
 import (
+	"context"
 	"strings"
 	"testing"
 
+	"reforge/internal/artifact"
 	"reforge/internal/maintenance/recipes"
 	"reforge/internal/sandbox"
 )
@@ -68,5 +70,34 @@ func TestGoAndPythonReportsRetainCaseIdentity(t *testing.T) {
 		if !r.Complete || r.Cases[check.key] != "pass" {
 			t.Fatalf("case lost: %+v", r)
 		}
+	}
+}
+
+type ansiCommandRuntime struct{ retryRuntime }
+
+func (r *ansiCommandRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {
+	return sandbox.CommandResult{ExitCode: 0, Output: []byte("\x1b[32m RUN v3.0.0 \x1b[0m\nok 1 - math.test.js > adds\n")}, nil
+}
+
+func TestANSIJavaScriptCheckBindsUploadedArtifactDigest(t *testing.T) {
+	plan, files := testPlan(t)
+	raw := []byte("\x1b[32m RUN v3.0.0 \x1b[0m\nok 1 - math.test.js > adds\n")
+	runtime := &ansiCommandRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}}
+	var uploaded []byte
+	engine := Engine{Runtime: runtime, JobID: "ansi-test", AttemptID: "attempt-1", Trust: "fixture", Artifact: func(_ context.Context, _ string, data []byte) (string, string, error) {
+		uploaded = artifact.SanitizeTextLog(data)
+		digest := hashBytes(uploaded)
+		return "check-log", digest, nil
+	}}
+	report := Report{}
+	checks, err := engine.validate(context.Background(), plan, plan.BaselineSHA, nil, "baseline", &report)
+	if err != nil || len(checks) != 1 {
+		t.Fatalf("validation checks=%+v err=%v", checks, err)
+	}
+	if checks[0].Cases["1:math.test.js > adds"] != "pass" {
+		t.Fatalf("raw ANSI output lost TAP status: %+v", checks[0])
+	}
+	if checks[0].OutputSHA256 != hashBytes(uploaded) || checks[0].OutputSHA256 == hashBytes(raw) || len(report.Artifacts) != 1 || report.Artifacts[0] != "check-log" {
+		t.Fatalf("report digest does not bind sanitized upload: check=%+v artifacts=%v", checks[0], report.Artifacts)
 	}
 }

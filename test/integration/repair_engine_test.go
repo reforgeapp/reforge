@@ -137,9 +137,10 @@ func TestRepairEngineRealModelAndGVisor(t *testing.T) {
 			turnSummary = append(turnSummary, "error")
 		}
 		return result, turnErr
-	}, Artifact: func(_ context.Context, _ string, data []byte) (string, error) {
+	}, Artifact: func(_ context.Context, _ string, data []byte) (string, string, error) {
 		artifacts = append(artifacts, append([]byte(nil), data...))
-		return "artifact-" + string(rune('0'+len(artifacts))), nil
+		digest := sha256.Sum256(data)
+		return "artifact-" + string(rune('0'+len(artifacts))), hex.EncodeToString(digest[:]), nil
 	}}
 	report, err := engine.Run(ctx, plan, base, target)
 	if err != nil {

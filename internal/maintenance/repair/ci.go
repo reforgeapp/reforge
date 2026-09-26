@@ -189,7 +189,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	var transcript strings.Builder
 	defer func() {
 		if e.Artifact != nil && transcript.Len() > 0 {
-			if id, err := e.Artifact(context.WithoutCancel(ctx), "agent-transcript.log", []byte(transcript.String())); err == nil {
+			if id, _, err := e.Artifact(context.WithoutCancel(ctx), "agent-transcript.log", []byte(transcript.String())); err == nil {
 				report.Artifacts = append(report.Artifacts, id)
 			}
 		}

@@ -38,7 +38,7 @@ type Engine struct {
 	Runtime          sandbox.SandboxRuntime
 	PrepareWorkspace func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
 	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
-	Artifact         func(context.Context, string, []byte) (string, error)
+	Artifact         func(context.Context, string, []byte) (string, string, error)
 	Progress         func(context.Context, string) error
 	Model            string
 	JobID            string
@@ -197,14 +197,20 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 		if err != nil {
 			return nil, err
 		}
+		digest := ""
 		if e.Artifact != nil {
-			id, err := e.Artifact(ctx, label+"-"+command.ID+".log", result.Output)
+			id, uploadedDigest, err := e.Artifact(ctx, label+"-"+command.ID+".log", result.Output)
 			if err != nil {
 				return nil, err
 			}
 			report.Artifacts = append(report.Artifacts, id)
+			digest = uploadedDigest
 		}
-		results = append(results, Interpret(command, result))
+		check := Interpret(command, result)
+		if digest != "" {
+			check.OutputSHA256 = digest
+		}
+		results = append(results, check)
 	}
 	return results, nil
 }
