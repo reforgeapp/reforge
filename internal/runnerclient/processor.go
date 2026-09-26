@@ -79,7 +79,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		if err != nil {
 			return failed, err
 		}
-		engine := repair.Engine{Dependencies: dependencies, CILogs: execution.CILogs, OpenFixes: execution.OpenFixes, UpdateDependency: updateDependency(cfg), Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
+		engine := repair.Engine{Dependencies: dependencies, CILogs: execution.CILogs, OpenFixes: execution.OpenFixes, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: updateDependency(cfg), Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", data)
 			return m.ID, err
 		}, Progress: func(_ context.Context, next string) error { return progress(next) }}

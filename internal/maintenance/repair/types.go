@@ -38,6 +38,7 @@ type ExecutionContext struct {
 	CILogs             []CILog                `json:"ci_logs,omitempty"`
 	OpenFixes          []string               `json:"open_fixes,omitempty"`
 	FollowUpBranch     string                 `json:"follow_up_branch,omitempty"`
+	OpenFixFiles       []map[string]string    `json:"open_fix_files,omitempty"`
 }
 type CILog struct {
 	Name string `json:"name"`

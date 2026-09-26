@@ -43,6 +43,7 @@ type Engine struct {
 	Dependencies     string
 	CILogs           []CILog
 	OpenFixes        []string
+	OpenFixFiles     []map[string]string
 	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
 	MaxOutputTokens  int
 	TurnTimeout      time.Duration

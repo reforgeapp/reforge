@@ -299,3 +299,10 @@ func TestCheckCIPatchAllowsExistingWorkflowOnly(t *testing.T) {
 		t.Fatal("new workflow accepted")
 	}
 }
+
+func TestDuplicatesMatchesContainedFix(t *testing.T) {
+	open := []map[string]string{{"go.mod": "a"}}
+	if !duplicates(map[string]string{"go.mod": "a", "go.sum": "b"}, open) || duplicates(map[string]string{"go.mod": "c"}, open) || duplicates(map[string]string{"web/package.json": "a"}, open) {
+		t.Fatal("duplicate detection wrong")
+	}
+}

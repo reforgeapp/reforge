@@ -228,7 +228,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	context.FollowUpBranch = followUp
 	context.CILogs = s.ciLogs(ctx, org, f, check)
 	if len(context.CILogs) > 0 {
-		context.OpenFixes = s.openFixes(ctx, org, f.RepositoryID)
+		context.OpenFixes, context.OpenFixFiles = s.openFixes(ctx, org, f.RepositoryID, followUp)
 	}
 	out.Context = context
 	if !plan.Valid() {
@@ -346,23 +346,27 @@ func (s *Service) ciLogs(ctx context.Context, org string, f discovery.Finding, c
 	return logs
 }
 
-func (s *Service) openFixes(ctx context.Context, org, repository string) []string {
-	fixes := []string{}
+func (s *Service) openFixes(ctx context.Context, org, repository, exclude string) ([]string, []map[string]string) {
+	fixes, files := []string{}, []map[string]string{}
 	_ = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT branch,coalesce(report->>'reason',''),coalesce(report->'dependencies','[]')::text FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND bot_revalidation_state NOT IN ('merged','closed') ORDER BY created_at DESC LIMIT 20`, org, repository)
+		rows, err := tx.Query(ctx, `SELECT branch,coalesce(report->>'reason',''),coalesce(report->'dependencies','[]')::text,coalesce(report->'patches','[]') FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND bot_revalidation_state NOT IN ('merged','closed') AND branch<>$3 ORDER BY created_at DESC LIMIT 20`, org, repository, exclude)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var branch, reason, deps string
-			if rows.Scan(&branch, &reason, &deps) == nil {
-				fixes = append(fixes, bounded(branch+": "+reason+" "+deps))
+			var raw []byte
+			var patches []sandbox.Patch
+			if rows.Scan(&branch, &reason, &deps, &raw) != nil || json.Unmarshal(raw, &patches) != nil {
+				continue
 			}
+			fixes = append(fixes, bounded(branch+": "+reason+" "+deps))
+			files = append(files, patchHashes(patches))
 		}
 		return rows.Err()
 	})
-	return fixes
+	return fixes, files
 }
 
 func loadRun(ctx context.Context, tx pgx.Tx, org, id string) (Run, error) {
