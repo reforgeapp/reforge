@@ -421,7 +421,7 @@ func TestOwnerCompactsOpaqueContinuationAndKeepsPatchChecks(t *testing.T) {
 			}
 			result.ToolCalls = []model.ToolCall{{ID: "read", Name: "read_file", Arguments: []byte(`{"path":"value.js"}`)}}
 		case 3:
-			if !strings.Contains(in.Messages[0].Text, "exports.add = (a,b) => a+b") {
+			if !strings.Contains(in.Messages[0].Text, `exports.add = (a,b) =\u003e a+b`) {
 				t.Fatal("compacted context lost recent staged file contents")
 			}
 			result.ToolCalls = []model.ToolCall{{ID: "checks", Name: "run_checks", Arguments: []byte(`{}`)}}
