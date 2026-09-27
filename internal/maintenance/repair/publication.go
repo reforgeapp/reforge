@@ -122,8 +122,11 @@ func (s *Service) checkNative(ctx context.Context, credential string, r Run) err
 	return nil
 }
 func discoveryStale() error {
-	return errors.New("native source or target moved; refresh discovery before publication")
+	return ErrSourceMoved
 }
+
+var ErrSourceMoved = errors.New("native source or target moved; refresh discovery before publication")
+
 func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 	var r Run
 	var lease workflow.Lease

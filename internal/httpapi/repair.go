@@ -188,6 +188,8 @@ func repairFailure(c *gin.Context, err error) {
 		workflowFailure(c, err)
 	case errors.Is(err, repair.ErrValidation), errors.Is(err, repair.ErrPatch):
 		Fail(c, 409, "validation_rejected", "Frozen validation or patch evidence is incomplete; review run artifacts", false)
+	case errors.Is(err, repair.ErrSourceMoved):
+		Fail(c, 409, "source_moved", "The native source or target moved; refresh discovery before publication", false)
 	case errors.Is(err, recipes.ErrUnsupported):
 		Fail(c, 409, "recipe_unsupported", "This recipe needs supported tests and preinstalled dependencies in a verified runner image", false)
 	default:

@@ -27,6 +27,7 @@ import (
 
 var ErrControlPlane = errors.New("runner control plane unavailable or rejected request")
 var ErrUnauthorized = errors.New("runner credential rejected")
+var ErrSourceMoved = errors.New("native source or target moved")
 
 type Config struct {
 	Endpoint       string       `json:"endpoint"`
@@ -270,13 +271,18 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
 		var failure struct {
+			Code    string `json:"code"`
 			Message string `json:"message"`
 		}
+		decoded := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil
 		base := ErrControlPlane
 		if response.StatusCode == http.StatusUnauthorized {
 			base = fmt.Errorf("%w: %w", ErrControlPlane, ErrUnauthorized)
 		}
-		if json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil && failure.Message != "" && len(failure.Message) <= 300 {
+		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "source_moved" {
+			return response.StatusCode, fmt.Errorf("%w: %w", ErrControlPlane, ErrSourceMoved)
+		}
+		if decoded && failure.Message != "" && len(failure.Message) <= 300 {
 			return response.StatusCode, fmt.Errorf("%w: %s", base, failure.Message)
 		}
 		return response.StatusCode, base

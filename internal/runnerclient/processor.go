@@ -152,7 +152,7 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		}
 		run, err = c.RepairStage(ctx, j)
 		if err != nil {
-			return workflow.Completion{Outcome: "uncertain"}, err
+			return repairStageCompletion(err), err
 		}
 		native, err := engine.ValidateNative(ctx, execution.Plan, run.CandidateSHA, target, report)
 		if err != nil {
@@ -177,6 +177,13 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		return nil
 	}
 	return process, closeRuntime
+}
+
+func repairStageCompletion(err error) workflow.Completion {
+	if errors.Is(err, ErrSourceMoved) {
+		return workflow.Completion{Outcome: "failed"}
+	}
+	return workflow.Completion{Outcome: "uncertain"}
 }
 
 func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.ExecutionContext, runtime sandbox.SandboxRuntime, baseline, target sandbox.Snapshot, engine repair.Engine) (repair.Report, error) {
