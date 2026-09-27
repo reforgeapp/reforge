@@ -219,7 +219,8 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 	}
 	input.PlanDigest = preview.Context.Plan.Digest
 	route.MaxOutputTokens = 2048
-	if _, err = budgets.PutRoute(ctx, f.owner, f.org, route, route.Version, "changed"); err != nil {
+	route, err = budgets.PutRoute(ctx, f.owner, f.org, route, route.Version, "changed")
+	if err != nil {
 		t.Fatal(err)
 	}
 	if _, err = service.Enqueue(ctx, f.owner, f.org, input, "stale"); !errors.Is(err, auth.ErrConflict) {
@@ -248,6 +249,51 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 		t.Fatal(err)
 	}
 	credential := job.Credential.Token
+	handoff := repair.Report{PlanDigest: run.Context.Plan.Digest, State: "handoff", Reason: "previous runner stopped", Baseline: []repair.CheckResult{}, Candidate: []repair.CheckResult{}, Target: []repair.CheckResult{}, Patches: []sandbox.Patch{}, Artifacts: []string{}}
+	if _, err = service.SaveReport(ctx, credential, handoff); err != nil {
+		t.Fatalf("save handoff: %v", err)
+	}
+	firstReservation := budget.Reservation{ID: domain.NewID(), Lease: budget.Lease(job.Lease), Quote: budget.Quote{MaxOutputTokens: 10, MaxMilliseconds: 1000}}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		return service.CheckModelTx(ctx, tx, job.Task, firstReservation)
+	}); !errors.Is(err, workflow.ErrPolicy) {
+		t.Fatalf("same attempt resumed saved handoff: %v", err)
+	}
+	saved, err := service.Get(ctx, f.owner, f.org, run.Task.ID)
+	if err != nil || saved.State != "handoff" || saved.Report == nil {
+		t.Fatalf("same-attempt rejection changed saved handoff: state=%s report=%+v err=%v", saved.State, saved.Report, err)
+	}
+	if _, err = runners.Complete(ctx, credential, workflow.Completion{Outcome: "failed", Retryable: true}); err != nil {
+		t.Fatalf("complete handoff attempt: %v", err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE workflow_jobs SET available_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2`, f.org, run.Task.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	retried, err := runners.Claim(ctx, supervisor.Token)
+	if err != nil {
+		t.Fatalf("claim retry: %v", err)
+	}
+	reservation := budget.Reservation{ID: domain.NewID(), Lease: budget.Lease(retried.Lease), Quote: budget.Quote{MaxOutputTokens: 10, MaxMilliseconds: 1000}}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		return service.CheckModelTx(ctx, tx, retried.Task, reservation)
+	}); err != nil {
+		t.Fatalf("admit fresh attempt after handoff: %v", err)
+	}
+	restarted, err := service.Get(ctx, f.owner, f.org, run.Task.ID)
+	var active bool
+	if err == nil {
+		err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT active FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, f.org, run.Task.ID).Scan(&active)
+		})
+	}
+	if err != nil || restarted.State != "queued" || restarted.Report != nil || !active {
+		t.Fatalf("handoff retry did not reacquire repair: state=%s report=%+v active=%t err=%v", restarted.State, restarted.Report, active, err)
+	}
+	job = retried
+	credential = retried.Credential.Token
 	for _, state := range []domain.TaskState{domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating} {
 		if _, err = runners.Progress(ctx, credential, state); err != nil {
 			t.Fatal(err)
