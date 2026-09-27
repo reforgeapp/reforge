@@ -435,3 +435,51 @@ func TestOwnerRequiresEveryStackAndPreparesCurrentPatch(t *testing.T) {
 		t.Fatalf("report=%+v err=%v turns=%d preparations=%d", report, err, turn, prepared)
 	}
 }
+
+func TestOwnerDependencyEditsUseLatestStagedManifest(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner, plan.Recipe.MaxTurns = true, 3
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, files, plan.TargetSHA}
+	turns, updates := 0, 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, Progress: func(context.Context, string) error { return nil },
+		UpdateDependency: func(_ context.Context, in map[string][]byte, u DependencyUpdate) (map[string][]byte, error) {
+			updates++
+			manifest := in["package.json"]
+			if updates == 1 {
+				manifest = []byte(`{"name":"generated","scripts":{"test":"node --test"}}`)
+			} else if !strings.Contains(string(manifest), `"name":"edited"`) {
+				t.Fatalf("subsequent dependency update missed owner edit: %s", manifest)
+			}
+			return map[string][]byte{"package.json": manifest, "package-lock.json": []byte(`{"version":"` + u.Version + `"}`)}, nil
+		},
+		Turn: func(_ context.Context, _ model.Turn) (model.TurnResult, error) {
+			turns++
+			switch turns {
+			case 1:
+				return model.TurnResult{ToolCalls: []model.ToolCall{
+					{ID: "dep1", Name: "update_dependency", Arguments: []byte(`{"ecosystem":"npm","directory":".","package":"one","version":"1.0.0"}`)},
+					{ID: "edit", Name: "edit_file", Arguments: []byte(`{"path":"package.json","old":"generated","new":"edited"}`)},
+				}}, nil
+			case 2:
+				return model.TurnResult{ToolCalls: []model.ToolCall{
+					{ID: "dep2", Name: "update_dependency", Arguments: []byte(`{"ecosystem":"npm","directory":".","package":"two","version":"2.0.0"}`)},
+					{ID: "check", Name: "run_checks", Arguments: []byte(`{}`)},
+				}}, nil
+			default:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Update dependencies"}`)}}}, nil
+			}
+		},
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || updates != 2 {
+		t.Fatalf("report=%+v updates=%d error=%v", report, updates, err)
+	}
+	staged := map[string][]byte{}
+	for _, patch := range report.Patches {
+		staged[patch.Path] = patch.Content
+	}
+	if string(staged["package.json"]) != `{"name":"edited","scripts":{"test":"node --test"}}` || string(staged["package-lock.json"]) != `{"version":"2.0.0"}` {
+		t.Fatalf("staged dependency files=%q", staged)
+	}
+}

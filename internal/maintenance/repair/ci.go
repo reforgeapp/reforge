@@ -255,26 +255,18 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	messages := []model.Message{{Role: "user", Text: prompt}}
 	var continuation json.RawMessage
 	patches := map[string]sandbox.Patch{}
-	dependencyFilesByPath := map[string][]byte{}
 	updates := []DependencyUpdate{}
 	revision, checked := 0, -1
 	var candidate []CheckResult
 	current := func() []sandbox.Patch {
-		all := map[string]sandbox.Patch{}
-		for name, patch := range patches {
-			all[name] = patch
-		}
-		for name, body := range dependencyFilesByPath {
-			all[name] = sandbox.Patch{Path: name, Content: body}
-		}
-		names := make([]string, 0, len(all))
-		for name := range all {
+		names := make([]string, 0, len(patches))
+		for name := range patches {
 			names = append(names, name)
 		}
 		sort.Strings(names)
-		out := make([]sandbox.Patch, 0, len(names))
+		out := make([]sandbox.Patch, 0, len(patches))
 		for _, name := range names {
-			out = append(out, all[name])
+			out = append(out, patches[name])
 		}
 		return out
 	}
@@ -435,9 +427,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 						continue
 					}
 					if bytes.Equal(files[name], body) {
-						delete(dependencyFilesByPath, name)
+						delete(patches, name)
 					} else {
-						dependencyFilesByPath[name] = body
+						patches[name] = sandbox.Patch{Path: name, Content: body}
 					}
 				}
 				updates = append(updates, u)
