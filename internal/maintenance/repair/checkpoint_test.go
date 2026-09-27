@@ -99,7 +99,10 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 			return err
 		}
 		body, _ := json.Marshal(ExecutionContext{Request: Input{Owner: true, Recipe: "javascript"}, Plan: plan, Repository: forge.RepoRef{NativeID: repo, FullName: "checkpoint/repo"}, PolicyHash: policyHash, Finding: discovery.Finding{RepositoryID: repo}})
-		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state) VALUES($1,$2,$3,$4,$5,1,$6,$7,'queued')`, org, task.ID, repo, findingID, session.User.ID, strings.Repeat("1", 64), body)
+		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state) VALUES($1,$2,$3,$4,$5,1,$6,$7,'queued')`, org, task.ID, repo, findingID, session.User.ID, strings.Repeat("1", 64), body); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest,active) VALUES($1,$2,$3,$4,$5,true)`, org, findingID, repo, task.ID, strings.Repeat("1", 64))
 		return err
 	}); err != nil {
 		t.Fatal(err)
@@ -118,6 +121,15 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 		t.Fatal(err)
 	}
 	service := &Service{runners: runners}
+	if _, err = service.SaveReport(ctx, assignment.Credential.Token, Report{PlanDigest: plan.Digest, State: "handoff", Mode: "owner"}); err != nil {
+		t.Fatalf("save handoff before first checkpoint: %v", err)
+	}
+	var active bool
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT active FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, org, task.ID).Scan(&active)
+	}); err != nil || !active {
+		t.Fatalf("checkpointless handoff lost repair ownership: active=%t error=%v", active, err)
+	}
 	checkpoint := Checkpoint{PlanDigest: plan.Digest, Patches: []sandbox.Patch{{Path: "value.js", Content: []byte("exports.add=(a,b)=>a-b")}}, Dependencies: []DependencyUpdate{{Ecosystem: "npm", Directory: ".", Package: "js-yaml", Version: "5.2.2"}}, Recent: "last completed batch", Turns: 7}
 	if err = service.SaveCheckpoint(ctx, assignment.Credential.Token, checkpoint); err != nil {
 		t.Fatalf("save valid checkpoint: %v", err)
@@ -143,8 +155,13 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if stored.Checkpoint == nil || stored.State != "handoff" {
-		t.Fatalf("handoff did not retain its resume checkpoint: %+v", stored)
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT active FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, org, task.ID).Scan(&active)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Checkpoint == nil || stored.State != "handoff" || !active {
+		t.Fatalf("handoff did not retain its resume checkpoint and repair ownership: state=%s checkpoint=%t active=%t", stored.State, stored.Checkpoint != nil, active)
 	}
 	stalePlan := checkpoint
 	stalePlan.PlanDigest = strings.Repeat("9", 64)

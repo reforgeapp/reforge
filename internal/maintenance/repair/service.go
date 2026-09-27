@@ -656,8 +656,11 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return auth.ErrConflict
 		}
 		if in.State == "handoff" {
-			if _, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2 AND NOT EXISTS(SELECT 1 FROM workflow_outbox WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatching','unknown')) AND NOT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, l.OrgID, l.TaskID); err != nil {
-				return err
+			resumable := in.Mode == "owner" && current.Context.Request.Owner && p.Owner && (current.Checkpoint == nil || current.Checkpoint.ValidFor(p)) && current.Branch == "" && current.CandidateSHA == "" && len(current.CandidateChecks) == 0 && current.Change == nil && len(current.CandidateArtifacts) == 0
+			if !resumable {
+				if _, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2 AND NOT EXISTS(SELECT 1 FROM workflow_outbox WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatching','unknown')) AND NOT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, l.OrgID, l.TaskID); err != nil {
+					return err
+				}
 			}
 		}
 		out, err = loadRun(ctx, tx, l.OrgID, l.TaskID)
