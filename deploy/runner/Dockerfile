@@ -30,6 +30,34 @@ RUN curl -fsSLo /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/relea
  && tar -xjf /tmp/gvisor.tar.bz2 -C /out/gvisor runsc gvisor-bin \
  && chmod -R go-w /out/gvisor
 
+FROM scratch AS workspace-go
+COPY --from=images /out/images/go/ /
+COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
+COPY --from=images /out/toolchain-licenses /usr/share/doc/reforge/toolchain-licenses
+COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/reforge/tool", "hold"]
+
+FROM scratch AS workspace-javascript
+COPY --from=images /out/images/javascript/ /
+COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
+COPY --from=images /out/toolchain-licenses /usr/share/doc/reforge/toolchain-licenses
+COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/reforge/tool", "hold"]
+
+FROM scratch AS workspace-python
+COPY --from=images /out/images/python/ /
+COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
+COPY --from=images /out/toolchain-licenses /usr/share/doc/reforge/toolchain-licenses
+COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/reforge/tool", "hold"]
+
+
 FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
 RUN apk upgrade --no-cache \
  && apk add --no-cache ca-certificates git \

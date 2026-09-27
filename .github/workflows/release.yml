@@ -76,7 +76,7 @@ jobs:
           latest=false
           master="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/master" --jq '.object.sha')"
           if [ "$master" = "$GITHUB_SHA" ]; then
-            for image in reforge reforge-runner reforge-docs; do
+            for image in reforge reforge-runner reforge-workspace-go reforge-workspace-javascript reforge-workspace-python reforge-docs; do
               repository="ghcr.io/$GITHUB_REPOSITORY_OWNER/$image"
               docker buildx imagetools create --prefer-index=false --tag "$repository:latest" "$repository:$VERSION"
             done
@@ -85,7 +85,7 @@ jobs:
           notes="$RUNNER_TEMP/release-notes.md"
           {
             printf 'Container images for %s:\n\n' "$GITHUB_SHA"
-            for image in reforge reforge-runner reforge-docs; do
+            for image in reforge reforge-runner reforge-workspace-go reforge-workspace-javascript reforge-workspace-python reforge-docs; do
               printf -- '- ghcr.io/%s/%s:%s\n' "$GITHUB_REPOSITORY_OWNER" "$image" "$VERSION"
             done
           } > "$notes"

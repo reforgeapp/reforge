@@ -74,6 +74,18 @@ jobs:
           - image: reforge-runner
             dockerfile: deploy/runner/Dockerfile
             context: .
+          - image: reforge-workspace-go
+            dockerfile: deploy/runner/Dockerfile
+            context: .
+            target: workspace-go
+          - image: reforge-workspace-javascript
+            dockerfile: deploy/runner/Dockerfile
+            context: .
+            target: workspace-javascript
+          - image: reforge-workspace-python
+            dockerfile: deploy/runner/Dockerfile
+            context: .
+            target: workspace-python
           - image: reforge-docs
             dockerfile: deploy/docs/Dockerfile
             context: deploy/docs
@@ -92,6 +104,7 @@ jobs:
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
+          target: ${{ matrix.target }}
           load: true
           tags: ${{ matrix.image }}:scan
           labels: ${{ steps.meta.outputs.labels }}
