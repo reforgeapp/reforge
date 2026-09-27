@@ -2,6 +2,7 @@ package runnerclient
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"reforge/internal/customcmd"
 	"reforge/internal/maintenance/repair"
@@ -34,8 +35,28 @@ func (c *Client) RepairSnapshot(ctx context.Context, j Job, sha string) (sandbox
 	return out, err
 }
 func (c *Client) RepairCheckpoint(ctx context.Context, j Job, in repair.Checkpoint) error {
-	_, err := c.call(ctx, "POST", "/runner/v1/repair/checkpoint", j.Token, in, nil)
-	return err
+	body, err := json.Marshal(in)
+	if err != nil || len(body) > 1<<20 {
+		return ErrControlPlane
+	}
+	for attempt := 0; attempt < 3; attempt++ {
+		status, callErr := c.call(ctx, "POST", "/runner/v1/repair/checkpoint", j.Token, in, nil)
+		if callErr == nil || ctx.Err() != nil {
+			return callErr
+		}
+		retry := status == 0 || status == http.StatusInternalServerError || status == http.StatusBadGateway || status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout
+		if !retry || attempt == 2 {
+			return callErr
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * time.Second)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil
 }
 
 func (c *Client) RepairReport(ctx context.Context, j Job, in repair.Report) (repair.Run, error) {
