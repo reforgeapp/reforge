@@ -301,7 +301,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var err error
-		model, route, headroom, err = s.pickModel(ctx, tx, org, false)
+		model, route, headroom, err = s.pickModel(ctx, tx, org, false, "")
 		if err != nil || model == "" {
 			return err
 		}
@@ -317,7 +317,14 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		}
 		next = &c
 		if err == nil && c.runs >= escalateAfter {
-			model, route, headroom, err = s.pickModel(ctx, tx, org, true)
+			previousModel := ""
+			if c.previous != "" {
+				err = tx.QueryRow(ctx, `SELECT coalesce(model_connection_id::text,'') FROM workflow_tasks WHERE org_id=$1 AND id=$2`, org, c.previous).Scan(&previousModel)
+				if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+					return err
+				}
+			}
+			model, route, headroom, err = s.pickModel(ctx, tx, org, true, previousModel)
 		}
 		return err
 	})
@@ -344,7 +351,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	return s.queue(ctx, session, org, *next, model, route)
 }
 
-func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest bool) (string, string, string, error) {
+func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest bool, avoid string) (string, string, string, error) {
 	order := "(" + turnCost + "+1)*(1+(SELECT count(*) FROM workflow_tasks t WHERE t.org_id=c.org_id AND t.model_connection_id=c.id AND t.state IN " + active + "))"
 	if largest {
 		order = turnCost + " DESC"
@@ -357,13 +364,22 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	if err != nil {
 		return "", "", "", err
 	}
+	var fallback struct{ Connection, Route string }
 	for _, c := range candidates {
 		switch err := s.budgets.ConnectionHeadroomTx(ctx, tx, org, c.Connection); {
 		case err == nil:
-			return c.Connection, c.Route, "", nil
+			if c.Connection != avoid {
+				return c.Connection, c.Route, "", nil
+			}
+			if fallback.Connection == "" {
+				fallback = c
+			}
 		case !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked):
 			return "", "", "", err
 		}
+	}
+	if fallback.Connection != "" {
+		return fallback.Connection, fallback.Route, "", nil
 	}
 	if len(candidates) > 0 {
 		return "", "", "Model connection budgets used up", nil

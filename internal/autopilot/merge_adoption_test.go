@@ -2,12 +2,15 @@ package autopilot
 
 import (
 	"context"
+	"encoding/json"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"reforge/internal/budget"
 	"reforge/internal/domain"
 	"reforge/internal/store"
 )
@@ -134,4 +137,74 @@ func TestRepairIdempotencyKeyScopesManualRequests(t *testing.T) {
 	if refreshed := repairIdempotencyKey(candidate, strings.Repeat("a", 64)); refreshed == first {
 		t.Fatal("new finding version reused previous task idempotency key")
 	}
+}
+
+func TestEscalatedModelPrefersEligibleAlternativeAndFallsBackToPrior(t *testing.T) {
+	raw := os.Getenv("REFORGE_TEST_DATABASE_URL")
+	if raw == "" {
+		t.Skip("requires disposable PostgreSQL reforge_test")
+	}
+	if u, err := url.Parse(raw); err != nil || u.Path != "/reforge_test" {
+		t.Fatal("requires disposable PostgreSQL reforge_test")
+	}
+	ctx := context.Background()
+	db, err := store.Open(ctx, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	org, user := domain.NewID(), domain.NewID()
+	priorModel, alternateModel := domain.NewID(), domain.NewID()
+	if err = db.Identity(ctx, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO users(id,issuer,subject,name,email) VALUES($1::uuid,'autopilot-failover-test',$1::text,'Owner',$2)`, user, user+"@example.test")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'Autopilot failover')`, org); err != nil {
+			return err
+		}
+		for i, model := range []string{priorModel, alternateModel} {
+			if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,reason) VALUES($1,$2,'model','test',$3,'https://model.invalid','{}','healthy','')`, org, model, "Model "+strconv.Itoa(i)); err != nil {
+				return err
+			}
+			price := 1000000
+			if i == 1 {
+				price = 500000
+			}
+			config, _ := json.Marshal(map[string]any{"mode": "priced", "input_micro_usd_per_million": price})
+			if _, err := tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,$3,'default',$4,1)`, org, model, "model-"+strconv.Itoa(i), config); err != nil {
+				return err
+			}
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'connection',$2,'daily',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 day','{"micro_usd":0}',1)`, org, alternateModel)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{budgets: budget.New(db, nil, nil, nil)}
+	selectModel := func(want, why string) {
+		t.Helper()
+		if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+			model, route, _, err := service.pickModel(ctx, tx, org, true, priorModel)
+			if err != nil {
+				return err
+			}
+			if model != want {
+				t.Fatalf("%s: selected model %s, want %s (route %s)", why, model, want, route)
+			}
+			return nil
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	selectModel(priorModel, "only prior model has budget headroom")
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `DELETE FROM budget_limits WHERE org_id=$1 AND scope_kind='connection' AND scope_id=$2`, org, alternateModel)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	selectModel(alternateModel, "eligible alternative should be preferred")
 }
