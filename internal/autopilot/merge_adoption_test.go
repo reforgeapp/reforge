@@ -118,3 +118,20 @@ func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) 
 		t.Fatal(err)
 	}
 }
+
+func TestRepairIdempotencyKeyScopesManualRequests(t *testing.T) {
+	candidate := candidate{finding: "finding", version: 1, runs: 0, requestGeneration: "20260927090000000000"}
+	first := repairIdempotencyKey(candidate, strings.Repeat("a", 64))
+	if retry := repairIdempotencyKey(candidate, strings.Repeat("a", 64)); retry != first {
+		t.Fatalf("same request produced unstable key: %q != %q", retry, first)
+	}
+	candidate.requestGeneration = "20260927090100000000"
+	if resubmission := repairIdempotencyKey(candidate, strings.Repeat("a", 64)); resubmission == first {
+		t.Fatal("new manual request reused terminal task idempotency key")
+	}
+	candidate.requestGeneration = "20260927090000000000"
+	candidate.version++
+	if refreshed := repairIdempotencyKey(candidate, strings.Repeat("a", 64)); refreshed == first {
+		t.Fatal("new finding version reused previous task idempotency key")
+	}
+}

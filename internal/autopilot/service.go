@@ -175,9 +175,13 @@ func (s *Service) Run(ctx context.Context) error {
 }
 
 type candidate struct {
-	finding, repository, name, previous, ecosystem string
-	version                                        int64
-	runs                                           int
+	finding, repository, name, previous, ecosystem, requestGeneration string
+	version                                                           int64
+	runs                                                              int
+}
+
+func repairIdempotencyKey(c candidate, digest string) string {
+	return "autopilot/" + c.finding + "/" + strconv.FormatInt(c.version, 10) + "/" + digest[:16] + "/" + strconv.Itoa(c.runs+1) + "/" + c.requestGeneration
 }
 
 func (s *Service) status(ctx context.Context, org, message string) error {
@@ -302,7 +306,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			return err
 		}
 		var c candidate
-		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),coalesce(f.evidence->'dependencies'->0->>'ecosystem','') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$4 AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%' AND rr.updated_at>clock_timestamp()-interval '6 hours') OR a.outcome='queued' AND t.state='completed' AND a.runs<$4 AND EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND NOT m.active))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.active AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,f.source='native_ci' DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested, maxRuns).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.ecosystem)
+		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),coalesce(f.evidence->'dependencies'->0->>'ecosystem',''),coalesce((SELECT to_char(q.requested_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISSUS') FROM autopilot_requests q WHERE q.org_id=f.org_id AND q.repository_id=f.repository_id),'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$4 AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%' AND rr.updated_at>clock_timestamp()-interval '6 hours') OR a.outcome='queued' AND t.state='completed' AND a.runs<$4 AND EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND NOT m.active))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.active AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,f.source='native_ci' DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested, maxRuns).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.ecosystem, &c.requestGeneration)
 		if errors.Is(err, pgx.ErrNoRows) {
 			var count int
 			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(f.evidence->'blockers'->>0),'') FROM maintenance_findings f WHERE f.org_id=$1 AND f.state='open' AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0`, org).Scan(&count, &blocked)
@@ -410,7 +414,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 			return s.record(ctx, org, c, "", "skipped", preview.Blockers[0], 0)
 		}
 		in.PlanDigest = preview.Context.Plan.Digest
-		in.IdempotencyKey = "autopilot/" + c.finding + "/" + preview.Context.Plan.Digest[:16] + "/" + strconv.Itoa(c.runs+1)
+		in.IdempotencyKey = repairIdempotencyKey(c, preview.Context.Plan.Digest)
 		run, err := s.repairs.Enqueue(ctx, session, org, in, "autopilot")
 		if err != nil {
 			return errors.Join(s.record(ctx, org, c, "", "retry", err.Error(), 15*time.Minute), s.status(ctx, org, "Could not queue a fix for "+c.name))
