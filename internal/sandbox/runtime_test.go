@@ -1,13 +1,16 @@
 package sandbox
 
 import (
+	"archive/zip"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -15,6 +18,95 @@ import (
 
 	"reforge/internal/sandbox/guest"
 )
+
+func TestRuntimeGoChecksKeepModuleFilesReadOnly(t *testing.T) {
+	runtime := &Runtime{config: RuntimeConfig{DiskBytes: 1 << 30}}
+	spec := runtime.spec(&workspaceState{dependencies: "/opt/deps"}, "image").(map[string]any)
+	process := spec["process"].(map[string]any)
+	environment := process["env"].([]string)
+	for _, want := range []string{"GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=-mod=readonly"} {
+		if !strings.Contains(strings.Join(environment, "\n"), want) {
+			t.Fatalf("Go sandbox environment missing %q: %v", want, environment)
+		}
+	}
+}
+
+func TestGoValidationDoesNotWriteMissingModuleSums(t *testing.T) {
+	dir, proxy := t.TempDir(), t.TempDir()
+	module := "example.test/dependency"
+	dependencyMod := "module " + module + "\n\ngo 1.20\n"
+	versions := filepath.Join(proxy, "example.test", "dependency", "@v")
+	if err := os.MkdirAll(versions, 0700); err != nil {
+		t.Fatal(err)
+	}
+	for name, content := range map[string]string{"v1.0.0.mod": dependencyMod, "v1.0.0.info": `{"Version":"v1.0.0","Time":"2026-01-01T00:00:00Z"}`, "list": "v1.0.0\n"} {
+		if err := os.WriteFile(filepath.Join(versions, name), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	archive, err := os.Create(filepath.Join(versions, "v1.0.0.zip"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	writer := zip.NewWriter(archive)
+	for name, content := range map[string]string{"go.mod": dependencyMod, "dependency.go": "package dependency\nfunc Value() int { return 42 }\n"} {
+		entry, err := writer.Create(module + "@v1.0.0/" + name)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := entry.Write([]byte(content)); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := archive.Close(); err != nil {
+		t.Fatal(err)
+	}
+	goMod := "module reforge.invalid/readonly\n\ngo 1.20\n\nrequire " + module + " v1.0.0\n"
+	testFile := "package readonly\nimport (\n  \"testing\"\n  \"example.test/dependency\"\n)\nfunc TestDependency(t *testing.T) { if dependency.Value() != 42 { t.Fatal(\"bad value\") } }\n"
+	for name, content := range map[string]string{"go.mod": goMod, "readonly_test.go": testFile} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(content), 0600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	environment := replaceEnv(os.Environ(), map[string]string{"GOFLAGS": "-mod=readonly", "GOPROXY": (&url.URL{Scheme: "file", Path: proxy}).String(), "GOMODCACHE": t.TempDir(), "GOSUMDB": "off", "GOTOOLCHAIN": "local", "GOWORK": "off"})
+	cmd := exec.Command("go", "test", "./...")
+	cmd.Dir, cmd.Env = dir, environment
+	if output, err := cmd.CombinedOutput(); err == nil || !strings.Contains(string(output), "missing go.sum entry") {
+		t.Fatalf("expected ordinary missing-sum failure: err=%v output=%s", err, output)
+	}
+	afterMod, err := os.ReadFile(filepath.Join(dir, "go.mod"))
+	if err != nil || string(afterMod) != goMod {
+		t.Fatalf("validation changed go.mod: err=%v after=%q", err, afterMod)
+	}
+	if _, err = os.Stat(filepath.Join(dir, "go.sum")); !os.IsNotExist(err) {
+		t.Fatalf("validation created go.sum: %v", err)
+	}
+	cmd = exec.Command("go", "test", "./...")
+	cmd.Dir, cmd.Env = dir, replaceEnv(environment, map[string]string{"GOFLAGS": "-mod=mod -modcacherw"})
+	if output, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("writable control failed: %v %s", err, output)
+	}
+	if sum, err := os.ReadFile(filepath.Join(dir, "go.sum")); err != nil || len(sum) == 0 {
+		t.Fatalf("writable control did not reproduce checksum mutation: %v", err)
+	}
+}
+
+func replaceEnv(env []string, values map[string]string) []string {
+	result := make([]string, 0, len(env)+len(values))
+	for _, entry := range env {
+		key, _, _ := strings.Cut(entry, "=")
+		if _, replace := values[key]; !replace {
+			result = append(result, entry)
+		}
+	}
+	for key, value := range values {
+		result = append(result, key+"="+value)
+	}
+	return result
+}
 
 func TestRealGVisorBoundaryAndCancellation(t *testing.T) {
 	runsc, tool, probe := os.Getenv("REFORGE_TEST_RUNSC"), os.Getenv("REFORGE_TEST_SANDBOX_TOOL"), os.Getenv("REFORGE_TEST_SANDBOX_PROBE")

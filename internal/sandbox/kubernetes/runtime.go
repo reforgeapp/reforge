@@ -271,6 +271,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 			"GIT_CONFIG_GLOBAL=/dev/null",
 			"GIT_TERMINAL_PROMPT=0",
 			"GOTOOLCHAIN=local",
+			"GOFLAGS=-mod=readonly",
 			"CI=true",
 		},
 		RunAsUser:              65532,
@@ -289,7 +290,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		Bootstrap:              refs,
 	}
 	if refs.Dependencies != "" {
-		spec.Environment = append(spec.Environment, "GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off", "GOFLAGS=-mod=mod")
+		spec.Environment = append(spec.Environment, "GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off")
 	}
 	if err = validPodSpec(spec); err != nil {
 		return sandbox.Workspace{}, errors.Join(err, cleanupLease())
