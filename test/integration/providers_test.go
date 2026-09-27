@@ -149,8 +149,23 @@ func TestPrivateConnectionProbeUsesEnrolledRunnerAndVault(t *testing.T) {
 	if err = <-finished; err != nil {
 		t.Fatal(err)
 	}
-	if readErr != nil || authorized != 1 || page.Inventory == nil {
+	if readErr != nil || authorized != 2 || page.Inventory == nil {
 		t.Fatalf("private inventory authorization/result: %v, calls %d", readErr, authorized)
+	}
+	blockedCalls := 0
+	go func() { finished <- client.RunOnce(ctx) }()
+	_, revokedReadErr := reader.Read(ctx, org, connection.ID, read, func(context.Context, pgx.Tx, connections.Connection) error {
+		blockedCalls++
+		if blockedCalls == 2 {
+			return auth.ErrForbidden
+		}
+		return nil
+	})
+	if err = <-finished; err != nil {
+		t.Fatal(err)
+	}
+	if revokedReadErr == nil || blockedCalls != 2 {
+		t.Fatalf("private read accepted after authorization revocation: %v, calls %d", revokedReadErr, blockedCalls)
 	}
 	repository := localPrivateRepository(t)
 	go func() { finished <- client.RunOnce(ctx) }()

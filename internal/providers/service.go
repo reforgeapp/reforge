@@ -57,7 +57,9 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 	read := func(ctx context.Context, ready *privateconnector.Ready, deliver privateconnector.Deliver) error {
 		ctx, cancel := context.WithTimeout(ctx, op.MaximumTTL())
 		defer cancel()
-		return s.db.Tenant(ctx, orgID, "", func(tx pgx.Tx) error {
+		var resolved connections.Resolved
+		runnerID := ""
+		err := s.db.Tenant(ctx, orgID, "", func(tx pgx.Tx) error {
 			var locked string
 			lock := `SELECT id::text FROM organisations WHERE id=$1 FOR SHARE`
 			if s.exclusive {
@@ -73,7 +75,6 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 			if current.Version != initial.Version || current.State != "healthy" || current.Kind != "forge" && current.Kind != "delivery" {
 				return auth.ErrConflict
 			}
-			runnerID := ""
 			if ready != nil {
 				if current.Route == nil || current.Route.RevokedAt != nil || current.Route.RunnerID != ready.ID || ready.OrgID != orgID {
 					return auth.ErrForbidden
@@ -88,36 +89,74 @@ func (s *Service) Read(ctx context.Context, orgID, connectionID string, op priva
 			if err = authorize(ctx, tx, current); err != nil {
 				return err
 			}
-			resolved, err := s.connections.ResolveTx(ctx, tx, orgID, connectionID, runnerID)
+			resolved, err = s.connections.ResolveTx(ctx, tx, orgID, connectionID, runnerID)
 			if err != nil {
 				return err
 			}
-			defer closeProtection(&resolved)
-			if resolved.Client != nil {
-				defer resolved.Client.CloseIdleConnections()
-			}
-			if err = s.resolveProtectionTx(ctx, tx, &resolved, runnerID); err != nil {
-				return err
-			}
-			if ready != nil {
-				result, err = deliver(privateconnector.GrantSpec{OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: PrivateConnection(resolved)})
-			} else {
-				var provider forge.Provider
-				provider, err = s.factory.Forge(ctx, resolved)
-				if err == nil {
-					result, err = privateconnector.ReadForge(ctx, provider, op)
-				}
-			}
-			if err != nil {
-				return err
-			}
-			raw, err := json.Marshal(result)
-			if err != nil || len(raw) > privateconnector.MaxResponse || exposesCredential(raw, resolved) {
-				return privateconnector.ErrInvalid
-			}
-			return nil
+			return s.resolveProtectionTx(ctx, tx, &resolved, runnerID)
 		})
+		defer func() {
+			closeProtection(&resolved)
+			resolved.Secret = ""
+			if resolved.Client != nil {
+				resolved.Client.CloseIdleConnections()
+			}
+		}()
+		if err != nil {
+			return err
+		}
+		check := func(ctx context.Context) error {
+			return s.db.Tenant(ctx, orgID, "", func(tx pgx.Tx) error {
+				var locked string
+				lock := `SELECT id::text FROM organisations WHERE id=$1 FOR SHARE`
+				if s.exclusive {
+					lock = `SELECT id::text FROM organisations WHERE id=$1 FOR UPDATE`
+				}
+				if err := tx.QueryRow(ctx, lock, orgID).Scan(&locked); err != nil {
+					return err
+				}
+				current, err := s.connections.MetadataTx(ctx, tx, orgID, connectionID)
+				if err != nil {
+					return err
+				}
+				if current.Version != initial.Version || current.State != "healthy" || current.Kind != "forge" && current.Kind != "delivery" {
+					return auth.ErrConflict
+				}
+				if ready != nil {
+					if current.Route == nil || current.Route.RevokedAt != nil || current.Route.RunnerID != ready.ID || ready.OrgID != orgID {
+						return auth.ErrForbidden
+					}
+					if err = s.runners.ValidatePrivateSupervisorTx(ctx, tx, ready.Runner, ready.CredentialHash); err != nil {
+						return err
+					}
+				} else if current.Route != nil {
+					return auth.ErrConflict
+				}
+				if err = authorize(ctx, tx, current); err != nil {
+					return err
+				}
+				return s.checkProtectionTx(ctx, tx, resolved)
+			})
+		}
+		if ready != nil {
+			result, err = deliver(privateconnector.GrantSpec{Check: check, OperationID: op.ID, AuthorityID: op.ID, RunnerVersion: ready.Version, CredentialHash: ready.CredentialHash, Connection: PrivateConnection(resolved)})
+		} else {
+			var provider forge.Provider
+			provider, err = s.factory.Forge(ctx, resolved, check)
+			if err == nil {
+				result, err = privateconnector.ReadForge(ctx, provider, op)
+			}
+		}
+		if err != nil {
+			return err
+		}
+		raw, err := json.Marshal(result)
+		if err != nil || len(raw) > privateconnector.MaxResponse || exposesCredential(raw, resolved) {
+			return privateconnector.ErrInvalid
+		}
+		return check(ctx)
 	}
+
 	if initial.Route == nil {
 		err = read(ctx, nil, nil)
 	} else if s.private == nil || s.runners == nil {
