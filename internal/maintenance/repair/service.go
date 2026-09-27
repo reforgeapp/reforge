@@ -617,6 +617,10 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if in.PlanDigest != p.Digest || in.Turns < 0 || in.Turns > p.Recipe.MaxTurns || len(in.Reason) > 2000 || len(in.Artifacts) > 100 {
 			return auth.ErrInvalid
 		}
+		superseded := in.Disposition == "superseded"
+		if in.Disposition != "" && !superseded || superseded && (in.State != "handoff" || !owner || !current.Context.Request.Owner || !p.Owner || !ConflictFinding(current.Context.Finding) || !strings.HasPrefix(in.Reason, "Obsolete:") || len(in.Patches) != 0 || len(in.Dependencies) != 0) {
+			return auth.ErrInvalid
+		}
 		if in.State == "validated" {
 			if t.State != domain.TaskValidating || !ci && !owner && !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
 				return ErrValidation
@@ -655,7 +659,28 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if tag.RowsAffected() != 1 {
 			return auth.ErrConflict
 		}
-		if in.State == "handoff" {
+		if superseded {
+			var version int64
+			if err = tx.QueryRow(ctx, `UPDATE maintenance_findings SET state='resolved',reason=$4,version=version+1 WHERE org_id=$1 AND id=$2 AND state='open' AND evidence_digest=$3 RETURNING version`, l.OrgID, current.Context.Finding.ID, current.Context.Finding.EvidenceDigest, in.Reason).Scan(&version); errors.Is(err, pgx.ErrNoRows) {
+				return auth.ErrConflict
+			} else if err != nil {
+				return err
+			}
+			if _, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2`, l.OrgID, l.TaskID); err != nil {
+				return err
+			}
+			var actor string
+			if err = tx.QueryRow(ctx, `SELECT requested_by::text FROM repair_runs WHERE org_id=$1 AND task_id=$2`, l.OrgID, l.TaskID).Scan(&actor); err != nil {
+				return err
+			}
+			event, _ := json.Marshal(map[string]any{"version": version, "evidence_digest": current.Context.Finding.EvidenceDigest, "disposition": "superseded"})
+			if _, err = tx.Exec(ctx, `INSERT INTO audit_events(id,org_id,actor_id,action,object_id,request_id,data,repository_id) VALUES($1,$2,$3,'finding.resolved',$4,$5,$6,$7)`, domain.NewID(), l.OrgID, actor, current.Context.Finding.ID, l.TaskID, event, l.RepositoryID); err != nil {
+				return err
+			}
+			if err = workflow.EmitTx(ctx, tx, domain.Event{OrgID: l.OrgID, RepositoryID: l.RepositoryID, Type: "finding.resolved", AggregateType: "finding", AggregateID: current.Context.Finding.ID, AggregateVersion: version, RequestID: l.TaskID, DataVersion: 1, Data: event}); err != nil {
+				return err
+			}
+		} else if in.State == "handoff" {
 			resumable := in.Mode == "owner" && current.Context.Request.Owner && p.Owner && (current.Checkpoint == nil || current.Checkpoint.ValidFor(p)) && current.Branch == "" && current.CandidateSHA == "" && len(current.CandidateChecks) == 0 && current.Change == nil && len(current.CandidateArtifacts) == 0
 			if !resumable {
 				if _, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2 AND NOT EXISTS(SELECT 1 FROM workflow_outbox WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatching','unknown')) AND NOT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, l.OrgID, l.TaskID); err != nil {

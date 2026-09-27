@@ -109,6 +109,22 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			state = domain.TaskState(next)
 			return nil
 		}
+		completeWithoutPublication := func() error {
+			states := []domain.TaskState{domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating, domain.TaskPublishing}
+			start := 0
+			for i, next := range states {
+				if state == next {
+					start = i + 1
+					break
+				}
+			}
+			for _, next := range states[start:] {
+				if err := progress(string(next)); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
 		dependencies, err := prefetch(ctx, cfg, j.Lease.OrgID, execution.Plan.Image, baseline, target)
 		if err != nil {
 			return failed, err
@@ -117,14 +133,19 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		if err != nil {
 			return failed, err
 		}
-		engine := repair.Engine{Restore: run.Checkpoint, SaveCheckpoint: func(ctx context.Context, checkpoint repair.Checkpoint) error {
+		engine := repair.Engine{Restore: run.Checkpoint, AllowObsolete: repair.ConflictFinding(run.Context.Finding), SaveCheckpoint: func(ctx context.Context, checkpoint repair.Checkpoint) error {
 			return c.RepairCheckpoint(ctx, j, checkpoint)
 		}, PrepareWorkspace: commandPreparer{cfg: cfg, runtime: runtime, org: j.Lease.OrgID, fetch: fetch}.prepare, Dependencies: dependencies, CILogs: execution.CILogs, Goal: repair.Goal(execution.Finding), OpenFixes: execution.OpenFixes, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust}, target: targetFiles}.update, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", artifact.SanitizeTextLog(data))
 			return m.ID, m.SHA256, err
 		}, Progress: func(_ context.Context, next string) error { return progress(next) }}
 		var report repair.Report
-		if run.Report != nil && run.Report.State == "validated" {
+		if run.Report != nil && run.Report.Disposition == "superseded" {
+			if err = completeWithoutPublication(); err != nil {
+				return failed, err
+			}
+			return workflow.Completion{Outcome: "completed"}, nil
+		} else if run.Report != nil && run.Report.State == "validated" {
 			report = *run.Report
 			for _, next := range []domain.TaskState{domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating} {
 				if state == next {
@@ -150,6 +171,12 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			report, err = engine.Run(ctx, execution.Plan, baseline, target)
 			if _, saveErr := c.saveReport(ctx, j, report); saveErr != nil {
 				return failed, saveErr
+			}
+			if report.Disposition == "superseded" {
+				if err = completeWithoutPublication(); err != nil {
+					return failed, err
+				}
+				return workflow.Completion{Outcome: "completed"}, nil
 			}
 			if err != nil {
 				return failed, err

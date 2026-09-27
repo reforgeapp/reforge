@@ -274,6 +274,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	}
 	independent := retarget(p, files)
 	owner := p.Owner
+	readOriginal := false
 	out.Mode = "ci"
 	if owner {
 		out.Mode = "owner"
@@ -511,6 +512,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				if err != nil {
 					reply = "Original file unavailable, sensitive or outside navigation bounds"
 				} else {
+					readOriginal = true
 					reply = string(chunk)
 				}
 			case "read_ci_log":
@@ -686,7 +688,13 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			case "skip":
 				var in struct{ Reason string }
 				_ = json.Unmarshal(call.Arguments, &in)
-				return fail("Skipped: "+bounded(strings.TrimSpace(in.Reason)), ErrHandoff)
+				reason := bounded(strings.TrimSpace(in.Reason))
+				if owner && e.AllowObsolete && readOriginal && len(current()) == 0 && strings.HasPrefix(reason, "Obsolete:") {
+					out.Disposition = "superseded"
+					out.Reason = reason
+					return out, nil
+				}
+				return fail("Skipped: "+reason, ErrHandoff)
 			default:
 				return fail("Unsupported model tool", ErrHandoff)
 			}
@@ -817,4 +825,8 @@ func Goal(f discovery.Finding) string {
 		fmt.Fprintf(&b, "Advisory: %s %s\n", f.Evidence.AdvisoryID, f.Evidence.ReferenceURL)
 	}
 	return b.String()
+}
+
+func ConflictFinding(f discovery.Finding) bool {
+	return f.Evidence.Change != nil && discovery.RepairConflict(*f.Evidence.Change)
 }

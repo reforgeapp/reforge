@@ -99,3 +99,22 @@ func TestGoalExplainsConflictingRepairReplacement(t *testing.T) {
 		}
 	}
 }
+
+func TestOwnerCanResolveObsoleteConflictingRepair(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner = true
+	plan.Recipe.MaxTurns = 1
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, target: files, targetSHA: plan.TargetSHA}
+	engine := Engine{Runtime: runtime, AllowObsolete: true, Model: "fixture", JobID: "obsolete", AttemptID: "obsolete", Trust: "fixture", MaxOutputTokens: 256, TurnTimeout: time.Second, Progress: func(context.Context, string) error { return nil }}
+	engine.Turn = func(context.Context, model.Turn) (model.TurnResult, error) {
+		return model.TurnResult{ToolCalls: []model.ToolCall{
+			{ID: "original", Name: "read_original_file", Arguments: []byte(`{"path":"value.js"}`)},
+			{ID: "skip", Name: "skip", Arguments: []byte(`{"reason":"Obsolete: target already contains the repair"}`)},
+		}}, nil
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.Disposition != "superseded" || report.Reason != "Obsolete: target already contains the repair" || len(report.Patches) != 0 {
+		t.Fatalf("obsolete report=%+v error=%v", report, err)
+	}
+}
