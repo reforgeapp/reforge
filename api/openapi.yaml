@@ -15356,6 +15356,20 @@
           },
           "reference_url": {
             "type": "string"
+          },
+          "tracked_files": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": { "type": "string" },
+                "sha": { "type": "string" },
+                "mode": { "type": "string" },
+                "type": { "type": "string" },
+                "size": { "type": "integer", "format": "int64" }
+              },
+              "required": ["path", "sha", "mode", "type"]
+            }
           }
         },
         "required": [

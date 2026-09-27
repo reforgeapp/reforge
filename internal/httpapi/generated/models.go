@@ -2044,6 +2044,13 @@ type MaintenanceEvidence struct {
 	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
 	TargetBranch      string                  `json:"target_branch"`
 	TargetSha         string                  `json:"target_sha"`
+	TrackedFiles      *[]struct {
+		Mode string `json:"mode"`
+		Path string `json:"path"`
+		Sha  string `json:"sha"`
+		Size *int64 `json:"size,omitempty"`
+		Type string `json:"type"`
+	} `json:"tracked_files,omitempty"`
 }
 type Membership struct {
 	AllRepositories bool     `json:"all_repositories"`

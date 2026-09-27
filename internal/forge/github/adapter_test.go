@@ -1,10 +1,13 @@
 package github
 
 import (
+	"bytes"
 	"context"
 	"crypto/hmac"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -307,6 +310,30 @@ func TestReadFileResolveRefAndRequestReview(t *testing.T) {
 	provider = authorizedFixture(provider)
 	if err := provider.RequestReview(context.Background(), forge.RepoRef{FullName: "acme/repo"}, "7", []string{"platform"}); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestReadFileFallsBackToGitBlobWhenContentsOmitsLargeBody(t *testing.T) {
+	body := []byte("binary body")
+	encoded := base64.StdEncoding.EncodeToString(body)
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		switch request.URL.Path {
+		case "/repos/acme/repo/contents/artifact":
+			fmt.Fprintf(writer, `{"type":"file","path":"artifact","sha":"blob-sha","size":%d,"encoding":"none","content":""}`, len(body))
+		case "/repos/acme/repo/git/blobs/blob-sha":
+			fmt.Fprintf(writer, `{"sha":"blob-sha","size":%d,"encoding":"base64","content":%q}`, len(body), encoded)
+		default:
+			http.NotFound(writer, request)
+		}
+	}))
+	defer server.Close()
+	provider, err := New(forge.Config{BaseURL: server.URL, Token: "token", Client: server.Client()})
+	if err != nil {
+		t.Fatal(err)
+	}
+	file, err := provider.ReadFileAtRef(context.Background(), forge.RepoRef{FullName: "acme/repo"}, "artifact", "main")
+	if err != nil || file.Path != "artifact" || file.SHA != "blob-sha" || !bytes.Equal(file.Content, body) {
+		t.Fatalf("file=%#v err=%v", file, err)
 	}
 }
 

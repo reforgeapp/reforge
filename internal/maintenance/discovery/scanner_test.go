@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -27,6 +28,14 @@ func TestRateLimitRetryDelayIsBoundedAndScheduled(t *testing.T) {
 	}
 	if _, limited := rateLimitRetry(&domain.ProviderError{Kind: "auth"}); limited {
 		t.Fatal("auth error treated as rate limit")
+	}
+}
+
+func TestLargeTrackedFileCreatesNeutralMaintenanceFinding(t *testing.T) {
+	entry := forge.SourceEntry{Path: "bin/app", SHA: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", Mode: "100755", Type: "blob", Size: 48 << 20}
+	findings := largeFileObservations([]forge.SourceEntry{entry, {Path: "small", Type: "blob", Size: 1 << 20}}, "repo-id", Evidence{})
+	if len(findings) != 1 || findings[0].Category != "repository_maintenance" || findings[0].Evidence.TrackedFiles[0] != entry || !strings.Contains(findings[0].Title, "bin/app") {
+		t.Fatalf("findings=%+v", findings)
 	}
 }
 

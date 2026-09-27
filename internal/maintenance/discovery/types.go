@@ -52,6 +52,7 @@ type Evidence struct {
 	Blockers          []string               `json:"blockers"`
 	AdvisoryID        string                 `json:"advisory_id,omitempty"`
 	ReferenceURL      string                 `json:"reference_url,omitempty"`
+	TrackedFiles      []forge.SourceEntry    `json:"tracked_files,omitempty"`
 }
 type Observation struct {
 	RepositoryID string   `json:"repository_id"`

@@ -16,7 +16,7 @@ import (
 	"reforge/internal/runner"
 )
 
-const MaxResponse = 6 << 20
+const MaxResponse = 90 << 20
 const MaxBatchFiles = 50
 const batchBytes = 3 << 20
 const MaxGrant = 1 << 20

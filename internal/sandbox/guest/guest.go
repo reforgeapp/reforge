@@ -60,7 +60,7 @@ func Run(args []string, input io.Reader, output io.Writer) error {
 		size := 0
 		for _, f := range request.Files {
 			size += len(f.Content)
-			if !ValidPath(f.Path) || seen[f.Path] || size > 64<<20 || len(f.Content) > 4<<20 {
+			if !ValidPath(f.Path) || seen[f.Path] || size > 64<<20 || len(f.Content) > 64<<20 {
 				return errors.New("invalid or oversized file")
 			}
 			seen[f.Path] = true

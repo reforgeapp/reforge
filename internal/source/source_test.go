@@ -156,10 +156,10 @@ func TestSnapshotTotalByteLimit(t *testing.T) {
 	m.Entries = nil
 	m.TreeSHA = ""
 	m.Proof = "immutable_ref_api"
-	data := make([]byte, MaxFileBytes)
+	data := make([]byte, 4<<20)
 	sha := objectSHA("sha1", "blob", data)
 	for i := 0; i < 17; i++ {
-		m.Entries = append(m.Entries, forge.SourceEntry{Path: fmt.Sprintf("file-%02d", i), SHA: sha, Mode: "100644", Type: "blob"})
+		m.Entries = append(m.Entries, forge.SourceEntry{Path: fmt.Sprintf("file-%02d", i), SHA: sha, Mode: "100644", Type: "blob", Size: int64(len(data))})
 	}
 	reader := readerFor(m, nil)
 	calls := 0
@@ -170,6 +170,16 @@ func TestSnapshotTotalByteLimit(t *testing.T) {
 	snapshot, err := Fetch(context.Background(), reader, m.Repository, m.CommitSHA)
 	if err == nil || calls != 17 || snapshot.Complete || len(snapshot.Files) != 0 {
 		t.Fatalf("total byte limit failed calls=%d error=%v", calls, err)
+	}
+}
+
+func TestSnapshotAcceptsLargeRepositoryFileWithinBound(t *testing.T) {
+	data := make([]byte, 5<<20)
+	sha := objectSHA("sha1", "blob", data)
+	m := forge.SourceManifest{Repository: forge.RepoRef{NativeID: "1", FullName: "org/repo"}, CommitSHA: strings.Repeat("a", 40), ObjectFormat: "sha1", Proof: "immutable_ref_api", Complete: true, Entries: []forge.SourceEntry{{Path: "artifact", SHA: sha, Mode: "100755", Type: "blob", Size: int64(len(data))}}}
+	snapshot, err := Fetch(context.Background(), readerFor(m, map[string][]byte{"artifact": data}), m.Repository, m.CommitSHA)
+	if err != nil || len(snapshot.Files) != 1 || len(snapshot.Files[0].Content) != len(data) || !snapshot.Files[0].Executable {
+		t.Fatalf("snapshot files=%d error=%v", len(snapshot.Files), err)
 	}
 }
 

@@ -806,6 +806,11 @@ func Goal(f discovery.Finding) string {
 		fmt.Fprintf(&b, "Original Reforge repair pull request #%s conflicts with current target. Worktree is pinned to current default branch; use read_original_file to inspect original PR source, then reapply only still-needed changes without reverting newer work. If already fully addressed, inspect original files and skip without staging changes; reason must begin with Obsolete: and cite clear evidence. Otherwise a replacement pull request will be published; original stays open.\n", f.Evidence.Change.ID)
 	case f.Category == "dependency_bots":
 		b.WriteString("Set up and tune automated dependency updates. Use Dependabot on GitHub (.github/dependabot.yml) and Renovate elsewhere (renovate.json); keep an existing tool rather than switching. Cover every package ecosystem in the repository, including GitHub Actions and Dockerfiles. Keep noise low: a weekly schedule, grouped minor and patch updates per ecosystem, and a small open pull request limit. Security updates stay separate and immediate. Change nothing else.\n")
+	case f.Category == "repository_maintenance" && len(f.Evidence.TrackedFiles) > 0:
+		b.WriteString("Review each flagged tracked file in repository context. Decide whether it belongs in source control. You may keep, replace, relocate, or delete it. If it is generated output, consider ignoring it and publishing builds through suitable release automation.\n")
+		for _, file := range f.Evidence.TrackedFiles {
+			fmt.Fprintf(&b, "Tracked file: %s (%d bytes, mode %s, blob %s)\n", file.Path, file.Size, file.Mode, file.SHA)
+		}
 	case f.Evidence.Change != nil && f.Evidence.Bot != "":
 		fmt.Fprintf(&b, "Dependency pull request #%s from %s fails CI. Make the default branch compatible with the update, or apply the update yourself with any needed fixes.\n", f.Evidence.Change.ID, f.Evidence.Bot)
 	case f.Evidence.Change != nil:

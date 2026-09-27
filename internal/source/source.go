@@ -21,7 +21,7 @@ import (
 )
 
 const MaxEntries = 10000
-const MaxFileBytes = 4 << 20
+const MaxFileBytes = 64 << 20
 const MaxTotalBytes = 64 << 20
 
 type Reader struct {
@@ -63,7 +63,7 @@ func VerifyBlob(format, expected string, content []byte) bool {
 }
 
 func ValidEntry(e forge.SourceEntry, format string) bool {
-	if !guest.ValidPath(e.Path) || !utf8.ValidString(e.Path) || !ValidSHA(e.SHA, format) {
+	if !guest.ValidPath(e.Path) || !utf8.ValidString(e.Path) || !ValidSHA(e.SHA, format) || e.Size < 0 {
 		return false
 	}
 	for _, part := range strings.Split(e.Path, "/") {
@@ -202,7 +202,7 @@ func Fetch(ctx context.Context, reader Reader, repo forge.RepoRef, commit string
 		}
 	}
 	accept := func(e forge.SourceEntry, f forge.File) error {
-		if f.Path != e.Path || f.SHA != "" && f.SHA != e.SHA || len(f.Content) > MaxFileBytes {
+		if f.Path != e.Path || f.SHA != "" && f.SHA != e.SHA || len(f.Content) > MaxFileBytes || e.Size > 0 && int64(len(f.Content)) != e.Size {
 			return errors.New("invalid or oversized source file")
 		}
 		content := bytes.Clone(f.Content)
