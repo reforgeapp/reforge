@@ -256,6 +256,11 @@ func (s *Service) session(ctx context.Context, org string) (auth.Session, scope,
 	return session, sc, err
 }
 
+func releaseTerminalRepairsTx(ctx context.Context, tx pgx.Tx, org string) error {
+	_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs rr WHERE rr.org_id=m.org_id AND rr.task_id=m.task_id AND m.org_id=$1 AND m.active AND rr.native_change IS NOT NULL AND (rr.native_change->>'state' IN ('closed','merged') OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged')) OR EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged'))`, org)
+	return err
+}
+
 func (s *Service) Step(ctx context.Context, org string) error {
 	session, sc, err := s.session(ctx, org)
 	if err != nil {
@@ -279,8 +284,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
 	}
 	if err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs rr WHERE rr.org_id=m.org_id AND rr.task_id=m.task_id AND m.org_id=$1 AND m.active AND rr.native_change IS NOT NULL AND (rr.native_change->>'state'='closed' OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state'='closed'))`, org)
-		return err
+		return releaseTerminalRepairsTx(ctx, tx, org)
 	}); err != nil {
 		return err
 	}
