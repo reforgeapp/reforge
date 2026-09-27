@@ -78,6 +78,11 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if f.Evidence.Change != nil && strings.HasPrefix(f.Evidence.Change.HeadBranch, "reforge/repair/") {
 		followUp = f.Evidence.Change.HeadBranch
 	}
+	replacement := in.Owner && f.Evidence.Change != nil && discovery.RepairConflict(*f.Evidence.Change)
+	if !in.Owner && f.Evidence.Change != nil && discovery.RepairConflict(*f.Evidence.Change) {
+		out.Blockers = append(out.Blockers, "Only owner autopilot can replace a conflicting Reforge repair branch")
+		return out, nil
+	}
 	image := s.images[in.Recipe]
 	if image == "" {
 		out.Blockers = append(out.Blockers, "Administrator must register a verified runner image for this recipe")
@@ -128,7 +133,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			if !owned {
 				out.Blockers = append(out.Blockers, "Branch is not a published Reforge fix")
 			}
-			if rounds >= MaxFollowUps {
+			if !replacement && rounds >= MaxFollowUps {
 				out.Blockers = append(out.Blockers, ErrFollowUpsExhausted.Error())
 			}
 			var own []byte
@@ -152,7 +157,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 						fixes = append(fixes, patchHashes(patches))
 					}
 				}
-				if duplicates(patchHashes(ownPatches), fixes) {
+				if !replacement && duplicates(patchHashes(ownPatches), fixes) {
 					out.Blockers = append([]string{ErrDuplicateFix.Error()}, out.Blockers...)
 				}
 			}
@@ -238,7 +243,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		return out, err
 	}
 	targetSHA := f.Evidence.TargetSHA
-	if followUp != "" {
+	if followUp != "" && !replacement {
 		targetSHA = f.Evidence.HeadSHA
 	}
 	plan, err := freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths, in.Owner)
@@ -262,7 +267,11 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		context.MaxOutputTokens = 0
 		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000
 	}
-	context.FollowUpBranch = followUp
+	if replacement {
+		context.ReplacesBranch = followUp
+	} else {
+		context.FollowUpBranch = followUp
+	}
 	context.CILogs = s.ciLogs(ctx, org, f, check)
 	if len(context.CILogs) > 0 || plan.Owner {
 		context.OpenFixes, context.OpenFixFiles = s.openFixes(ctx, org, f.RepositoryID, followUp)
