@@ -27,11 +27,14 @@ type Gate struct {
 }
 
 type Companion struct {
-	TaskID   string `json:"task_id"`
-	ChangeID string `json:"change_id"`
-	HeadSHA  string `json:"head_sha"`
-	MergeSHA string `json:"merge_sha"`
-	State    string `json:"state"`
+	TaskID          string `json:"task_id"`
+	ChangeID        string `json:"change_id"`
+	HeadSHA         string `json:"head_sha"`
+	ObservedHeadSHA string `json:"observed_head_sha"`
+	Branch          string `json:"branch"`
+	TargetBranch    string `json:"target_branch"`
+	MergeSHA        string `json:"merge_sha"`
+	State           string `json:"state"`
 }
 
 type Qualification struct {

@@ -7,8 +7,8 @@ import (
 
 func TestCompanionOrderingBindsCanonicalMergeAndCurrentRepair(t *testing.T) {
 	head, merged := strings.Repeat("a", 40), strings.Repeat("b", 40)
-	current := []Companion{{TaskID: "task", ChangeID: "7", HeadSHA: head, State: "published"}}
-	proof := []Companion{{TaskID: "task", ChangeID: "7", HeadSHA: head, MergeSHA: merged, State: "merged"}}
+	current := []Companion{{TaskID: "task", ChangeID: "7", HeadSHA: head, Branch: "reforge/repair/task", TargetBranch: "main", State: "published"}}
+	proof := []Companion{{TaskID: "task", ChangeID: "7", HeadSHA: head, ObservedHeadSHA: head, Branch: "reforge/repair/task", TargetBranch: "main", MergeSHA: merged, State: "merged"}}
 	if !companionsCurrent(current, proof) || !companionsCurrent(nil, nil) {
 		t.Fatal("current canonical merge or absent dependency blocked")
 	}

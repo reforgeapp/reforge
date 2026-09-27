@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -74,14 +75,14 @@ func (s *Service) ObserveBotRepair(ctx context.Context, org, task string) error 
 	if !auth.ValidID(org) || !auth.ValidID(task) || s.providers == nil {
 		return auth.ErrInvalid
 	}
-	var repo, connection, changeID, companion, head, branch string
+	var repo, connection, changeID, companion, head, headBranch, targetBranch string
 	var ref forge.RepoRef
 	methods := []string{}
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		if err := tx.QueryRow(ctx, `SELECT repository_id::text,COALESCE(context#>>'{finding,evidence,change,id}',''),COALESCE(native_change->>'id',''),candidate_sha,COALESCE(native_change->>'target_branch','') FROM repair_runs WHERE org_id=$1 AND task_id=$2 AND state='published'`, org, task).Scan(&repo, &changeID, &companion, &head, &branch); err != nil {
+		if err := tx.QueryRow(ctx, `SELECT repository_id::text,COALESCE(context#>>'{finding,evidence,change,id}',''),COALESCE(native_change->>'id',''),candidate_sha,branch,COALESCE(native_change->>'target_branch','') FROM repair_runs WHERE org_id=$1 AND task_id=$2 AND state='published'`, org, task).Scan(&repo, &changeID, &companion, &head, &headBranch, &targetBranch); err != nil {
 			return err
 		}
-		if changeID == "" || companion == "" || changeID == companion || !source.ValidSHA(head, "sha1") {
+		if changeID == "" || companion == "" || changeID == companion || !source.ValidSHA(head, "sha1") || !strings.HasPrefix(headBranch, "reforge/repair/") || targetBranch == "" {
 			return auth.ErrInvalid
 		}
 		actor, err := s.inspectionActor(ctx, tx, nil, org, repo, task)
@@ -128,16 +129,27 @@ func (s *Service) ObserveBotRepair(ctx context.Context, org, task string) error 
 	var result privateconnector.Result
 	result, err = s.providers.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: companion}}, check)
 	if err == nil {
-		c := result.Change
-		if c == nil || c.ID != companion || c.Repository != ref || c.HeadSHA != head || c.TargetBranch != branch {
-			err = auth.ErrConflict
-			reason = "Companion changed; fresh repair validation is required"
-		} else if c.State != "merged" || !source.ValidSHA(c.MergeSHA, "sha1") {
-			state, reason = "waiting_companion", "Companion merge is not confirmed"
+		proof, proofErr := companionProof(Companion{TaskID: task, ChangeID: companion, HeadSHA: head, Branch: headBranch, TargetBranch: targetBranch, State: "published"}, result.Change, ref, targetBranch, func(base, head string) (int, error) {
+			compared, err := s.providers.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeBehind, Compare: &privateconnector.CompareArgs{Repository: ref, Base: base, Head: head}}, check)
+			if err != nil {
+				return 0, err
+			}
+			if compared.Behind == nil || *compared.Behind < 0 {
+				return 0, privateconnector.ErrUnsupported
+			}
+			return *compared.Behind, nil
+		}, func() (bool, error) {
+			return s.hasValidatedMergeHead(ctx, org, repo, Companion{ChangeID: companion, Branch: headBranch, TargetBranch: targetBranch}, *result.Change)
+		})
+		if proofErr != nil {
+			err = proofErr
+			reason = "Companion changed; refreshed head has no valid Reforge merge proof"
+		} else if proof.State != "merged" {
+			state, reason = "waiting_companion", "Companion merge is not confirmed or its refreshed head is not validated"
 		} else {
 			var original privateconnector.Result
 			original, err = s.providers.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: changeID}}, check)
-			if err == nil && (original.Change == nil || original.Change.ID != changeID || original.Change.Repository != ref || original.Change.TargetBranch != branch) {
+			if err == nil && (original.Change == nil || original.Change.ID != changeID || original.Change.Repository != ref || original.Change.TargetBranch != targetBranch) {
 				err = auth.ErrConflict
 			}
 			if err == nil {
