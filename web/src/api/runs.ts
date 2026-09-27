@@ -9,7 +9,7 @@ export type TaskPage = { items: Task[]; next_cursor?: string; complete: boolean 
 export type CheckResult = { command_id: string; exit_code: number; output_sha256: string; complete: boolean; cases?: Record<string, string>; reason: string; excerpt?: string }
 export type RepairRun = {
   candidate_artifacts?: string[]; branch: string; candidate_sha: string; candidate_checks?: CheckResult[] | null; change?: { id: string; title: string; url: string; state: string; head_sha: string; target_sha: string; target_branch: string; head_branch: string }
-  task: Task; context: { native_head_sha?: string; model?: string; max_output_tokens?: number; turn_timeout_ms?: number; policy_hash?: string; plan?: { digest: string; baseline_sha?: string; target_sha?: string; recipe?: { commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } } }
+  task: Task; context: { native_head_sha?: string; model?: string; finding?: { title?: string; category?: string; source?: string }; max_output_tokens?: number; turn_timeout_ms?: number; policy_hash?: string; plan?: { digest: string; baseline_sha?: string; target_sha?: string; recipe?: { commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } } }
   report?: { diff?: string; plan_digest: string; state: string; reason: string; baseline: CheckResult[]; candidate: CheckResult[]; target: CheckResult[]; patches: Array<{ path: string; content: string }>; artifacts: string[]; turns: number }
   state: string; version: number; updated_at: string
 }

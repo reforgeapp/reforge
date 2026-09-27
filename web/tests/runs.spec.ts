@@ -2,7 +2,7 @@ import { test, expect, type Page } from '@playwright/test'
 
 const organisation = '00000000-0000-4000-8000-000000000001'
 const task = (id: string, state = 'completed', version = 2) => ({ id, org_id: organisation, repository_id: 'repo-1', operation_id: 'op-1', recipe: 'go', recipe_version: '1', target_branch: 'main', model_route: '', policy_hash: 'policy', starting_policy_hash: 'policy', state, reason: '', version, cancel_version: 1, max_attempts: 1, created_at: new Date().toISOString() })
-const run = (item: ReturnType<typeof task>, state = item.state) => ({ task: { ...item, state }, state, version: item.version, branch: 'repair/' + item.id, candidate_sha: 'abc', candidate_checks: [{ command_id: 'test', exit_code: 0, output_sha256: 'sha', complete: true, reason: '', cases: { 'TestCase/one': 'passed' } }], candidate_artifacts: ['candidate-log'], context: { native_head_sha: 'head', policy_hash: 'policy', plan: { digest: 'plan', baseline_sha: 'base', target_sha: 'target', recipe: { commands: [{ id: 'go-test', args: ['go', 'test', './...'], directory: '/workspace', timeout_seconds: 30, report_format: 'text' }] } } }, report: { state: 'passed', reason: '', diff: '@@ -1 +1 @@\n+\u202e<script>alert(1)</script>', plan_digest: 'plan', baseline: [{ command_id: 'baseline-test', exit_code: 0, output_sha256: 'h', complete: true, reason: '', cases: { 'baseline case': 'passed' } }], candidate: [], target: [], patches: [{ path: 'main.go', content: 'PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==' }], artifacts: ['artifact-1'], turns: 1 }, updated_at: new Date().toISOString() })
+const run = (item: ReturnType<typeof task>, state = item.state) => ({ task: { ...item, state }, state, version: item.version, branch: 'repair/' + item.id, candidate_sha: 'abc', candidate_checks: [{ command_id: 'test', exit_code: 0, output_sha256: 'sha', complete: true, reason: '', cases: { 'TestCase/one': 'passed' } }], candidate_artifacts: ['candidate-log'], context: { native_head_sha: 'head', model: 'claude-sonnet-4-5', finding: { title: 'Repair failing Go tests', category: 'ci', source: 'native_ci' }, policy_hash: 'policy', plan: { digest: 'plan', baseline_sha: 'base', target_sha: 'target', recipe: { commands: [{ id: 'go-test', args: ['go', 'test', './...'], directory: '/workspace', timeout_seconds: 30, report_format: 'text' }] } } }, report: { state: 'passed', reason: '', diff: '@@ -1 +1 @@\n+\u202e<script>alert(1)</script>', plan_digest: 'plan', baseline: [{ command_id: 'baseline-test', exit_code: 0, output_sha256: 'h', complete: true, reason: '', cases: { 'baseline case': 'passed' } }], candidate: [], target: [], patches: [{ path: 'main.go', content: 'PHNjcmlwdD5hbGVydCgxKTwvc2NyaXB0Pg==' }], artifacts: ['artifact-1'], turns: 1 }, updated_at: new Date().toISOString() })
 
 async function login(page: Page) {
   await page.goto('/auth/login')
@@ -19,6 +19,8 @@ test('runs detail exposes frozen evidence and supports keyboard deep links', asy
   await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ': keepalive\\n\\n' }))
   await page.goto(`/org/${organisation}/runs?run=task-1`)
   await expect(page.getByRole('heading', { name: /go · task-1/ })).toBeVisible()
+  await expect(page.getByText('Repair failing Go tests')).toBeVisible()
+  await expect(page.getByText('claude-sonnet-4-5')).toBeVisible()
   await page.getByRole('tab', { name: 'Evidence' }).click()
   await page.getByText('Source diff').click()
   await expect(page.getByText('H baseline')).toBeVisible()
