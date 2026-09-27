@@ -33,7 +33,19 @@ type Snapshot struct {
 	Files          []guest.File `json:"files"`
 }
 
+type KubernetesRuntimeConfig struct {
+	Namespace              string            `json:"namespace"`
+	RunnerID               string            `json:"-"`
+	RuntimeClassName       string            `json:"runtime_class_name,omitempty"`
+	Images                 map[string]string `json:"images"`
+	Toolchains             map[string]string `json:"toolchains"`
+	BrokerListenAddress    string            `json:"broker_listen_address,omitempty"`
+	BrokerAdvertiseAddress string            `json:"broker_advertise_address,omitempty"`
+}
+
 type RuntimeConfig struct {
+	Backend        string                                                    `json:"backend,omitempty"`
+	Kubernetes     *KubernetesRuntimeConfig                                  `json:"kubernetes,omitempty"`
 	Runsc          string                                                    `json:"runsc"`
 	RunscSHA256    string                                                    `json:"runsc_sha256"`
 	Tool           string                                                    `json:"tool"`

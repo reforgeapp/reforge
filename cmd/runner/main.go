@@ -221,6 +221,9 @@ func verifyRuntime(args []string) error {
 	if config.Development && !*development {
 		return errors.New("runtime development mode requires --development")
 	}
+	if config.Backend == "kubernetes" {
+		return runnerclient.ValidateRuntimeConfig(config)
+	}
 	config.Fetch = func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
 		return sandbox.Snapshot{}, sandbox.ErrBoundary
 	}
@@ -254,6 +257,9 @@ func loadRuntimeConfig(name string) (sandbox.RuntimeConfig, error) {
 		return sandbox.RuntimeConfig{}, errors.New("runtime config invalid")
 	}
 	config.Fetch = nil
+	if err := runnerclient.ValidateRuntimeConfig(config); err != nil {
+		return sandbox.RuntimeConfig{}, errors.New("runtime config invalid")
+	}
 	return config, nil
 }
 
@@ -261,7 +267,9 @@ func runRepair(ctx context.Context, client *runnerclient.Client, endpoint string
 	runctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	errs := make(chan error, 2)
-	go func() { errs <- client.Run(runctx, runnerclient.RepairProcessor(config)) }()
+	processor, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
+	defer closeProcessor()
+	go func() { errs <- client.Run(runctx, processor) }()
 	go func() { errs <- runPrivate(runctx, client, endpoint, ca, development) }()
 	first := <-errs
 	cancel()

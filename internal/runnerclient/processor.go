@@ -19,16 +19,20 @@ import (
 )
 
 func RepairProcessor(config sandbox.RuntimeConfig) Processor {
+	processor, _ := RepairProcessorWithCloser(config)
+	return processor
+}
+
+func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() error) {
 	var mu sync.Mutex
-	var shared *sandbox.Runtime
+	var shared sandbox.SandboxRuntime
 	var fetchers sync.Map
-	sharedRuntime := func() (*sandbox.Runtime, error) {
+	sharedRuntime := func(cfg sandbox.RuntimeConfig) (sandbox.SandboxRuntime, error) {
 		mu.Lock()
 		defer mu.Unlock()
 		if shared != nil {
 			return shared, nil
 		}
-		cfg := config
 		cfg.Fetch = func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
 			fetch, ok := fetchers.Load(in.JobID + "/" + in.AttemptID)
 			if !ok {
@@ -36,13 +40,13 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 			return fetch.(func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error))(ctx, in)
 		}
-		runtime, err := sandbox.NewRuntime(cfg)
+		runtime, err := NewSandboxRuntime(cfg, cfg.Fetch)
 		if err == nil {
 			shared = runtime
 		}
 		return runtime, err
 	}
-	return func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
+	process := func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
 		failed := workflow.Completion{Outcome: "failed"}
 		run, err := c.RepairRun(ctx, j)
 		if err != nil {
@@ -63,6 +67,12 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 			}
 		}
 		cfg := config
+		if cfg.Backend == "kubernetes" && cfg.Kubernetes != nil {
+			kubeConfig := *cfg.Kubernetes
+			cfg.Kubernetes = &kubeConfig
+			identity, _ := c.Supervisor()
+			cfg.Kubernetes.RunnerID = identity.ID
+		}
 		key := j.Lease.JobID + "/" + j.Lease.AttemptID
 		fetch := func(ctx context.Context, in sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
 			if in.CommitSHA == baseline.CommitSHA {
@@ -75,7 +85,7 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		}
 		fetchers.Store(key, fetch)
 		defer fetchers.Delete(key)
-		runtime, err := sharedRuntime()
+		runtime, err := sharedRuntime(cfg)
 		if err != nil {
 			return failed, err
 		}
@@ -156,6 +166,17 @@ func RepairProcessor(config sandbox.RuntimeConfig) Processor {
 		}
 		return workflow.Completion{Outcome: "completed"}, nil
 	}
+	closeRuntime := func() error {
+		mu.Lock()
+		runtime := shared
+		shared = nil
+		mu.Unlock()
+		if closer, ok := runtime.(interface{ Close() error }); ok {
+			return closer.Close()
+		}
+		return nil
+	}
+	return process, closeRuntime
 }
 
 func (c *Client) runCustomProfile(ctx context.Context, j Job, execution repair.ExecutionContext, runtime sandbox.SandboxRuntime, baseline, target sandbox.Snapshot, engine repair.Engine) (repair.Report, error) {

@@ -30,6 +30,10 @@ type updater struct {
 }
 
 func (u updater) image(binary string) string {
+	if u.cfg.Backend == "kubernetes" && u.cfg.Kubernetes != nil {
+		toolchain := map[string]string{"usr/local/go/bin/go": "go", "usr/local/bin/node": "javascript"}[binary]
+		return u.cfg.Kubernetes.Toolchains[toolchain]
+	}
 	for digest, root := range u.cfg.Images {
 		if _, err := os.Stat(filepath.Join(root, binary)); err == nil {
 			return digest
@@ -43,6 +47,9 @@ func (u updater) update(ctx context.Context, files map[string][]byte, d repair.D
 		return nil, errors.New("invalid dependency update")
 	}
 	paths := d.Paths()
+	if u.cfg.Backend == "kubernetes" {
+		return u.updateKubernetes(ctx, files, d, paths)
+	}
 	if _, ok := files[paths[0]]; !ok {
 		return nil, errors.New(paths[0] + " not found")
 	}

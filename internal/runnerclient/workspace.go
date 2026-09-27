@@ -22,8 +22,12 @@ type commandPreparer struct {
 }
 
 func (p commandPreparer) prepare(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {
+	if p.cfg.Backend == "kubernetes" {
+		return p.prepareKubernetes(ctx, request, patches, command)
+	}
 	image := request.Image
 	if len(command.Args) > 0 {
+		first := path.Base(command.Args[0])
 		binary := map[string]string{
 			"go":      "usr/local/go/bin/go",
 			"node":    "usr/local/bin/node",
@@ -31,7 +35,7 @@ func (p commandPreparer) prepare(ctx context.Context, request sandbox.WorkspaceR
 			"npx":     "usr/local/bin/node",
 			"python":  "usr/local/bin/python3",
 			"python3": "usr/local/bin/python3",
-		}[path.Base(command.Args[0])]
+		}[first]
 		if binary != "" {
 			if candidate := (updater{cfg: p.cfg}).image(binary); candidate != "" {
 				image = candidate
