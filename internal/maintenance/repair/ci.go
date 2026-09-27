@@ -203,7 +203,11 @@ func appendOwnerRecent(recent, name, reply string) string {
 	item := "\n" + name + " result:\n" + clip(reply, 8<<10)
 	recent += item
 	if len(recent) > ownerRecentBudget {
-		recent = recent[len(recent)-ownerRecentBudget:]
+		start := len(recent) - ownerRecentBudget
+		for start < len(recent) && !utf8.RuneStart(recent[start]) {
+			start++
+		}
+		recent = recent[start:]
 	}
 	return recent
 }
@@ -244,6 +248,9 @@ func (e Engine) command(ctx context.Context, p Plan, patches []sandbox.Patch, ar
 func clip(text string, n int) string {
 	if len(text) <= n {
 		return text
+	}
+	for n > 0 && !utf8.RuneStart(text[n]) {
+		n--
 	}
 	return text[:n] + "…"
 }
@@ -360,11 +367,48 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		}
 		return next
 	}
+	if owner && e.Restore != nil {
+		restored := e.Restore
+		if !restored.ValidFor(p) {
+			return fail("Saved repair progress does not match the pinned plan", ErrValidation)
+		}
+		if len(restored.Patches) > 0 && admissible(restored.Patches, restored.Dependencies) != nil {
+			return fail("Saved repair changes violate the pinned plan", ErrPatch)
+		}
+		for _, update := range restored.Dependencies {
+			if !update.Valid() {
+				return fail("Saved dependency update is invalid", ErrValidation)
+			}
+		}
+		for _, patch := range restored.Patches {
+			patch.Content = append([]byte(nil), patch.Content...)
+			patches[patch.Path] = patch
+		}
+		updates = append(updates, restored.Dependencies...)
+		recentToolResults = restored.Recent
+		out.Turns = restored.Turns
+		messages = []model.Message{{Role: "user", Text: ownerContext(prompt, current(), updates, nil, recentToolResults) + "\nSaved progress restored. Run checks again before finish; earlier check results are not current validation evidence."}}
+	}
+	checkpointRevision, checkpointTurns, checkpointRecent := revision, out.Turns, recentToolResults
+	saveProgress := func() error {
+		if !owner || e.SaveCheckpoint == nil || checkpointRevision == revision && checkpointTurns == out.Turns && checkpointRecent == recentToolResults {
+			return nil
+		}
+		progress := Checkpoint{PlanDigest: p.Digest, Patches: current(), Dependencies: updates, Recent: recentToolResults, Turns: out.Turns}
+		if !progress.ValidFor(p) {
+			return nil
+		}
+		if err := e.SaveCheckpoint(ctx, progress); err != nil {
+			return err
+		}
+		checkpointRevision, checkpointTurns, checkpointRecent = revision, out.Turns, recentToolResults
+		return nil
+	}
 	tokens := e.MaxOutputTokens
 	if tokens <= 0 {
 		tokens = 4096
 	}
-	for turn := 0; turn < p.Recipe.MaxTurns; turn++ {
+	for turn := out.Turns; turn < p.Recipe.MaxTurns; turn++ {
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
 		}
@@ -569,6 +613,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 						patches[name] = sandbox.Patch{Path: name, Content: body}
 					}
 				}
+				updates = slices.DeleteFunc(updates, func(previous DependencyUpdate) bool {
+					return previous.Ecosystem == u.Ecosystem && path.Clean(previous.Directory) == path.Clean(u.Directory) && previous.Package == u.Package
+				})
 				updates = append(updates, u)
 				revision++
 				reply = fmt.Sprintf("Dependency files updated: %s; run_checks required", strings.Join(u.Paths(), ", "))
@@ -633,6 +680,14 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				fmt.Fprintf(&transcript, "< %s: %s\n", call.Name, clip(reply, 3000))
 			}
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
+			if revision != checkpointRevision {
+				if err = saveProgress(); err != nil {
+					return fail("Could not save repair progress", err)
+				}
+			}
+		}
+		if err = saveProgress(); err != nil {
+			return fail("Could not save repair progress", err)
 		}
 	}
 	return fail("Repair turn limit reached without a finished change", ErrHandoff)

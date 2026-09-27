@@ -4,6 +4,7 @@ import (
 	"reforge/internal/customcmd"
 	"reforge/internal/forge"
 	"reforge/internal/maintenance/discovery"
+	"reforge/internal/sandbox"
 	"reforge/internal/workflow"
 	"time"
 )
@@ -60,9 +61,18 @@ type Run struct {
 	Task               workflow.Task    `json:"task"`
 	Context            ExecutionContext `json:"context"`
 	Report             *Report          `json:"report,omitempty"`
+	Checkpoint         *Checkpoint      `json:"checkpoint,omitempty"`
 	State              string           `json:"state"`
 	Version            int64            `json:"version"`
 	UpdatedAt          time.Time        `json:"updated_at"`
+}
+
+type Checkpoint struct {
+	PlanDigest   string             `json:"plan_digest"`
+	Patches      []sandbox.Patch    `json:"patches"`
+	Dependencies []DependencyUpdate `json:"dependencies"`
+	Recent       string             `json:"recent"`
+	Turns        int                `json:"turns"`
 }
 
 type Publication struct {

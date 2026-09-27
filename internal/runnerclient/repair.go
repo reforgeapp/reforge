@@ -33,6 +33,11 @@ func (c *Client) RepairSnapshot(ctx context.Context, j Job, sha string) (sandbox
 	_, err = scoped.responseLimit(req, &out, 90<<20)
 	return out, err
 }
+func (c *Client) RepairCheckpoint(ctx context.Context, j Job, in repair.Checkpoint) error {
+	_, err := c.call(ctx, "POST", "/runner/v1/repair/checkpoint", j.Token, in, nil)
+	return err
+}
+
 func (c *Client) RepairReport(ctx context.Context, j Job, in repair.Report) (repair.Run, error) {
 	var out repair.Run
 	transport := *c.http

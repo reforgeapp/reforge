@@ -417,8 +417,8 @@ func (s *Service) openFixes(ctx context.Context, org, repository, exclude string
 
 func loadRun(ctx context.Context, tx pgx.Tx, org, id string) (Run, error) {
 	var out Run
-	var body, report, checks, change, artifactIDs []byte
-	err := tx.QueryRow(ctx, `SELECT context,report,state,version,updated_at,branch,candidate_sha,candidate_checks,native_change,candidate_artifacts FROM repair_runs WHERE org_id=$1 AND task_id=$2`, org, id).Scan(&body, &report, &out.State, &out.Version, &out.UpdatedAt, &out.Branch, &out.CandidateSHA, &checks, &change, &artifactIDs)
+	var body, report, checks, change, artifactIDs, checkpoint []byte
+	err := tx.QueryRow(ctx, `SELECT context,report,state,version,updated_at,branch,candidate_sha,candidate_checks,native_change,candidate_artifacts,checkpoint FROM repair_runs WHERE org_id=$1 AND task_id=$2`, org, id).Scan(&body, &report, &out.State, &out.Version, &out.UpdatedAt, &out.Branch, &out.CandidateSHA, &checks, &change, &artifactIDs, &checkpoint)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, ErrRunNotFound
 	}
@@ -443,6 +443,11 @@ func loadRun(ctx context.Context, tx pgx.Tx, org, id string) (Run, error) {
 	}
 	if e := json.Unmarshal(artifactIDs, &out.CandidateArtifacts); e != nil {
 		return out, e
+	}
+	if len(checkpoint) > 0 {
+		if e := json.Unmarshal(checkpoint, &out.Checkpoint); e != nil {
+			return out, e
+		}
 	}
 	out.Context.NativeHeadSHA = out.CandidateSHA
 	return out, err
@@ -541,7 +546,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		return out, auth.ErrInvalid
 	}
 	ci, owner := in.Mode == "ci", in.Mode == "owner"
-	if in.Mode != "" && !ci && !owner || len(in.Dependencies) > 10 {
+	if in.Mode != "" && !ci && !owner || len(in.Dependencies) > maxCheckpointDependencies || !owner && len(in.Dependencies) > 10 {
 		return out, auth.ErrInvalid
 	}
 	for _, u := range in.Dependencies {
@@ -634,7 +639,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 				}
 			}
 		}
-		tag, err := tx.Exec(ctx, `UPDATE repair_runs SET state=$3,report=$4,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('queued','handoff')`, l.OrgID, l.TaskID, in.State, raw)
+		tag, err := tx.Exec(ctx, `UPDATE repair_runs SET state=$3,report=$4,checkpoint=CASE WHEN $3='validated' THEN NULL ELSE checkpoint END,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('queued','handoff')`, l.OrgID, l.TaskID, in.State, raw)
 		if err != nil {
 			return err
 		}

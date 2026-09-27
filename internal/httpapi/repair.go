@@ -153,6 +153,17 @@ func (s *Server) RegisterRepair(service *repair.Service) {
 		}
 		c.JSON(200, out)
 	})
+	jobs.POST("/checkpoint", func(c *gin.Context) {
+		var in repair.Checkpoint
+		if !identityJSON(c, &in) {
+			return
+		}
+		if err := service.SaveCheckpoint(c.Request.Context(), c.GetString("runner_token"), in); err != nil {
+			repairFailure(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
+	})
 	jobs.POST("/report", func(c *gin.Context) {
 		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(3 * time.Minute))
 		var in repair.Report

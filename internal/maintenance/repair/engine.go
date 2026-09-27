@@ -35,6 +35,8 @@ type Report struct {
 	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
 }
 type Engine struct {
+	Restore          *Checkpoint
+	SaveCheckpoint   func(context.Context, Checkpoint) error
 	Runtime          sandbox.SandboxRuntime
 	PrepareWorkspace func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
 	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
