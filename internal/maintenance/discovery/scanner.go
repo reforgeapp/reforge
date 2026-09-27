@@ -113,7 +113,7 @@ func (s *Service) claim(ctx context.Context, org string) (*scanLease, error) {
 					return err
 				}
 			}
-			_, err = tx.Exec(ctx, `UPDATE maintenance_scans SET state='queued',available_at=clock_timestamp()+interval '5 seconds',reason='Waiting for a fresh native inventory observation',version=version+1 WHERE org_id=$1 AND repository_id=$2`, org, lease.Repo)
+			_, err = tx.Exec(ctx, `UPDATE maintenance_scans SET state='queued',available_at=GREATEST(clock_timestamp()+interval '5 seconds',COALESCE((SELECT min(CASE WHEN state='running' THEN lease_until ELSE available_at END) FROM inventory_jobs WHERE org_id=$1 AND repository_id=$2 AND kind='refresh' AND state IN ('queued','running')),clock_timestamp())),reason=CASE WHEN EXISTS(SELECT 1 FROM inventory_jobs WHERE org_id=$1 AND repository_id=$2 AND kind='refresh' AND state IN ('queued','running') AND reason='Provider rate limit reached; retry scheduled') THEN 'Waiting for provider rate limit reset before refreshing native inventory' ELSE 'Waiting for a fresh native inventory observation' END,version=version+1 WHERE org_id=$1 AND repository_id=$2`, org, lease.Repo)
 			return err
 		}
 		cfg, err := configTx(ctx, tx, org, lease.Repo)
