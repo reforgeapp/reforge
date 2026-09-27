@@ -29,7 +29,7 @@ func (s *Service) Claim(ctx context.Context, org, worker string) (*Job, error) {
 			return err
 		}
 		var id string
-		err := tx.QueryRow(ctx, `SELECT j.id::text FROM inventory_jobs j JOIN inventory_sources s ON s.org_id=j.org_id AND s.connection_id=j.connection_id WHERE j.org_id=$1 AND (j.state='queued' AND j.available_at<=clock_timestamp() OR j.state='running' AND j.lease_until<=clock_timestamp()) ORDER BY s.last_served,j.last_claimed,j.created_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED`, org).Scan(&id)
+		err := tx.QueryRow(ctx, `SELECT j.id::text FROM inventory_jobs j JOIN inventory_sources s ON s.org_id=j.org_id AND s.connection_id=j.connection_id WHERE j.org_id=$1 AND (j.state='queued' AND j.available_at<=clock_timestamp() OR j.state='running' AND j.lease_until<=clock_timestamp()) AND s.last_served<=clock_timestamp()-interval '1 second' AND NOT EXISTS(SELECT 1 FROM inventory_jobs active WHERE active.org_id=j.org_id AND active.connection_id=j.connection_id AND active.id<>j.id AND active.state='running' AND active.lease_until>clock_timestamp()) ORDER BY s.last_served,j.last_claimed,j.created_at,j.id LIMIT 1 FOR UPDATE OF j SKIP LOCKED`, org).Scan(&id)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -396,6 +396,9 @@ func (s *Service) fail(ctx context.Context, lease Job, cause error) error {
 		if limited {
 			delay = max(delay, provider.RetryAfter, 5*time.Minute)
 			reason = "Provider rate limit reached; retry scheduled"
+			if _, err = tx.Exec(ctx, `UPDATE inventory_jobs SET available_at=GREATEST(available_at,clock_timestamp()+$3::interval),reason=$4,updated_at=clock_timestamp(),version=version+1 WHERE org_id=$1 AND connection_id=$2 AND state='queued'`, j.OrgID, j.ConnectionID, fmt.Sprintf("%f seconds", delay.Seconds()), reason); err != nil {
+				return err
+			}
 		}
 		if j.Failures >= 7 && !limited {
 			state = "failed"
