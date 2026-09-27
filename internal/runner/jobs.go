@@ -194,16 +194,43 @@ func (s *Service) Upload(ctx context.Context, raw, name, media string, input io.
 	if err = ctx.Err(); err != nil {
 		return result, err
 	}
-	err = s.withJob(ctx, raw, "artifact.upload", "artifact.upload", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
+	var prepared artifact.Metadata
+	var attemptID string
+	err = s.withJob(ctx, raw, "artifact.upload", "artifact.upload", func(_ pgx.Tx, l workflow.Lease, _ workflow.Task, _ string) error {
+		prepared = artifact.Metadata{OrgID: l.OrgID, RepositoryID: l.RepositoryID, TaskID: l.TaskID, Name: name, MediaType: media, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}
+		attemptID = l.AttemptID
+		return nil
+	})
+	if err != nil {
+		return result, err
+	}
+	prepared, err = s.artifacts.Prepare(ctx, prepared, bytes.NewReader(data))
+	if err != nil {
+		return result, err
+	}
+	return s.recordPreparedUpload(ctx, raw, prepared, attemptID)
+}
+
+func (s *Service) recordPreparedUpload(ctx context.Context, raw string, prepared artifact.Metadata, attemptID string) (artifact.Metadata, error) {
+	var result artifact.Metadata
+	defer func() {
+		if result.ID == "" {
+			_ = s.artifacts.RemoveBlob(prepared.OrgID, prepared.ID)
+		}
+	}()
+	err := s.withJob(ctx, raw, "artifact.upload", "artifact.upload", func(tx pgx.Tx, l workflow.Lease, _ workflow.Task, _ string) error {
+		if l.OrgID != prepared.OrgID || l.RepositoryID != prepared.RepositoryID || l.TaskID != prepared.TaskID || l.AttemptID != attemptID {
+			return workflow.ErrFence
+		}
 		var err error
-		result, err = s.artifacts.PutTx(ctx, tx, artifact.Metadata{OrgID: l.OrgID, RepositoryID: l.RepositoryID, TaskID: l.TaskID, Name: name, MediaType: media, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}, l.AttemptID, bytes.NewReader(data))
+		result, err = s.artifacts.RecordPreparedTx(ctx, tx, prepared, attemptID)
 		return err
 	})
-	if err != nil && result.ID != "" {
-		_ = s.artifacts.RemoveBlob(result.OrgID, result.ID)
+	if err != nil {
 		result = artifact.Metadata{}
+		return result, err
 	}
-	return result, err
+	return result, nil
 }
 func (s *Service) Metadata(ctx context.Context, session auth.Session, org, id string) (artifact.Metadata, error) {
 	var m artifact.Metadata

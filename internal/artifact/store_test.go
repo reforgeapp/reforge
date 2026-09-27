@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"reforge/internal/auth"
 	"reforge/internal/domain"
 )
 
@@ -78,5 +79,22 @@ func TestPrivateArtifactStorageRejectsCredentialsTraversalAndCorruption(t *testi
 	host, err := os.ReadFile(outside)
 	if err != nil || string(host) != "host-private" {
 		t.Fatal("host file was changed")
+	}
+}
+
+func TestPutTxRejectsInvalidAttemptBeforePreparingBlob(t *testing.T) {
+	directory := filepath.Join(t.TempDir(), "private")
+	storage, err := NewLocal(nil, directory)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer storage.Close()
+	m := Metadata{OrgID: domain.NewID(), RepositoryID: domain.NewID(), TaskID: domain.NewID(), Name: "test.log", MediaType: "text/plain", ExpiresAt: time.Now().Add(time.Hour)}
+	if _, err = storage.PutTx(context.Background(), nil, m, "invalid", strings.NewReader("safe")); !errors.Is(err, auth.ErrInvalid) {
+		t.Fatalf("invalid attempt result=%v", err)
+	}
+	entries, err := os.ReadDir(directory)
+	if err != nil || len(entries) != 0 {
+		t.Fatalf("invalid attempt prepared blobs=%v err=%v", entries, err)
 	}
 }

@@ -129,12 +129,22 @@ func (s *Local) write(ctx context.Context, m *Metadata, input io.Reader) error {
 	good = true
 	return nil
 }
-func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string, input io.Reader) (Metadata, error) {
-	if !auth.ValidID(attemptID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) {
+func (s *Local) Prepare(ctx context.Context, m Metadata, input io.Reader) (Metadata, error) {
+	if m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) {
 		return Metadata{}, auth.ErrInvalid
 	}
 	m.ID = domain.NewID()
 	m.CreatedAt = time.Now().UTC()
+	if err := s.write(ctx, &m, input); err != nil {
+		return Metadata{}, err
+	}
+	return m, nil
+}
+
+func (s *Local) RecordPreparedTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string) (Metadata, error) {
+	if !auth.ValidID(attemptID) || !auth.ValidID(m.ID) || !auth.ValidID(m.OrgID) || !auth.ValidID(m.RepositoryID) || !auth.ValidID(m.TaskID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) || m.Size < 0 || m.Size > MaxSize || len(m.SHA256) != 64 {
+		return Metadata{}, auth.ErrInvalid
+	}
 	var used int64
 	var count int
 	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(size),0),count(*) FROM artifacts WHERE org_id=$1 AND expires_at>clock_timestamp()`, m.OrgID).Scan(&used, &count); err != nil {
@@ -143,16 +153,29 @@ func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID stri
 	if used+MaxSize > MaxTenantSize || count >= 4096 {
 		return Metadata{}, ErrQuota
 	}
-	if err := s.write(ctx, &m, input); err != nil {
-		return Metadata{}, err
-	}
 	_, err := tx.Exec(ctx, `INSERT INTO artifacts(org_id,id,repository_id,task_id,attempt_id,name,media_type,size,sha256,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, m.OrgID, m.ID, m.RepositoryID, m.TaskID, attemptID, m.Name, m.MediaType, m.Size, m.SHA256, m.CreatedAt, m.ExpiresAt)
 	if err != nil {
-		_ = s.RemoveBlob(m.OrgID, m.ID)
 		return Metadata{}, err
 	}
 	return m, nil
 }
+
+func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string, input io.Reader) (Metadata, error) {
+	if !auth.ValidID(attemptID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) {
+		return Metadata{}, auth.ErrInvalid
+	}
+	prepared, err := s.Prepare(ctx, m, input)
+	if err != nil {
+		return Metadata{}, err
+	}
+	recorded, err := s.RecordPreparedTx(ctx, tx, prepared, attemptID)
+	if err != nil {
+		_ = s.RemoveBlob(prepared.OrgID, prepared.ID)
+		return Metadata{}, err
+	}
+	return recorded, nil
+}
+
 func (s *Local) MetadataTx(ctx context.Context, tx pgx.Tx, a domain.Actor, id string) (Metadata, error) {
 	var m Metadata
 	if !auth.ValidID(id) {

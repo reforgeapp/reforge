@@ -309,6 +309,68 @@ func TestArtifactsRefreshMembershipAndJobScope(t *testing.T) {
 		t.Fatal("expired fence uploaded")
 	}
 }
+func TestPreparedArtifactStaysUnavailableUntilMetadataIsRecorded(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c := f.enroll(t)
+	f.enqueue(t, f.repos[0], f.pool.ID, "main")
+	job, err := f.service.Claim(ctx, c.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	prepared, err := f.artifacts.Prepare(ctx, artifact.Metadata{OrgID: job.Lease.OrgID, RepositoryID: job.Lease.RepositoryID, TaskID: job.Lease.TaskID, Name: "staged.log", MediaType: "text/plain", ExpiresAt: time.Now().Add(time.Hour)}, strings.NewReader("staged output"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, reader, err := f.service.DownloadJob(ctx, job.Credential.Token, prepared.ID); !errors.Is(err, auth.ErrForbidden) || reader != nil {
+		if reader != nil {
+			_ = reader.Close()
+		}
+		t.Fatalf("unrecorded blob was downloadable: %v", err)
+	}
+	var recorded artifact.Metadata
+	err = f.service.WithJob(ctx, job.Credential.Token, "artifact.upload", func(tx pgx.Tx, lease workflow.Lease, _ workflow.Task) error {
+		var recordErr error
+		recorded, recordErr = f.artifacts.RecordPreparedTx(ctx, tx, prepared, lease.AttemptID)
+		return recordErr
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, reader, err := f.service.DownloadJob(ctx, job.Credential.Token, recorded.ID); err != nil || reader == nil {
+		if reader != nil {
+			_ = reader.Close()
+		}
+		t.Fatalf("recorded artifact unavailable: %v", err)
+	} else {
+		_ = reader.Close()
+	}
+}
+
+func TestArtifactQuotaFailureRemovesPreparedBlob(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c := f.enroll(t)
+	f.enqueue(t, f.repos[0], f.pool.ID, "main")
+	job, err := f.service.Claim(ctx, c.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, insertErr := tx.Exec(ctx, `INSERT INTO artifacts(org_id,id,repository_id,task_id,attempt_id,name,media_type,size,sha256,expires_at) SELECT $1,gen_random_uuid(),$2,$3,$4,'quota.log','text/plain',$5,repeat('a',64),clock_timestamp()+interval '1 day' FROM generate_series(1,256)`, f.org, job.Lease.RepositoryID, job.Task.ID, job.Lease.AttemptID, artifact.MaxSize)
+		return insertErr
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.service.Upload(ctx, job.Credential.Token, "over-quota.log", "text/plain", strings.NewReader("staged then rejected")); !errors.Is(err, artifact.ErrQuota) {
+		t.Fatalf("quota result=%v", err)
+	}
+	blobs, err := filepath.Glob(filepath.Join(f.directory, f.org+"-*.data"))
+	if err != nil || len(blobs) != 0 {
+		t.Fatalf("rejected upload left blobs=%v err=%v", blobs, err)
+	}
+}
+
 func TestWorkerHTTPRejectsBrowserOriginAndArbitraryProxy(t *testing.T) {
 	f := newFixture(t)
 	c := f.enroll(t)
