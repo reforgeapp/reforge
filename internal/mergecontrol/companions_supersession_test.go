@@ -40,6 +40,7 @@ func TestSupersessionRequiresExactPublishedReplacementBinding(t *testing.T) {
 	oldBranch, newBranch, target := "reforge/repair/old", "reforge/repair/new", "main"
 	oldCandidate, oldObserved := strings.Repeat("a", 40), strings.Repeat("b", 40)
 	newCandidate, newHead, merge := strings.Repeat("c", 40), strings.Repeat("d", 40), strings.Repeat("e", 40)
+	oldNative := `{"id":"120","target_branch":"main"}`
 	repository := forge.RepoRef{NativeID: "supersession-repo", FullName: "org/repo"}
 	if err = db.Identity(ctx, user, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO users(id,issuer,subject,name,email) VALUES($1,'supersession-test',$2,'Owner',$3)`, user, user, user+"@example.test")
@@ -71,10 +72,13 @@ func TestSupersessionRequiresExactPublishedReplacementBinding(t *testing.T) {
 				return err
 			}
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,branch,native_change) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10)`, org, oldTask, repoID, oldFinding, user, strings.Repeat("c", 64), oldContext, oldCandidate, oldBranch, `{"id":"120","target_branch":"main"}`); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,branch,native_change) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10)`, org, oldTask, repoID, oldFinding, user, strings.Repeat("c", 64), oldContext, oldCandidate, oldBranch, oldNative); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,branch,native_change) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10)`, org, newTask, repoID, newFinding, user, strings.Repeat("d", 64), newContext, newCandidate, newBranch, `{"id":"127","target_branch":"main"}`); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest,active) VALUES($1,$2,$3,$4,$5,true)`, org, oldFinding, repoID, oldTask, strings.Repeat("c", 64)); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `INSERT INTO merge_gates(org_id,id,repository_id,change_id,configuration_version,document) VALUES($1,$2,$3,$4,1,$5)`, org, gateID, repoID, newID, gateDoc); err != nil {
@@ -97,6 +101,34 @@ func TestSupersessionRequiresExactPublishedReplacementBinding(t *testing.T) {
 	if !validate() {
 		t.Fatal("valid replacement with exact merge gate was rejected")
 	}
+	var active bool
+	var stored []byte
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT active,supersession FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, org, oldTask).Scan(&active, &stored)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if active || len(stored) == 0 || strings.Contains(string(stored), merge) == false {
+		t.Fatal("supersession was not persisted with overlap released")
+	}
+	var actualNative []byte
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT native_change FROM repair_runs WHERE org_id=$1 AND task_id=$2`, org, oldTask).Scan(&actualNative)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	var nativeFields map[string]any
+	if err = json.Unmarshal(actualNative, &nativeFields); err != nil || nativeFields["state"] != nil {
+		t.Fatalf("old native state was modified: %s err=%v", actualNative, err)
+	}
+	badProof := gate.Companions[0]
+	badProof.Supersession = append([]ReplacementProof(nil), badProof.Supersession...)
+	badProof.Supersession[0].MergeSHA = strings.Repeat("f", 40)
+	gate.Companions[0] = badProof
+	if validate() {
+		t.Fatal("mismatched supersession proof was accepted")
+	}
+	gate.Companions[0] = proof
 	oldChange := &forge.Change{ID: oldID, Repository: repository, HeadRepository: repository, TargetRepository: repository, HeadSHA: oldObserved, HeadBranch: oldBranch, TargetBranch: target, State: "open"}
 	terminal := &forge.Change{ID: newID, Repository: repository, HeadRepository: repository, TargetRepository: repository, HeadSHA: newHead, HeadBranch: newBranch, TargetBranch: target, State: "merged", MergeSHA: merge}
 	provider := &supersessionProvider{changes: map[string]*forge.Change{newID: terminal}}
@@ -107,6 +139,31 @@ func TestSupersessionRequiresExactPublishedReplacementBinding(t *testing.T) {
 	chain, terminalOK, err := resolve()
 	if err != nil || !terminalOK || len(chain) != 1 || chain[0].ObservedHeadSHA != newHead {
 		t.Fatalf("chain=%+v terminal=%t err=%v", chain, terminalOK, err)
+	}
+	newSourceHead, newReplacementHead, newMerge := strings.Repeat("1", 40), strings.Repeat("2", 40), strings.Repeat("3", 40)
+	newContext = strings.Replace(newContext, oldObserved, newSourceHead, 1)
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET context=jsonb_set(context,'{finding,evidence,change,head_sha}',to_jsonb($3::text)) WHERE org_id=$1 AND task_id=$2`, org, newTask, newSourceHead); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE merge_gates SET document=jsonb_set(jsonb_set(document,'{binding,head}',to_jsonb($3::text)),'{snapshot,change,head_sha}',to_jsonb($3::text)) WHERE org_id=$1 AND id=$2`, org, gateID, newReplacementHead); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE merge_operations SET native_result=jsonb_set(jsonb_set(native_result,'{head_sha}',to_jsonb($3::text)),'{merge_sha}',to_jsonb($4::text)) WHERE org_id=$1 AND id=$2`, org, operationID, newReplacementHead, newMerge)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	oldChange.HeadSHA = newSourceHead
+	terminal.HeadSHA, terminal.MergeSHA = newReplacementHead, newMerge
+	chain, terminalOK, err = resolve()
+	if err != nil || !terminalOK || chain[0].SourceHeadSHA != newSourceHead {
+		t.Fatalf("changed-head chain=%+v terminal=%t err=%v", chain, terminalOK, err)
+	}
+	proof.ObservedHeadSHA, proof.Supersession = newSourceHead, chain
+	gate.Companions[0] = proof
+	if !validate() {
+		t.Fatal("fresh validated replacement for changed predecessor head was rejected")
 	}
 	foreign := *terminal
 	foreign.Repository.NativeID = "foreign"

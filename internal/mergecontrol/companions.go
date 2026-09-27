@@ -2,6 +2,7 @@ package mergecontrol
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -118,8 +119,26 @@ func validateCompanionsTx(ctx context.Context, tx pgx.Tx, org string, gate Gate)
 		if err != nil || !matched {
 			return false, err
 		}
+		if err := persistCompanionSupersessionTx(ctx, tx, org, gate.RepositoryID, proof); err != nil {
+			return false, err
+		}
 	}
 	return true, nil
+}
+
+func persistCompanionSupersessionTx(ctx context.Context, tx pgx.Tx, org, repo string, proof Companion) error {
+	if proof.State != "superseded" || proof.TaskID == "" || proof.FindingID == "" || len(proof.Supersession) == 0 || len(proof.Supersession) > 16 {
+		return auth.ErrConflict
+	}
+	raw, err := json.Marshal(proof.Supersession)
+	if err != nil {
+		return err
+	}
+	result, err := tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false,supersession=$5::jsonb WHERE org_id=$1 AND repository_id=$2 AND task_id=$3 AND finding_id=$4`, org, repo, proof.TaskID, proof.FindingID, raw)
+	if err == nil && result.RowsAffected() != 1 {
+		err = auth.ErrConflict
+	}
+	return err
 }
 
 func companionsCurrent(current, proofs []Companion) bool {

@@ -33,6 +33,15 @@ func (s *Service) RefreshFix(ctx context.Context, session auth.Session, org, tas
 	if err != nil {
 		return false, err
 	}
+	var superseded bool
+	if err = s.db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT supersession IS NOT NULL FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, org, taskID).Scan(&superseded)
+	}); err != nil {
+		return false, err
+	}
+	if superseded {
+		return true, nil
+	}
 	change := r.Change
 	if err = s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if !manage(a, t.RepositoryID) {

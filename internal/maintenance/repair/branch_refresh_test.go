@@ -139,7 +139,10 @@ func TestRefreshFixRequiresOwnedIdleStaleBranch(t *testing.T) {
 		}
 		contextBody, _ := json.Marshal(ExecutionContext{ConnectionID: connection, ConnectionVersion: 1, Repository: change.Repository})
 		changeBody, _ := json.Marshal(change)
-		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,branch,candidate_sha,native_change,candidate_artifacts) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10,'[]')`, org, taskID, repo, findingID, session.User.ID, strings.Repeat("2", 64), contextBody, branch, change.HeadSHA, changeBody)
+		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,branch,candidate_sha,native_change,candidate_artifacts) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10,'[]')`, org, taskID, repo, findingID, session.User.ID, strings.Repeat("2", 64), contextBody, branch, change.HeadSHA, changeBody); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest,active) VALUES($1,$2,$3,$4,$5,true)`, org, findingID, repo, taskID, strings.Repeat("2", 64))
 		return err
 	}); err != nil {
 		t.Fatal(err)
@@ -156,6 +159,20 @@ func TestRefreshFixRequiresOwnedIdleStaleBranch(t *testing.T) {
 	}
 	connector.behind = 0
 	assert("current branch", false, 3, 0)
+	connector.reads = 0
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false,supersession='[{"task_id":"replacement"}]' WHERE org_id=$1 AND task_id=$2`, org, taskID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	assert("superseded repair stops refresh and merge flow", true, 0, 0)
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE maintenance_repairs SET active=true,supersession=NULL WHERE org_id=$1 AND task_id=$2`, org, taskID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	connector.reads = 0
 	connector.change.MergeStatus = "dirty"
 	if waiting, conflictErr := service.RefreshFix(ctx, session, org, taskID); waiting || conflictErr != ErrBranchConflict || connector.reads != 1 || connector.writes != 0 {

@@ -85,6 +85,20 @@ func TestBlockedMergeOperationAllowsFreshCandidateOnly(t *testing.T) {
 		t.Fatalf("candidate %+v, error %v; want blocked pre-dispatch operation retried", got, err)
 	}
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest,active,supersession) VALUES($1,$2,$3,$4,$5,false,'{}')`, org, findings[0], repos[0], tasks[0], strings.Repeat("d", 64)); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got, err = selectCandidate(); err != pgx.ErrNoRows {
+		t.Fatalf("superseded published repair was selected: %+v, error %v", got, err)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_repairs SET supersession=NULL WHERE org_id=$1 AND task_id=$2`, org, tasks[0]); err != nil {
+			return err
+		}
 		_, err := tx.Exec(ctx, `UPDATE merge_operations SET state='requested' WHERE org_id=$1 AND change_id=$2`, org, changes[0])
 		return err
 	}); err != nil {
