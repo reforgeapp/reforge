@@ -368,6 +368,13 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		var proof forge.CommitProof
 		proof, err = reader.ReadCommitProof(ctx, op.Commit.Repository, op.Commit.CommitSHA)
 		result.Commit = &proof
+	case ForgeRefreshBranch:
+		provider = BindForgeOperation(provider, op)
+		refresher, ok := provider.(forge.ForgeBranchRefresher)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		err = refresher.RefreshAppBranch(ctx, *op.Refresh)
 	case ForgeUpdateBranch:
 		provider = BindForgeOperation(provider, op)
 		result.SHA, err = provider.UpdateAppBranch(ctx, *op.Branch)

@@ -24,6 +24,11 @@ func (p *Provider) WithBranchAuthorizer(fn func(context.Context, forge.UpdateBra
 	q.authorizeBranch = fn
 	return &q
 }
+func (p *Provider) WithBranchRefreshAuthorizer(fn func(context.Context, forge.RefreshBranchRequest) error) *Provider {
+	q := *p
+	q.authorizeRefreshBranch = fn
+	return &q
+}
 func (p *Provider) WithChangeAuthorizer(fn func(context.Context, forge.CreateChangeRequest) error) *Provider {
 	q := *p
 	q.authorizeChange = fn

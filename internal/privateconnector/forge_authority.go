@@ -29,6 +29,15 @@ func BindForgeOperation(provider forge.Provider, operation Operation) forge.Prov
 		}
 		return nil
 	}
+	refresh := func(ctx context.Context, in forge.RefreshBranchRequest) error {
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
+		if operation.Kind != ForgeRefreshBranch || operation.Refresh == nil || !same(in, *operation.Refresh) {
+			return auth.ErrForbidden
+		}
+		return nil
+	}
 	change := func(ctx context.Context, in forge.CreateChangeRequest) error {
 		if ctx.Err() != nil {
 			return ctx.Err()
@@ -67,11 +76,11 @@ func BindForgeOperation(provider forge.Provider, operation Operation) forge.Prov
 	}
 	switch p := provider.(type) {
 	case *gitea.Provider:
-		return p.WithBranchAuthorizer(branch)
+		return p.WithBranchRefreshAuthorizer(refresh).WithBranchAuthorizer(branch)
 	case *github.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithDeliveryGuard(delivery)
+		return p.WithBranchRefreshAuthorizer(refresh).WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithDeliveryGuard(delivery)
 	case *gitlab.Provider:
-		return p.WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithTrainGateAuthorizer(train).WithDeliveryGuard(delivery)
+		return p.WithBranchRefreshAuthorizer(refresh).WithBranchAuthorizer(branch).WithChangeAuthorizer(change).WithMergeGuard(merge).WithTrainGateAuthorizer(train).WithDeliveryGuard(delivery)
 	}
 	return provider
 }

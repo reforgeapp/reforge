@@ -54,6 +54,7 @@ const (
 	ForgeReadExecutionCheck  Kind = "forge.read_execution_check"
 	ForgeWriteExecutionCheck Kind = "forge.write_execution_check"
 	ForgeCommitProof         Kind = "forge.commit_proof"
+	ForgeRefreshBranch       Kind = "forge.refresh_branch"
 	ForgeUpdateBranch        Kind = "forge.update_branch"
 	ForgeCreateChange        Kind = "forge.create_change"
 	ForgeFindChange          Kind = "forge.find_change"
@@ -151,6 +152,7 @@ type Operation struct {
 	Comment        *forge.CommentChangeRequest  `json:"comment,omitempty"`
 	Merge          *forge.MergeRequest          `json:"merge,omitempty"`
 	Commit         *ChecksArgs                  `json:"commit,omitempty"`
+	Refresh        *forge.RefreshBranchRequest  `json:"refresh,omitempty"`
 	Branch         *forge.UpdateBranchRequest   `json:"branch,omitempty"`
 	Create         *forge.CreateChangeRequest   `json:"create,omitempty"`
 	Find           *FindChangeArgs              `json:"find,omitempty"`
@@ -177,7 +179,7 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Comment != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Compare != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Comment != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Refresh != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Compare != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
@@ -214,6 +216,8 @@ func (o Operation) validate() error {
 		valid = o.Change != nil && o.Change.ChangeID != "" && len(o.Change.ChangeID) <= 32 && o.Change.Repository.NativeID != ""
 	case ForgeCommitProof:
 		valid = o.Commit != nil && len(o.Commit.CommitSHA) == 40 && o.Commit.Repository.NativeID != ""
+	case ForgeRefreshBranch:
+		valid = o.Refresh != nil && o.Refresh.Valid() && o.Refresh.OperationID == o.ID
 	case ForgeUpdateBranch:
 		valid = o.Branch != nil && o.Branch.OperationID == o.ID && strings.HasPrefix(o.Branch.Branch, "reforge/") && len(o.Branch.Edits) > 0 && len(o.Branch.Edits) <= 20 && len(o.Branch.BaseSHA) == 40
 	case ForgeCreateChange:
@@ -430,5 +434,5 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 }
 
 func (o Operation) Mutation() bool {
-	return o.Kind == ForgePipelineCancel || o.Kind == ForgePipelineTrigger || o.Kind == ForgePipelineRecover || o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeCloseChange || o.Kind == ForgeCommentChange || o.Kind == ForgeWriteExecutionCheck
+	return o.Kind == ForgePipelineCancel || o.Kind == ForgePipelineTrigger || o.Kind == ForgePipelineRecover || o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeRefreshBranch || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeCloseChange || o.Kind == ForgeCommentChange || o.Kind == ForgeWriteExecutionCheck
 }

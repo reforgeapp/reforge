@@ -25,11 +25,12 @@ const maxBody = 4 << 20
 const maxPages = 20
 
 type Provider struct {
-	cfg             forge.Config
-	base            string
-	inspector       *Provider
-	authorizeBranch func(context.Context, forge.UpdateBranchRequest) error
-	publishers      map[string]string
+	cfg                    forge.Config
+	base                   string
+	inspector              *Provider
+	authorizeBranch        func(context.Context, forge.UpdateBranchRequest) error
+	authorizeRefreshBranch func(context.Context, forge.RefreshBranchRequest) error
+	publishers             map[string]string
 }
 
 var _ forge.Provider = (*Provider)(nil)
@@ -49,6 +50,11 @@ func New(cfg forge.Config) (*Provider, error) {
 		base += "/api/v1"
 	}
 	return &Provider{cfg: cfg, base: base, publishers: map[string]string{}}, nil
+}
+func (p *Provider) WithBranchRefreshAuthorizer(f func(context.Context, forge.RefreshBranchRequest) error) *Provider {
+	q := *p
+	q.authorizeRefreshBranch = f
+	return &q
 }
 func (p *Provider) WithBranchAuthorizer(f func(context.Context, forge.UpdateBranchRequest) error) *Provider {
 	q := *p

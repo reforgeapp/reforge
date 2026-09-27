@@ -630,6 +630,11 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	if slices.Contains(resolved.Policy.Deny, policy.Merge) {
 		return later("Mode does not allow merging", 10*time.Minute)
 	}
+	if waiting, err := s.repairs.RefreshFix(ctx, session, org, task); err != nil {
+		return later("Branch refresh: "+err.Error(), 5*time.Minute)
+	} else if waiting {
+		return later("Waiting for repair branch refresh and fresh CI", 2*time.Minute)
+	}
 	if reason, err := s.repairs.CISuperset(ctx, org, task); err != nil || reason != "" {
 		if err != nil {
 			reason = err.Error()

@@ -28,16 +28,17 @@ const (
 )
 
 type Provider struct {
-	deliveryGuard   forge.DeliveryGuard
-	authorizeTrain  func(context.Context, forge.TrainGateRequest) error
-	inspector       *Provider
-	config          forge.Config
-	base            *url.URL
-	authorizeBranch func(context.Context, forge.UpdateBranchRequest) error
-	authorizeChange func(context.Context, forge.CreateChangeRequest) error
-	authorizeReview func(context.Context, forge.RepoRef, string, []string) error
-	mergeGuard      MergeGuard
-	publishers      map[string]string
+	deliveryGuard          forge.DeliveryGuard
+	authorizeTrain         func(context.Context, forge.TrainGateRequest) error
+	inspector              *Provider
+	config                 forge.Config
+	base                   *url.URL
+	authorizeBranch        func(context.Context, forge.UpdateBranchRequest) error
+	authorizeRefreshBranch func(context.Context, forge.RefreshBranchRequest) error
+	authorizeChange        func(context.Context, forge.CreateChangeRequest) error
+	authorizeReview        func(context.Context, forge.RepoRef, string, []string) error
+	mergeGuard             MergeGuard
+	publishers             map[string]string
 }
 
 func New(config forge.Config) (*Provider, error) {

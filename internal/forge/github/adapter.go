@@ -31,17 +31,18 @@ const (
 )
 
 type Provider struct {
-	deliveryGuard   forge.DeliveryGuard
-	config          forge.Config
-	base            *url.URL
-	app             *installationAuth
-	graphURL        *url.URL
-	graphClient     forge.HTTPClient
-	authorizeBranch func(context.Context, forge.UpdateBranchRequest) error
-	authorizeChange func(context.Context, forge.CreateChangeRequest) error
-	mergeGuard      MergeGuard
-	authorizeReview func(context.Context, forge.RepoRef, string, []string) error
-	user            *tokenUser
+	deliveryGuard          forge.DeliveryGuard
+	config                 forge.Config
+	base                   *url.URL
+	app                    *installationAuth
+	graphURL               *url.URL
+	graphClient            forge.HTTPClient
+	authorizeBranch        func(context.Context, forge.UpdateBranchRequest) error
+	authorizeRefreshBranch func(context.Context, forge.RefreshBranchRequest) error
+	authorizeChange        func(context.Context, forge.CreateChangeRequest) error
+	mergeGuard             MergeGuard
+	authorizeReview        func(context.Context, forge.RepoRef, string, []string) error
+	user                   *tokenUser
 }
 
 func New(config forge.Config) (*Provider, error) {
