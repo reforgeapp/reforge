@@ -161,12 +161,44 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 		t.Fatalf("task recipe edit accepted: %v", err)
 	}
 	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE workflow_jobs SET fence=fence+1 WHERE org_id=$1 AND id=$2`, org, assignment.Lease.JobID)
+		_, err := tx.Exec(ctx, `UPDATE workflow_tasks SET recipe='javascript' WHERE org_id=$1 AND id=$2`, org, task.ID)
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
-	if err = service.SaveCheckpoint(ctx, assignment.Credential.Token, checkpoint); !errors.Is(err, workflow.ErrFence) {
+	if _, err = runners.Complete(ctx, assignment.Credential.Token, workflow.Completion{Outcome: "failed", Retryable: true}); err != nil {
+		t.Fatalf("schedule same-task retry: %v", err)
+	}
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE workflow_jobs SET available_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, org, assignment.Lease.JobID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	retried, err := runners.Claim(ctx, supervisor.Token)
+	if err != nil || retried.Task.ID != task.ID || retried.Lease.AttemptID == assignment.Lease.AttemptID {
+		t.Fatalf("same task did not receive a fresh attempt: task=%s err=%v", retried.Task.ID, err)
+	}
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		var err error
+		stored, err = loadRun(ctx, tx, org, task.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if stored.Checkpoint == nil || stored.Checkpoint.Turns != checkpoint.Turns || stored.Checkpoint.Recent != checkpoint.Recent || len(stored.Checkpoint.Patches) != 1 || string(stored.Checkpoint.Patches[0].Content) != string(checkpoint.Patches[0].Content) {
+		t.Fatal("retry discarded staged repair progress")
+	}
+	if err = service.SaveCheckpoint(ctx, assignment.Credential.Token, checkpoint); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Fatalf("previous attempt credential accepted: %v", err)
+	}
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE workflow_jobs SET fence=fence+1 WHERE org_id=$1 AND id=$2`, org, retried.Lease.JobID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = service.SaveCheckpoint(ctx, retried.Credential.Token, checkpoint); !errors.Is(err, workflow.ErrFence) {
 		t.Fatalf("stale runner fence accepted: %v", err)
 	}
 }

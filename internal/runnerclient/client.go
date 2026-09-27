@@ -26,6 +26,7 @@ import (
 )
 
 var ErrControlPlane = errors.New("runner control plane unavailable or rejected request")
+var ErrTransientControlPlane = errors.New("runner control plane temporarily unavailable")
 var ErrUnauthorized = errors.New("runner credential rejected")
 var ErrSourceMoved = errors.New("native source or target moved")
 
@@ -271,7 +272,7 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 		if req.Context().Err() != nil {
 			return 0, req.Context().Err()
 		}
-		return 0, ErrControlPlane
+		return 0, errors.Join(ErrControlPlane, ErrTransientControlPlane)
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
@@ -281,6 +282,9 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 		}
 		decoded := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil
 		base := ErrControlPlane
+		if response.StatusCode == http.StatusInternalServerError || response.StatusCode == http.StatusBadGateway || response.StatusCode == http.StatusServiceUnavailable || response.StatusCode == http.StatusGatewayTimeout {
+			base = errors.Join(base, ErrTransientControlPlane)
+		}
 		if response.StatusCode == http.StatusUnauthorized {
 			base = fmt.Errorf("%w: %w", ErrControlPlane, ErrUnauthorized)
 		}

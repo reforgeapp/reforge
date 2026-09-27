@@ -47,6 +47,11 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		return runtime, err
 	}
 	process := func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
+		defer func() {
+			if completion.Outcome == "failed" && errors.Is(failure, ErrTransientControlPlane) {
+				completion.Retryable = true
+			}
+		}()
 		failed := workflow.Completion{Outcome: "failed"}
 		run, err := c.RepairRun(ctx, j)
 		if err != nil {
