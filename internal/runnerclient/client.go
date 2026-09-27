@@ -399,6 +399,17 @@ func (c *Client) ModelTurn(ctx context.Context, j Job, in model.Turn) (model.Tur
 	copyClient := *c.http
 	copyClient.Timeout = time.Duration(in.TimeoutMS)*time.Millisecond + 15*time.Second
 	scoped := Client{config: c.config, base: c.base, http: &copyClient}
-	_, err := scoped.call(ctx, "POST", "/runner/v1/model-turns", j.Token, in, &out)
-	return out, err
+	for attempt := 0; ; attempt++ {
+		status, err := scoped.call(ctx, "POST", "/runner/v1/model-turns", j.Token, in, &out)
+		if err == nil || attempt == 2 || ctx.Err() != nil || status != 0 && status != http.StatusInternalServerError && status != http.StatusBadGateway && status != http.StatusServiceUnavailable && status != http.StatusGatewayTimeout {
+			return out, err
+		}
+		timer := time.NewTimer(time.Second << attempt)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return out, ctx.Err()
+		case <-timer.C:
+		}
+	}
 }
