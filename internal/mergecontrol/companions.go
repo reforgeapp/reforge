@@ -13,7 +13,7 @@ import (
 )
 
 func companionsTx(ctx context.Context, tx pgx.Tx, org, repo, change string) ([]Companion, error) {
-	rows, err := tx.Query(ctx, `SELECT r.task_id::text,COALESCE(r.native_change->>'id',''),r.candidate_sha,r.state FROM repair_runs r JOIN workflow_tasks t ON t.org_id=r.org_id AND t.id=r.task_id WHERE r.org_id=$1 AND r.repository_id=$2 AND r.context#>>'{finding,evidence,change,id}'=$3 AND r.state<>'handoff' AND t.state NOT IN ('failed','cancelled') ORDER BY r.task_id LIMIT 101`, org, repo, change)
+	rows, err := tx.Query(ctx, `SELECT r.task_id::text,COALESCE(r.native_change->>'id',''),r.candidate_sha,r.state FROM repair_runs r JOIN workflow_tasks t ON t.org_id=r.org_id AND t.id=r.task_id WHERE r.org_id=$1 AND r.repository_id=$2 AND r.context#>>'{finding,evidence,change,id}'=$3 AND r.state<>'handoff' AND NOT (r.state='published' AND COALESCE(r.native_change->>'id','')=$3) AND t.state NOT IN ('failed','cancelled') ORDER BY r.task_id LIMIT 101`, org, repo, change)
 	if err != nil {
 		return nil, err
 	}
