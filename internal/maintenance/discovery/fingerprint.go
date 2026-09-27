@@ -24,6 +24,8 @@ func canonical(in Observation) Observation {
 	sort.Strings(in.Evidence.Blockers)
 	in.Evidence.MergeBlockers = append([]string{}, in.Evidence.MergeBlockers...)
 	sort.Strings(in.Evidence.MergeBlockers)
+	in.Evidence.TrackedFiles = append([]forge.SourceEntry{}, in.Evidence.TrackedFiles...)
+	sort.Slice(in.Evidence.TrackedFiles, func(i, j int) bool { return in.Evidence.TrackedFiles[i].Path < in.Evidence.TrackedFiles[j].Path })
 	return in
 }
 func Fingerprint(org string, in Observation) string {

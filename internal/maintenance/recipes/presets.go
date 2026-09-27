@@ -13,7 +13,7 @@ import (
 const (
 	CurrentVersion = "v3"
 	inputMaxFiles  = 4096
-	inputMaxBytes  = 32 << 20
+	inputMaxBytes  = 64 << 20
 	presetMaxFiles = 20
 	presetMaxPatch = 64 << 10
 	presetMaxTurns = 16

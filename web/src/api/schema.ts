@@ -3500,6 +3500,14 @@ export interface components {
             blockers: string[];
             advisory_id?: string;
             reference_url?: string;
+            tracked_files?: {
+                path: string;
+                sha: string;
+                mode: string;
+                type: string;
+
+                size?: number;
+            }[];
         };
         Finding: {
 

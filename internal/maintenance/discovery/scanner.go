@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"path"
 	"reforge/internal/heartbeat"
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/auth"
@@ -233,20 +235,41 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 	return ""
 }
 
+func largeFileObservations(entries []forge.SourceEntry, repositoryID string, initial Evidence) []Observation {
+	out := []Observation{}
+	for _, entry := range entries {
+		if entry.Type != "blob" || entry.Size < 10<<20 {
+			continue
+		}
+		e := initial
+		e.TrackedFiles = []forge.SourceEntry{entry}
+		title := fmt.Sprintf("Review tracked %.1f MiB file %s", float64(entry.Size)/(1<<20), entry.Path)
+		if len(title) > 512 {
+			end := 512
+			for !utf8.RuneStart(title[end]) {
+				end--
+			}
+			title = title[:end]
+		}
+		out = append(out, Observation{RepositoryID: repositoryID, Source: "repository", SourceID: "tracked-large-file:" + digest(entry.Path), Category: "repository_maintenance", Severity: "low", Title: title, Evidence: e})
+	}
+	return out
+}
+
 func BotUpdateJob(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
 	return name == "dependabot" || name == "renovate" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
 }
-func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, error) {
+func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, []forge.SourceEntry, error) {
 	m, err := reader.Manifest(ctx, repo, commit)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if m.Repository != repo || m.CommitSHA != commit {
-		return nil, ErrStale
+		return nil, nil, ErrStale
 	}
 	if _, err = source.ValidateManifest(ctx, m); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	files := map[string][]byte{}
 	total := 0
@@ -259,19 +282,19 @@ func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef
 			continue
 		}
 		if len(files) >= 100 {
-			return nil, errors.New("manifest count exceeds discovery bound")
+			return nil, nil, errors.New("manifest count exceeds discovery bound")
 		}
 		content, err := reader.Blob(ctx, repo, entry, m.ObjectFormat, commit)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		if len(content) > 1<<20 || total+len(content) > 4<<20 {
-			return nil, ErrStale
+			return nil, nil, ErrStale
 		}
 		total += len(content)
 		files[entry.Path] = content
 	}
-	return files, nil
+	return files, m.Entries, nil
 }
 func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, error) {
 	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
@@ -290,7 +313,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		return nil, ErrStale
 	}
 	sourceReader := s.reader.SourceReader(lease.Org, lease.Connection, authorize)
-	base, err := manifestFiles(ctx, sourceReader, lease.Ref, resolved.SHA)
+	base, entries, err := manifestFiles(ctx, sourceReader, lease.Ref, resolved.SHA)
 	if err != nil {
 		return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 	}
@@ -332,6 +355,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	if title := botConfigGap(base, botConfig); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
 	}
+	out = append(out, largeFileObservations(entries, lease.Repo, initial)...)
 	checks, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: lease.Ref, CommitSHA: resolved.SHA}})
 	if err != nil {
 		return nil, err
@@ -386,12 +410,12 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		}
 		baseline := base
 		if change.TargetSHA != resolved.SHA {
-			baseline, err = manifestFiles(ctx, sourceReader, lease.Ref, change.TargetSHA)
+			baseline, _, err = manifestFiles(ctx, sourceReader, lease.Ref, change.TargetSHA)
 			if err != nil {
 				return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 			}
 		}
-		head, err := manifestFiles(ctx, sourceReader, change.HeadRepository, change.HeadSHA)
+		head, _, err := manifestFiles(ctx, sourceReader, change.HeadRepository, change.HeadSHA)
 		if err != nil {
 			return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 		}

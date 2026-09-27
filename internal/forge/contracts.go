@@ -67,6 +67,7 @@ type SourceEntry struct {
 	SHA  string `json:"sha"`
 	Mode string `json:"mode"`
 	Type string `json:"type"`
+	Size int64  `json:"size,omitempty"`
 }
 type SourceManifest struct {
 	Repository   RepoRef       `json:"repository"`

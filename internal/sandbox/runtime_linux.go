@@ -546,7 +546,7 @@ func SnapshotDigest(files []guest.File) (string, error) {
 	total := 0
 	for i, f := range copyFiles {
 		total += len(f.Content)
-		if f.Delete || !guest.ValidPath(f.Path) || len(f.Content) > 4<<20 || total > 64<<20 || i > 0 && copyFiles[i-1].Path == f.Path {
+		if f.Delete || !guest.ValidPath(f.Path) || len(f.Content) > 64<<20 || total > 64<<20 || i > 0 && copyFiles[i-1].Path == f.Path {
 			return "", ErrBoundary
 		}
 		fmt.Fprintf(h, "%s\x00%t\x00%d\x00", f.Path, f.Executable, len(f.Content))

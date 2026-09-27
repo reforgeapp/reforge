@@ -22,12 +22,13 @@ import (
 )
 
 const (
-	defaultPageSize  = 50
-	maxPageSize      = 100
-	maxPages         = 1000
-	maxResponseBytes = 4 << 20
-	maxProviderRetry = 24 * time.Hour
-	apiVersion       = "2022-11-28"
+	defaultPageSize      = 50
+	maxPageSize          = 100
+	maxPages             = 1000
+	maxResponseBytes     = 4 << 20
+	maxBlobResponseBytes = 90 << 20
+	maxProviderRetry     = 24 * time.Hour
+	apiVersion           = "2022-11-28"
 )
 
 type Provider struct {
@@ -227,8 +228,31 @@ func (p *Provider) ReadFileAtRef(ctx context.Context, reference forge.RepoRef, f
 	if err := decode(body, &raw); err != nil {
 		return forge.File{}, err
 	}
-	if raw.Type != "file" || raw.Encoding != "base64" {
+	if raw.Type != "file" {
 		return forge.File{}, &domain.ProviderError{Kind: "unsupported", Message: "github content response is not a file"}
+	}
+	if raw.Encoding == "none" && raw.SHA != "" && raw.Size <= 64<<20 {
+		repositorySegments := segments[:len(segments)-len(fileSegments)-1]
+		status, headers, body, err = p.requestWithLimit(ctx, http.MethodGet, append(repositorySegments, "git", "blobs", raw.SHA), nil, nil, maxBlobResponseBytes, 3*time.Minute)
+		if err != nil {
+			return forge.File{}, err
+		}
+		if status < 200 || status >= 300 {
+			return forge.File{}, responseError(status, headers)
+		}
+		var blob struct {
+			SHA      string `json:"sha"`
+			Size     int64  `json:"size"`
+			Content  string `json:"content"`
+			Encoding string `json:"encoding"`
+		}
+		if decode(body, &blob) != nil || blob.SHA != raw.SHA || blob.Size != raw.Size || blob.Encoding != "base64" {
+			return forge.File{}, &domain.ProviderError{Kind: "provider", Message: "github returned invalid blob content"}
+		}
+		raw.Content, raw.Encoding = blob.Content, blob.Encoding
+	}
+	if raw.Encoding != "base64" {
+		return forge.File{}, &domain.ProviderError{Kind: "unsupported", Message: "github file encoding is unsupported"}
 	}
 	encoded := strings.Join(strings.Fields(raw.Content), "")
 	content, err := base64.StdEncoding.DecodeString(encoded)
@@ -617,6 +641,9 @@ type requestBody struct {
 }
 
 func (p *Provider) request(ctx context.Context, method string, segments []string, query url.Values, body *requestBody) (int, http.Header, []byte, error) {
+	return p.requestWithLimit(ctx, method, segments, query, body, maxResponseBytes, 15*time.Second)
+}
+func (p *Provider) requestWithLimit(ctx context.Context, method string, segments []string, query url.Values, body *requestBody, limit int64, timeout time.Duration) (int, http.Header, []byte, error) {
 	credential := p.config.Token
 	if p.app != nil {
 		var err error
@@ -625,14 +652,17 @@ func (p *Provider) request(ctx context.Context, method string, segments []string
 			return 0, nil, nil, err
 		}
 	}
-	status, headers, raw, err := p.requestToken(ctx, method, segments, query, body, credential)
+	status, headers, raw, err := p.requestTokenLimit(ctx, method, segments, query, body, credential, limit, timeout)
 	if status == 401 {
 		p.invalidateToken(credential)
 	}
 	return status, headers, raw, err
 }
 func (p *Provider) requestToken(ctx context.Context, method string, segments []string, query url.Values, body *requestBody, credential string) (int, http.Header, []byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	return p.requestTokenLimit(ctx, method, segments, query, body, credential, maxResponseBytes, 15*time.Second)
+}
+func (p *Provider) requestTokenLimit(ctx context.Context, method string, segments []string, query url.Values, body *requestBody, credential string, limit int64, timeout time.Duration) (int, http.Header, []byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	target := p.baseURL(segments)
 	if query != nil {
@@ -673,12 +703,12 @@ func (p *Provider) requestToken(ctx context.Context, method string, segments []s
 	if method != "GET" && method != "HEAD" && (response.StatusCode >= 500 || response.StatusCode == http.StatusRequestTimeout) {
 		return response.StatusCode, response.Header, nil, transportFailure(method, "GitHub mutation outcome is unknown")
 	}
-	limited := io.LimitReader(response.Body, maxResponseBytes+1)
+	limited := io.LimitReader(response.Body, limit+1)
 	responseBody, readErr := io.ReadAll(limited)
 	if readErr != nil {
 		return response.StatusCode, response.Header, nil, transportFailure(method, "github response could not be read")
 	}
-	if len(responseBody) > maxResponseBytes {
+	if int64(len(responseBody)) > limit {
 		return response.StatusCode, response.Header, nil, transportFailure(method, "github response exceeded the safety limit")
 	}
 	return response.StatusCode, response.Header, responseBody, nil
@@ -1078,6 +1108,7 @@ type githubContent struct {
 	SHA      string `json:"sha"`
 	Content  string `json:"content"`
 	Encoding string `json:"encoding"`
+	Size     int64  `json:"size"`
 }
 
 type githubCheckRuns struct {
