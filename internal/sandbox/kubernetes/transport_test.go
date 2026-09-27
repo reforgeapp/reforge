@@ -61,7 +61,7 @@ func validTestSpec() PodSpec {
 		Ref:    PodRef{Namespace: "reforge", Name: "rf-ws-0123456789abcdef01234567"},
 		Labels: map[string]string{"reforge.io/workspace": "rf-ws-0123456789abcdef01234567"},
 		Image:  "ghcr.io/reforge/workspace-go@sha256:" + strings.Repeat("a", 64), RuntimeClassName: "gvisor",
-		ContainerName: "workspace", WorkingDirectory: "/workspace", Environment: []string{"HOME=/tmp"},
+		ContainerName: "workspace", WorkingDirectory: "/workspace", Environment: []string{"HOME=/tmp"}, ImagePullSecrets: []string{"registry-creds", "shared.pull-auth"},
 		RunAsUser: 65532, RunAsNonRoot: true, RunAsGroup: 65532, FSGroup: 65532, ReadOnlyRootFilesystem: true,
 		DropCapabilities: []string{"ALL"}, SeccompProfile: "RuntimeDefault", WorkspaceEmptyDirBytes: 1 << 30, TempEmptyDirBytes: 1 << 30,
 		Resources: Resources{MemoryBytes: 512 << 20, CPUs: 2, DiskBytes: 1 << 30, PidsLimit: 128}, ActiveDeadlineSeconds: 60, RestartPolicy: "Never", NetworkProfile: "none",
@@ -132,6 +132,10 @@ func TestHTTPPodClientCRUDAuthRotationAndRestrictedPod(t *testing.T) {
 	security := container["securityContext"].(map[string]any)
 	if spec["runtimeClassName"] != "gvisor" || spec["automountServiceAccountToken"] != false || spec["hostNetwork"] != nil || spec["hostPID"] != nil || spec["hostIPC"] != nil || security["runAsUser"] != float64(65532) || security["readOnlyRootFilesystem"] != true {
 		t.Fatalf("pod security fields wrong: %#v", createBody)
+	}
+	imagePullSecrets := spec["imagePullSecrets"].([]any)
+	if len(imagePullSecrets) != 2 || imagePullSecrets[0].(map[string]any)["name"] != "registry-creds" || imagePullSecrets[1].(map[string]any)["name"] != "shared.pull-auth" {
+		t.Fatalf("image pull secret references missing or changed: %#v", spec["imagePullSecrets"])
 	}
 	volumes := spec["volumes"].([]any)
 	if len(volumes) != 2 || strings.Contains(string(mustJSON(createBody)), "hostPath") || strings.Contains(string(mustJSON(createBody)), "pids") {

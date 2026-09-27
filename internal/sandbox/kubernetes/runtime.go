@@ -22,6 +22,7 @@ var ErrBoundary = errors.New("Kubernetes workspace violates execution boundary")
 
 var labelValue = regexp.MustCompile(`^[A-Za-z0-9](?:[A-Za-z0-9_.-]{0,61}[A-Za-z0-9])?$`)
 var namespaceValue = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$`)
+var secretNameValue = regexp.MustCompile(`^[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?)*$`)
 var shaValue = regexp.MustCompile(`^(?:[0-9a-f]{40}|[0-9a-f]{64})$`)
 var imageDigest = regexp.MustCompile(`^[a-z0-9][a-z0-9.-]*(?::[0-9]+)?/[a-z0-9][a-z0-9._/-]*@sha256:[0-9a-f]{64}$`)
 
@@ -56,6 +57,7 @@ type PodSpec struct {
 	Labels                       map[string]string
 	Image                        string
 	RuntimeClassName             string
+	ImagePullSecrets             []string
 	ContainerName                string
 	WorkingDirectory             string
 	Environment                  []string
@@ -107,6 +109,7 @@ type Config struct {
 	Namespace        string
 	RunnerID         string
 	RuntimeClassName string
+	ImagePullSecrets []string
 	Images           map[string]string
 	MemoryBytes      int64
 	DiskBytes        int64
@@ -147,6 +150,7 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 		images[digest] = image
 	}
 	cfg.Images = images
+	cfg.ImagePullSecrets = append([]string(nil), cfg.ImagePullSecrets...)
 	if cfg.ReadyTimeout < 0 || cfg.ReadyTimeout > 5*time.Minute || cfg.PollInterval < 0 || cfg.PollInterval > time.Minute {
 		return nil, ErrBoundary
 	}
@@ -166,7 +170,7 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 }
 
 func ValidateConfig(cfg Config) error {
-	if !namespaceValue.MatchString(cfg.Namespace) || len(cfg.Images) == 0 {
+	if !namespaceValue.MatchString(cfg.Namespace) || len(cfg.Images) == 0 || !validPullSecrets(cfg.ImagePullSecrets) {
 		return ErrBoundary
 	}
 	if cfg.RuntimeClassName != "" && !labelValue.MatchString(cfg.RuntimeClassName) {
@@ -254,6 +258,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		Labels:           labels,
 		Image:            image,
 		RuntimeClassName: r.config.RuntimeClassName,
+		ImagePullSecrets: append([]string(nil), r.config.ImagePullSecrets...),
 		ContainerName:    "workspace",
 		WorkingDirectory: "/workspace",
 		Environment: []string{
@@ -662,7 +667,7 @@ func (r *Runtime) endEgress(ctx context.Context, state *workspaceState) error {
 }
 
 func validPodSpec(spec PodSpec) error {
-	if !namespaceValue.MatchString(spec.Ref.Namespace) || len(spec.Ref.Name) > 63 || !strings.HasPrefix(spec.Ref.Name, "rf-ws-") || !validImageRef(spec.Image) || spec.RunAsUser != 65532 || !spec.RunAsNonRoot || spec.RunAsGroup != 65532 || spec.FSGroup != 65532 || spec.AllowPrivilegeEscalation || !spec.ReadOnlyRootFilesystem || !slicesEqual(spec.DropCapabilities, []string{"ALL"}) || spec.SeccompProfile != "RuntimeDefault" || spec.AutomountServiceAccountToken || spec.HostNetwork || spec.HostPID || spec.HostIPC || len(spec.HostPaths) != 0 || spec.WorkspaceEmptyDirBytes <= 0 || spec.TempEmptyDirBytes <= 0 || spec.ActiveDeadlineSeconds <= 0 || spec.RestartPolicy != "Never" || spec.NetworkProfile != "none" || spec.Resources.MemoryBytes <= 0 || spec.Resources.CPUs <= 0 || spec.Resources.DiskBytes <= 0 {
+	if !namespaceValue.MatchString(spec.Ref.Namespace) || len(spec.Ref.Name) > 63 || !strings.HasPrefix(spec.Ref.Name, "rf-ws-") || !validImageRef(spec.Image) || !validPullSecrets(spec.ImagePullSecrets) || spec.RunAsUser != 65532 || !spec.RunAsNonRoot || spec.RunAsGroup != 65532 || spec.FSGroup != 65532 || spec.AllowPrivilegeEscalation || !spec.ReadOnlyRootFilesystem || !slicesEqual(spec.DropCapabilities, []string{"ALL"}) || spec.SeccompProfile != "RuntimeDefault" || spec.AutomountServiceAccountToken || spec.HostNetwork || spec.HostPID || spec.HostIPC || len(spec.HostPaths) != 0 || spec.WorkspaceEmptyDirBytes <= 0 || spec.TempEmptyDirBytes <= 0 || spec.ActiveDeadlineSeconds <= 0 || spec.RestartPolicy != "Never" || spec.NetworkProfile != "none" || spec.Resources.MemoryBytes <= 0 || spec.Resources.CPUs <= 0 || spec.Resources.DiskBytes <= 0 {
 		return ErrBoundary
 	}
 	for _, value := range spec.Labels {
@@ -750,4 +755,18 @@ func cleanDirectory(directory string) (string, error) {
 		return "", ErrBoundary
 	}
 	return directory, nil
+}
+
+func validPullSecrets(names []string) bool {
+	if len(names) > 16 {
+		return false
+	}
+	seen := make(map[string]bool, len(names))
+	for _, name := range names {
+		if len(name) > 253 || !secretNameValue.MatchString(name) || seen[name] {
+			return false
+		}
+		seen[name] = true
+	}
+	return true
 }

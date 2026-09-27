@@ -37,6 +37,7 @@ type KubernetesRuntimeConfig struct {
 	Namespace              string            `json:"namespace"`
 	RunnerID               string            `json:"-"`
 	RuntimeClassName       string            `json:"runtime_class_name,omitempty"`
+	ImagePullSecrets       []string          `json:"image_pull_secrets,omitempty"`
 	Images                 map[string]string `json:"images"`
 	Toolchains             map[string]string `json:"toolchains"`
 	BrokerListenAddress    string            `json:"broker_listen_address,omitempty"`

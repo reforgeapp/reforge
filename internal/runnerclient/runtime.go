@@ -42,7 +42,7 @@ func ValidateRuntimeConfig(cfg sandbox.RuntimeConfig) error {
 			return err
 		}
 		return kubernetes.ValidateConfig(kubernetes.Config{
-			Namespace: kube.Namespace, RuntimeClassName: kube.RuntimeClassName, Images: kube.Images,
+			Namespace: kube.Namespace, RuntimeClassName: kube.RuntimeClassName, ImagePullSecrets: kube.ImagePullSecrets, Images: kube.Images,
 			MemoryBytes: cfg.MemoryBytes, DiskBytes: cfg.DiskBytes, CPUs: cfg.CPUs, MaxProcesses: cfg.MaxProcesses,
 		})
 	default:
@@ -82,7 +82,7 @@ func NewSandboxRuntime(cfg sandbox.RuntimeConfig, fetch func(context.Context, sa
 			return nil, err
 		}
 		runtime, err := kubernetes.NewRuntime(kubernetes.Config{
-			Namespace: kubeConfig.Namespace, RunnerID: kubeConfig.RunnerID, RuntimeClassName: kubeConfig.RuntimeClassName, Images: kubeConfig.Images,
+			Namespace: kubeConfig.Namespace, RunnerID: kubeConfig.RunnerID, RuntimeClassName: kubeConfig.RuntimeClassName, ImagePullSecrets: kubeConfig.ImagePullSecrets, Images: kubeConfig.Images,
 			MemoryBytes: cfg.MemoryBytes, DiskBytes: cfg.DiskBytes, CPUs: cfg.CPUs, MaxProcesses: cfg.MaxProcesses,
 			Fetch: fetch, Client: client, Bootstrapper: bootstrapper,
 		})

@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -448,5 +449,25 @@ func TestRuntimeRemoteExecErrorDeletesPodAndRevokesEgress(t *testing.T) {
 	}
 	if _, err = runtime.state(workspace); !errors.Is(err, ErrBoundary) {
 		t.Fatalf("workspace remained usable after uncertain exec: %v", err)
+	}
+}
+
+func TestValidateConfigBoundsImagePullSecretNames(t *testing.T) {
+	base := Config{Namespace: "reforge", Images: map[string]string{"sha256:" + strings.Repeat("a", 64): "ghcr.io/reforge/workspace-go@sha256:" + strings.Repeat("a", 64)}, MemoryBytes: 512 << 20, DiskBytes: 128 << 20, CPUs: 2}
+	valid := base
+	valid.ImagePullSecrets = []string{"registry-creds", "shared.pull-auth"}
+	if err := ValidateConfig(valid); err != nil {
+		t.Fatalf("valid image pull secret names rejected: %v", err)
+	}
+	tooMany := make([]string, 17)
+	for i := range tooMany {
+		tooMany[i] = "registry-secret-" + strconv.Itoa(i)
+	}
+	for _, names := range [][]string{{"Registry-creds"}, {"bad..name"}, {"duplicate", "duplicate"}, tooMany} {
+		config := base
+		config.ImagePullSecrets = names
+		if err := ValidateConfig(config); err == nil {
+			t.Fatalf("invalid image pull secrets accepted: %#v", names)
+		}
 	}
 }

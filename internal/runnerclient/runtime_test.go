@@ -12,7 +12,7 @@ func TestValidateRuntimeConfigSelectsPinnedKubernetesImages(t *testing.T) {
 	config := sandbox.RuntimeConfig{
 		Backend: "kubernetes",
 		Kubernetes: &sandbox.KubernetesRuntimeConfig{
-			Namespace: "reforge", BrokerAdvertiseAddress: "127.0.0.1:8086",
+			Namespace: "reforge", BrokerAdvertiseAddress: "127.0.0.1:8086", ImagePullSecrets: []string{"registry-creds"},
 			Images:     map[string]string{image: "ghcr.io/reforge/workspace-go@" + image},
 			Toolchains: map[string]string{"go": image, "javascript": image, "python": image},
 		},

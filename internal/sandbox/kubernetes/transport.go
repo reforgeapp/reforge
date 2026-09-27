@@ -508,6 +508,13 @@ func makePodBody(spec PodSpec) map[string]any {
 		"containers":      []any{container},
 		"volumes":         []map[string]any{{"name": "workspace", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.WorkspaceEmptyDirBytes, 10)}}, {"name": "tmp", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.TempEmptyDirBytes, 10)}}},
 	}
+	if len(spec.ImagePullSecrets) > 0 {
+		secrets := make([]map[string]string, 0, len(spec.ImagePullSecrets))
+		for _, name := range spec.ImagePullSecrets {
+			secrets = append(secrets, map[string]string{"name": name})
+		}
+		podSpec["imagePullSecrets"] = secrets
+	}
 	if spec.RuntimeClassName != "" {
 		podSpec["runtimeClassName"] = spec.RuntimeClassName
 	}
