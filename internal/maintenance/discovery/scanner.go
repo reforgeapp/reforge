@@ -235,7 +235,7 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 
 func BotUpdateJob(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
-	return name == "dependabot" || name == "renovate" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
+	return name == "dependabot" || name == "renovate" || name == ".github/dependabot.yml" || name == ".github/dependabot.yaml" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
 }
 func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, error) {
 	m, err := reader.Manifest(ctx, repo, commit)

@@ -59,3 +59,14 @@ func TestRepairConflictRequiresSameRepoOpenReforgeBranchAndExplicitConflict(t *t
 		t.Fatalf("synthetic conflict check=%+v", check)
 	}
 }
+
+func TestBotUpdateJobIncludesDependabotConfigurationCheck(t *testing.T) {
+	for _, name := range []string{"Dependabot", "dependabot update", ".github/dependabot.yml", ".github/dependabot.yaml"} {
+		if !BotUpdateJob(name) {
+			t.Fatalf("%q not classified as bot update job", name)
+		}
+	}
+	if BotUpdateJob("Validate") {
+		t.Fatal("ordinary validation classified as bot update job")
+	}
+}
