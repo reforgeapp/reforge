@@ -2,6 +2,7 @@ package repair
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strings"
 	"testing"
@@ -381,6 +382,62 @@ func TestEngineOwnerChangesAnyFileWithinPolicy(t *testing.T) {
 	}
 	if CheckOwnerPatch(plan, files, report.Patches) != nil {
 		t.Fatal("owner patch rejected on report")
+	}
+}
+
+func TestOwnerCompactsOpaqueContinuationAndKeepsPatchChecks(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner, plan.Recipe.MaxTurns = true, 6
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, target: files, targetSHA: plan.TargetSHA}
+	continuation, err := json.Marshal([]string{strings.Repeat("x", 500<<10)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, Goal: "Repair source", Progress: func(context.Context, string) error { return nil }}
+	engine.Turn = func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+		turns++
+		withSkills, err := in.WithSkills()
+		if err != nil {
+			t.Fatalf("turn %d invalid after compaction: %v", turns, err)
+		}
+		raw, err := json.Marshal(withSkills)
+		if err != nil || len(raw) > ownerConversationBudget {
+			t.Fatalf("turn %d request size=%d error=%v", turns, len(raw), err)
+		}
+		if turns > 1 {
+			if len(in.Continuation) != 0 || len(in.Messages) != 1 || in.Messages[0].Role != "user" || in.Messages[0].ToolCallID != "" {
+				t.Fatalf("turn %d retained provider continuation or orphaned tool reply", turns)
+			}
+		}
+		result := model.TurnResult{Continuation: continuation}
+		switch turns {
+		case 1:
+			result.ToolCalls = []model.ToolCall{{ID: "edit", Name: "edit_file", Arguments: []byte(`{"path":"value.js","old":"a-b","new":"a+b"}`)}}
+		case 2:
+			if !strings.Contains(in.Messages[0].Text, "staged value.js") {
+				t.Fatal("compacted context lost staged file path")
+			}
+			result.ToolCalls = []model.ToolCall{{ID: "read", Name: "read_file", Arguments: []byte(`{"path":"value.js"}`)}}
+		case 3:
+			if !strings.Contains(in.Messages[0].Text, "exports.add = (a,b) => a+b") {
+				t.Fatal("compacted context lost recent staged file contents")
+			}
+			result.ToolCalls = []model.ToolCall{{ID: "checks", Name: "run_checks", Arguments: []byte(`{}`)}}
+		case 4:
+			if !strings.Contains(in.Messages[0].Text, "Last candidate checks") || !strings.Contains(in.Messages[0].Text, plan.Recipe.Commands[0].ID) {
+				t.Fatal("compacted context lost latest validation summary")
+			}
+			result.ToolCalls = []model.ToolCall{{ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Repair source"}`)}}
+		default:
+			t.Fatalf("unexpected turn %d", turns)
+		}
+		return result, nil
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || turns != 4 || len(report.Patches) != 1 || !strings.Contains(string(report.Patches[0].Content), "a+b") {
+		t.Fatalf("report=%+v turns=%d error=%v", report, turns, err)
 	}
 }
 
