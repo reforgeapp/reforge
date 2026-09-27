@@ -29,6 +29,7 @@ var recipes = []string{"go", "javascript", "python"}
 
 type builtinFlags struct {
 	dir, images, runsc, tool, state, cgroup, endpoint, publicURL string
+	runtimeConfig                                                string
 	slots                                                        int
 }
 
@@ -43,6 +44,7 @@ func parseBuiltin(name string, args []string) (builtinFlags, error) {
 	flags.StringVar(&f.cgroup, "cgroup-root", "/sys/fs/cgroup/reforge", "delegated cgroup v2 root")
 	flags.StringVar(&f.endpoint, "endpoint", "http://127.0.0.1:8080", "control-plane address on the host or its private container network")
 	flags.StringVar(&f.publicURL, "public-url", os.Getenv("REFORGE_PUBLIC_URL"), "control-plane public URL")
+	flags.StringVar(&f.runtimeConfig, "runtime-config", "", "strict Kubernetes runtime configuration JSON")
 	flags.IntVar(&f.slots, "slots", 2, "jobs run at once")
 	if err := flags.Parse(args); err != nil {
 		return f, err
@@ -68,6 +70,32 @@ func imageDigests(root string) (map[string]string, error) {
 	return out, nil
 }
 
+func builtinRuntimeConfig(f builtinFlags) (sandbox.RuntimeConfig, map[string]string, error) {
+	if f.runtimeConfig != "" {
+		config, err := loadRuntimeConfig(f.runtimeConfig)
+		if err != nil {
+			return sandbox.RuntimeConfig{}, nil, err
+		}
+		if config.Backend != "kubernetes" || config.Development {
+			return sandbox.RuntimeConfig{}, nil, errors.New("built-in runtime config requires the Kubernetes backend without development mode")
+		}
+		images := make(map[string]string, len(config.Kubernetes.Toolchains))
+		for recipe, digest := range config.Kubernetes.Toolchains {
+			images[recipe] = digest
+		}
+		return config, images, nil
+	}
+	images, err := imageDigests(f.images)
+	if err != nil {
+		return sandbox.RuntimeConfig{}, nil, err
+	}
+	config := sandbox.RuntimeConfig{Runsc: f.runsc, Tool: f.tool, StateRoot: filepath.Join(f.state, "sandbox"), DependencyRoot: "/var/cache/reforge-deps", CgroupRoot: f.cgroup, Images: map[string]string{}, Rootless: true, MemoryBytes: 6 << 30, DiskBytes: 3 << 30, CPUs: 2, MaxProcesses: 512}
+	for recipe, digest := range images {
+		config.Images[digest] = filepath.Join(f.images, recipe)
+	}
+	return config, images, nil
+}
+
 func writeShared(path string, data []byte) error {
 	temp := path + ".tmp"
 	if err := os.WriteFile(temp, data, 0640); err != nil {
@@ -84,7 +112,7 @@ func builtinInit(args []string) error {
 	if err != nil {
 		return err
 	}
-	digests, err := imageDigests(f.images)
+	_, digests, err := builtinRuntimeConfig(f)
 	if err != nil {
 		return err
 	}
@@ -157,7 +185,7 @@ type builtinOrg struct {
 	retry  time.Time
 }
 
-func runBuiltin(args []string) error {
+func runBuiltin(args []string) (retErr error) {
 	f, err := parseBuiltin("builtin", args)
 	if err != nil {
 		return err
@@ -166,44 +194,47 @@ func runBuiltin(args []string) error {
 	if err != nil || public.Host == "" {
 		return errors.New("built-in runner requires REFORGE_PUBLIC_URL")
 	}
+	config, images, err := builtinRuntimeConfig(f)
+	if err != nil {
+		return err
+	}
 	secret, err := os.ReadFile(filepath.Join(f.dir, "token"))
 	if err != nil {
 		return errors.New("built-in runner token unavailable; run builtin-init")
 	}
 	token := strings.TrimSpace(string(secret))
-	images, err := imageDigests(f.images)
-	if err != nil {
-		return err
-	}
-	config := sandbox.RuntimeConfig{Runsc: f.runsc, Tool: f.tool, StateRoot: filepath.Join(f.state, "sandbox"), DependencyRoot: "/var/cache/reforge-deps", CgroupRoot: f.cgroup, Images: map[string]string{}, Rootless: true, MemoryBytes: 6 << 30, DiskBytes: 3 << 30, CPUs: 2, MaxProcesses: 512}
-	for recipe, digest := range images {
-		config.Images[digest] = filepath.Join(f.images, recipe)
-	}
-	if config.RunscSHA256, err = fileSHA256(f.runsc); err != nil {
-		return err
-	}
-	if config.ToolSHA256, err = fileSHA256(f.tool); err != nil {
-		return err
-	}
 	if err = os.MkdirAll(f.state, 0700); err != nil {
 		return err
 	}
-	if err = delegateCgroup(f.cgroup); err != nil {
-		return errors.New("built-in runner needs a privileged container with cgroup v2 delegation")
+	state, err := os.Lstat(f.state)
+	if err != nil || !state.IsDir() || state.Mode().Perm()&0077 != 0 {
+		return errors.New("built-in runner state requires a private regular directory")
 	}
-	check := config
-	check.Fetch = func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
-		return sandbox.Snapshot{}, sandbox.ErrBoundary
-	}
-	runtime, err := sandbox.NewRuntime(check)
-	if err != nil {
-		return err
-	}
-	if err = runtime.Close(); err != nil {
-		return err
+	if config.Backend != "kubernetes" {
+		if config.RunscSHA256, err = fileSHA256(f.runsc); err != nil {
+			return err
+		}
+		if config.ToolSHA256, err = fileSHA256(f.tool); err != nil {
+			return err
+		}
+		if err = delegateCgroup(f.cgroup); err != nil {
+			return errors.New("built-in runner needs a privileged container with cgroup v2 delegation")
+		}
+		check := config
+		check.Fetch = func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+			return sandbox.Snapshot{}, sandbox.ErrBoundary
+		}
+		runtime, err := sandbox.NewRuntime(check)
+		if err != nil {
+			return err
+		}
+		if err = runtime.Close(); err != nil {
+			return err
+		}
 	}
 	transport := http.DefaultTransport.(*http.Transport).Clone()
 	transport.Proxy = nil
+	defer transport.CloseIdleConnections()
 	httpClient := &http.Client{Transport: hostTransport{host: public.Host, base: transport}}
 	newClient := func(name string) (*runnerclient.Client, error) {
 		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, Internal: true, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient})
@@ -214,7 +245,7 @@ func runBuiltin(args []string) error {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
-	process := runnerclient.RepairProcessor(config)
+	process, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	var mu sync.Mutex
 	orgs := map[string]*builtinOrg{}
 	fresh := func(id string) (*builtinOrg, error) {
@@ -240,6 +271,11 @@ func runBuiltin(args []string) error {
 		return true
 	}
 	var workers sync.WaitGroup
+	defer func() {
+		cancel()
+		workers.Wait()
+		retErr = errors.Join(retErr, closeProcessor())
+	}()
 	for n := 0; n < f.slots; n++ {
 		workers.Add(1)
 		go func() {
@@ -316,6 +352,5 @@ func runBuiltin(args []string) error {
 		case <-time.After(time.Minute):
 		}
 	}
-	workers.Wait()
 	return nil
 }
