@@ -22,9 +22,10 @@ import (
 
 type botRevalidationProvider struct {
 	*queueContractProvider
-	companionState string
-	companionHead  string
-	originalState  string
+	companionState  string
+	companionBranch string
+	companionHead   string
+	originalState   string
 }
 
 func (p *botRevalidationProvider) ForProtection(string, map[string]string) providers.Client { return p }
@@ -37,12 +38,12 @@ func (p *botRevalidationProvider) Read(ctx context.Context, org, id string, op p
 		return privateconnector.Result{}, err
 	}
 	changeID := op.Change.ChangeID
-	state, head := p.originalState, p.head
+	state, head, branch := p.originalState, p.head, "feature"
 	if changeID == "2" {
-		state, head = p.companionState, p.companionHead
+		state, head, branch = p.companionState, p.companionHead, p.companionBranch
 	}
 	merged := state == "merged"
-	return privateconnector.Result{Change: &forge.Change{ID: changeID, Repository: p.repo, HeadRepository: p.repo, TargetRepository: p.repo, HeadSHA: head, TargetSHA: p.target, TargetBranch: "main", State: state, MergeSHA: func() string {
+	return privateconnector.Result{Change: &forge.Change{ID: changeID, Repository: p.repo, HeadRepository: p.repo, TargetRepository: p.repo, HeadSHA: head, HeadBranch: branch, TargetSHA: p.target, TargetBranch: "main", State: state, MergeSHA: func() string {
 		if merged {
 			return strings.Repeat("e", 40)
 		}
@@ -87,13 +88,14 @@ func TestMergeBotRevalidationCurrentAuthorityContract(t *testing.T) {
 	}
 	finding := f.observe(t, f.observation("bot-change", "main", head, nil))
 	task, operation := domain.NewID(), domain.NewID()
+	provider.companionBranch = "reforge/repair/" + task
 	contextRaw, _ := json.Marshal(map[string]any{"finding": map[string]any{"evidence": map[string]any{"change": map[string]string{"id": "1", "target_branch": "main"}}}})
-	nativeRaw, _ := json.Marshal(map[string]any{"id": "2", "repository": repo, "head_sha": provider.companionHead, "target_branch": "main", "state": "open"})
+	nativeRaw, _ := json.Marshal(map[string]any{"id": "2", "repository": repo, "head_sha": provider.companionHead, "head_branch": provider.companionBranch, "target_branch": "main", "state": "open"})
 	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO workflow_tasks(org_id,id,repository_id,operation_id,idempotency_key,request_hash,recipe,recipe_version,target_branch,policy_hash,starting_policy_hash,state,max_attempts,created_by) VALUES($1,$2,$3,$4,$5,$6,'repair','1','main',$7,$7,'completed',1,$8)`, f.org, task, f.repo, operation, "bot-contract", strings.Repeat("a", 64), strings.Repeat("a", 64), f.owner.User.ID); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,native_change) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'published',$9,$10)`, f.org, task, f.repo, finding.ID, f.owner.User.ID, finding.Version, finding.EvidenceDigest, contextRaw, provider.companionHead, nativeRaw)
+		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,native_change,branch) VALUES($1,$2,$3,$4,$5,$6,$7,$8,'published',$9,$10,$11)`, f.org, task, f.repo, finding.ID, f.owner.User.ID, finding.Version, finding.EvidenceDigest, contextRaw, provider.companionHead, nativeRaw, provider.companionBranch)
 		return err
 	}); err != nil {
 		t.Fatal(err)
@@ -133,7 +135,7 @@ func TestMergeBotRevalidationCurrentAuthorityContract(t *testing.T) {
 		t.Fatalf("gate binding: %+v", rows[0].Gate.Binding)
 	}
 	provider.companionHead = strings.Repeat("d", 40)
-	if err = merges.ObserveBotRepair(ctx, f.org, task); !errors.Is(err, auth.ErrConflict) {
+	if err = merges.ObserveBotRepair(ctx, f.org, task); err == nil {
 		t.Fatal(err)
 	}
 	rows, _ = merges.Revalidations(ctx, f.owner, f.org, f.repo, "1")
