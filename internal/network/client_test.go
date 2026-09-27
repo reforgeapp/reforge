@@ -140,6 +140,45 @@ func TestDNSRebindingAndLiteralDial(t *testing.T) {
 	}
 }
 
+func TestDialFallsBackAcrossAddressFamilies(t *testing.T) {
+	p, err := newPolicy("https://models.example", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	addresses := make(chan string, 3)
+	dial := func(ctx context.Context, _, address string) (net.Conn, error) {
+		addresses <- address
+		if strings.HasPrefix(address, "[") {
+			<-ctx.Done()
+			return nil, ctx.Err()
+		}
+		a, b := net.Pipe()
+		b.Close()
+		return a, nil
+	}
+	lookup := func(context.Context, string) ([]netip.Addr, error) {
+		return []netip.Addr{
+			netip.MustParseAddr("2606:4700::1"),
+			netip.MustParseAddr("2606:4700::2"),
+			netip.MustParseAddr("8.8.8.8"),
+		}, nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	started := time.Now()
+	connection, err := p.dial(lookup, dial)(ctx, "tcp", "models.example:443")
+	if err != nil {
+		t.Fatal(err)
+	}
+	connection.Close()
+	if elapsed := time.Since(started); elapsed >= time.Second {
+		t.Fatalf("address-family fallback took %s", elapsed)
+	}
+	if first, second := <-addresses, <-addresses; first != "[2606:4700::1]:443" || second != "8.8.8.8:443" {
+		t.Fatalf("families were not interleaved: %s then %s", first, second)
+	}
+}
+
 func TestRequestOriginPathAndMethodGuard(t *testing.T) {
 	t.Setenv("HTTPS_PROXY", "http://127.0.0.1:1")
 	t.Setenv("HTTP_PROXY", "http://127.0.0.1:1")

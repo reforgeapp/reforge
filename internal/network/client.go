@@ -291,17 +291,80 @@ func (p *policy) dial(lookup lookupFunc, dial dialFunc) dialFunc {
 				return nil, ErrDestination
 			}
 		}
-		for _, ip := range ips {
-			connection, err := dial(ctx, "tcp", net.JoinHostPort(ip.Unmap().String(), port))
-			if err == nil {
-				return connection, nil
-			}
-			if ctx.Err() != nil {
-				return nil, ctx.Err()
-			}
-		}
-		return nil, errors.New("connection destination unavailable")
+		return dialValidated(ctx, ips, port, dial)
 	}
+}
+
+type dialResult struct {
+	connection net.Conn
+	err        error
+}
+
+func dialValidated(ctx context.Context, ips []netip.Addr, port string, dial dialFunc) (net.Conn, error) {
+	dialCtx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	results := make(chan dialResult)
+	for index, ip := range interleaveFamilies(ips) {
+		go func(delay time.Duration, address string) {
+			if delay > 0 {
+				timer := time.NewTimer(delay)
+				defer timer.Stop()
+				select {
+				case <-timer.C:
+				case <-dialCtx.Done():
+					return
+				}
+			}
+			connection, err := dial(dialCtx, "tcp", net.JoinHostPort(address, port))
+			select {
+			case results <- dialResult{connection: connection, err: err}:
+			case <-dialCtx.Done():
+				if connection != nil {
+					connection.Close()
+				}
+			}
+		}(time.Duration(index)*250*time.Millisecond, ip.Unmap().String())
+	}
+	for range ips {
+		select {
+		case result := <-results:
+			if result.err == nil {
+				if err := ctx.Err(); err != nil {
+					result.connection.Close()
+					return nil, err
+				}
+				cancel()
+				return result.connection, nil
+			}
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
+	return nil, errors.New("connection destination unavailable")
+}
+
+func interleaveFamilies(ips []netip.Addr) []netip.Addr {
+	firstIs4 := ips[0].Unmap().Is4()
+	first, second := make([]netip.Addr, 0, len(ips)), make([]netip.Addr, 0, len(ips))
+	for _, ip := range ips {
+		if ip.Unmap().Is4() == firstIs4 {
+			first = append(first, ip)
+		} else {
+			second = append(second, ip)
+		}
+	}
+	ordered := make([]netip.Addr, 0, len(ips))
+	for len(first) > 0 || len(second) > 0 {
+		if len(first) > 0 {
+			ordered = append(ordered, first[0])
+			first = first[1:]
+		}
+		if len(second) > 0 {
+			ordered = append(ordered, second[0])
+			second = second[1:]
+		}
+	}
+	return ordered
 }
 
 func (t *transport) RoundTrip(request *http.Request) (*http.Response, error) {
