@@ -16,6 +16,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/budget"
 	"reforge/internal/domain"
+	"reforge/internal/forge"
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
 	"reforge/internal/maintenance/recipes"
@@ -741,11 +742,19 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 		}
 		return later("Asked Dependabot to recreate for fresh checks", time.Hour)
 	}
+	reason, delay := botMergeRetry(gate)
+	return later(reason, delay)
+}
+
+func botMergeRetry(gate mergecontrol.Gate) (string, time.Duration) {
+	if _, pending := forge.MissingChecks(gate.Snapshot.TargetChecks, gate.Snapshot.Checks, discovery.BotUpdateJob); pending {
+		return "Waiting for merge checks", time.Minute
+	}
 	reason := "Waiting for merge checks"
 	if len(gate.Decision.Blockers) > 0 {
 		reason = gate.Decision.Blockers[0]
 	}
-	return later(reason, 10*time.Minute)
+	return reason, 10 * time.Minute
 }
 
 func recipesFor(ecosystem string) []string {
