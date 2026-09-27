@@ -19,7 +19,7 @@ test('runs detail exposes frozen evidence and supports keyboard deep links', asy
   await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ': keepalive\\n\\n' }))
   await page.goto(`/org/${organisation}/runs?run=task-1`)
   await expect(page.getByRole('heading', { name: /go · task-1/ })).toBeVisible()
-  await expect(page.getByText('Repair failing Go tests')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Run task-1' })).toContainText('Repair failing Go tests')
   await expect(page.getByText('claude-sonnet-4-5')).toBeVisible()
   await page.getByRole('tab', { name: 'Evidence' }).click()
   await page.getByText('Source diff').click()
