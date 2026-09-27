@@ -2,6 +2,8 @@ package repair
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -99,5 +101,51 @@ func TestANSIJavaScriptCheckBindsUploadedArtifactDigest(t *testing.T) {
 	}
 	if checks[0].OutputSHA256 != hashBytes(uploaded) || checks[0].OutputSHA256 == hashBytes(raw) || len(report.Artifacts) != 1 || report.Artifacts[0] != "check-log" {
 		t.Fatalf("report digest does not bind sanitized upload: check=%+v artifacts=%v", checks[0], report.Artifacts)
+	}
+}
+
+func TestCheckSummaryKeepsEveryCommandBeyondLargeCaseOutput(t *testing.T) {
+	goCases := make(map[string]string, 1200)
+	for i := 0; i < 1200; i++ {
+		goCases[fmt.Sprintf("Test%04d-%s", i, strings.Repeat("x", 40))] = "pass"
+	}
+	goCases["TestSkippedA"], goCases["TestSkippedB"] = "skip", "skip"
+	baseline := []CheckResult{
+		{CommandID: "go-01", ExitCode: 0, Complete: true, Cases: goCases, Excerpt: strings.Repeat("pass output ", 1000)},
+		{CommandID: "js-01", ExitCode: 1, Complete: true, Cases: map[string]string{"frontend.test.ts > expected result": "fail"}, Reason: "test failed", Excerpt: "expected 2 to equal 3"},
+	}
+	full, err := json.Marshal(baseline)
+	if err != nil || len(full) <= 32<<10 {
+		t.Fatalf("fixture must exceed old prompt bound: bytes=%d err=%v", len(full), err)
+	}
+	baselineJSON := summarizeChecks(baseline)
+	if len(baselineJSON) >= 32<<10 {
+		t.Fatalf("compact baseline too large: %d bytes", len(baselineJSON))
+	}
+	var summarized []checkSummary
+	if err := json.Unmarshal(baselineJSON, &summarized); err != nil {
+		t.Fatalf("summary is not valid JSON: %v", err)
+	}
+	if len(summarized) != 2 || summarized[0].CommandID != "go-01" || summarized[0].Pass != 1200 || summarized[0].Skip != 2 || summarized[0].Fail != 0 || summarized[0].ExitCode != 0 || !summarized[0].Complete || summarized[0].Excerpt != "" {
+		t.Fatalf("large Go cases obscured command summary: %+v", summarized)
+	}
+	if summarized[1].CommandID != "js-01" || summarized[1].Fail != 1 || len(summarized[1].FailureCases) != 1 || summarized[1].Excerpt != "expected 2 to equal 3" {
+		t.Fatalf("frontend failure omitted from summary: %+v", summarized[1])
+	}
+	for i := 0; i < 9; i++ {
+		baseline[1].Cases[fmt.Sprintf("failure-%d", i)] = "fail"
+	}
+	summarized = nil
+	err = json.Unmarshal(summarizeChecks(baseline), &summarized)
+	if err != nil || len(summarized[1].FailureCases) != 5 || summarized[1].Fail != 10 {
+		t.Fatalf("failure sample not bounded while count retained: %+v err=%v", summarized[1], err)
+	}
+	candidate := []CheckResult{
+		{CommandID: "go-01", ExitCode: 0, Complete: true, Cases: goCases},
+		{CommandID: "js-01", ExitCode: 0, Complete: true, Cases: map[string]string{"frontend.test.ts > expected result": "pass"}},
+	}
+	var candidateSummary []checkSummary
+	if err = json.Unmarshal(summarizeChecks(candidate), &candidateSummary); err != nil || len(candidateSummary) != 2 || candidateSummary[1].CommandID != "js-01" || candidateSummary[1].Pass != 1 || candidateSummary[1].ExitCode != 0 {
+		t.Fatalf("frontend pass omitted from summary: %+v err=%v", candidateSummary, err)
 	}
 }

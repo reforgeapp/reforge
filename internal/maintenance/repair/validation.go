@@ -128,6 +128,65 @@ type CheckResult struct {
 var tapCase = regexp.MustCompile(`^\s*(not ok|ok) [0-9]+ - (.+)$`)
 var pythonCase = regexp.MustCompile(`^(.+) \.\.\. (ok|FAIL|ERROR|skipped .+)$`)
 
+type checkSummary struct {
+	CommandID    string   `json:"command_id"`
+	ExitCode     int      `json:"exit_code"`
+	Complete     bool     `json:"complete"`
+	Pass         int      `json:"pass"`
+	Fail         int      `json:"fail"`
+	Skip         int      `json:"skip"`
+	Other        int      `json:"other"`
+	FailureCases []string `json:"failure_cases,omitempty"`
+	Reason       string   `json:"reason,omitempty"`
+	Excerpt      string   `json:"excerpt,omitempty"`
+}
+
+func summarizeChecks(results []CheckResult) []byte {
+	summary := make([]checkSummary, 0, len(results))
+	for _, result := range results {
+		check := checkSummary{CommandID: result.CommandID, ExitCode: result.ExitCode, Complete: result.Complete}
+		cases := make([]string, 0, len(result.Cases))
+		for name, state := range result.Cases {
+			switch state {
+			case "pass":
+				check.Pass++
+			case "fail":
+				check.Fail++
+				cases = append(cases, name)
+			case "skip":
+				check.Skip++
+			default:
+				check.Other++
+			}
+		}
+		if check.Fail > 0 {
+			slices.Sort(cases)
+			if len(cases) > 5 {
+				cases = cases[:5]
+			}
+			for i := range cases {
+				cases[i] = clipRunes(cases[i], 200)
+			}
+			check.FailureCases = cases
+		}
+		if !result.Complete || result.ExitCode != 0 || check.Fail > 0 {
+			check.Reason = clipRunes(result.Reason, 240)
+			check.Excerpt = clipRunes(result.Excerpt, 1200)
+		}
+		summary = append(summary, check)
+	}
+	body, _ := json.Marshal(summary)
+	return body
+}
+
+func clipRunes(value string, limit int) string {
+	runes := []rune(strings.ToValidUTF8(value, "�"))
+	if len(runes) > limit {
+		return string(runes[:limit]) + "…"
+	}
+	return string(runes)
+}
+
 func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResult {
 	out := CheckResult{CommandID: command.ID, ExitCode: result.ExitCode, OutputSHA256: hashBytes(result.Output), Complete: !result.TimedOut && !result.Truncated, Cases: map[string]string{}}
 	if result.ExitCode < 0 || result.ExitCode == 126 || result.ExitCode == 127 {
