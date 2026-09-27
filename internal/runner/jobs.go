@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 
@@ -142,6 +144,10 @@ func (s *Service) Heartbeat(ctx context.Context, raw string) (Heartbeat, error) 
 }
 func (s *Service) Complete(ctx context.Context, raw string, in workflow.Completion) (workflow.Task, error) {
 	var result workflow.Task
+	in.Reason = strings.TrimSpace(in.Reason)
+	if utf8.RuneCountInString(in.Reason) > 1000 {
+		return result, auth.ErrInvalid
+	}
 	err := s.withJob(ctx, raw, "result", "observe", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
 		var err error
 		if t.State == domain.TaskCancelling {

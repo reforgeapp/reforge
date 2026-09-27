@@ -3265,6 +3265,7 @@ export interface components {
 
             outcome: "completed" | "failed" | "cancelled" | "uncertain";
             retryable?: boolean;
+            reason?: string;
         };
         PrivateOperation: {
 

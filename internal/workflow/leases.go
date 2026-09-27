@@ -3,6 +3,7 @@ package workflow
 import (
 	"context"
 	"errors"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -288,7 +289,11 @@ func (s *Service) CompleteTx(ctx context.Context, tx pgx.Tx, l Lease, result Com
 }
 func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, result Completion) error {
 	state := domain.TaskFailed
-	jobState, attemptState, reason := "failed", "failed", "Attempt failed"
+	reason := strings.TrimSpace(result.Reason)
+	if reason == "" {
+		reason = "Attempt failed"
+	}
+	jobState, attemptState := "failed", "failed"
 	switch result.Outcome {
 	case "completed":
 		if t.State != domain.TaskPublishing {
@@ -323,7 +328,11 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 		state = domain.TaskReconciling
 		jobState = "reconciling"
 		attemptState = "uncertain"
-		reason = "External outcome unknown; reconcile before retry"
+		if result.Reason == "" {
+			reason = "External outcome unknown; reconcile before retry"
+		} else {
+			reason = "External outcome unknown: " + reason
+		}
 	case "failed":
 		if err := checkUncertain(ctx, tx, l.OrgID, l.TaskID); err != nil {
 			if !errors.Is(err, ErrReconciliation) {
@@ -341,7 +350,7 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 			if attempts < t.MaxAttempts {
 				state = domain.TaskQueued
 				jobState = "queued"
-				reason = "Retry scheduled from reproduction"
+				reason = "Retry scheduled after: " + reason
 			}
 		}
 	default:

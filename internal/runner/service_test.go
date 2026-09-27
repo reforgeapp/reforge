@@ -488,6 +488,24 @@ func TestPrivateOperationRevocationSerializesWithInvocation(t *testing.T) {
 		t.Fatal("revoked runner passed private-route enrollment check")
 	}
 }
+func TestFailureReasonIsRecorded(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c := f.enroll(t)
+	f.enqueue(t, f.repos[0], f.pool.ID, "main")
+	job, err := f.service.Claim(ctx, c.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.service.Complete(ctx, job.Credential.Token, workflow.Completion{Outcome: "failed", Reason: strings.Repeat("x", 1001)}); !errors.Is(err, auth.ErrInvalid) {
+		t.Fatalf("oversized reason accepted: %v", err)
+	}
+	failed, err := f.service.Complete(ctx, job.Credential.Token, workflow.Completion{Outcome: "failed", Reason: "  Publication failed: source moved  "})
+	if err != nil || failed.State != domain.TaskFailed || failed.Reason != "Publication failed: source moved" {
+		t.Fatalf("failure reason not recorded: %+v %v", failed, err)
+	}
+}
+
 func TestCancellationAndPoolGrantChange(t *testing.T) {
 	f := newFixture(t)
 	ctx := context.Background()

@@ -68,3 +68,15 @@ test('event stream deduplicates and surfaces access revocation', async ({ page }
   await expect(page.getByText('Event access revoked; reload to authenticate again.')).toBeVisible()
   expect(eventRequests).toBeGreaterThan(0)
 })
+
+
+test('failed run shows recorded reason', async ({ page }) => {
+  await login(page)
+  const item = { ...task('task-failed', 'failed'), reason: 'Publication failed: source or target moved; run a fresh scan' }
+  await page.route(`**/api/v1/orgs/${organisation}/tasks**`, route => route.fulfill({ json: { items: [item], complete: true } }))
+  await page.route(`**/api/v1/orgs/${organisation}/repair-runs/task-failed`, route => route.fulfill({ json: run(item) }))
+  await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({ status: 200, headers: { 'content-type': 'text/event-stream' }, body: ': keepalive\n\n' }))
+  await page.goto(`/org/${organisation}/runs?run=task-failed`)
+  await expect(page.getByRole('alert', { name: 'Error' })).toContainText(item.reason)
+  await expect(page.getByRole('region', { name: 'Run task-failed' })).toContainText('Repair failing Go tests')
+})

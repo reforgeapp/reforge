@@ -2727,6 +2727,7 @@ type RunnerAssignment struct {
 }
 type RunnerCompletion struct {
 	Outcome   RunnerCompletionOutcome `json:"outcome"`
+	Reason    *string                 `json:"reason,omitempty"`
 	Retryable *bool                   `json:"retryable,omitempty"`
 }
 type RunnerCompletionOutcome string

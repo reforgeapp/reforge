@@ -14567,6 +14567,10 @@
           },
           "retryable": {
             "type": "boolean"
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 1000
           }
         }
       },

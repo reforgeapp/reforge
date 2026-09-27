@@ -373,9 +373,10 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	result, err := process(jobctx, c, job)
 	if err != nil {
 		slog.WarnContext(ctx, "runner job failed", "task_id", job.Lease.TaskID, "attempt_id", job.Lease.AttemptID, "outcome", result.Outcome, "error", err)
+		result.Reason = completionReason(err)
 	}
 	if err != nil && result.Outcome == "" {
-		result = workflow.Completion{Outcome: "failed"}
+		result.Outcome = "failed"
 	}
 	cancel()
 	<-stopped
@@ -388,6 +389,28 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	finish, stop := context.WithTimeout(ctx, 10*time.Second)
 	defer stop()
 	return c.Complete(finish, job, result)
+}
+
+func completionReason(err error) string {
+	var reason string
+	switch {
+	case errors.Is(err, ErrSourceMoved):
+		reason = "Publication failed: source or target moved; run a fresh scan"
+	case errors.Is(err, ErrUnauthorized):
+		reason = "Runner authorization failed"
+	case errors.Is(err, context.DeadlineExceeded):
+		reason = "Runner operation timed out"
+	case errors.Is(err, ErrTransientControlPlane):
+		reason = "Control plane temporarily unavailable"
+	default:
+		reason = err.Error()
+	}
+	reason = strings.Join(strings.Fields(reason), " ")
+	runes := []rune(reason)
+	if len(runes) > 1000 {
+		reason = string(runes[:1000])
+	}
+	return reason
 }
 
 func (c *Client) heartbeatLoop(ctx context.Context, job Job, cancel context.CancelFunc, interval, requestTimeout, retryBase time.Duration) bool {

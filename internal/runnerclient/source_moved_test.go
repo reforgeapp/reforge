@@ -54,3 +54,10 @@ func TestRepairStageSourceMovedIsFailedButOtherStageErrorsStayUncertain(t *testi
 		t.Fatalf("fence completion=%+v", got)
 	}
 }
+
+func TestCompletionReasonExplainsSourceMovement(t *testing.T) {
+	err := errors.Join(ErrControlPlane, ErrSourceMoved)
+	if got := completionReason(err); got != "Publication failed: source or target moved; run a fresh scan" {
+		t.Fatalf("reason=%q", got)
+	}
+}

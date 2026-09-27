@@ -70,6 +70,7 @@ type Lease struct {
 type Completion struct {
 	Outcome   string `json:"outcome"`
 	Retryable bool   `json:"retryable"`
+	Reason    string `json:"reason,omitempty"`
 }
 type Pause struct {
 	Kind    string `json:"kind"`
