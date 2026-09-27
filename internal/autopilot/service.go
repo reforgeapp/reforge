@@ -29,6 +29,7 @@ import (
 const (
 	escalateAfter = 4
 	maxRuns       = 6
+	maxRebases    = 3
 	turnCost      = "(coalesce((r.config->>'input_micro_usd_per_million')::numeric,0)*0.04+coalesce((r.config->>'output_micro_usd_per_million')::numeric,0)*0.001+coalesce((r.config->>'request_micro_usd')::numeric,0))"
 )
 
@@ -194,6 +195,13 @@ func (s *Service) status(ctx context.Context, org, message string) error {
 func (s *Service) record(ctx context.Context, org string, c candidate, task, outcome, reason string, retry time.Duration) error {
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,reason,retry_after,runs) VALUES($1,$2,$3,nullif($4,'')::uuid,$5,$6,CASE WHEN $7::bigint>0 THEN clock_timestamp()+make_interval(secs=>$7::bigint) END,CASE WHEN $5='queued' THEN 1 ELSE 0 END) ON CONFLICT(org_id,finding_id,finding_version) DO UPDATE SET task_id=coalesce(EXCLUDED.task_id,autopilot_attempts.task_id),outcome=EXCLUDED.outcome,reason=EXCLUDED.reason,retry_after=EXCLUDED.retry_after,runs=autopilot_attempts.runs+EXCLUDED.runs,updated_at=clock_timestamp()`, org, c.finding, c.version, task, outcome, reason, int64(retry.Seconds()))
+		return err
+	})
+}
+
+func (s *Service) recordRebase(ctx context.Context, org string, c candidate, outcome, reason string, retry time.Duration) error {
+	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,outcome,reason,retry_after,runs) VALUES($1,$2,$3,$4,$5,clock_timestamp()+make_interval(secs=>$6::bigint),1) ON CONFLICT(org_id,finding_id,finding_version) DO UPDATE SET outcome=EXCLUDED.outcome,reason=EXCLUDED.reason,retry_after=EXCLUDED.retry_after,runs=autopilot_attempts.runs+1,updated_at=clock_timestamp()`, org, c.finding, c.version, outcome, reason, int64(retry.Seconds()))
 		return err
 	})
 }
@@ -530,37 +538,57 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 	return err
 }
 
+type rebaseCandidate struct {
+	finding discovery.Finding
+	runs    int
+}
+
+func loadRebaseCandidates(ctx context.Context, tx pgx.Tx, org string) ([]rebaseCandidate, error) {
+	rows, err := tx.Query(ctx, `SELECT f.id::text,f.version,f.repository_id::text,f.evidence,coalesce(a.runs,0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND f.evidence->>'bot'='dependabot' AND f.evidence->'blockers' ? $2 AND r.accessible AND NOT r.archived AND NOT r.paused AND (a.finding_id IS NULL OR a.outcome IN ('retry','rebase') AND (a.retry_after IS NULL OR a.retry_after<=clock_timestamp())) ORDER BY coalesce(a.retry_after,'-infinity'::timestamptz),f.first_seen LIMIT 5`, org, discovery.WaitingForRebase)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	waiting := []rebaseCandidate{}
+	for rows.Next() {
+		var entry rebaseCandidate
+		var raw []byte
+		if err = rows.Scan(&entry.finding.ID, &entry.finding.Version, &entry.finding.RepositoryID, &raw, &entry.runs); err != nil {
+			return nil, err
+		}
+		if err = json.Unmarshal(raw, &entry.finding.Evidence); err != nil {
+			return nil, err
+		}
+		waiting = append(waiting, entry)
+	}
+	return waiting, rows.Err()
+}
+
 func (s *Service) rebase(ctx context.Context, org string) error {
-	var waiting []discovery.Finding
+	var waiting []rebaseCandidate
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT f.id::text,f.version,f.repository_id::text,f.evidence FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND f.evidence->>'bot'='dependabot' AND f.evidence->'blockers' ? $2 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp())) ORDER BY f.first_seen LIMIT 5`, org, discovery.WaitingForRebase)
-		if err != nil {
-			return err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var f discovery.Finding
-			var raw []byte
-			if err = rows.Scan(&f.ID, &f.Version, &f.RepositoryID, &raw); err != nil {
-				return err
-			}
-			if err = json.Unmarshal(raw, &f.Evidence); err != nil {
-				return err
-			}
-			waiting = append(waiting, f)
-		}
-		return rows.Err()
+		var err error
+		waiting, err = loadRebaseCandidates(ctx, tx, org)
+		return err
 	})
-	for _, f := range waiting {
+	if err != nil {
+		return err
+	}
+	for _, entry := range waiting {
+		f := entry.finding
 		c := candidate{finding: f.ID, version: f.Version}
+		if entry.runs >= maxRebases {
+			err = errors.Join(err, s.record(ctx, org, c, "", "skipped", "Dependabot rebase did not clear this pull request after 3 attempts; manually rebase or close it", 0))
+			continue
+		}
 		if f.Evidence.Change == nil {
 			continue
 		}
 		if e := s.repairs.CommandBot(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change, "@dependabot rebase"); e != nil {
-			err = errors.Join(err, e, s.record(ctx, org, c, "", "retry", e.Error(), 15*time.Minute))
+			err = errors.Join(err, e, s.recordRebase(ctx, org, c, "retry", "Dependabot rebase: "+e.Error(), 15*time.Minute))
 			continue
 		}
-		err = errors.Join(err, s.record(ctx, org, c, "", "rebase", "Asked Dependabot to rebase", 0))
+		err = errors.Join(err, s.recordRebase(ctx, org, c, "rebase", "Dependabot rebase: request accepted", time.Hour))
 	}
 	return err
 }

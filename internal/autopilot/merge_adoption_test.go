@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"reforge/internal/budget"
 	"reforge/internal/domain"
+	"reforge/internal/maintenance/discovery"
 	"reforge/internal/store"
 )
 
@@ -136,6 +137,95 @@ func TestRepairIdempotencyKeyScopesManualRequests(t *testing.T) {
 	candidate.version++
 	if refreshed := repairIdempotencyKey(candidate, strings.Repeat("a", 64)); refreshed == first {
 		t.Fatal("new finding version reused previous task idempotency key")
+	}
+}
+
+func TestRebaseCooldownRetriesSameFindingAndCaps(t *testing.T) {
+	raw := os.Getenv("REFORGE_TEST_DATABASE_URL")
+	if raw == "" {
+		t.Skip("requires disposable PostgreSQL reforge_test")
+	}
+	if u, err := url.Parse(raw); err != nil || u.Path != "/reforge_test" {
+		t.Fatal("requires disposable PostgreSQL reforge_test")
+	}
+	ctx := context.Background()
+	db, err := store.Open(ctx, raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(db.Close)
+	org, user, repo, finding := domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()
+	if err = db.Identity(ctx, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO users(id,issuer,subject,name,email) VALUES($1::uuid,'autopilot-rebase-test',$1::text,'Owner',$2)`, user, user+"@example.test")
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	evidence, _ := json.Marshal(map[string]any{"bot": "dependabot", "blockers": []string{discovery.WaitingForRebase}})
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'Autopilot rebase')`, org); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO repositories(org_id,id,native_id,name,accessible) VALUES($1,$2,$3,'team/repo',true)`, org, repo, domain.NewID()); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'forge_change','change-1','ci_failure','medium','Dependabot PR',$5,$6)`, org, finding, repo, strings.Repeat("a", 64), evidence, strings.Repeat("b", 64)); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,outcome,reason,retry_after,runs) VALUES($1,$2,1,'rebase','Dependabot rebase: request accepted',clock_timestamp()+interval '1 hour',1)`, org, finding)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	load := func() []rebaseCandidate {
+		t.Helper()
+		var selected []rebaseCandidate
+		if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+			var err error
+			selected, err = loadRebaseCandidates(ctx, tx, org)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return selected
+	}
+	if got := load(); len(got) != 0 {
+		t.Fatalf("cooling finding selected: %+v", got)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE autopilot_attempts SET retry_after=clock_timestamp()-interval '1 second' WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, finding)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	got := load()
+	if len(got) != 1 || got[0].finding.ID != finding || got[0].finding.Version != 1 || got[0].runs != 1 {
+		t.Fatalf("unchanged finding did not become eligible after cooldown: %+v", got)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE autopilot_attempts SET runs=$3 WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, finding, maxRebases)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{db: db}
+	if err = service.rebase(ctx, org); err != nil {
+		t.Fatal(err)
+	}
+	if got := load(); len(got) != 0 {
+		t.Fatalf("exhausted finding selected again: %+v", got)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		var outcome, reason string
+		if err := tx.QueryRow(ctx, `SELECT outcome,reason FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, finding).Scan(&outcome, &reason); err != nil {
+			return err
+		}
+		if outcome != "skipped" || !strings.Contains(reason, "manually rebase or close") {
+			t.Fatalf("retry cap not surfaced: outcome=%q reason=%q", outcome, reason)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 
