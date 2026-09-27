@@ -187,7 +187,11 @@ func (s *Service) ValidateFenceTx(ctx context.Context, tx pgx.Tx, l Lease, actio
 	if action == "observe" {
 		return task, nil
 	}
-	if task.State == domain.TaskCancelling || task.State == domain.TaskCancelled {
+	artifactUpload := action == "artifact.upload"
+	if artifactUpload {
+		action = "artifact"
+	}
+	if task.State == domain.TaskCancelled || task.State == domain.TaskCancelling && !artifactUpload {
 		return task, ErrPaused
 	}
 	if err = checkPauses(ctx, tx, task); err != nil {

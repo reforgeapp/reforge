@@ -438,16 +438,31 @@ func TestCancellationAndPoolGrantChange(t *testing.T) {
 	if _, err = f.workflow.Cancel(ctx, f.session, f.org, job.Task.ID, job.Task.Version, "fixture"); err != nil {
 		t.Fatal(err)
 	}
-	heartbeat, err := f.service.Heartbeat(ctx, job.Credential.Token)
-	if err != nil || !heartbeat.Stop {
-		t.Fatalf("cancellation not delivered: %+v %v", heartbeat, err)
+	if _, err = f.service.Progress(ctx, job.Credential.Token, domain.TaskPlanning); !errors.Is(err, workflow.ErrPaused) {
+		t.Fatalf("cancelling task accepted execution progress: %v", err)
 	}
-	stopped, err := f.service.Complete(ctx, job.Credential.Token, workflow.Completion{Outcome: "cancelled"})
+	artifact, err := f.service.Upload(ctx, job.Credential.Token, "cancelled.log", "text/plain", strings.NewReader("stopped after cancellation"))
+	if err != nil {
+		t.Fatalf("cancelling task rejected final log: %v", err)
+	}
+	if _, reader, downloadErr := f.service.DownloadJob(ctx, job.Credential.Token, artifact.ID); !errors.Is(downloadErr, workflow.ErrPaused) || reader != nil {
+		if reader != nil {
+			_ = reader.Close()
+		}
+		t.Fatalf("cancelling task downloaded artifact: %v", downloadErr)
+	}
+	if _, err = f.service.Complete(ctx, job.Credential.Token, workflow.Completion{Outcome: "unknown"}); err == nil {
+		t.Fatal("cancellation accepted invalid completion outcome")
+	}
+	stopped, err := f.service.Complete(ctx, job.Credential.Token, workflow.Completion{Outcome: "failed"})
 	if err != nil || stopped.State != domain.TaskCancelled {
 		t.Fatalf("confirmed stop not recorded: %+v %v", stopped, err)
 	}
 	if _, err = f.service.Heartbeat(ctx, job.Credential.Token); !errors.Is(err, auth.ErrUnauthenticated) {
 		t.Fatal("finished credential still active")
+	}
+	if _, err = f.service.Upload(ctx, job.Credential.Token, "late.log", "text/plain", strings.NewReader("late")); !errors.Is(err, auth.ErrUnauthenticated) {
+		t.Fatal("finished credential uploaded after cancellation")
 	}
 	f.enqueue(t, f.repos[0], f.pool.ID, "next")
 	next, err := f.service.Claim(ctx, c.Token)

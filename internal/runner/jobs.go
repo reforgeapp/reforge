@@ -144,6 +144,13 @@ func (s *Service) Complete(ctx context.Context, raw string, in workflow.Completi
 	var result workflow.Task
 	err := s.withJob(ctx, raw, "result", "observe", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
 		var err error
+		if t.State == domain.TaskCancelling {
+			switch in.Outcome {
+			case "failed", "completed":
+				in.Outcome = "cancelled"
+				in.Retryable = false
+			}
+		}
 		if s.CompletionCheck != nil {
 			if err = s.CompletionCheck(ctx, tx, l, t, in); err != nil {
 				return err
@@ -187,7 +194,7 @@ func (s *Service) Upload(ctx context.Context, raw, name, media string, input io.
 	if err = ctx.Err(); err != nil {
 		return result, err
 	}
-	err = s.withJob(ctx, raw, "artifact.upload", "artifact", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
+	err = s.withJob(ctx, raw, "artifact.upload", "artifact.upload", func(tx pgx.Tx, l workflow.Lease, t workflow.Task, id string) error {
 		var err error
 		result, err = s.artifacts.PutTx(ctx, tx, artifact.Metadata{OrgID: l.OrgID, RepositoryID: l.RepositoryID, TaskID: l.TaskID, Name: name, MediaType: media, ExpiresAt: time.Now().UTC().Add(30 * 24 * time.Hour)}, l.AttemptID, bytes.NewReader(data))
 		return err
