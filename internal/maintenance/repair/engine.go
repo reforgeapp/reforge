@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/fs"
 	"log/slog"
 	"slices"
 	"sort"
@@ -59,6 +60,50 @@ type Engine struct {
 
 var ErrHandoff = errors.New("repair requires human review")
 var ErrRunLimit = errors.New("run reached its model turn or time limit")
+
+type protectedEvidenceError struct {
+	path  string
+	kind  string
+	cause error
+}
+
+func (e *protectedEvidenceError) Error() string {
+	switch e.kind {
+	case "missing":
+		return fmt.Sprintf("protected file %q is missing", e.path)
+	case "read":
+		return fmt.Sprintf("protected file %q could not be read", e.path)
+	default:
+		return fmt.Sprintf("protected file %q changed", e.path)
+	}
+}
+
+func (e *protectedEvidenceError) Unwrap() []error {
+	if e.cause == nil {
+		return []error{ErrValidation}
+	}
+	return []error{ErrValidation, e.cause}
+}
+
+type validationCommandError struct {
+	command string
+	problem string
+	cause   error
+}
+
+func (e *validationCommandError) Error() string {
+	return fmt.Sprintf("validation command %q: %s", e.command, e.problem)
+}
+
+func (e *validationCommandError) Unwrap() error { return e.cause }
+
+func validationDiagnostic(err error) string {
+	var diagnostic *validationCommandError
+	if errors.As(err, &diagnostic) {
+		return diagnostic.Error()
+	}
+	return ""
+}
 
 func (e Engine) turn(ctx context.Context, in model.Turn) (model.TurnResult, error) {
 	in, err := in.WithSkills()
@@ -177,8 +222,15 @@ func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches 
 	checkProtected := func() error {
 		for name, want := range p.ProtectedHashes {
 			file, err := e.Runtime.CollectArtifact(ctx, w, name)
-			if err != nil || hashBytes(file.Data) != want {
-				return ErrValidation
+			if err != nil {
+				kind := "read"
+				if errors.Is(err, fs.ErrNotExist) {
+					kind = "missing"
+				}
+				return &protectedEvidenceError{path: name, kind: kind, cause: err}
+			}
+			if hashBytes(file.Data) != want {
+				return &protectedEvidenceError{path: name, kind: "changed"}
 			}
 		}
 		return nil
@@ -198,13 +250,18 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 	for _, command := range p.Recipe.Commands {
 		result, err := e.checkedCommand(ctx, p, sha, patches, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"})
 		if err != nil {
-			return nil, err
+			problem := "execution result could not be verified"
+			var protected *protectedEvidenceError
+			if errors.As(err, &protected) {
+				problem = protected.Error()
+			}
+			return nil, &validationCommandError{command: command.ID, problem: problem, cause: err}
 		}
 		digest := ""
 		if e.Artifact != nil {
 			id, uploadedDigest, err := e.Artifact(ctx, label+"-"+command.ID+".log", result.Output)
 			if err != nil {
-				return nil, err
+				return nil, &validationCommandError{command: command.ID, problem: "check log could not be stored", cause: err}
 			}
 			report.Artifacts = append(report.Artifacts, id)
 			digest = uploadedDigest
@@ -227,7 +284,13 @@ func repairTools() []model.Tool {
 }
 func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapshot) (Report, error) {
 	out := Report{PlanDigest: p.Digest, State: "handoff", Artifacts: []string{}, Patches: []sandbox.Patch{}}
-	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
+	fail := func(reason string, err error) (Report, error) {
+		out.Reason = reason
+		if diagnostic := validationDiagnostic(err); diagnostic != "" {
+			out.Reason += ": " + diagnostic
+		}
+		return out, err
+	}
 	if !p.Valid() || e.Runtime == nil || e.Turn == nil || e.Model == "" || baseline.CommitSHA != p.BaselineSHA || target.CommitSHA != p.TargetSHA {
 		return fail("Pinned execution context is invalid", ErrValidation)
 	}
@@ -467,7 +530,13 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 }
 func (e Engine) ValidateCustom(ctx context.Context, p Plan, baseline, target sandbox.Snapshot, patches []sandbox.Patch) (Report, error) {
 	out := Report{PlanDigest: p.Digest, State: "handoff", Artifacts: []string{}, Patches: patches}
-	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
+	fail := func(reason string, err error) (Report, error) {
+		out.Reason = reason
+		if diagnostic := validationDiagnostic(err); diagnostic != "" {
+			out.Reason += ": " + diagnostic
+		}
+		return out, err
+	}
 	if !p.Valid() || e.Runtime == nil || baseline.CommitSHA != p.BaselineSHA || target.CommitSHA != p.TargetSHA || len(patches) == 0 {
 		return fail("Pinned execution context is invalid", ErrValidation)
 	}

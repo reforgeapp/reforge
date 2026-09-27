@@ -265,7 +265,13 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			}
 		}
 	}()
-	fail := func(reason string, err error) (Report, error) { out.Reason = reason; return out, err }
+	fail := func(reason string, err error) (Report, error) {
+		out.Reason = reason
+		if diagnostic := validationDiagnostic(err); diagnostic != "" {
+			out.Reason += ": " + diagnostic
+		}
+		return out, err
+	}
 	independent := retarget(p, files)
 	owner := p.Owner
 	out.Mode = "ci"
