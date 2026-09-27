@@ -2,7 +2,6 @@ package mergecontrol
 
 import (
 	"context"
-	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -41,7 +40,7 @@ func (s *Service) validateQueueEffectTx(ctx context.Context, tx pgx.Tx, session 
 func sameQueueAuthority(original, fresh Gate) bool {
 	a, b := original.Binding, fresh.Binding
 	a.Tested, b.Tested = "", ""
-	return original.RepositoryID == fresh.RepositoryID && original.Snapshot.Change.ID == fresh.Snapshot.Change.ID && original.Method == fresh.Method && original.ConfigurationVersion == fresh.ConfigurationVersion && original.ConnectionID == fresh.ConnectionID && original.ConnectionVersion == fresh.ConnectionVersion && a == b && slices.Equal(original.Companions, fresh.Companions)
+	return original.RepositoryID == fresh.RepositoryID && original.Snapshot.Change.ID == fresh.Snapshot.Change.ID && original.Method == fresh.Method && original.ConfigurationVersion == fresh.ConfigurationVersion && original.ConnectionID == fresh.ConnectionID && original.ConnectionVersion == fresh.ConnectionVersion && a == b && companionsEqual(original.Companions, fresh.Companions)
 }
 
 func (s *Service) publishQueueCheck(ctx context.Context, session *auth.Session, org string, operation Operation, gate Gate) (bool, error) {

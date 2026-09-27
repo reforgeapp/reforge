@@ -144,42 +144,51 @@ func (s *Service) ObserveBotRepair(ctx context.Context, org, task string) error 
 		if proofErr != nil {
 			err = proofErr
 			reason = "Companion changed; refreshed head has no valid Reforge merge proof"
-		} else if proof.State != "merged" {
-			state, reason = "waiting_companion", "Companion merge is not confirmed or its refreshed head is not validated"
 		} else {
-			var original privateconnector.Result
-			original, err = s.providers.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: changeID}}, check)
-			if err == nil && (original.Change == nil || original.Change.ID != changeID || original.Change.Repository != ref || original.Change.TargetBranch != targetBranch) {
-				err = auth.ErrConflict
+			companionSatisfied := proof.State == "merged"
+			if !companionSatisfied {
+				_, companionSatisfied, err = s.resolveReplacementChain(ctx, org, repo, connection, proof, result.Change, ref, targetBranch, check)
+				if err != nil {
+					reason = "Replacement lineage changed or is ambiguous"
+				}
 			}
-			if err == nil {
-				switch original.Change.State {
-				case "merged":
-					if source.ValidSHA(original.Change.MergeSHA, "sha1") {
-						state, reason = "merged", "Original update merged; canonical native outcome observed"
-					}
-				case "closed":
-					state, reason = "closed", "Original update closed"
-				default:
-					method := "merge"
-					if len(methods) > 0 {
-						method = methods[0]
-					}
-					var gate Gate
-					gate, err = s.inspect(ctx, nil, org, repo, changeID, method, "", task)
-					if err == nil && !slices.Contains(gate.Snapshot.Rules.AllowedMergeMethods, method) {
-						for _, candidate := range gate.Snapshot.Rules.AllowedMergeMethods {
-							if methods == nil || slices.Contains(methods, candidate) {
-								gate, err = s.inspect(ctx, nil, org, repo, changeID, candidate, "", task)
-								break
+			if !companionSatisfied && err == nil {
+				state, reason = "waiting_companion", "Companion merge is not confirmed or its refreshed head is not validated"
+			} else if err == nil {
+				var original privateconnector.Result
+				original, err = s.providers.Read(ctx, org, connection, privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeReadChange, Change: &privateconnector.ChangeArgs{Repository: ref, ChangeID: changeID}}, check)
+				if err == nil && (original.Change == nil || original.Change.ID != changeID || original.Change.Repository != ref || original.Change.TargetBranch != targetBranch) {
+					err = auth.ErrConflict
+				}
+				if err == nil {
+					switch original.Change.State {
+					case "merged":
+						if source.ValidSHA(original.Change.MergeSHA, "sha1") {
+							state, reason = "merged", "Original update merged; canonical native outcome observed"
+						}
+					case "closed":
+						state, reason = "closed", "Original update closed"
+					default:
+						method := "merge"
+						if len(methods) > 0 {
+							method = methods[0]
+						}
+						var gate Gate
+						gate, err = s.inspect(ctx, nil, org, repo, changeID, method, "", task)
+						if err == nil && !slices.Contains(gate.Snapshot.Rules.AllowedMergeMethods, method) {
+							for _, candidate := range gate.Snapshot.Rules.AllowedMergeMethods {
+								if methods == nil || slices.Contains(methods, candidate) {
+									gate, err = s.inspect(ctx, nil, org, repo, changeID, candidate, "", task)
+									break
+								}
 							}
 						}
-					}
-					if err == nil {
-						gateID = gate.ID
-						reason = "Fresh native checks, reviews or policy still block the original update"
-						if gate.Decision.Outcome == "allow" {
-							state, reason = "ready", "Original update passed a fresh native merge evaluation; no merge was requested"
+						if err == nil {
+							gateID = gate.ID
+							reason = "Fresh native checks, reviews or policy still block the original update"
+							if gate.Decision.Outcome == "allow" {
+								state, reason = "ready", "Original update passed a fresh native merge evaluation; no merge was requested"
+							}
 						}
 					}
 				}

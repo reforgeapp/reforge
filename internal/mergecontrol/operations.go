@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"slices"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -138,7 +137,7 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, gateID
 	if err != nil {
 		return out, err
 	}
-	if fresh.Phase == "queue_execution" || fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion || !slices.Equal(fresh.Companions, original.Companions) {
+	if fresh.Phase == "queue_execution" || fresh.Decision.Outcome != "allow" || fresh.Binding != original.Binding || fresh.ConfigurationVersion != original.ConfigurationVersion || fresh.ConnectionVersion != original.ConnectionVersion || !companionsEqual(fresh.Companions, original.Companions) {
 		return out, auth.ErrConflict
 	}
 	created := false

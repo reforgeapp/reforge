@@ -27,14 +27,35 @@ type Gate struct {
 }
 
 type Companion struct {
+	TaskID           string             `json:"task_id"`
+	FindingID        string             `json:"finding_id"`
+	ChangeID         string             `json:"change_id"`
+	HeadSHA          string             `json:"head_sha"`
+	ObservedHeadSHA  string             `json:"observed_head_sha"`
+	Branch           string             `json:"branch"`
+	TargetBranch     string             `json:"target_branch"`
+	SourceChangeID   string             `json:"source_change_id"`
+	SourceHeadSHA    string             `json:"source_head_sha"`
+	SourceBranch     string             `json:"source_branch"`
+	OwnerReplacement bool               `json:"owner_replacement"`
+	ReplacesBranch   string             `json:"replaces_branch,omitempty"`
+	MergeSHA         string             `json:"merge_sha"`
+	Supersession     []ReplacementProof `json:"supersession,omitempty"`
+	State            string             `json:"state"`
+}
+
+type ReplacementProof struct {
 	TaskID          string `json:"task_id"`
+	FindingID       string `json:"finding_id"`
 	ChangeID        string `json:"change_id"`
-	HeadSHA         string `json:"head_sha"`
-	ObservedHeadSHA string `json:"observed_head_sha"`
+	CandidateSHA    string `json:"candidate_sha"`
 	Branch          string `json:"branch"`
 	TargetBranch    string `json:"target_branch"`
+	SourceChangeID  string `json:"source_change_id"`
+	SourceHeadSHA   string `json:"source_head_sha"`
+	SourceBranch    string `json:"source_branch"`
+	ObservedHeadSHA string `json:"observed_head_sha"`
 	MergeSHA        string `json:"merge_sha"`
-	State           string `json:"state"`
 }
 
 type Qualification struct {
