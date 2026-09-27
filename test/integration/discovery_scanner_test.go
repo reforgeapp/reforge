@@ -27,6 +27,7 @@ type discoveryScanReader struct {
 	change      forge.Change
 	commits     map[string][]byte
 	stale       bool
+	passChecks  bool
 }
 
 func (r *discoveryScanReader) authorize(ctx context.Context, org, id string, fn func(context.Context, pgx.Tx, connections.Connection) error) error {
@@ -58,7 +59,11 @@ func (r *discoveryScanReader) Read(ctx context.Context, org, id string, op priva
 	case privateconnector.ForgeResolveRef:
 		out.SHA = strings.Repeat("a", 40)
 	case privateconnector.ForgeChecks:
-		out.Checks = []forge.Check{{ID: "check-1", Name: "required", HeadSHA: op.Checks.CommitSHA, Status: "completed", Conclusion: "failure"}}
+		conclusion := "failure"
+		if r.passChecks {
+			conclusion = "success"
+		}
+		out.Checks = []forge.Check{{ID: "check-1", Name: "required", HeadSHA: op.Checks.CommitSHA, Status: "completed", Conclusion: conclusion}}
 	case privateconnector.ForgeReadChange:
 		out.Change = &r.change
 	case privateconnector.ForgeBehind:
@@ -184,3 +189,46 @@ func TestDiscoveryScannerStaleConnectionFailsSafe(t *testing.T) {
 }
 
 var _ inventory.Reader = (*discoveryScanReader)(nil)
+
+func TestDiscoveryScannerSurfacesConflictDespitePassingCI(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	service, reader := f.scannerFixture(t, false)
+	reader.passChecks = true
+	reader.change.State = "opened"
+	reader.change.HeadBranch = "reforge/repair/conflict-smoke"
+	reader.change.MergeStatus = "conflict"
+	ctx := context.Background()
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		body, err := json.Marshal(reader.change)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `UPDATE inventory_changes SET snapshot=$1 WHERE org_id=$2 AND repository_id=$3 AND native_id=$4`, body, f.org, f.repo, reader.change.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.StartScan(ctx, f.owner, f.org, f.repo, "scanner-conflict"); err != nil {
+		t.Fatal(err)
+	}
+	worked, err := service.RunOrganisationOnce(ctx, f.org)
+	if err != nil || !worked {
+		t.Fatalf("scanner conflict run: %v %v", err, worked)
+	}
+	page, err := service.List(ctx, f.owner, f.org, 20, "", discovery.Filter{RepositoryID: f.repo})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, finding := range page.Items {
+		if finding.Category != "branch_conflict" {
+			continue
+		}
+		for _, check := range finding.Evidence.Checks {
+			if check.Name == "Reforge branch conflict" && check.HeadSHA == reader.change.HeadSHA && check.Conclusion == "failure" {
+				return
+			}
+		}
+		t.Fatalf("conflict finding lacks head-bound synthetic failure: %+v", finding.Evidence.Checks)
+	}
+	t.Fatal("passing CI hid a conflicting Reforge repair branch")
+}

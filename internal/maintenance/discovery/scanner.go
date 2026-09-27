@@ -176,6 +176,22 @@ func failedChecks(checks []forge.Check) bool {
 	return false
 }
 
+func RepairConflict(change forge.Change) bool {
+	if change.State != "open" && change.State != "opened" || change.Draft || !strings.HasPrefix(change.HeadBranch, "reforge/repair/") || change.Repository.NativeID == "" || change.HeadRepository != change.Repository || change.TargetRepository != change.Repository {
+		return false
+	}
+	switch strings.ToLower(strings.TrimSpace(change.MergeStatus)) {
+	case "dirty", "conflict":
+		return true
+	default:
+		return false
+	}
+}
+
+func repairConflictCheck(change forge.Change) forge.Check {
+	return forge.Check{ID: "reforge-conflict:" + change.ID, Name: "Reforge branch conflict", HeadSHA: change.HeadSHA, Status: "completed", Conclusion: "failure"}
+}
+
 const (
 	WaitingForTarget = "Waiting for the default branch to pass CI"
 	WaitingForRebase = "Waiting for the bot to rebase"
@@ -287,7 +303,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		if err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT snapshot FROM inventory_changes WHERE org_id=$1 AND repository_id=$2 AND snapshot->>'state'='open' ORDER BY native_id LIMIT 201`, lease.Org, lease.Repo)
+		rows, err := tx.Query(ctx, `SELECT snapshot FROM inventory_changes WHERE org_id=$1 AND repository_id=$2 AND snapshot->>'state' IN ('open','opened') ORDER BY native_id LIMIT 201`, lease.Org, lease.Repo)
 		if err != nil {
 			return err
 		}
@@ -338,7 +354,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			return nil, ErrStale
 		}
 		change := *current.Change
-		if change.State != "open" || strings.HasPrefix(change.HeadBranch, "reforge/") && !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+		if change.State != "open" && change.State != "opened" || strings.HasPrefix(change.HeadBranch, "reforge/") && !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
 			continue
 		}
 		if change.Repository != lease.Ref || change.HeadRepository.NativeID == "" || change.TargetRepository != lease.Ref || !source.ValidSHA(change.HeadSHA, "sha1") || !source.ValidSHA(change.TargetSHA, "sha1") {
@@ -352,14 +368,18 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			return nil, ErrStale
 		}
 		observed := checks.Checks
+		conflict := RepairConflict(change)
 		if strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
 			missing, pending := forge.MissingChecks(targetChecks, observed, BotUpdateJob)
-			if pending && !failedChecks(observed) {
+			if pending && !failedChecks(observed) && !conflict {
 				continue
 			}
 			for _, name := range missing {
 				observed = append(observed, forge.Check{ID: "missing:" + name, Name: name, HeadSHA: change.HeadSHA, Status: "completed", Conclusion: "missing"})
 			}
+		}
+		if conflict {
+			observed = append(observed, repairConflictCheck(change))
 		}
 		if !failedChecks(observed) {
 			continue
@@ -415,11 +435,13 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		if cfg.MergeAuthority == "reforge" && e.Bot != "" {
 			e.MergeBlockers = []string{"Verify bot automerge is disabled or constrained by a certified native Reforge gate before claiming merge authority"}
 		}
-		category := "ci_failure"
-		if len(deps.Changes) > 0 {
+		category, severity, title := "ci_failure", "medium", change.Title
+		if conflict {
+			category, severity, title = "branch_conflict", "high", "Reforge repair branch conflicts with target"
+		} else if len(deps.Changes) > 0 {
 			category = "dependency_update"
 		}
-		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_change", SourceID: change.ID, Category: category, Severity: "medium", Title: change.Title, Evidence: e})
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_change", SourceID: change.ID, Category: category, Severity: severity, Title: title, Evidence: e})
 	}
 	return sharedBotFailures(out, initial, lease.Repo, lease.Branch, targetChecks), nil
 }

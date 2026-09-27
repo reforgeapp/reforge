@@ -156,6 +156,12 @@ func TestRefreshFixRequiresOwnedIdleStaleBranch(t *testing.T) {
 	}
 	connector.behind = 0
 	assert("current branch", false, 3, 0)
+	connector.reads = 0
+	connector.change.MergeStatus = "dirty"
+	if waiting, conflictErr := service.RefreshFix(ctx, session, org, taskID); waiting || conflictErr != ErrBranchConflict || connector.reads != 1 || connector.writes != 0 {
+		t.Fatalf("conflicting branch dispatched refresh: waiting=%v err=%v reads=%d writes=%d", waiting, conflictErr, connector.reads, connector.writes)
+	}
+	connector.change.MergeStatus = ""
 	connector.reads, connector.behind = 0, 2
 	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE repair_runs SET branch='external/branch',native_change=jsonb_set(native_change,'{head_branch}','"external/branch"') WHERE org_id=$1 AND task_id=$2`, org, taskID)
