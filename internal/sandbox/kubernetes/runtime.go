@@ -253,6 +253,10 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		"reforge.io/attempt-id":  in.AttemptID,
 		"reforge.io/commit":      in.CommitSHA,
 	}
+	moduleCache := "/tmp/gomod"
+	if refs.Dependencies != "" {
+		moduleCache = "/opt/deps/go"
+	}
 	spec := PodSpec{
 		Ref:              PodRef{Namespace: r.config.Namespace, Name: name},
 		Labels:           labels,
@@ -266,6 +270,9 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 			"HOME=/tmp",
 			"TMPDIR=/tmp",
 			"GOCACHE=/tmp/go-build",
+			"GOMODCACHE=" + moduleCache,
+			"GOPROXY=off",
+			"GOSUMDB=off",
 			"GOPATH=/workspace/.reforge/gopath",
 			"GIT_CONFIG_NOSYSTEM=1",
 			"GIT_CONFIG_GLOBAL=/dev/null",
@@ -288,9 +295,6 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		ActiveDeadlineSeconds:  int64((in.Timeout + time.Second - 1) / time.Second),
 		RestartPolicy:          "Never",
 		Bootstrap:              refs,
-	}
-	if refs.Dependencies != "" {
-		spec.Environment = append(spec.Environment, "GOMODCACHE=/opt/deps/go", "GOPROXY=off", "GOSUMDB=off")
 	}
 	if err = validPodSpec(spec); err != nil {
 		return sandbox.Workspace{}, errors.Join(err, cleanupLease())

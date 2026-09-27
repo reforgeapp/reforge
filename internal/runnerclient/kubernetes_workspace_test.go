@@ -60,7 +60,7 @@ func kubernetesRuntimeConfig() sandbox.RuntimeConfig {
 }
 
 func TestKubernetesWorkspaceBootstrapsPatchedGoModulesOnce(t *testing.T) {
-	files := []guest.File{{Path: "go.mod", Content: []byte("module example.test/root\n")}, {Path: "nested/go.mod", Content: []byte("module example.test/nested\n")}}
+	files := []guest.File{{Path: "go.mod", Content: []byte("module example.test/root\n")}, {Path: "go.sum", Content: []byte("example.test/root v1.0.0 h1:old\n")}, {Path: "go.work", Content: []byte("go 1.20\n\nuse .\nuse ./nested\n")}, {Path: "nested/go.mod", Content: []byte("module example.test/nested\n")}, {Path: "nested/go.sum", Content: []byte("example.test/nested v1.0.0 h1:old\n")}, {Path: "go.work.sum", Content: []byte("example.test/work v1.0.0 h1:old\n")}}
 	snapshot := sandbox.Snapshot{CommitSHA: strings.Repeat("a", 40), Files: files}
 	runtime := &recordingSandboxRuntime{}
 	request := sandbox.WorkspaceRequest{JobID: "job", AttemptID: "attempt", CommitSHA: snapshot.CommitSHA, Image: "sha256:requested", Timeout: time.Minute}
@@ -75,8 +75,17 @@ func TestKubernetesWorkspaceBootstrapsPatchedGoModulesOnce(t *testing.T) {
 	if len(runtime.patches) != 1 || len(runtime.patches[0]) != 1 || string(runtime.patches[0][0].Content) != string(patch.Content) {
 		t.Fatalf("staged patch missing: %+v", runtime.patches)
 	}
-	if len(runtime.commands) != 1 || runtime.commands[0].NetworkProfile != "egress" || !strings.Contains(strings.Join(runtime.commands[0].Args, " "), "go mod download") || !strings.Contains(strings.Join(runtime.commands[0].Args, " "), "nested") || runtime.commands[0].Timeout != 10*time.Minute {
+	if len(runtime.commands) != 1 || runtime.commands[0].NetworkProfile != "egress" || runtime.commands[0].Timeout != 10*time.Minute {
 		t.Fatalf("Go bootstrap commands=%+v", runtime.commands)
+	}
+	bootstrap := strings.Join(runtime.commands[0].Args, " ")
+	for _, want := range []string{"go mod download", "root=/tmp/reforge-manifests", "GOMODCACHE=/tmp/gomod", "GOFLAGS=-mod=mod", "go.mod go.sum go.work go.work.sum nested/go.mod nested/go.sum -- . nested"} {
+		if !strings.Contains(bootstrap, want) {
+			t.Fatalf("Go bootstrap must resolve copied manifests in scratch: missing %q in %s", want, bootstrap)
+		}
+	}
+	if !strings.Contains(bootstrap, `cp "/workspace/$file" "$root/$file"`) {
+		t.Fatalf("Go bootstrap can write into the source tree: %s", bootstrap)
 	}
 	if strings.Contains(strings.Join(runtime.events, ","), "destroy") || strings.Join(runtime.events, ",") != "prepare,patch,execute" {
 		t.Fatalf("setup ordering=%v", runtime.events)

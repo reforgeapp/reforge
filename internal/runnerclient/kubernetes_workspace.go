@@ -92,8 +92,11 @@ func kubernetesBootstrapCommand(snapshot sandbox.Snapshot, command sandbox.Comma
 		if len(modules) == 0 {
 			return sandbox.Command{}, false, nil
 		}
-		script := `set -eu; for module do (cd -- "$module" && /usr/local/go/bin/go mod download); done`
+		manifests := goManifestPaths(snapshot)
+		script := `set -eu; root=/tmp/reforge-manifests; while [ "$1" != "--" ]; do file=$1; shift; mkdir -p "$root/$(dirname -- "$file")"; cp "/workspace/$file" "$root/$file"; done; shift; for module do (cd -- "$root/$module" && /usr/local/go/bin/go mod download); done`
 		args := []string{"/usr/bin/env", "GOMODCACHE=/tmp/gomod", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "/bin/sh", "-c", script, "reforge-bootstrap"}
+		args = append(args, manifests...)
+		args = append(args, "--")
 		args = append(args, modules...)
 		return sandbox.Command{Args: args, Directory: ".", Timeout: 10 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "egress"}, true, nil
 	case "node", "npm", "npx":
@@ -105,6 +108,17 @@ func kubernetesBootstrapCommand(snapshot sandbox.Snapshot, command sandbox.Comma
 	default:
 		return sandbox.Command{}, false, nil
 	}
+}
+
+func goManifestPaths(snapshot sandbox.Snapshot) []string {
+	paths := make([]string, 0)
+	for _, file := range snapshot.Files {
+		if goManifests[path.Base(file.Path)] {
+			paths = append(paths, file.Path)
+		}
+	}
+	sort.Strings(paths)
+	return paths
 }
 
 func goModuleDirectories(snapshot sandbox.Snapshot) []string {
