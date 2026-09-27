@@ -196,9 +196,14 @@ func (c *Client) Claim(ctx context.Context) (Job, error) {
 }
 
 func (c *Client) Heartbeat(ctx context.Context, j Job) (runner.Heartbeat, error) {
+	value, _, err := c.heartbeatCall(ctx, j)
+	return value, err
+}
+
+func (c *Client) heartbeatCall(ctx context.Context, j Job) (runner.Heartbeat, int, error) {
 	var result runner.Heartbeat
-	_, err := c.call(ctx, "POST", "/runner/v1/heartbeat", j.Token, nil, &result)
-	return result, err
+	status, err := c.call(ctx, "POST", "/runner/v1/heartbeat", j.Token, nil, &result)
+	return result, status, err
 }
 
 func (c *Client) Progress(ctx context.Context, j Job, state domain.TaskState) error {
@@ -359,23 +364,7 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	cancelRequested := false
 	go func() {
 		defer close(stopped)
-		ticker := time.NewTicker(15 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-jobctx.Done():
-				return
-			case <-ticker.C:
-				heartbeatCtx, stop := context.WithTimeout(jobctx, 10*time.Second)
-				value, err := c.Heartbeat(heartbeatCtx, job)
-				stop()
-				if err != nil || value.Stop {
-					cancelRequested = value.Stop
-					cancel()
-					return
-				}
-			}
-		}
+		cancelRequested = c.heartbeatLoop(jobctx, job, cancel, 15*time.Second, 10*time.Second, 250*time.Millisecond)
 	}()
 	result, err := process(jobctx, c, job)
 	if err != nil {
@@ -395,6 +384,75 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	finish, stop := context.WithTimeout(ctx, 10*time.Second)
 	defer stop()
 	return c.Complete(finish, job, result)
+}
+
+func (c *Client) heartbeatLoop(ctx context.Context, job Job, cancel context.CancelFunc, interval, requestTimeout, retryBase time.Duration) bool {
+	if interval <= 0 || requestTimeout <= 0 || retryBase <= 0 {
+		cancel()
+		return false
+	}
+	leaseExpiry := job.Lease.ExpiresAt
+	for {
+		remaining := time.Until(leaseExpiry) - 5*time.Second
+		if remaining <= 0 {
+			cancel()
+			return false
+		}
+		wait := min(interval, remaining)
+		timer := time.NewTimer(wait)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return false
+		case <-timer.C:
+			for attempt := 0; ; attempt++ {
+				if ctx.Err() != nil {
+					return false
+				}
+				remaining := time.Until(leaseExpiry) - 5*time.Second
+				if remaining <= 0 {
+					cancel()
+					return false
+				}
+				timeout := min(requestTimeout, remaining)
+				heartbeatCtx, stop := context.WithTimeout(ctx, timeout)
+				value, status, err := c.heartbeatCall(heartbeatCtx, job)
+				stop()
+				if err == nil {
+					if value.Stop {
+						cancel()
+						return true
+					}
+					if !value.Lease.ExpiresAt.After(time.Now().Add(5 * time.Second)) {
+						cancel()
+						return false
+					}
+					leaseExpiry = value.Lease.ExpiresAt
+					break
+				}
+				if ctx.Err() != nil || !transientHeartbeatFailure(status) || attempt >= 3 {
+					cancel()
+					return false
+				}
+				delay := retryBase << attempt
+				if delay >= time.Until(leaseExpiry)-5*time.Second {
+					cancel()
+					return false
+				}
+				timer := time.NewTimer(delay)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return false
+				case <-timer.C:
+				}
+			}
+		}
+	}
+}
+
+func transientHeartbeatFailure(status int) bool {
+	return status == 0 || status == http.StatusInternalServerError || status == http.StatusBadGateway || status == http.StatusServiceUnavailable || status == http.StatusGatewayTimeout
 }
 
 func (c *Client) ModelTurn(ctx context.Context, j Job, in model.Turn) (model.TurnResult, error) {
