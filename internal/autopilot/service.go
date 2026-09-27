@@ -658,6 +658,13 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		}
 		return later(reason, 5*time.Minute)
 	}
+	waiting, err := s.ownerRepairPinsTarget(ctx, org, repo, gate.Snapshot.Change.TargetBranch)
+	if err != nil {
+		return err
+	}
+	if waiting {
+		return later("Waiting for active owner repairs pinned to this target", time.Minute)
+	}
 	if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-merge", finding, change, gate.ID), "autopilot"); err != nil {
 		return later(err.Error(), 5*time.Minute)
 	}
@@ -710,6 +717,13 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 		return later(err.Error(), 10*time.Minute)
 	}
 	if gate.Decision.Outcome == "allow" {
+		waiting, err := s.ownerRepairPinsTarget(ctx, org, repo, gate.Snapshot.Change.TargetBranch)
+		if err != nil {
+			return err
+		}
+		if waiting {
+			return later("Waiting for active owner repairs pinned to this target", time.Minute)
+		}
 		if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-bot-merge", repo, change, head, gate.ID), "autopilot"); err != nil {
 			return later(err.Error(), 10*time.Minute)
 		}
