@@ -38,6 +38,7 @@ type Engine struct {
 	Restore          *Checkpoint
 	SaveCheckpoint   func(context.Context, Checkpoint) error
 	Runtime          sandbox.SandboxRuntime
+	originalFiles    map[string][]byte
 	PrepareWorkspace func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
 	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
 	Artifact         func(context.Context, string, []byte) (string, string, error)
@@ -238,6 +239,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 	if err != nil {
 		return fail("Target source is incomplete", err)
 	}
+	e.originalFiles = files
 	ctx, cancel := context.WithTimeout(ctx, AttemptTimeout(p))
 	defer cancel()
 	if p.Owner {
