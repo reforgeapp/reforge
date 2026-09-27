@@ -56,6 +56,16 @@ type AutopilotAttempt struct {
 	Runs           int32              `json:"runs"`
 }
 
+type AutopilotBotMerge struct {
+	OrgID        pgtype.UUID        `json:"org_id"`
+	RepositoryID pgtype.UUID        `json:"repository_id"`
+	ChangeID     string             `json:"change_id"`
+	HeadSha      string             `json:"head_sha"`
+	Reason       string             `json:"reason"`
+	MergeAfter   pgtype.Timestamptz `json:"merge_after"`
+	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+}
+
 type AutopilotRequest struct {
 	OrgID        pgtype.UUID        `json:"org_id"`
 	RepositoryID pgtype.UUID        `json:"repository_id"`
@@ -199,6 +209,7 @@ type Connection struct {
 	CreatedAt         pgtype.Timestamptz `json:"created_at"`
 	RevokedAt         pgtype.Timestamptz `json:"revoked_at"`
 	KeyConfirmedAt    pgtype.Timestamptz `json:"key_confirmed_at"`
+	DeletedAt         pgtype.Timestamptz `json:"deleted_at"`
 }
 
 type ConnectionRoute struct {
@@ -544,6 +555,7 @@ type MaintenanceRepair struct {
 	EvidenceDigest string             `json:"evidence_digest"`
 	Active         bool               `json:"active"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
+	Supersession   []byte             `json:"supersession"`
 }
 
 type MaintenanceScan struct {
@@ -644,6 +656,7 @@ type ModelTurn struct {
 	Usage          []byte             `json:"usage"`
 	CreatedAt      pgtype.Timestamptz `json:"created_at"`
 	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
+	Failure        string             `json:"failure"`
 }
 
 type OidcLogin struct {
@@ -753,6 +766,7 @@ type RepairRun struct {
 	BotRevalidationReason  string             `json:"bot_revalidation_reason"`
 	BotObserveAfter        pgtype.Timestamptz `json:"bot_observe_after"`
 	BotObservedAt          pgtype.Timestamptz `json:"bot_observed_at"`
+	Checkpoint             []byte             `json:"checkpoint"`
 }
 
 type Repository struct {
@@ -783,6 +797,7 @@ type Runner struct {
 	Version             int64              `json:"version"`
 	EnrolledAt          pgtype.Timestamptz `json:"enrolled_at"`
 	LastSeenAt          pgtype.Timestamptz `json:"last_seen_at"`
+	Slots               int32              `json:"slots"`
 }
 
 type RunnerEnrollment struct {
