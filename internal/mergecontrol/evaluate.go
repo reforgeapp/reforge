@@ -125,9 +125,18 @@ const CheckFreshness = 24 * time.Hour
 
 func StaleChecks(checks []forge.Check, head string, now time.Time) bool {
 	for _, check := range checks {
-		if check.HeadSHA == head && !discovery.BotUpdateJob(check.Name) && (check.CompletedAt == nil || now.Sub(*check.CompletedAt) > CheckFreshness) {
+		if check.HeadSHA == head && !discovery.BotUpdateJob(check.Name) && !pendingCheck(check.Status) && (check.CompletedAt == nil || now.Sub(*check.CompletedAt) > CheckFreshness) {
 			return true
 		}
 	}
 	return false
+}
+
+func pendingCheck(status string) bool {
+	switch strings.ToLower(strings.TrimSpace(status)) {
+	case "queued", "in_progress", "running", "pending":
+		return true
+	default:
+		return false
+	}
 }
