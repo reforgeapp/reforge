@@ -1,7 +1,6 @@
 package guest
 
 import (
-	"errors"
 	"io"
 	"net"
 	"os"
@@ -39,14 +38,7 @@ func Egress(command []string) int {
 	cmd.Env = append(env, "HTTPS_PROXY="+proxy, "https_proxy="+proxy, "HTTP_PROXY="+proxy, "http_proxy="+proxy, "npm_config_https_proxy="+proxy, "npm_config_proxy="+proxy, "NO_PROXY=", "no_proxy=")
 	cmd.Stdin, cmd.Stdout, cmd.Stderr = os.Stdin, os.Stdout, os.Stderr
 	err = cmd.Run()
-	var exit *exec.ExitError
-	if errors.As(err, &exit) {
-		return exit.ExitCode()
-	}
-	if err != nil {
-		return 127
-	}
-	return 0
+	return exitCode(err)
 }
 
 func forward(client net.Conn) {

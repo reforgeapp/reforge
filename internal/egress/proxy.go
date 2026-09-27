@@ -92,12 +92,16 @@ func (p *Proxy) handle(client net.Conn) {
 }
 
 func (p *Proxy) connect(request *http.Request) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	return p.connectContext(ctx, request)
+}
+
+func (p *Proxy) connectContext(ctx context.Context, request *http.Request) (net.Conn, error) {
 	host, port, err := net.SplitHostPort(request.Host)
 	if request.Method != http.MethodConnect || err != nil || port != "443" || !p.allow[host] {
 		return nil, errors.New("destination not allowed")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
 	addresses, err := p.resolve(ctx, host)
 	if err != nil || len(addresses) == 0 {
 		return nil, errors.New("destination did not resolve")
