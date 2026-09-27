@@ -295,13 +295,28 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 			return f, err
 		}
 	}
+	if err = CheckRepairOverlapTx(ctx, tx, f); err != nil {
+		return f, err
+	}
+	return f, nil
+}
+
+func CheckRepairOverlapTx(ctx context.Context, tx pgx.Tx, f Finding) error {
 	head := ""
 	if f.Evidence.Change != nil {
 		head = f.Evidence.Change.HeadBranch
 	}
-	rows, err := tx.Query(ctx, `SELECT mf.id::text,mf.evidence FROM maintenance_repairs mr JOIN maintenance_findings mf ON mf.org_id=mr.org_id AND mf.id=mr.finding_id JOIN workflow_tasks t ON t.org_id=mr.org_id AND t.id=mr.task_id WHERE mr.org_id=$1 AND mr.repository_id=$2 AND mr.active AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=mr.org_id AND rr.task_id=mr.task_id AND rr.branch<>'' AND rr.branch=$3 AND rr.state='published')`, org, f.RepositoryID, head)
+	followUp := f.Evidence.Ownership == "reforge" && strings.HasPrefix(head, "reforge/repair/")
+	if followUp {
+		var published bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published')`, f.OrgID, f.RepositoryID, head).Scan(&published); err != nil {
+			return err
+		}
+		followUp = published
+	}
+	rows, err := tx.Query(ctx, `SELECT mf.id::text,mf.evidence FROM maintenance_repairs mr JOIN maintenance_findings mf ON mf.org_id=mr.org_id AND mf.id=mr.finding_id WHERE mr.org_id=$1 AND mr.repository_id=$2 AND mr.active AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=mr.org_id AND rr.task_id=mr.task_id AND rr.state='published' AND ((rr.branch<>'' AND rr.branch=$3) OR $4))`, f.OrgID, f.RepositoryID, head, followUp)
 	if err != nil {
-		return f, err
+		return err
 	}
 	defer rows.Close()
 	for rows.Next() {
@@ -309,16 +324,16 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 		var body []byte
 		var evidence Evidence
 		if err = rows.Scan(&other, &body); err != nil {
-			return f, err
+			return err
 		}
 		if err = json.Unmarshal(body, &evidence); err != nil {
-			return f, err
+			return err
 		}
 		if other == f.ID || evidence.TargetBranch == f.Evidence.TargetBranch && Overlap(evidence.Dependencies, f.Evidence.Dependencies) {
-			return f, ErrDuplicate
+			return ErrDuplicate
 		}
 	}
-	return f, rows.Err()
+	return rows.Err()
 }
 func BindRepairTx(ctx context.Context, tx pgx.Tx, f Finding, taskID string) error {
 	_, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest) VALUES($1,$2,$3,$4,$5)`, f.OrgID, f.ID, f.RepositoryID, taskID, f.EvidenceDigest)

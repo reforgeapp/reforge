@@ -2,7 +2,6 @@ package repair
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -100,29 +99,5 @@ func (s *Service) CheckModelTx(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 }
 
 func checkRepairOverlapTx(ctx context.Context, tx pgx.Tx, run Run) error {
-	finding := run.Context.Finding
-	head := ""
-	if finding.Evidence.Change != nil {
-		head = finding.Evidence.Change.HeadBranch
-	}
-	rows, err := tx.Query(ctx, `SELECT mf.id::text,mf.evidence FROM maintenance_repairs mr JOIN maintenance_findings mf ON mf.org_id=mr.org_id AND mf.id=mr.finding_id WHERE mr.org_id=$1 AND mr.repository_id=$2 AND mr.active AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=mr.org_id AND rr.task_id=mr.task_id AND rr.branch<>'' AND rr.branch=$3 AND rr.state='published')`, finding.OrgID, finding.RepositoryID, head)
-	if err != nil {
-		return err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var id string
-		var raw []byte
-		var other discovery.Evidence
-		if err = rows.Scan(&id, &raw); err == nil {
-			err = json.Unmarshal(raw, &other)
-		}
-		if err != nil {
-			return err
-		}
-		if id == finding.ID || other.TargetBranch == finding.Evidence.TargetBranch && discovery.Overlap(other.Dependencies, finding.Evidence.Dependencies) {
-			return discovery.ErrDuplicate
-		}
-	}
-	return rows.Err()
+	return discovery.CheckRepairOverlapTx(ctx, tx, run.Context.Finding)
 }
