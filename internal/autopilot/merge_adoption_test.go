@@ -192,6 +192,27 @@ func TestRebaseCooldownRetriesSameFindingAndCaps(t *testing.T) {
 	if got := load(); len(got) != 0 {
 		t.Fatalf("cooling finding selected: %+v", got)
 	}
+	sibling, otherRepo, otherFinding := domain.NewID(), domain.NewID(), domain.NewID()
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO repositories(org_id,id,native_id,name,accessible) VALUES($1,$2,$3,'team/other',true)`, org, otherRepo, domain.NewID()); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'forge_change','change-2','ci_failure','medium','Sibling Dependabot PR',$5,$6),($1,$7,$8,$9,'forge_change','change-3','ci_failure','medium','Other Dependabot PR',$5,$10)`, org, sibling, repo, strings.Repeat("c", 64), evidence, strings.Repeat("d", 64), otherFinding, otherRepo, strings.Repeat("e", 64), strings.Repeat("f", 64)); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if got := load(); len(got) != 1 || got[0].finding.ID != otherFinding {
+		t.Fatalf("repository cooldown did not serialize rebases: %+v", got)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE maintenance_findings SET state='resolved' WHERE org_id=$1 AND id=ANY($2::uuid[])`, org, []string{sibling, otherFinding})
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE autopilot_attempts SET retry_after=clock_timestamp()-interval '1 second' WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, finding)
 		return err
