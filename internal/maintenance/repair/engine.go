@@ -94,7 +94,14 @@ type validationCommandError struct {
 }
 
 func (e *validationCommandError) Error() string {
-	return fmt.Sprintf("validation command %q: %s", e.command, e.problem)
+	if e.cause == nil {
+		return fmt.Sprintf("validation command %q: %s", e.command, e.problem)
+	}
+	cause := strings.Join(strings.Fields(e.cause.Error()), " ")
+	if len(cause) > 300 {
+		cause = cause[:300]
+	}
+	return fmt.Sprintf("validation command %q: %s (%s)", e.command, e.problem, cause)
 }
 
 func (e *validationCommandError) Unwrap() error { return e.cause }
