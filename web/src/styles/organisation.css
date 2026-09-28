@@ -13,7 +13,8 @@
 .organisation-detail-head, .organisation-subhead { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .organisation-detail-head h2, .organisation-subhead h3 { margin: 0; font-size: 16px; font-weight: 600; }
 .organisation-field { display: grid; gap: 5px; width: min(100%, 480px); color: var(--text-muted); font-size: 12px; }
-.organisation-field input, .organisation-field select { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
+.organisation-field select { width: 100%; }
+.organisation-field input { width: 100%; min-height: 38px; padding: 8px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); font: inherit; font-size: 14px; }
 .organisation-field input:focus-visible, .organisation-field select:focus-visible, .organisation-list-row:focus-visible, .organisation-repo input:focus-visible, .organisation-choice input:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
 .organisation-scope { display: grid; align-content: start; gap: 10px; }
 .organisation-repo-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 16px; max-height: 300px; overflow: auto; }

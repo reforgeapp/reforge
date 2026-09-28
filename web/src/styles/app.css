@@ -219,6 +219,9 @@ input, select, textarea { width: 100%; min-width: 0; min-height: 36px; padding: 
 textarea { min-height: 70px; resize: vertical; }
 input:focus, select:focus, textarea:focus { border-color: var(--focus); outline: 0; box-shadow: 0 0 0 3px var(--focus-ring); }
 input:disabled, select:disabled, textarea:disabled { color: var(--text-subtle); background: var(--surface-inset); }
+select { appearance: none; padding-right: 32px; border-color: var(--border); box-shadow: none; background: var(--surface) var(--select-chevron) no-repeat right 9px center / 15px; font-weight: 600; cursor: pointer; }
+select:hover:not(:disabled) { background-color: var(--surface-3); }
+select:disabled { background: var(--surface-inset) var(--select-chevron) no-repeat right 9px center / 15px; cursor: default; }
 fieldset { display: grid; gap: 10px; min-width: 0; margin: 0; padding: 0; border: 0; background: transparent; }
 legend { float: left; width: 100%; padding: 0; color: var(--text); font-size: 14px; font-weight: 650; }
 .checkbox-label { display: flex; align-items: center; gap: 7px; font-weight: 500; }
