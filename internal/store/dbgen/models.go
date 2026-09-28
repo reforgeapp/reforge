@@ -54,6 +54,7 @@ type AutopilotAttempt struct {
 	MergeAfter     pgtype.Timestamptz `json:"merge_after"`
 	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
 	Runs           int32              `json:"runs"`
+	Capability     string             `json:"capability"`
 }
 
 type AutopilotBotMerge struct {

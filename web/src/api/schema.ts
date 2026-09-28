@@ -4675,6 +4675,7 @@ export interface components {
             active: number;
             queued: number;
             skipped: number;
+            blocked: number;
 
             version: number;
         };
