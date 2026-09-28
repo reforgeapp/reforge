@@ -47,6 +47,12 @@ func New(db *store.Store, identity *auth.Service, findings *discovery.Service, j
 			approved[name] = digest
 		}
 	}
+	for _, name := range []string{"python", "javascript", "go"} {
+		if approved[name] != "" {
+			approved["config"] = approved[name]
+			break
+		}
+	}
 	return &Service{db, identity, findings, jobs, runners, policies, budgets, connections, profiles, reader, approved}
 }
 func (s *Service) Recipes() map[string]string {

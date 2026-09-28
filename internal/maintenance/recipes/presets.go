@@ -55,6 +55,9 @@ func BuildOwner(name string, files map[string][]byte) (Recipe, error) {
 	if !ok {
 		return Recipe{}, ErrUnsupported
 	}
+	if canonical == "config" {
+		return configRecipe(), nil
+	}
 	r := baseRecipe(canonical)
 	r.Version = "v4"
 	r.Commands = append(r.Commands, goPreset(paths, files).Commands...)
@@ -78,6 +81,8 @@ func canonicalName(name string) (string, bool) {
 		return "javascript", true
 	case "python", "py":
 		return "python", true
+	case "config":
+		return "config", true
 	default:
 		return "", false
 	}
@@ -219,6 +224,15 @@ func npmCommand(script, directory string, extra []string, index int) Command {
 
 func baseRecipe(name string) Recipe {
 	return Recipe{Name: name, Version: CurrentVersion, MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
+}
+
+func configRecipe() Recipe {
+	r := baseRecipe("config")
+	r.Version = "v1"
+	r.MinimumTests = 0
+	r.AllowedPaths = append([]string{}, guest.BotConfigPaths...)
+	r.Commands = []Command{{ID: "bot-config", Args: []string{"/opt/reforge/tool", "validate-bot-config"}, Directory: ".", TimeoutSeconds: 60, ReportFormat: "exit"}}
+	return r
 }
 
 func goPreset(paths []string, files map[string][]byte) Recipe {

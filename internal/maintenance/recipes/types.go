@@ -17,6 +17,7 @@ type Recipe struct {
 	Commands       []Command `json:"commands"`
 	ProtectedPaths []string  `json:"protected_paths"`
 	ManifestPaths  []string  `json:"manifest_paths"`
+	AllowedPaths   []string  `json:"allowed_paths,omitempty"`
 	MinimumTests   int       `json:"minimum_tests"`
 	MaxFiles       int       `json:"max_files"`
 	MaxPatchBytes  int       `json:"max_patch_bytes"`
