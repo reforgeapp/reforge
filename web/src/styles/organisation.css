@@ -1,8 +1,8 @@
 .organisation-page { display: grid; gap: 16px; min-width: 0; }
-.organisation-workspace { min-width: 0; }
+.organisation-workspace { min-width: 0; padding-block: 4px; }
 .organisation-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 48px; padding: 0 2px; border-bottom: 1px solid var(--border); }
 .organisation-toolbar strong { font-variant-numeric: tabular-nums; }
-.organisation-split { display: grid; grid-template-columns: minmax(220px, 290px) minmax(0, 1fr); min-height: 360px; border-bottom: 1px solid var(--border); }
+.organisation-split { display: grid; grid-template-columns: minmax(220px, 290px) minmax(0, 1fr); min-height: 360px; }
 .organisation-list { display: flex; flex-direction: column; align-items: stretch; gap: 2px; padding: 8px 12px 8px 0; border-right: 1px solid var(--border); }
 .organisation-list-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; padding: 10px 12px; border: 0; border-left: 2px solid transparent; background: transparent; color: var(--text); text-align: left; cursor: pointer; }
 .organisation-list-row:hover { background: var(--surface-hover); }
@@ -22,7 +22,7 @@
 .organisation-repo span { overflow-wrap: anywhere; }
 .organisation-repo input, .organisation-choice input { flex: 0 0 auto; width: 16px; height: 16px; accent-color: var(--primary); }
 .organisation-form-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 12px; border-top: 1px solid var(--border); color: var(--text-muted); font-size: 12px; }
-.organisation-empty { display: flex; align-items: center; justify-content: space-between; min-height: 140px; padding: 16px 2px; border-bottom: 1px solid var(--border); }
+.organisation-empty { display: flex; align-items: center; justify-content: space-between; min-height: 140px; padding: 16px 2px; }
 .organisation-state { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 16px 2px; border-bottom: 1px solid var(--border); }
 .organisation-error { margin: 0; color: var(--red); }
 .organisation-member-id { margin: -8px 0 0; color: var(--text-muted); font-size: 12px; }

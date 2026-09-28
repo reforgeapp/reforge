@@ -6,7 +6,7 @@
 .connections-refresh { display: inline-grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface); }
 .connections-refresh:hover { color: var(--text); background: var(--surface-3); }
 .connections-categories { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 4px; }
-.connections-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 210px); gap: 12px; align-items: end; max-width: 620px; padding: 14px 0; }
+.connections-filters { display: grid; grid-template-columns: minmax(220px, 420px) minmax(150px, 210px); gap: 12px; align-items: end; margin-bottom: 12px; }
 .connections-filters label { display: grid; gap: 4px; color: var(--text-subtle); font-size: 11px; }
 .connections-filters input, .connections-filters select { height: 36px; }
 .connections-inventory .table-card { border-top: 1px solid var(--border); }
@@ -22,7 +22,7 @@
 .connections-page .split-detail { min-width: 0; }
 @media (max-width: 720px) {
   .connections-list-head { padding-bottom: 10px; }
-  .connections-filters { grid-template-columns: minmax(0, 1fr) minmax(122px, .65fr); gap: 9px; padding: 12px 0; }
+  .connections-filters { grid-template-columns: minmax(0, 1fr) minmax(122px, .65fr); gap: 9px; padding: 12px; }
   .connections-filters label { min-width: 0; }
 }
 @media (max-width: 720px) {

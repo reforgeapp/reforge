@@ -3,7 +3,7 @@
 .audit-page .split-view.detail-open { grid-template-columns: minmax(0, 1.3fr) minmax(300px, .7fr); }
 .audit-page .split-detail { padding: 16px; border: 1px solid var(--border); background: var(--surface-2); }
 .audit-page .split-detail .back-link { margin: 0 0 12px; }
-.audit-query { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(140px, .8fr) auto auto; gap: 12px; align-items: end; padding-bottom: 14px; border-bottom: 1px solid var(--border); }
+.audit-query { display: grid; grid-template-columns: minmax(220px, 1.6fr) minmax(160px, 1fr) minmax(140px, .8fr) auto auto; gap: 12px; align-items: end; }
 .audit-query > label { min-width: 0; }
 .audit-query input, .audit-query select, .audit-export select { width: 100%; min-height: 36px; }
 .audit-query .button { min-height: 36px; }
