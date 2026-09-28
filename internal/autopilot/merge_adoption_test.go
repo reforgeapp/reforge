@@ -387,25 +387,28 @@ func TestTerminalRepairCleanupRequiresObservedMerge(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT task_id::text,active FROM maintenance_repairs WHERE org_id=$1`, org)
+		rows, err := tx.Query(ctx, `SELECT m.task_id::text,m.active,rr.native_change->>'state' FROM maintenance_repairs m JOIN repair_runs rr ON rr.org_id=m.org_id AND rr.task_id=m.task_id WHERE m.org_id=$1`, org)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
-		got := map[string]bool{}
+		got, states := map[string]bool{}, map[string]string{}
 		for rows.Next() {
-			var task string
+			var task, state string
 			var active bool
-			if err = rows.Scan(&task, &active); err != nil {
+			if err = rows.Scan(&task, &active, &state); err != nil {
 				return err
 			}
-			got[task] = active
+			got[task], states[task] = active, state
 		}
 		if err = rows.Err(); err != nil {
 			return err
 		}
 		if got[tasks[0]] || !got[tasks[1]] || !got[tasks[2]] {
 			t.Fatalf("active repair ownership after cleanup: merged=%t requested=%t blocked=%t", got[tasks[0]], got[tasks[1]], got[tasks[2]])
+		}
+		if states[tasks[0]] != "merged" || states[tasks[1]] != "open" || states[tasks[2]] != "open" {
+			t.Fatalf("run change states after cleanup: %v", states)
 		}
 		return nil
 	}); err != nil {

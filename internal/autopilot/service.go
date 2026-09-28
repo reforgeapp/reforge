@@ -271,6 +271,9 @@ func (s *Service) session(ctx context.Context, org string) (auth.Session, scope,
 }
 
 func releaseTerminalRepairsTx(ctx context.Context, tx pgx.Tx, org string) error {
+	if _, err := tx.Exec(ctx, `UPDATE repair_runs rr SET native_change=jsonb_set(rr.native_change,'{state}',to_jsonb(coalesce((SELECT 'merged'::text FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged' LIMIT 1),(SELECT c.snapshot->>'state' FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged') LIMIT 1)))),version=rr.version+1,updated_at=clock_timestamp() WHERE rr.org_id=$1 AND rr.state='published' AND rr.native_change IS NOT NULL AND coalesce(rr.native_change->>'state','open')='open' AND (EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged') OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged')))`, org); err != nil {
+		return err
+	}
 	_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs rr WHERE rr.org_id=m.org_id AND rr.task_id=m.task_id AND m.org_id=$1 AND m.active AND rr.native_change IS NOT NULL AND (rr.native_change->>'state' IN ('closed','merged') OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged')) OR EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged'))`, org)
 	return err
 }
