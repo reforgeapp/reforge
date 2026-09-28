@@ -231,7 +231,7 @@ func configRecipe() Recipe {
 	r.Version = "v1"
 	r.MinimumTests = 0
 	r.AllowedPaths = append([]string{}, guest.BotConfigPaths...)
-	r.Commands = []Command{{ID: "bot-config", Args: []string{"/opt/reforge/tool", "validate-bot-config"}, Directory: ".", TimeoutSeconds: 60, ReportFormat: "exit"}}
+	r.Commands = []Command{{ID: "bot-config", Args: []string{"/opt/reforge/tool", "validate-bot-config"}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	return r
 }
 
