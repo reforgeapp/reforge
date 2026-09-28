@@ -93,31 +93,6 @@
   min-width: 0;
 }
 
-.policy-editor-surface > .tabs {
-  flex-wrap: wrap;
-  gap: 6px;
-  border-bottom: 0;
-}
-
-.policy-editor-surface .tab {
-  min-height: 32px;
-  margin: 0;
-  padding: 4px 14px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--surface-2);
-  font-size: 12.5px;
-}
-
-.policy-editor-surface .tab:hover {
-  border-color: var(--border-strong);
-}
-
-.policy-editor-surface .tab.active {
-  border-color: var(--primary-border);
-  background: var(--primary-soft);
-}
-
 .policy-editor {
   gap: 0;
 }

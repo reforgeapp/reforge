@@ -5,10 +5,7 @@
 .connections-list-actions { display: flex; align-items: center; gap: 8px; }
 .connections-refresh { display: inline-grid; width: 34px; height: 34px; place-items: center; border: 1px solid var(--border); border-radius: var(--radius-sm); color: var(--text-muted); background: var(--surface); }
 .connections-refresh:hover { color: var(--text); background: var(--surface-3); }
-.connections-categories { display: flex; gap: 2px; padding: 0 0 10px; border-bottom: 1px solid var(--border); overflow-x: auto; }
-.connections-categories .button { min-height: 32px; padding: 5px 12px; border: 0; border-radius: var(--radius-sm); color: var(--text-muted); background: transparent; }
-.connections-categories .button:hover { color: var(--text); background: var(--surface-3); }
-.connections-categories .button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); }
+.connections-categories { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 0 4px; }
 .connections-filters { display: grid; grid-template-columns: minmax(220px, 1fr) minmax(150px, 210px); gap: 12px; align-items: end; max-width: 620px; padding: 14px 0; }
 .connections-filters label { display: grid; gap: 4px; color: var(--text-subtle); font-size: 11px; }
 .connections-filters input, .connections-filters select { height: 36px; }
