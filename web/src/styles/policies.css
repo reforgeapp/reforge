@@ -6,7 +6,7 @@
 
 .policy-context-row {
   display: grid;
-  grid-template-columns: minmax(320px, 1fr) minmax(360px, 1.4fr);
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
   align-items: stretch;
   gap: 14px;
 }
@@ -83,9 +83,9 @@
 
 .policy-layout {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(260px, 320px);
-  gap: 22px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1.8fr) minmax(300px, 1fr);
+  gap: 14px;
+  align-items: stretch;
 }
 
 .policy-editor-surface,
@@ -177,11 +177,6 @@
 
 .policy-editor :is(code, dd, li) {
   overflow-wrap: anywhere;
-}
-
-.policy-version-rail {
-  position: sticky;
-  top: 14px;
 }
 
 .policy-version-rail > summary {
