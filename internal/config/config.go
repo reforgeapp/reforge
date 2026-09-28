@@ -9,8 +9,11 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
+
+	"reforge/internal/maintenance/recipes"
 )
 
 type Config struct {
@@ -111,7 +114,7 @@ func Load() (Config, error) {
 func (c Config) Validate() error {
 	for name, digest := range c.RepairImages {
 		body, err := hex.DecodeString(strings.TrimPrefix(digest, "sha256:"))
-		if (name != "go" && name != "javascript" && name != "python") || !strings.HasPrefix(digest, "sha256:") || err != nil || len(body) != 32 || strings.ToLower(digest) != digest {
+		if !slices.Contains(recipes.Toolchains, name) || !strings.HasPrefix(digest, "sha256:") || err != nil || len(body) != 32 || strings.ToLower(digest) != digest {
 			return errors.New("REFORGE_REPAIR_IMAGES requires supported recipe names and lowercase sha256 image digests")
 		}
 	}

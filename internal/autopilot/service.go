@@ -10,7 +10,6 @@ import (
 	"reforge/internal/heartbeat"
 	"slices"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -436,7 +435,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
-	for _, recipe := range recipesFor(c.category, c.ecosystem) {
+	for _, recipe := range recipes.ForFinding(c.category, c.ecosystem) {
 		in := repair.Input{FindingID: c.finding, FindingVersion: c.version, Recipe: recipe, ModelConnectionID: model, ModelRoute: route, RunnerPoolID: pool, Owner: true}
 		preview, err := s.repairs.Preview(ctx, session, org, in)
 		if errors.Is(err, recipes.ErrUnsupported) {
@@ -771,29 +770,4 @@ func botMergeRetry(gate mergecontrol.Gate) (string, time.Duration) {
 		reason = gate.Decision.Blockers[0]
 	}
 	return reason, 10 * time.Minute
-}
-
-func recipesFor(category, ecosystem string) []string {
-	if category == "dependency_bots" || category == "renovate_onboarding" {
-		return []string{"config"}
-	}
-	first := ""
-	switch strings.ToLower(ecosystem) {
-	case "go", "gomod", "go_modules":
-		first = "go"
-	case "npm", "yarn", "pnpm", "javascript":
-		first = "javascript"
-	case "pip", "pypi", "python", "poetry":
-		first = "python"
-	}
-	out := []string{}
-	if first != "" {
-		out = append(out, first)
-	}
-	for _, recipe := range []string{"go", "javascript", "python"} {
-		if recipe != first {
-			out = append(out, recipe)
-		}
-	}
-	return out
 }

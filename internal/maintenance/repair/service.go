@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 	"reforge/internal/domain"
 	"reforge/internal/forge"
 	"reforge/internal/maintenance/discovery"
+	"reforge/internal/maintenance/recipes"
 	"reforge/internal/policy"
 	"reforge/internal/privateconnector"
 	"reforge/internal/runner"
@@ -43,17 +45,11 @@ type Service struct {
 func New(db *store.Store, identity *auth.Service, findings *discovery.Service, jobs *workflow.Service, runners *runner.Service, policies *policy.Service, budgets *budget.Service, connections *connections.Service, profiles *customcmd.Service, reader discovery.Reader, images map[string]string) *Service {
 	approved := map[string]string{}
 	for name, digest := range images {
-		if (name == "go" || name == "javascript" || name == "python") && strings.HasPrefix(digest, "sha256:") && source.ValidSHA(strings.TrimPrefix(digest, "sha256:"), "sha256") {
+		if slices.Contains(recipes.Toolchains, name) && strings.HasPrefix(digest, "sha256:") && source.ValidSHA(strings.TrimPrefix(digest, "sha256:"), "sha256") {
 			approved[name] = digest
 		}
 	}
-	for _, name := range []string{"python", "javascript", "go"} {
-		if approved[name] != "" {
-			approved["config"] = approved[name]
-			break
-		}
-	}
-	return &Service{db, identity, findings, jobs, runners, policies, budgets, connections, profiles, reader, approved}
+	return &Service{db, identity, findings, jobs, runners, policies, budgets, connections, profiles, reader, recipes.Images(approved)}
 }
 func (s *Service) Recipes() map[string]string {
 	out := map[string]string{}

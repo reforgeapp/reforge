@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"slices"
 	"sort"
 	"strings"
 
@@ -223,14 +224,14 @@ func npmCommand(script, directory string, extra []string, index int) Command {
 }
 
 func baseRecipe(name string) Recipe {
-	return Recipe{Name: name, Version: CurrentVersion, MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
+	a, _ := Lookup(name)
+	return Recipe{Name: name, Version: CurrentVersion, MinProof: a.MinProof, AllowedPaths: slices.Clone(a.AllowedPaths), MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
 }
 
 func configRecipe() Recipe {
 	r := baseRecipe("config")
 	r.Version = "v1"
 	r.MinimumTests = 0
-	r.AllowedPaths = append([]string{}, guest.BotConfigPaths...)
 	r.Commands = []Command{{ID: "bot-config", Args: []string{"/opt/reforge/tool", "validate-bot-config"}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	return r
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"reforge/internal/auth"
+	"reforge/internal/maintenance/recipes"
 )
 
 func fingerprint(value any) string {
@@ -41,7 +42,7 @@ func validate(in Input) error {
 				return auth.ErrInvalid
 			}
 			r := m.Repair
-			if !auth.ValidID(r.FindingID) || r.FindingVersion < 1 || !auth.ValidID(r.ModelConnectionID) || !auth.ValidID(r.RunnerPoolID) || !slices.Contains([]string{"go", "javascript", "python"}, r.Recipe) || r.ModelRoute == "" || len(r.ModelRoute) > 100 || r.IdempotencyKey != "" || r.PlanDigest != "" {
+			if !auth.ValidID(r.FindingID) || r.FindingVersion < 1 || !auth.ValidID(r.ModelConnectionID) || !auth.ValidID(r.RunnerPoolID) || !slices.Contains(recipes.Toolchains, r.Recipe) || r.ModelRoute == "" || len(r.ModelRoute) > 100 || r.IdempotencyKey != "" || r.PlanDigest != "" {
 				return auth.ErrInvalid
 			}
 		case "pipeline":
