@@ -13086,6 +13086,16 @@
               "type": "string"
             }
           },
+          "review_proofs": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "tests",
+                "structural"
+              ]
+            }
+          },
           "limits": {
             "$ref": "#/components/schemas/PolicyLimits"
           },

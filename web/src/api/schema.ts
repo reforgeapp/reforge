@@ -2832,6 +2832,7 @@ export interface components {
             allow?: components["schemas"]["PolicyLists"];
             deny?: string[];
             forbidden_paths?: string[];
+            review_proofs?: ("tests" | "structural")[];
             limits?: components["schemas"]["PolicyLimits"];
             required?: components["schemas"]["PolicyRequirement"][];
             defaults?: components["schemas"]["PolicyDefaults"];

@@ -43,6 +43,11 @@ func Validate(p Policy) error {
 			return fmt.Errorf("invalid denied action")
 		}
 	}
+	for _, proof := range p.ReviewProofs {
+		if proof != "tests" && proof != "structural" {
+			return fmt.Errorf("invalid review proof")
+		}
+	}
 	for _, n := range limitValues(p.Limits) {
 		if n != nil && *n < 0 {
 			return fmt.Errorf("negative ceiling")
@@ -90,6 +95,7 @@ func canonical(p Policy) Policy {
 	p.MaxEvidenceAgeSeconds = copyNumber(p.MaxEvidenceAgeSeconds)
 	p.Allow = Lists{sorted(p.Allow.Recipes), sorted(p.Allow.Models), sorted(p.Allow.Routes), sorted(p.Allow.MergeMethods), sorted(p.Allow.Environments), sorted(p.Allow.Workflows)}
 	p.ForbiddenPaths = sorted(p.ForbiddenPaths)
+	p.ReviewProofs = sorted(p.ReviewProofs)
 	p.Deny = append([]Action(nil), p.Deny...)
 	sort.Slice(p.Deny, func(i, j int) bool { return p.Deny[i] < p.Deny[j] })
 	p.Required = append([]Requirement(nil), p.Required...)
@@ -232,6 +238,11 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 				p.ForbiddenPaths = append(p.ForbiddenPaths, pattern)
 			}
 		}
+		for _, proof := range q.ReviewProofs {
+			if !contains(p.ReviewProofs, proof) {
+				p.ReviewProofs = append(p.ReviewProofs, proof)
+			}
+		}
 		for _, req := range q.Required {
 			for _, action := range req.Actions {
 				key := req.ID + "\x00" + req.Identity + "\x00" + string(action)
@@ -252,6 +263,7 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 		r.Policy.Required = append(r.Policy.Required, requirements[key])
 	}
 	r.Policy.ForbiddenPaths = sorted(r.Policy.ForbiddenPaths)
+	r.Policy.ReviewProofs = sorted(r.Policy.ReviewProofs)
 	sort.Slice(r.Policy.Deny, func(i, j int) bool { return r.Policy.Deny[i] < r.Policy.Deny[j] })
 	r.Policy.Paused = r.Paused
 	if !org {

@@ -727,6 +727,22 @@ func (e OrgOIDCSettingsStatus) Valid() bool {
 }
 
 const (
+	Structural PolicyDocumentReviewProofs = "structural"
+	Tests      PolicyDocumentReviewProofs = "tests"
+)
+
+func (e PolicyDocumentReviewProofs) Valid() bool {
+	switch e {
+	case Structural:
+		return true
+	case Tests:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Maintenancev1 PolicyDocumentSchema = "maintenance/v1"
 )
 
@@ -2403,16 +2419,18 @@ type PolicyDefaults struct {
 	Route        *string `json:"route,omitempty"`
 }
 type PolicyDocument struct {
-	Allow                 *PolicyLists         `json:"allow,omitempty"`
-	Defaults              *PolicyDefaults      `json:"defaults,omitempty"`
-	Deny                  *[]string            `json:"deny,omitempty"`
-	ForbiddenPaths        *[]string            `json:"forbidden_paths,omitempty"`
-	Limits                *PolicyLimits        `json:"limits,omitempty"`
-	MaxEvidenceAgeSeconds *int64               `json:"max_evidence_age_seconds,omitempty"`
-	Paused                *bool                `json:"paused,omitempty"`
-	Required              *[]PolicyRequirement `json:"required,omitempty"`
-	Schema                PolicyDocumentSchema `json:"schema"`
+	Allow                 *PolicyLists                  `json:"allow,omitempty"`
+	Defaults              *PolicyDefaults               `json:"defaults,omitempty"`
+	Deny                  *[]string                     `json:"deny,omitempty"`
+	ForbiddenPaths        *[]string                     `json:"forbidden_paths,omitempty"`
+	Limits                *PolicyLimits                 `json:"limits,omitempty"`
+	MaxEvidenceAgeSeconds *int64                        `json:"max_evidence_age_seconds,omitempty"`
+	Paused                *bool                         `json:"paused,omitempty"`
+	Required              *[]PolicyRequirement          `json:"required,omitempty"`
+	ReviewProofs          *[]PolicyDocumentReviewProofs `json:"review_proofs,omitempty"`
+	Schema                PolicyDocumentSchema          `json:"schema"`
 }
+type PolicyDocumentReviewProofs string
 type PolicyDocumentSchema string
 type PolicyEvidence struct {
 	Approvals  *int                  `json:"approvals,omitempty"`

@@ -5,13 +5,14 @@ import { Button } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { PolicyMode } from './PolicyMode'
-import { policyAPI, type Action, type Binding, type Input, type Limits, type Policy, type Scope, type Simulation, type Version } from '../policy-api'
+import { policyAPI, type Action, type Binding, type Input, type Limits, type Policy, type Proof, type Scope, type Simulation, type Version } from '../policy-api'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
 import { PolicyImpactPreview } from './PolicyImpactPreview'
 import '../styles/policies.css'
 
 const actions: Action[] = ['read', 'repair', 'publish', 'merge', 'deploy', 'recover']
+const proofs: Array<[Proof, string]> = [['tests', 'Tests'], ['structural', 'Structural']]
 const text = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
 const emptyPolicy = (): Policy => ({ schema: 'maintenance/v1', allow: { recipes: null, models: null, routes: null, merge_methods: null, environments: null, workflows: null }, deny: [], forbidden_paths: [], limits: {}, required: [], defaults: {}, paused: false })
 const normalisePolicy = (value?: Partial<Policy> | null): Policy => {
@@ -21,6 +22,7 @@ const normalisePolicy = (value?: Partial<Policy> | null): Policy => {
     allow: { ...emptyPolicy().allow, ...(input.allow ?? {}) },
     deny: Array.isArray(input.deny) ? input.deny : [],
     forbidden_paths: Array.isArray(input.forbidden_paths) ? input.forbidden_paths : [],
+    review_proofs: Array.isArray(input.review_proofs) ? input.review_proofs : [],
     limits: { ...(input.limits ?? {}) },
     required: Array.isArray(input.required) ? input.required : [],
     defaults: { ...(input.defaults ?? {}) },
@@ -542,6 +544,12 @@ function PolicyEditor({ editorTab, orgID, scope, repositoryID, primaryTeamID, ef
             <span className="field-label">Denied actions</span>
             <div className="pill-switch" role="group" aria-label="Denied actions">
               {actions.map(item => <button key={item} type="button" className="pill" aria-pressed={policy.deny.includes(item)} disabled={!canWrite || busy} onClick={() => update({ ...policy, deny: policy.deny.includes(item) ? policy.deny.filter(value => value !== item) : [...policy.deny, item] })}>{item}</button>)}
+            </div>
+          </div>
+          <div className="wide field">
+            <span className="field-label">Review before merge <span className="help-tip" tabIndex={0} title="Fixes proven only by this kind of check open a pull request but wait for a person to merge.">?</span></span>
+            <div className="pill-switch" role="group" aria-label="Review before merge">
+              {proofs.map(([item, label]) => <button key={item} type="button" className="pill" aria-pressed={policy.review_proofs?.includes(item) ?? false} disabled={!canWrite || busy} onClick={() => update({ ...policy, review_proofs: policy.review_proofs?.includes(item) ? policy.review_proofs.filter(value => value !== item) : [...(policy.review_proofs ?? []), item] })}>{label}</button>)}
             </div>
           </div>
           <label className="wide">

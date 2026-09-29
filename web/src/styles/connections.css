@@ -46,8 +46,6 @@
 .connection-capability-list > li { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .connection-capability-list > li + li { padding-top: 5px; border-top: 1px solid var(--border); }
 .connection-capability-row { display: inline-flex; align-items: center; gap: 6px; min-width: 0; }
-.connection-capability-list .connection-capability-help { display: inline-grid; flex: 0 0 auto; width: 16px; height: 16px; place-items: center; border: 1px solid var(--border); border-radius: 50%; color: var(--text-subtle); font-size: 10px; cursor: help; }
-.connection-capability-list .connection-capability-help:hover, .connection-capability-list .connection-capability-help:focus-visible { color: var(--primary); border-color: var(--primary); }
 
 .connections-page .detail-panel > header { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
 .connections-page .detail-panel > header > div:first-child { min-width: 0; }

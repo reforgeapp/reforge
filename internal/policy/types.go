@@ -58,6 +58,7 @@ type Policy struct {
 	Allow                 Lists         `json:"allow"`
 	Deny                  []Action      `json:"deny"`
 	ForbiddenPaths        []string      `json:"forbidden_paths"`
+	ReviewProofs          []string      `json:"review_proofs,omitempty"`
 	Limits                Limits        `json:"limits"`
 	Required              []Requirement `json:"required"`
 	Defaults              Defaults      `json:"defaults"`

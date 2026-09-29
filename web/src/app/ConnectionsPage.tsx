@@ -469,7 +469,7 @@ function ConnectionOverview({ connection, capabilities }: { connection: Connecti
       <summary>{`Capabilities (${capabilities.length})`}</summary>
       <ul className="compact-list connection-capability-list">{capabilities.map(([name, capability]) => <li key={name}>
         <span className="connection-capability-row"><StatusBadge label={humanize(capability.state)} tone={capabilityTone(capability.state)} /> <strong>{humanize(name)}</strong></span>
-        {capability.reason && <span className="connection-capability-help" tabIndex={0} title={capability.reason} aria-label={`${humanize(name)}: ${capability.reason}`}>?</span>}
+        {capability.reason && <span className="help-tip" tabIndex={0} title={capability.reason} aria-label={`${humanize(name)}: ${capability.reason}`}>?</span>}
       </li>)}</ul>
     </details>}
   </div>
