@@ -21,6 +21,7 @@ import (
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/detectors"
 	"reforge/internal/privateconnector"
+	"reforge/internal/sandbox/guest"
 	"reforge/internal/source"
 )
 
@@ -235,6 +236,25 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 	return ""
 }
 
+func validationGap(entries []forge.SourceEntry) string {
+	ci, tests := false, false
+	for _, entry := range entries {
+		if entry.Type == "blob" {
+			ci = ci || guest.CIPath(entry.Path)
+			tests = tests || guest.TestPath(entry.Path)
+		}
+	}
+	switch {
+	case !ci && !tests:
+		return "Add continuous integration and tests"
+	case !ci:
+		return "Add continuous integration"
+	case !tests:
+		return "Add tests"
+	}
+	return ""
+}
+
 func largeFileObservations(entries []forge.SourceEntry, repositoryID string, initial Evidence) []Observation {
 	out := []Observation{}
 	for _, entry := range entries {
@@ -354,6 +374,9 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	out := []Observation{}
 	if title := botConfigGap(base, botConfig); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
+	}
+	if title := validationGap(entries); title != "" {
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "validation-bootstrap", Category: "missing_validation", Severity: "medium", Title: title, Evidence: initial})
 	}
 	out = append(out, largeFileObservations(entries, lease.Repo, initial)...)
 	checks, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: lease.Ref, CommitSHA: resolved.SHA}})

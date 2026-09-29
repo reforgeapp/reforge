@@ -16,6 +16,8 @@ type Archetype struct {
 	Name         string
 	Toolchain    string
 	MinProof     string
+	ReviewOnly   bool
+	Validator    string
 	Categories   []string
 	Ecosystems   []string
 	AllowedPaths []string
@@ -27,7 +29,8 @@ var archetypes = []Archetype{
 	{Name: "go", Toolchain: "go", MinProof: ProofTests, Ecosystems: []string{"go", "gomod", "go_modules"}},
 	{Name: "javascript", Toolchain: "javascript", MinProof: ProofTests, Ecosystems: []string{"npm", "yarn", "pnpm", "javascript"}},
 	{Name: "python", Toolchain: "python", MinProof: ProofTests, Ecosystems: []string{"pip", "pypi", "python", "poetry"}},
-	{Name: "config", MinProof: ProofStructural, Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
+	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
+	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", ReviewOnly: true, Categories: []string{"missing_validation"}},
 }
 
 func Lookup(name string) (Archetype, bool) {

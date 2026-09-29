@@ -56,8 +56,8 @@ func BuildOwner(name string, files map[string][]byte) (Recipe, error) {
 	if !ok {
 		return Recipe{}, ErrUnsupported
 	}
-	if canonical == "config" {
-		return configRecipe(), nil
+	if a, _ := Lookup(canonical); a.Validator != "" {
+		return structuralRecipe(a), nil
 	}
 	r := baseRecipe(canonical)
 	r.Version = "v4"
@@ -82,8 +82,8 @@ func canonicalName(name string) (string, bool) {
 		return "javascript", true
 	case "python", "py":
 		return "python", true
-	case "config":
-		return "config", true
+	case "config", "bootstrap":
+		return strings.ToLower(strings.TrimSpace(name)), true
 	default:
 		return "", false
 	}
@@ -228,11 +228,12 @@ func baseRecipe(name string) Recipe {
 	return Recipe{Name: name, Version: CurrentVersion, MinProof: a.MinProof, AllowedPaths: slices.Clone(a.AllowedPaths), MinimumTests: presetMinTests, MaxFiles: presetMaxFiles, MaxPatchBytes: presetMaxPatch, MaxTurns: presetMaxTurns, TimeoutSeconds: presetTimeout}
 }
 
-func configRecipe() Recipe {
-	r := baseRecipe("config")
+func structuralRecipe(a Archetype) Recipe {
+	r := baseRecipe(a.Name)
 	r.Version = "v1"
 	r.MinimumTests = 0
-	r.Commands = []Command{{ID: "bot-config", Args: []string{"/opt/reforge/tool", "validate-bot-config"}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
+	r.ReviewOnly = a.ReviewOnly
+	r.Commands = []Command{{ID: strings.TrimPrefix(a.Validator, "validate-"), Args: []string{"/opt/reforge/tool", a.Validator}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	return r
 }
 

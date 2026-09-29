@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"io/fs"
 	"os"
 	"reforge/internal/sandbox/guest"
 )
@@ -13,15 +14,16 @@ func main() {
 	if len(os.Args) > 1 && os.Args[1] == "egress-tcp" && len(os.Args) == 2 {
 		os.Exit(guest.EgressTCP())
 	}
-	if len(os.Args) == 2 && os.Args[1] == "validate-bot-config" {
-		problems := guest.ValidateBotConfig(os.DirFS("."))
+	validators := map[string]func(fs.FS) []string{"validate-bot-config": guest.ValidateBotConfig, "validate-bootstrap": guest.ValidateBootstrap}
+	if validate := validators[os.Args[len(os.Args)-1]]; len(os.Args) == 2 && validate != nil {
+		problems := validate(os.DirFS("."))
 		for _, problem := range problems {
 			fmt.Println(problem)
 		}
 		if len(problems) > 0 {
 			os.Exit(1)
 		}
-		fmt.Println("bot configuration valid")
+		fmt.Println("validation passed")
 		return
 	}
 	if err := guest.Run(os.Args[1:], os.Stdin, os.Stdout); err != nil {

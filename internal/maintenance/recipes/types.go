@@ -19,6 +19,7 @@ type Recipe struct {
 	ManifestPaths  []string  `json:"manifest_paths"`
 	AllowedPaths   []string  `json:"allowed_paths,omitempty"`
 	MinProof       string    `json:"min_proof,omitempty"`
+	ReviewOnly     bool      `json:"review_only,omitempty"`
 	MinimumTests   int       `json:"minimum_tests"`
 	MaxFiles       int       `json:"max_files"`
 	MaxPatchBytes  int       `json:"max_patch_bytes"`
