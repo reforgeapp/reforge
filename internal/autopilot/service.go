@@ -650,6 +650,11 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	if reviewOnly {
 		return later("Awaiting human review: new validation must be reviewed before merge", 30*time.Minute)
 	}
+	if run, err := s.repairs.Get(ctx, session, org, task); err != nil {
+		return later(err.Error(), 5*time.Minute)
+	} else if run.Report != nil && repair.TouchesTests(run.Report.Patches) {
+		return later("Awaiting human review: fix changes tests", 30*time.Minute)
+	}
 	if slices.Contains(resolved.Policy.ReviewProofs, proof) {
 		return later("Awaiting human review: policy requires review for "+proof+" proof", 30*time.Minute)
 	}

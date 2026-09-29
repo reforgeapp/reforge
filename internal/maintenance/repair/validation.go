@@ -267,7 +267,7 @@ func Reproduced(results []CheckResult) bool {
 }
 func Verified(p Plan, baseline, candidate []CheckResult) bool {
 	if p.Owner {
-		return ownerVerified(p, candidate)
+		return ownerVerified(p, baseline, candidate)
 	}
 	if !p.Valid() || len(baseline) != len(p.Recipe.Commands) || len(candidate) != len(baseline) {
 		return false
@@ -331,8 +331,8 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 	return nil
 }
 
-func ownerVerified(p Plan, candidate []CheckResult) bool {
-	if !p.Valid() || len(candidate) != len(p.Recipe.Commands) {
+func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
+	if !p.Valid() || len(candidate) != len(p.Recipe.Commands) || lostPassingCase(baseline, candidate) {
 		return false
 	}
 	for i, result := range candidate {
@@ -346,6 +346,35 @@ func ownerVerified(p Plan, candidate []CheckResult) bool {
 		}
 	}
 	return true
+}
+
+func lostPassingCase(baseline, candidate []CheckResult) bool {
+	for i, before := range baseline {
+		if i >= len(candidate) {
+			return true
+		}
+		after := map[string]bool{}
+		for name, state := range candidate[i].Cases {
+			after[caseName(name)] = after[caseName(name)] || state == "pass"
+		}
+		for name, state := range before.Cases {
+			if state == "pass" && !after[caseName(name)] {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func caseName(name string) string {
+	if index, rest, ok := strings.Cut(name, ":"); ok && strings.Trim(index, "0123456789") == "" {
+		return rest
+	}
+	return name
+}
+
+func TouchesTests(patches []sandbox.Patch) bool {
+	return slices.ContainsFunc(patches, func(patch sandbox.Patch) bool { return guest.TestPath(patch.Path) })
 }
 
 func changedLines(a, b []byte) int {
