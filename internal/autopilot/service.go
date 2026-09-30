@@ -303,7 +303,11 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
 	}
 	if err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		return releaseTerminalRepairsTx(ctx, tx, org)
+		if err := releaseTerminalRepairsTx(ctx, tx, org); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE autopilot_attempts a SET outcome='blocked',reason='Fix attempts exhausted: '||coalesce(nullif((SELECT rr.report->>'reason' FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id),''),nullif(t.reason,''),'no reason recorded'),capability=$3,updated_at=clock_timestamp() FROM workflow_tasks t WHERE t.org_id=a.org_id AND t.id=a.task_id AND a.org_id=$1 AND a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs>=$2`, org, maxRuns, s.capability())
+		return err
 	}); err != nil {
 		return err
 	}
