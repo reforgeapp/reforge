@@ -23,6 +23,7 @@ type Recipe struct {
 	MinimumTests   int       `json:"minimum_tests"`
 	MaxFiles       int       `json:"max_files"`
 	MaxPatchBytes  int       `json:"max_patch_bytes"`
+	MaxGenerated   int       `json:"max_generated_bytes,omitempty"`
 	MaxTurns       int       `json:"max_turns"`
 	TimeoutSeconds int       `json:"timeout_seconds"`
 }

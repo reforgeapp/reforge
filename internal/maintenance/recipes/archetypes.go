@@ -1,6 +1,7 @@
 package recipes
 
 import (
+	"path"
 	"slices"
 	"strings"
 
@@ -12,6 +13,18 @@ const (
 	ProofStructural = "structural"
 )
 
+type Budget struct {
+	Files, Lines, Bytes, GeneratedBytes, Turns int
+}
+
+var Ceiling = Budget{Files: 200, Lines: 50000, Bytes: 2 << 20, GeneratedBytes: 8 << 20, Turns: 300}
+
+func (b Budget) Clamp() Budget {
+	return Budget{min(b.Files, Ceiling.Files), min(b.Lines, Ceiling.Lines), min(b.Bytes, Ceiling.Bytes), min(b.GeneratedBytes, Ceiling.GeneratedBytes), min(b.Turns, Ceiling.Turns)}
+}
+
+var codeBudget = Budget{Files: 40, Lines: 20000, Bytes: 1 << 20, GeneratedBytes: 8 << 20, Turns: 200}
+
 type Archetype struct {
 	Name         string
 	Toolchain    string
@@ -21,16 +34,17 @@ type Archetype struct {
 	Categories   []string
 	Ecosystems   []string
 	AllowedPaths []string
+	Budget       Budget
 }
 
 var Toolchains = []string{"go", "javascript", "python"}
 
 var archetypes = []Archetype{
-	{Name: "go", Toolchain: "go", MinProof: ProofTests, Ecosystems: []string{"go", "gomod", "go_modules"}},
-	{Name: "javascript", Toolchain: "javascript", MinProof: ProofTests, Ecosystems: []string{"npm", "yarn", "pnpm", "javascript"}},
-	{Name: "python", Toolchain: "python", MinProof: ProofTests, Ecosystems: []string{"pip", "pypi", "python", "poetry"}},
-	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
-	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", ReviewOnly: true, Categories: []string{"missing_validation"}},
+	{Name: "go", Toolchain: "go", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"go", "gomod", "go_modules"}},
+	{Name: "javascript", Toolchain: "javascript", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"npm", "yarn", "pnpm", "javascript"}},
+	{Name: "python", Toolchain: "python", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"pip", "pypi", "python", "poetry"}},
+	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Budget: Budget{Files: 4, Lines: 400, Bytes: 64 << 10, Turns: 40}, Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
+	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", ReviewOnly: true, Budget: Budget{Files: 30, Lines: 4000, Bytes: 256 << 10, GeneratedBytes: 2 << 20, Turns: 120}, Categories: []string{"missing_validation"}},
 }
 
 func Lookup(name string) (Archetype, bool) {
@@ -40,6 +54,17 @@ func Lookup(name string) (Archetype, bool) {
 		}
 	}
 	return Archetype{}, false
+}
+
+func GeneratedPath(file string) bool {
+	lower := strings.ToLower(file)
+	name := path.Base(lower)
+	for _, part := range strings.Split(path.Dir(lower), "/") {
+		if part == "vendor" || part == "node_modules" || part == "generated" || part == "dist" {
+			return true
+		}
+	}
+	return slices.Contains([]string{"go.sum", "package-lock.json", "npm-shrinkwrap.json", "yarn.lock", "pnpm-lock.yaml", "poetry.lock", "uv.lock", "cargo.lock", "gemfile.lock", "composer.lock"}, name) || strings.HasSuffix(name, ".pb.go") || strings.Contains(name, "_generated.") || strings.Contains(name, ".gen.")
 }
 
 func Archetypes() []Archetype { return slices.Clone(archetypes) }

@@ -15,7 +15,7 @@ import (
 	"reforge/internal/workflow"
 )
 
-const maxCheckpointBytes = 1 << 20
+const maxCheckpointBytes = 12 << 20
 const maxCheckpointRecentBytes = 32 << 10
 const maxCheckpointDependencies = 100
 
@@ -28,9 +28,8 @@ func (c Checkpoint) ValidFor(p Plan) bool {
 		return false
 	}
 	seenPaths := map[string]bool{}
-	total := 0
 	for _, patch := range c.Patches {
-		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seenPaths[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && len(patch.Content) > 0 || len(patch.Content) > p.Recipe.MaxPatchBytes || bytes.IndexByte(patch.Content, 0) >= 0 || !utf8.Valid(patch.Content) {
+		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seenPaths[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && len(patch.Content) > 0 || bytes.IndexByte(patch.Content, 0) >= 0 || !utf8.Valid(patch.Content) {
 			return false
 		}
 		for _, forbidden := range p.ForbiddenPaths {
@@ -39,10 +38,9 @@ func (c Checkpoint) ValidFor(p Plan) bool {
 			}
 		}
 		seenPaths[patch.Path] = true
-		total += len(patch.Content)
-		if total > p.Recipe.MaxPatchBytes {
-			return false
-		}
+	}
+	if !withinBytes(p, c.Patches) {
+		return false
 	}
 	seenDependencies := map[string]bool{}
 	for _, update := range c.Dependencies {

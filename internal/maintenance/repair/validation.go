@@ -308,15 +308,13 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 		return ErrPatch
 	}
 	seen := map[string]bool{}
-	size := 0
 	for _, patch := range patches {
 		_, exists := baseline[patch.Path]
 		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seen[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && (!exists || len(patch.Content) > 0) || len(p.Recipe.AllowedPaths) > 0 && !slices.Contains(p.Recipe.AllowedPaths, patch.Path) {
 			return ErrPatch
 		}
 		seen[patch.Path] = true
-		size += len(patch.Content)
-		if size > p.Recipe.MaxPatchBytes || bytes.IndexByte(patch.Content, 0) >= 0 || !utf8.Valid(patch.Content) {
+		if bytes.IndexByte(patch.Content, 0) >= 0 || !utf8.Valid(patch.Content) {
 			return ErrPatch
 		}
 		for _, pattern := range p.ForbiddenPaths {
@@ -325,7 +323,11 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 			}
 		}
 	}
-	if p.MaxChangedLines > 0 && PatchLines(baseline, patches) > p.MaxChangedLines {
+	if !withinBytes(p, patches) {
+		return ErrPatch
+	}
+	source := slices.DeleteFunc(slices.Clone(patches), func(patch sandbox.Patch) bool { return recipes.GeneratedPath(patch.Path) })
+	if p.MaxChangedLines > 0 && PatchLines(baseline, source) > p.MaxChangedLines {
 		return ErrPatch
 	}
 	return nil
@@ -346,6 +348,21 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 		}
 	}
 	return true
+}
+
+func withinBytes(p Plan, patches []sandbox.Patch) bool {
+	source, generated := 0, 0
+	for _, patch := range patches {
+		if recipes.GeneratedPath(patch.Path) {
+			generated += len(patch.Content)
+		} else {
+			source += len(patch.Content)
+		}
+	}
+	if p.Recipe.MaxGenerated == 0 {
+		return source+generated <= p.Recipe.MaxPatchBytes
+	}
+	return source <= p.Recipe.MaxPatchBytes && generated <= p.Recipe.MaxGenerated
 }
 
 func lostPassingCase(baseline, candidate []CheckResult) bool {

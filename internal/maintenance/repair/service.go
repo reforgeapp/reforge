@@ -253,7 +253,9 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		return out, err
 	}
 	if in.Owner {
-		plan.Owner, plan.MaxChangedLines, plan.Recipe.MaxFiles, plan.Recipe.MaxPatchBytes, plan.Recipe.MaxTurns = true, 1<<20, 20, 768<<10, 200
+		a, _ := recipes.Lookup(plan.Recipe.Name)
+		b := a.Budget.Clamp()
+		plan.Owner, plan.MaxChangedLines, plan.Recipe.MaxFiles, plan.Recipe.MaxPatchBytes, plan.Recipe.MaxGenerated, plan.Recipe.MaxTurns = true, b.Lines, b.Files, b.Bytes, b.GeneratedBytes, b.Turns
 	}
 	if resolved.Policy.Limits.ChangedFiles != nil {
 		plan.Recipe.MaxFiles = min(plan.Recipe.MaxFiles, int(min(int64(plan.Recipe.MaxFiles), *resolved.Policy.Limits.ChangedFiles)))
