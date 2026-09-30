@@ -53,6 +53,14 @@ type Evidence struct {
 	AdvisoryID        string                 `json:"advisory_id,omitempty"`
 	ReferenceURL      string                 `json:"reference_url,omitempty"`
 	TrackedFiles      []forge.SourceEntry    `json:"tracked_files,omitempty"`
+	Review            *ReviewEvidence        `json:"review,omitempty"`
+}
+type ReviewEvidence struct {
+	Path       string `json:"path,omitempty"`
+	Line       int    `json:"line,omitempty"`
+	Confidence string `json:"confidence"`
+	Objective  string `json:"objective"`
+	Detail     string `json:"detail"`
 }
 type Observation struct {
 	RepositoryID string   `json:"repository_id"`

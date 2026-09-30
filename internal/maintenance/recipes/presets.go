@@ -82,7 +82,7 @@ func canonicalName(name string) (string, bool) {
 		return "javascript", true
 	case "python", "py":
 		return "python", true
-	case "config", "bootstrap":
+	case "config", "bootstrap", "docs", "review":
 		return strings.ToLower(strings.TrimSpace(name)), true
 	default:
 		return "", false
@@ -232,7 +232,7 @@ func structuralRecipe(a Archetype) Recipe {
 	r := baseRecipe(a.Name)
 	r.Version = "v1"
 	r.MinimumTests = 0
-	r.ReviewOnly = a.ReviewOnly
+	r.ReviewOnly, r.ReadOnly = a.ReviewOnly, a.ReadOnly
 	r.Commands = []Command{{ID: strings.TrimPrefix(a.Validator, "validate-"), Args: []string{"/opt/reforge/tool", a.Validator}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	return r
 }

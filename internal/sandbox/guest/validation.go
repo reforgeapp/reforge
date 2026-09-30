@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/fs"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/goccy/go-yaml"
@@ -68,6 +69,48 @@ func ValidateBootstrap(root fs.FS) []string {
 	}
 	if !tests {
 		problems = append(problems, "no tests")
+	}
+	return problems
+}
+
+var markdownLink = regexp.MustCompile(`\]\(([^)\s]+)\)`)
+
+func ValidateDocs(root fs.FS) []string {
+	problems := []string{}
+	files := 0
+	err := fs.WalkDir(root, ".", func(name string, entry fs.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if entry.IsDir() {
+			if skipDirs[entry.Name()] {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.ToLower(path.Ext(name)) != ".md" {
+			return nil
+		}
+		if files++; files > 5000 {
+			return errors.New("too many documents")
+		}
+		body, err := fs.ReadFile(root, name)
+		if err != nil {
+			return err
+		}
+		for _, match := range markdownLink.FindAllStringSubmatch(string(body), -1) {
+			target, _, _ := strings.Cut(match[1], "#")
+			if target == "" || strings.Contains(target, ":") || strings.HasPrefix(target, "/") {
+				continue
+			}
+			if _, err := fs.Stat(root, path.Join(path.Dir(name), target)); err != nil && len(problems) < 100 {
+				problems = append(problems, name+": broken link "+match[1])
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		problems = append(problems, err.Error())
 	}
 	return problems
 }

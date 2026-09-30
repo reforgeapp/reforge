@@ -343,6 +343,12 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			"\nRepository checks on the target branch:\n" + string(checks) +
 			"\nFiles:\n" + index
 	}
+	review := p.Recipe.ReadOnly
+	if review {
+		system = "You review a repository you own and report real problems with evidence. You never change files."
+		tools = reviewTools()
+		prompt = reviewPrompt + "\nTask:\n" + bounded(e.Goal) + "\nRepository checks on the target branch:\n" + string(checks) + "\nFiles:\n" + index
+	}
 	admissible := func(patches []sandbox.Patch, updates []DependencyUpdate) error {
 		if owner {
 			return CheckOwnerPatch(p, files, patches)
@@ -670,9 +676,25 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				checked = revision
 				body := summarizeChecks(candidate)
 				reply = string(body)
+			case "report_finding":
+				var in ReviewFinding
+				if json.Unmarshal(call.Arguments, &in) != nil || !review || !in.Valid() || len(out.Findings) >= maxReviewFindings {
+					reply = "Not recorded: invalid finding or finding limit reached"
+					break
+				}
+				out.Findings = append(out.Findings, in)
+				reply = fmt.Sprintf("Recorded finding %d", len(out.Findings))
 			case "finish":
 				var in struct{ Summary string }
 				_ = json.Unmarshal(call.Arguments, &in)
+				if review {
+					out.Disposition = "reviewed"
+					out.Reason = bounded(strings.TrimSpace(in.Summary))
+					if out.Reason == "" {
+						out.Reason = fmt.Sprintf("Review found %d issues", len(out.Findings))
+					}
+					return out, nil
+				}
 				if checked != revision || len(current()) == 0 || !Verified(p, out.Baseline, candidate) {
 					reply = "Not finished: stage a change and pass run_checks on the current changes first"
 					break
@@ -697,7 +719,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				var in struct{ Reason string }
 				_ = json.Unmarshal(call.Arguments, &in)
 				reason := bounded(strings.TrimSpace(in.Reason))
-				if owner && e.AllowObsolete && readOriginal && len(current()) == 0 && strings.HasPrefix(reason, "Obsolete:") {
+				if owner && len(current()) == 0 && (e.AllowObsolete && readOriginal && strings.HasPrefix(reason, "Obsolete:") || e.ReviewFinding && strings.HasPrefix(reason, "Not reproducible:")) {
 					out.Disposition = "superseded"
 					out.Reason = reason
 					return out, nil
@@ -814,6 +836,17 @@ func Goal(f discovery.Finding) string {
 		fmt.Fprintf(&b, "Original Reforge repair pull request #%s conflicts with current target. Worktree is pinned to current default branch; use read_original_file to inspect original PR source, then reapply only still-needed changes without reverting newer work. If already fully addressed, inspect original files and skip without staging changes; reason must begin with Obsolete: and cite clear evidence. Otherwise a replacement pull request will be published; original stays open.\n", f.Evidence.Change.ID)
 	case f.Category == "dependency_bots":
 		b.WriteString("Set up and tune automated dependency updates. Use Dependabot on GitHub (.github/dependabot.yml) and Renovate elsewhere (renovate.json); keep an existing tool rather than switching. Cover every package ecosystem in the repository, including GitHub Actions and Dockerfiles. Keep noise low: a weekly schedule, grouped minor and patch updates per ecosystem, and a small open pull request limit. Security updates stay separate and immediate. Change nothing else.\n")
+	case f.Category == "repository_review":
+		b.WriteString("Review the repository at the pinned revision and report every verified problem.\n")
+	case f.Evidence.Review != nil:
+		fmt.Fprintf(&b, "Objective: %s\n", f.Evidence.Review.Objective)
+		if f.Evidence.Review.Path != "" {
+			fmt.Fprintf(&b, "Location: %s:%d\n", f.Evidence.Review.Path, f.Evidence.Review.Line)
+		}
+		if f.Evidence.Review.Detail != "" {
+			fmt.Fprintf(&b, "Reviewer notes: %s\n", f.Evidence.Review.Detail)
+		}
+		b.WriteString("Fix the root cause. If the problem is not real, skip with a reason that begins with Not reproducible: and cites evidence.\n")
 	case f.Category == "missing_validation":
 		b.WriteString("This repository lacks the validation needed to prove future changes. Add what is missing: a CI workflow for the forge in use that builds and tests every language present, and a small, meaningful test suite for the main code paths using the ecosystem's standard test runner. Do not change application behaviour. A person will review this pull request before it merges.\n")
 	case f.Category == "repository_maintenance" && len(f.Evidence.TrackedFiles) > 0:

@@ -621,8 +621,11 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if in.PlanDigest != p.Digest || in.Turns < 0 || in.Turns > p.Recipe.MaxTurns || len(in.Reason) > 2000 || len(in.Artifacts) > 100 {
 			return auth.ErrInvalid
 		}
-		superseded := in.Disposition == "superseded"
-		if in.Disposition != "" && !superseded || superseded && (in.State != "handoff" || !owner || !current.Context.Request.Owner || !p.Owner || !ConflictFinding(current.Context.Finding) || !strings.HasPrefix(in.Reason, "Obsolete:") || len(in.Patches) != 0 || len(in.Dependencies) != 0) {
+		superseded, reviewed := in.Disposition == "superseded", in.Disposition == "reviewed"
+		if reviewed && (in.State != "handoff" || !owner || !p.Recipe.ReadOnly || len(in.Patches) != 0 || len(in.Dependencies) != 0 || len(in.Findings) > maxReviewFindings || slices.ContainsFunc(in.Findings, func(f ReviewFinding) bool { return !f.Valid() })) {
+			return auth.ErrInvalid
+		}
+		if in.Disposition != "" && !superseded && !reviewed || superseded && (in.State != "handoff" || !owner || !current.Context.Request.Owner || !p.Owner || !(ConflictFinding(current.Context.Finding) && strings.HasPrefix(in.Reason, "Obsolete:") || current.Context.Finding.Source == "repository_review" && strings.HasPrefix(in.Reason, "Not reproducible:")) || len(in.Patches) != 0 || len(in.Dependencies) != 0) {
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
@@ -663,7 +666,11 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if tag.RowsAffected() != 1 {
 			return auth.ErrConflict
 		}
-		if superseded {
+		if reviewed {
+			if err = s.recordReview(ctx, tx, l, current, in); err != nil {
+				return err
+			}
+		} else if superseded {
 			var version int64
 			if err = tx.QueryRow(ctx, `UPDATE maintenance_findings SET state='resolved',reason=$4,version=version+1 WHERE org_id=$1 AND id=$2 AND state='open' AND evidence_digest=$3 RETURNING version`, l.OrgID, current.Context.Finding.ID, current.Context.Finding.EvidenceDigest, in.Reason).Scan(&version); errors.Is(err, pgx.ErrNoRows) {
 				return auth.ErrConflict

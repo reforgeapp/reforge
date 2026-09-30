@@ -310,7 +310,7 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 	seen := map[string]bool{}
 	for _, patch := range patches {
 		_, exists := baseline[patch.Path]
-		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seen[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && (!exists || len(patch.Content) > 0) || len(p.Recipe.AllowedPaths) > 0 && !slices.Contains(p.Recipe.AllowedPaths, patch.Path) {
+		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seen[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && (!exists || len(patch.Content) > 0) || p.Recipe.ReadOnly || len(p.Recipe.AllowedPaths) > 0 && !slices.ContainsFunc(p.Recipe.AllowedPaths, func(glob string) bool { return policy.ForbiddenPath(glob, patch.Path) }) {
 			return ErrPatch
 		}
 		seen[patch.Path] = true

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/url"
+	"regexp"
 	"strings"
 	"time"
 
@@ -25,18 +26,19 @@ func validObservation(in Observation) bool {
 	default:
 		return false
 	}
-	switch in.Category {
-	case "dependency_update", "ci_failure", "branch_conflict", "security_advisory", "renovate_onboarding", "dependency_bots", "repository_maintenance", "missing_validation":
-	default:
+	if !categoryPattern.MatchString(in.Category) {
 		return false
 	}
 	switch in.Source {
-	case "forge_change", "native_ci", "imported_advisory", "repository":
+	case "forge_change", "native_ci", "imported_advisory", "repository", "repository_review":
 	default:
 		return false
 	}
 	return source.ValidSHA(in.Evidence.HeadSHA, "sha1") && source.ValidSHA(in.Evidence.TargetSHA, "sha1") && in.Evidence.TargetBranch != "" && len(in.Evidence.TargetBranch) <= 1024
 }
+
+var categoryPattern = regexp.MustCompile(`^[a-z][a-z0-9_]{2,47}$`)
+
 func ObserveTx(ctx context.Context, tx pgx.Tx, org string, in Observation, actor, request string) (Finding, error) {
 	var f Finding
 	if !validObservation(in) {

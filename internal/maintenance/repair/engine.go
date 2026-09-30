@@ -35,6 +35,7 @@ type Report struct {
 	ChangedLines int                `json:"changed_lines,omitempty"`
 	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
 	Disposition  string             `json:"disposition,omitempty"`
+	Findings     []ReviewFinding    `json:"findings,omitempty"`
 }
 type Engine struct {
 	Restore          *Checkpoint
@@ -55,6 +56,7 @@ type Engine struct {
 	OpenFixes        []string
 	OpenFixFiles     []map[string]string
 	AllowObsolete    bool
+	ReviewFinding    bool
 	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
 	MaxOutputTokens  int
 	TurnTimeout      time.Duration

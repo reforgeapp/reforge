@@ -236,6 +236,21 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 	return ""
 }
 
+const reviewCadence = 24 * time.Hour
+
+func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, bool, error) {
+	var id, state, reviewed string
+	var seen time.Time
+	err := tx.QueryRow(ctx, `SELECT id::text,state,coalesce(evidence->>'head_sha',''),last_seen FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND source='repository' AND source_id='repository-review'`, org, repo).Scan(&id, &state, &reviewed, &seen)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", true, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return id, state == "open" || reviewed != head && time.Since(seen) > reviewCadence, nil
+}
+
 func validationGap(entries []forge.SourceEntry) string {
 	ci, tests := false, false
 	for _, entry := range entries {
@@ -378,6 +393,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	if title := validationGap(entries); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "validation-bootstrap", Category: "missing_validation", Severity: "medium", Title: title, Evidence: initial})
 	}
+	out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "repository-review", Category: "repository_review", Severity: "info", Title: "Review repository for issues no rule detects", Evidence: initial})
 	out = append(out, largeFileObservations(entries, lease.Repo, initial)...)
 	checks, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: lease.Ref, CommitSHA: resolved.SHA}})
 	if err != nil {
@@ -633,13 +649,25 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 		}
 		seen := []string{}
 		for _, observation := range observations {
+			if observation.Category == "repository_review" {
+				id, due, err := reviewDue(persistCtx, tx, lease.Org, lease.Repo, observation.Evidence.HeadSHA)
+				if err != nil {
+					return err
+				}
+				if !due {
+					if id != "" {
+						seen = append(seen, id)
+					}
+					continue
+				}
+			}
 			f, err := ObserveTx(persistCtx, tx, lease.Org, observation, lease.User, "discovery-"+lease.Repo)
 			if err != nil {
 				return err
 			}
 			seen = append(seen, f.ID)
 		}
-		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source<>'imported_advisory' AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
+		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
 		if err != nil {
 			return err
 		}
