@@ -274,5 +274,9 @@ func (s *Service) ingestWebhook(ctx context.Context, tx pgx.Tx, org, endpointID,
 	if err != nil {
 		return err
 	}
-	return queueRefresh(ctx, tx, c, repo, true)
+	if err = queueRefresh(ctx, tx, c, repo, true); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `UPDATE maintenance_scans SET available_at=least(available_at,clock_timestamp()) WHERE org_id=$1 AND repository_id=$2 AND state IN ('queued','complete','stale')`, org, repo)
+	return err
 }
