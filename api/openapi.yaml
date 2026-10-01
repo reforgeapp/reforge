@@ -19552,6 +19552,7 @@
           "queued",
           "skipped",
           "blocked",
+          "awaiting",
           "version"
         ],
         "properties": {
@@ -19575,6 +19576,9 @@
             "type": "integer"
           },
           "blocked": {
+            "type": "integer"
+          },
+          "awaiting": {
             "type": "integer"
           },
           "version": {

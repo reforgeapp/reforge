@@ -1161,6 +1161,7 @@ type AuditEventPage struct {
 }
 type Autopilot struct {
 	Active    int        `json:"active"`
+	Awaiting  int        `json:"awaiting"`
 	Blocked   int        `json:"blocked"`
 	CheckedAt *time.Time `json:"checked_at,omitempty"`
 	Enabled   bool       `json:"enabled"`

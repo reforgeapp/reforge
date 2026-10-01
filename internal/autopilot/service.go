@@ -10,6 +10,7 @@ import (
 	"reforge/internal/heartbeat"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -45,6 +46,7 @@ type Settings struct {
 	Queued    int        `json:"queued"`
 	Skipped   int        `json:"skipped"`
 	Blocked   int        `json:"blocked"`
+	Awaiting  int        `json:"awaiting"`
 	Version   int64      `json:"version"`
 }
 
@@ -72,7 +74,7 @@ func read(ctx context.Context, tx pgx.Tx, org string) (Settings, error) {
 	if err != nil {
 		return out, err
 	}
-	err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE t.state IN `+active+`),count(*) FILTER (WHERE a.outcome='queued'),count(*) FILTER (WHERE a.outcome='skipped'),count(*) FILTER (WHERE a.outcome='blocked') FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1`, org).Scan(&out.Active, &out.Queued, &out.Skipped, &out.Blocked)
+	err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE t.state IN `+active+`),count(*) FILTER (WHERE a.outcome='queued'),count(*) FILTER (WHERE a.outcome='skipped'),count(*) FILTER (WHERE a.outcome='blocked'),count(*) FILTER (WHERE a.merge_reason LIKE 'Awaiting human%') FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1`, org).Scan(&out.Active, &out.Queued, &out.Skipped, &out.Blocked, &out.Awaiting)
 	return out, err
 }
 
@@ -691,6 +693,9 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		if len(gate.Decision.Blockers) > 0 {
 			reason = gate.Decision.Blockers[0]
 		}
+		if human := humanMergeReason(gate.Decision.Blockers); human != "" {
+			return later(human, 6*time.Hour)
+		}
 		return later(reason, 5*time.Minute)
 	}
 	waiting, err := s.ownerRepairPinsTarget(ctx, org, repo, gate.Snapshot.Change.TargetBranch)
@@ -704,6 +709,20 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		return later(err.Error(), 5*time.Minute)
 	}
 	return later("Merge requested", 24*time.Hour)
+}
+
+func humanMergeReason(blockers []string) string {
+	for _, blocker := range blockers {
+		switch {
+		case strings.Contains(blocker, "execution_authority"):
+			return "Awaiting human merge: branch protection needs approvals or bypass Reforge does not have"
+		case strings.Contains(blocker, "native_reviews"):
+			return "Awaiting human merge: required reviews are missing"
+		case strings.Contains(blocker, "merge_authority"):
+			return "Awaiting human merge: this repository keeps merge authority with people"
+		}
+	}
+	return ""
 }
 
 type mergeCandidate struct {

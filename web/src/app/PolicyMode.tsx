@@ -57,7 +57,7 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
       {presets.map(preset => <Button key={preset.id} className="mode-button" title={preset.title} aria-pressed={selected === preset.id} disabled={disabled} onClick={() => void choose(preset.id)}><Icon name={preset.id} size={16} />{busy === preset.id ? 'Applying…' : preset.label}</Button>)}
       <Button className="mode-button mode-auto" title="Reforge owns maintenance: fixes, merges and delivers on its own" aria-pressed={selected === 'auto'} disabled={disabled} onClick={() => void choose('auto')}><Icon name="auto" size={16} />{busy === 'auto' ? 'Applying…' : 'Autopilot'}</Button>
     </div>
-    {auto && <p className="table-meta" role="status">{autopilot.data?.status || 'Starting'} · {autopilot.data?.queued} fixes started · {autopilot.data?.skipped} skipped{autopilot.data?.blocked ? ` · ${autopilot.data.blocked} blocked` : ''}</p>}
+    {auto && <p className="table-meta" role="status">{autopilot.data?.status || 'Starting'} · {autopilot.data?.queued} fixes started · {autopilot.data?.skipped} skipped{autopilot.data?.blocked ? ` · ${autopilot.data.blocked} blocked` : ''}{autopilot.data?.awaiting ? ` · ${autopilot.data.awaiting} awaiting a person` : ''}</p>}
     {error && <p className="error-text" role="alert">{error}</p>}
   </section>
 }
