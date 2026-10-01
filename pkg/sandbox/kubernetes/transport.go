@@ -432,7 +432,9 @@ func parsePod(data []byte) (Pod, error) {
 			ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds"`
 		} `json:"spec"`
 		Status struct {
-			Phase string `json:"phase"`
+			Phase   string `json:"phase"`
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
 		} `json:"status"`
 	}
 	if err := json.Unmarshal(data, &response); err != nil {
@@ -449,7 +451,7 @@ func parsePod(data []byte) (Pod, error) {
 			return Pod{}, ErrBoundary
 		}
 	}
-	return Pod{Ref: PodRef{Namespace: response.Metadata.Namespace, Name: response.Metadata.Name, UID: response.Metadata.UID}, Phase: response.Status.Phase, CreatedAt: createdAt, ActiveDeadlineSeconds: response.Spec.ActiveDeadlineSeconds, Labels: response.Metadata.Labels}, nil
+	return Pod{Ref: PodRef{Namespace: response.Metadata.Namespace, Name: response.Metadata.Name, UID: response.Metadata.UID}, Phase: response.Status.Phase, Reason: response.Status.Reason, Message: response.Status.Message, CreatedAt: createdAt, ActiveDeadlineSeconds: response.Spec.ActiveDeadlineSeconds, Labels: response.Metadata.Labels}, nil
 }
 
 func (c *HTTPPodClient) readToken() (string, error) {

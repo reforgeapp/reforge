@@ -36,6 +36,8 @@ type PodRef struct {
 type Pod struct {
 	Ref                   PodRef
 	Phase                 string
+	Reason                string
+	Message               string
 	CreatedAt             time.Time
 	ActiveDeadlineSeconds int64
 	Labels                map[string]string
@@ -509,6 +511,9 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace sandbox.W
 	}
 	cancel()
 	if execErr != nil || result.TimedOut || ctx.Err() != nil {
+		if limit := r.verify(ctx, state); errors.Is(limit, sandbox.ErrResourceLimit) {
+			execErr = errors.Join(execErr, limit)
+		}
 		if state.egress {
 			execErr = errors.Join(execErr, r.endEgress(ctx, state))
 		}
@@ -629,7 +634,13 @@ func (r *Runtime) verify(ctx context.Context, state *workspaceState) error {
 	if err != nil {
 		return err
 	}
-	if err = validPodIdentity(state.pod, pod); err != nil || pod.Phase != "Running" {
+	if err = validPodIdentity(state.pod, pod); err != nil {
+		return ErrBoundary
+	}
+	if pod.Reason == "Evicted" {
+		return fmt.Errorf("%w: %s", sandbox.ErrResourceLimit, pod.Message)
+	}
+	if pod.Phase != "Running" {
 		return ErrBoundary
 	}
 	return nil

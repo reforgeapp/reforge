@@ -255,6 +255,9 @@ func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches 
 	checkProtected := func() error {
 		for name, want := range p.ProtectedHashes {
 			file, err := e.Runtime.CollectArtifact(ctx, w, name)
+			if errors.Is(err, sandbox.ErrResourceLimit) {
+				return err
+			}
 			for try := 1; err != nil && !errors.Is(err, fs.ErrNotExist) && try < 3 && ctx.Err() == nil; try++ {
 				time.Sleep(time.Duration(try) * time.Second)
 				file, err = e.Runtime.CollectArtifact(ctx, w, name)
@@ -289,6 +292,9 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 		result, err := e.checkedCommand(ctx, p, sha, patches, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"})
 		if err != nil {
 			problem := "execution result could not be verified"
+			if errors.Is(err, sandbox.ErrResourceLimit) {
+				problem = err.Error()
+			}
 			var protected *protectedEvidenceError
 			if errors.As(err, &protected) {
 				problem = protected.Error()

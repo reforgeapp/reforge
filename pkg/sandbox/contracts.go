@@ -2,8 +2,11 @@ package sandbox
 
 import (
 	"context"
+	"errors"
 	"time"
 )
+
+var ErrResourceLimit = errors.New("sandbox exceeded its resource limits")
 
 type WorkspaceRequest struct {
 	JobID         string
