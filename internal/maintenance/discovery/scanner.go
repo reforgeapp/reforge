@@ -236,6 +236,68 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 	return ""
 }
 
+func providerObservations(read func(privateconnector.Operation) (privateconnector.Result, error), lease scanLease, initial Evidence) ([]Observation, error) {
+	out := []Observation{}
+	missing := []string{}
+	optional := func(kind privateconnector.Kind, access string) (privateconnector.Result, error) {
+		result, err := read(privateconnector.Operation{Kind: kind, Repository: &privateconnector.RepositoryArgs{Repository: lease.Ref}})
+		var providerError *domain.ProviderError
+		if errors.Is(err, privateconnector.ErrUnsupported) || errors.As(err, &providerError) && (providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "scope" || providerError.Kind == "not_found") {
+			missing = append(missing, access)
+			return result, nil
+		}
+		return result, err
+	}
+	issues, err := optional(privateconnector.ForgeIssues, "issues")
+	if err != nil {
+		return nil, err
+	}
+	for _, issue := range issues.Issues {
+		e := initial
+		e.ReferenceURL = issue.URL
+		e.Review = &ReviewEvidence{Confidence: "medium", Objective: "Resolve issue #" + issue.Number + ": " + issue.Title, Detail: issue.Body}
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_issue", SourceID: "issue:" + issue.Number, Category: "issue", Severity: "medium", Title: bounded(issue.Title, 512), Evidence: e})
+	}
+	advisories, err := optional(privateconnector.ForgeAdvisories, "Dependabot alerts")
+	if err != nil {
+		return nil, err
+	}
+	for _, advisory := range advisories.Advisories {
+		e := initial
+		e.AdvisoryID, e.ReferenceURL = advisory.ID, advisory.URL
+		e.Dependencies = []detectors.Dependency{{Ecosystem: advisory.Ecosystem, Manifest: advisory.Manifest, Name: advisory.Package, From: advisory.Vulnerable, To: advisory.Patched}}
+		e.Review = &ReviewEvidence{Confidence: "high", Objective: "Upgrade " + advisory.Package + " to a version outside " + advisory.Vulnerable + patchedHint(advisory.Patched), Detail: advisory.Summary}
+		severity := advisory.Severity
+		if severity == "moderate" {
+			severity = "medium"
+		}
+		if !slices.Contains([]string{"low", "medium", "high", "critical"}, severity) {
+			severity = "medium"
+		}
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_advisory", SourceID: "advisory:" + advisory.ID + ":" + advisory.Manifest, Category: "security_advisory", Severity: severity, Title: bounded(advisory.ID+" in "+advisory.Package+": "+advisory.Summary, 512), Evidence: e})
+	}
+	if len(missing) > 0 {
+		e := initial
+		e.Blockers = []string{"Needs a person: grant Reforge's forge access read permission for " + strings.Join(missing, " and ")}
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "provider-access", Category: "provider_access", Severity: "low", Title: "Grant read access to " + strings.Join(missing, " and "), Evidence: e})
+	}
+	return out, nil
+}
+
+func patchedHint(version string) string {
+	if version == "" {
+		return ""
+	}
+	return " (first patched: " + version + ")"
+}
+
+func bounded(value string, limit int) string {
+	for len(value) > limit {
+		value = value[:len(value)-1]
+	}
+	return strings.ToValidUTF8(value, "")
+}
+
 const reviewCadence = 24 * time.Hour
 
 func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, bool, error) {
@@ -395,6 +457,11 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	}
 	out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "repository-review", Category: "repository_review", Severity: "info", Title: "Review repository for issues no rule detects", Evidence: initial})
 	out = append(out, largeFileObservations(entries, lease.Repo, initial)...)
+	provided, err := providerObservations(read, lease, initial)
+	if err != nil {
+		return nil, err
+	}
+	out = append(out, provided...)
 	checks, err := read(privateconnector.Operation{Kind: privateconnector.ForgeChecks, Checks: &privateconnector.ChecksArgs{Repository: lease.Ref, CommitSHA: resolved.SHA}})
 	if err != nil {
 		return nil, err

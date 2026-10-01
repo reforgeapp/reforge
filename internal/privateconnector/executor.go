@@ -433,6 +433,18 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		result.Change = &v
 	case ForgeChecks:
 		result.Checks, err = provider.ListChecks(ctx, op.Checks.Repository, op.Checks.CommitSHA)
+	case ForgeIssues:
+		reader, ok := provider.(forge.IssueReader)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		result.Issues, err = reader.ListIssues(ctx, op.Repository.Repository)
+	case ForgeAdvisories:
+		reader, ok := provider.(forge.AdvisoryReader)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		result.Advisories, err = reader.ListAdvisories(ctx, op.Repository.Repository)
 	case ForgeApprovals:
 		result.Approvals, err = provider.ReadApprovals(ctx, op.Change.Repository, op.Change.ChangeID)
 	case ForgeReconcileChanges:

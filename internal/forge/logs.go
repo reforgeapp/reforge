@@ -37,3 +37,31 @@ func LogTail(body []byte) string {
 	}
 	return text
 }
+
+type Issue struct {
+	Number string   `json:"number"`
+	Title  string   `json:"title"`
+	Body   string   `json:"body"`
+	URL    string   `json:"url"`
+	Labels []string `json:"labels"`
+}
+
+type Advisory struct {
+	ID         string `json:"id"`
+	Package    string `json:"package"`
+	Ecosystem  string `json:"ecosystem"`
+	Manifest   string `json:"manifest"`
+	Severity   string `json:"severity"`
+	Summary    string `json:"summary"`
+	Vulnerable string `json:"vulnerable"`
+	Patched    string `json:"patched"`
+	URL        string `json:"url"`
+}
+
+type IssueReader interface {
+	ListIssues(context.Context, RepoRef) ([]Issue, error)
+}
+
+type AdvisoryReader interface {
+	ListAdvisories(context.Context, RepoRef) ([]Advisory, error)
+}

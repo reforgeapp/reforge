@@ -438,15 +438,17 @@ func (s *Service) manifest(st setup) string {
 }
 
 var Permissions = map[string]string{
-	"metadata":       "read",
-	"contents":       "write",
-	"pull_requests":  "write",
-	"checks":         "write",
-	"statuses":       "read",
-	"actions":        "write",
-	"workflows":      "write",
-	"administration": "read",
-	"members":        "read",
+	"metadata":             "read",
+	"contents":             "write",
+	"pull_requests":        "write",
+	"checks":               "write",
+	"statuses":             "read",
+	"actions":              "write",
+	"workflows":            "write",
+	"administration":       "read",
+	"members":              "read",
+	"issues":               "read",
+	"vulnerability_alerts": "read",
 }
 
 var Events = []string{"push", "pull_request", "repository", "check_run", "check_suite", "status", "workflow_run"}
