@@ -347,7 +347,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if review {
 		system = "You review a repository you own and report real problems with evidence. You never change files."
 		tools = reviewTools()
-		prompt = reviewPrompt + "\nTask:\n" + bounded(e.Goal) + "\nRepository checks on the target branch:\n" + string(checks) + "\nFiles:\n" + index
+		prompt = reviewPrompt + fmt.Sprintf("You have %d turns. Call report_finding as soon as each problem is confirmed rather than at the end, and finish before the budget runs out.\n", p.Recipe.MaxTurns) + "\nTask:\n" + bounded(e.Goal) + "\nRepository checks on the target branch:\n" + string(checks) + "\nFiles:\n" + index
 	}
 	admissible := func(patches []sandbox.Patch, updates []DependencyUpdate) error {
 		if owner {
@@ -751,6 +751,11 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		if err = saveProgress(); err != nil {
 			return fail("Could not save repair progress", err)
 		}
+	}
+	if review {
+		out.Disposition = "reviewed"
+		out.Reason = fmt.Sprintf("Review turn budget used; recorded %d issues", len(out.Findings))
+		return out, nil
 	}
 	return fail("Repair turn limit reached without a finished change", ErrHandoff)
 }
