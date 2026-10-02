@@ -275,10 +275,24 @@ func releaseTerminalRepairsTx(ctx context.Context, tx pgx.Tx, org string) error 
 	if _, err := tx.Exec(ctx, `UPDATE repair_runs rr SET native_change=jsonb_set(rr.native_change,'{state}',to_jsonb(coalesce((SELECT 'merged'::text FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged' LIMIT 1),(SELECT c.snapshot->>'state' FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged') LIMIT 1)))),version=rr.version+1,updated_at=clock_timestamp() WHERE rr.org_id=$1 AND rr.state='published' AND rr.native_change IS NOT NULL AND coalesce(rr.native_change->>'state','open')='open' AND (EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged') OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged')))`, org); err != nil {
 		return err
 	}
+	if err := verifyMergesTx(ctx, tx, org); err != nil {
+		return err
+	}
 	if _, err := tx.Exec(ctx, `UPDATE maintenance_findings f SET state='resolved',reason='Fix merged',version=f.version+1 FROM repair_runs rr WHERE rr.org_id=f.org_id AND rr.finding_id=f.id AND f.org_id=$1 AND f.source='repository_review' AND f.state='open' AND rr.native_change->>'state'='merged'`, org); err != nil {
 		return err
 	}
 	_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs rr WHERE rr.org_id=m.org_id AND rr.task_id=m.task_id AND m.org_id=$1 AND m.active AND rr.native_change IS NOT NULL AND (rr.native_change->>'state' IN ('closed','merged') OR EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged')) OR EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=rr.org_id AND o.repository_id=rr.repository_id AND o.change_id=rr.native_change->>'id' AND o.state='merged'))`, org)
+	return err
+}
+
+func verifyMergesTx(ctx context.Context, tx pgx.Tx, org string) error {
+	if _, err := tx.Exec(ctx, `UPDATE repair_runs SET post_merge_state='pending',post_merge_since=clock_timestamp() WHERE org_id=$1 AND post_merge_state='' AND native_change->>'state'='merged'`, org); err != nil {
+		return err
+	}
+	if _, err := tx.Exec(ctx, `WITH regressed AS (UPDATE repair_runs rr SET post_merge_state='regressed' WHERE rr.org_id=$1 AND rr.post_merge_state='pending' AND EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=rr.org_id AND f.repository_id=rr.repository_id AND f.source='native_ci' AND f.state='open' AND f.first_seen>rr.post_merge_since) RETURNING rr.finding_id) UPDATE maintenance_findings f SET state='open',reason='Regressed after its fix merged: default branch CI failed',version=f.version+1 FROM regressed WHERE f.org_id=$1 AND f.id=regressed.finding_id AND f.source IN ('repository_review','forge_issue') AND f.state<>'open'`, org); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `UPDATE repair_runs rr SET post_merge_state='verified' WHERE rr.org_id=$1 AND rr.post_merge_state='pending' AND EXISTS(SELECT 1 FROM maintenance_scans s WHERE s.org_id=rr.org_id AND s.repository_id=rr.repository_id AND s.state='complete' AND s.observed_at>rr.post_merge_since+interval '30 minutes')`, org)
 	return err
 }
 

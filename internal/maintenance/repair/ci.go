@@ -136,6 +136,13 @@ func retarget(p Plan, files map[string][]byte) Plan {
 	return next
 }
 
+func recentMerges(merges []string) string {
+	if len(merges) == 0 {
+		return ""
+	}
+	return "\nReforge changes merged in the last 48 hours; if one of them caused this failure and a forward fix is not clear, revert it:\n" + strings.Join(merges, "\n") + "\n"
+}
+
 func editablePaths(paths []string) string {
 	if len(paths) == 0 {
 		return ""
@@ -339,6 +346,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			"Task:\n" + bounded(e.Goal) +
 			editablePaths(p.Recipe.AllowedPaths) +
 			"\nOpen Reforge fixes:\n" + openFixes(e.OpenFixes) +
+			recentMerges(e.RecentMerges) +
 			"\nCI logs:" + logs.String() +
 			"\nRepository checks on the target branch:\n" + string(checks) +
 			"\nFiles:\n" + index

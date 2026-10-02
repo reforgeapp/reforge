@@ -768,6 +768,8 @@ type RepairRun struct {
 	BotObserveAfter        pgtype.Timestamptz `json:"bot_observe_after"`
 	BotObservedAt          pgtype.Timestamptz `json:"bot_observed_at"`
 	Checkpoint             []byte             `json:"checkpoint"`
+	PostMergeState         string             `json:"post_merge_state"`
+	PostMergeSince         pgtype.Timestamptz `json:"post_merge_since"`
 }
 
 type Repository struct {

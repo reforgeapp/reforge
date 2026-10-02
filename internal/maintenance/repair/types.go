@@ -39,6 +39,7 @@ type ExecutionContext struct {
 	PolicyHash         string                 `json:"policy_hash"`
 	CILogs             []CILog                `json:"ci_logs,omitempty"`
 	OpenFixes          []string               `json:"open_fixes,omitempty"`
+	RecentMerges       []string               `json:"recent_merges,omitempty"`
 	FollowUpBranch     string                 `json:"follow_up_branch,omitempty"`
 	ReplacesBranch     string                 `json:"replaces_branch,omitempty"`
 	OpenFixFiles       []map[string]string    `json:"open_fix_files,omitempty"`

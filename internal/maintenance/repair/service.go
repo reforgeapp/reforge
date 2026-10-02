@@ -279,6 +279,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	context.CILogs = s.ciLogs(ctx, org, f, check)
 	if len(context.CILogs) > 0 || plan.Owner {
 		context.OpenFixes, context.OpenFixFiles = s.openFixes(ctx, org, f.RepositoryID, followUp)
+		context.RecentMerges = s.recentMerges(ctx, org, f.RepositoryID)
 	}
 	out.Context = context
 	if !plan.Valid() {
@@ -398,6 +399,25 @@ func (s *Service) ciLogs(ctx context.Context, org string, f discovery.Finding, c
 		logs = append(logs, CILog{Name: c.Name, URL: c.URL, Log: result.Log})
 	}
 	return logs
+}
+
+func (s *Service) recentMerges(ctx context.Context, org, repository string) []string {
+	merges := []string{}
+	_ = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT coalesce(native_change->>'id',''),branch,coalesce(report->>'reason','') FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND native_change->>'state'='merged' AND post_merge_since>clock_timestamp()-interval '48 hours' ORDER BY post_merge_since DESC LIMIT 10`, org, repository)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var id, branch, reason string
+			if rows.Scan(&id, &branch, &reason) == nil {
+				merges = append(merges, bounded("#"+id+" "+branch+": "+reason))
+			}
+		}
+		return rows.Err()
+	})
+	return merges
 }
 
 func (s *Service) openFixes(ctx context.Context, org, repository, exclude string) ([]string, []map[string]string) {

@@ -54,6 +54,7 @@ type Engine struct {
 	CILogs           []CILog
 	Goal             string
 	OpenFixes        []string
+	RecentMerges     []string
 	OpenFixFiles     []map[string]string
 	AllowObsolete    bool
 	ReviewFinding    bool
