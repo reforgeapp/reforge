@@ -17,7 +17,7 @@ func TestRefreshBranchGrantIsBoundAndMutation(t *testing.T) {
 	}
 	for _, change := range []func(*forge.RefreshBranchRequest){
 		func(r *forge.RefreshBranchRequest) { r.OperationID = domain.NewID() },
-		func(r *forge.RefreshBranchRequest) { r.HeadBranch = "dependabot/npm/pkg" },
+		func(r *forge.RefreshBranchRequest) { r.HeadBranch = "feature/pkg" },
 		func(r *forge.RefreshBranchRequest) { r.HeadBranch = "reforge/repair/" },
 		func(r *forge.RefreshBranchRequest) { r.TargetBranch = r.HeadBranch },
 		func(r *forge.RefreshBranchRequest) { r.ExpectedHeadSHA = strings.Repeat("x", 40) },

@@ -20,12 +20,19 @@ func TestRefreshAppBranchPreflightsAndUsesExpectedHead(t *testing.T) {
 		headSHA    string
 		updateCode int
 		wantWrite  bool
+		branch     string
+		login      string
 	}{
 		{name: "accepted", author: 5, headSHA: head, updateCode: http.StatusAccepted, wantWrite: true},
 		{name: "wrong actor", author: 6, headSHA: head},
 		{name: "stale head", author: 5, headSHA: "3333333333333333333333333333333333333333"},
 		{name: "provider failure", author: 5, headSHA: head, updateCode: http.StatusInternalServerError, wantWrite: true},
+		{name: "dependabot accepted", author: 49699333, headSHA: head, updateCode: http.StatusAccepted, wantWrite: true, branch: "dependabot/go_modules/x", login: "dependabot[bot]"},
+		{name: "dependabot spoof", author: 5, headSHA: head, branch: "dependabot/go_modules/x", login: "mallory"},
 	} {
+		if tc.branch == "" {
+			tc.branch = "reforge/repair/task-1"
+		}
 		t.Run(tc.name, func(t *testing.T) {
 			writes, authorized := 0, 0
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -33,7 +40,7 @@ func TestRefreshAppBranchPreflightsAndUsesExpectedHead(t *testing.T) {
 				case "/user":
 					_, _ = w.Write([]byte(`{"id":5}`))
 				case "/repos/acme/repo/pulls/7":
-					_, _ = w.Write([]byte(`{"number":7,"state":"open","user":{"id":` + jsonNumber(tc.author) + `,"type":"Bot"},"head":{"ref":"reforge/repair/task-1","sha":"` + tc.headSHA + `","repo":{"id":1,"full_name":"acme/repo"}},"base":{"ref":"main","sha":"` + target + `","repo":{"id":1,"full_name":"acme/repo"}}}`))
+					_, _ = w.Write([]byte(`{"number":7,"state":"open","user":{"id":` + jsonNumber(tc.author) + `,"login":"` + tc.login + `","type":"Bot"},"head":{"ref":"` + tc.branch + `","sha":"` + tc.headSHA + `","repo":{"id":1,"full_name":"acme/repo"}},"base":{"ref":"main","sha":"` + target + `","repo":{"id":1,"full_name":"acme/repo"}}}`))
 				case "/repos/acme/repo/git/ref/heads/main":
 					_, _ = w.Write([]byte(`{"object":{"sha":"` + target + `"}}`))
 				case "/repos/acme/repo/pulls/7/update-branch":
@@ -59,15 +66,15 @@ func TestRefreshAppBranchPreflightsAndUsesExpectedHead(t *testing.T) {
 				t.Fatal(err)
 			}
 			p = p.WithBranchRefreshAuthorizer(func(context.Context, forge.RefreshBranchRequest) error { authorized++; return nil })
-			in := forge.RefreshBranchRequest{Repository: forge.RepoRef{NativeID: "1", FullName: "acme/repo"}, ChangeID: "7", HeadBranch: "reforge/repair/task-1", TargetBranch: "main", ExpectedHeadSHA: head, ExpectedTargetSHA: target, OperationID: "refresh-1"}
+			in := forge.RefreshBranchRequest{Repository: forge.RepoRef{NativeID: "1", FullName: "acme/repo"}, ChangeID: "7", HeadBranch: tc.branch, TargetBranch: "main", ExpectedHeadSHA: head, ExpectedTargetSHA: target, OperationID: "refresh-1"}
 			err = p.RefreshAppBranch(context.Background(), in)
-			if tc.name == "accepted" && err != nil {
+			if (tc.name == "accepted" || tc.name == "dependabot accepted") && err != nil {
 				t.Fatal(err)
 			}
 			if tc.name == "provider failure" && err == nil {
 				t.Fatal("provider failure accepted")
 			}
-			if (tc.name == "wrong actor" || tc.name == "stale head") && err == nil {
+			if (tc.name == "wrong actor" || tc.name == "stale head" || tc.name == "dependabot spoof") && err == nil {
 				t.Fatal("invalid preflight accepted")
 			}
 			if (writes > 0) != tc.wantWrite {

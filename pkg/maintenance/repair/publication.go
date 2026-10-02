@@ -506,17 +506,21 @@ func (s *Service) CloseReplaced(ctx context.Context, session auth.Session, org s
 	return nil
 }
 
-func (s *Service) CommandBot(ctx context.Context, org, connection string, change forge.Change, command string) error {
+func (s *Service) RefreshBotChange(ctx context.Context, org, connection string, change forge.Change) error {
 	w, ok := s.reader.(writer)
 	if !ok {
 		return privateconnector.ErrUnsupported
 	}
-	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCommentChange, Comment: &forge.CommentChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadSHA: change.HeadSHA, Comment: command}}
-	_, err := w.Write(ctx, org, connection, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+	opID := domain.NewID()
+	request := forge.RefreshBranchRequest{Repository: change.Repository, ChangeID: change.ID, HeadBranch: change.HeadBranch, TargetBranch: change.TargetBranch, ExpectedHeadSHA: change.HeadSHA, ExpectedTargetSHA: change.TargetSHA, OperationID: opID}
+	if !forge.BotBranch(change.HeadBranch) || !request.Valid() {
+		return auth.ErrInvalid
+	}
+	_, err := w.Write(ctx, org, connection, privateconnector.Operation{ID: opID, Kind: privateconnector.ForgeRefreshBranch, Refresh: &request}, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
 		if c.ID != connection {
 			return "", auth.ErrConflict
 		}
-		return op.ID, nil
+		return opID, nil
 	}, func(context.Context, pgx.Tx, connections.Connection) error { return nil })
 	return err
 }

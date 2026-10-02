@@ -9,11 +9,18 @@ import (
 	"github.com/reforgeapp/reforge/pkg/forge"
 )
 
+func refreshOwner(branch string, change forge.Change, actor string) bool {
+	if forge.BotBranch(branch) {
+		return change.AuthorLogin == "dependabot[bot]" && strings.EqualFold(change.AuthorType, "Bot")
+	}
+	return change.AuthorID == actor
+}
+
 func (p *Provider) RefreshAppBranch(ctx context.Context, in forge.RefreshBranchRequest) error {
 	if p.authorizeRefreshBranch == nil {
 		return failure("unsupported", "Persisted branch refresh authorization required")
 	}
-	if !positive(in.Repository.NativeID) || !positive(in.ChangeID) || !validBranch(in.HeadBranch) || !strings.HasPrefix(in.HeadBranch, "reforge/repair/") || len(in.HeadBranch) == len("reforge/repair/") || !validBranch(in.TargetBranch) || !validSHA(in.ExpectedHeadSHA) || !validSHA(in.ExpectedTargetSHA) {
+	if !positive(in.Repository.NativeID) || !positive(in.ChangeID) || !validBranch(in.HeadBranch) || !in.Valid() || !validBranch(in.TargetBranch) || !validSHA(in.ExpectedHeadSHA) || !validSHA(in.ExpectedTargetSHA) {
 		return failure("invalid", "Incomplete or non-Reforge branch refresh request")
 	}
 	if err := validOperationID(in.OperationID); err != nil {
@@ -27,7 +34,7 @@ func (p *Provider) RefreshAppBranch(ctx context.Context, in forge.RefreshBranchR
 	if err != nil {
 		return err
 	}
-	if !sameRepoRef(change.Repository, in.Repository) || !sameRepoRef(change.HeadRepository, in.Repository) || !sameRepoRef(change.TargetRepository, in.Repository) || change.HeadBranch != in.HeadBranch || change.TargetBranch != in.TargetBranch || change.HeadSHA != in.ExpectedHeadSHA || change.TargetSHA != in.ExpectedTargetSHA || change.State != "open" || change.Draft || change.AuthorID != actor {
+	if !sameRepoRef(change.Repository, in.Repository) || !sameRepoRef(change.HeadRepository, in.Repository) || !sameRepoRef(change.TargetRepository, in.Repository) || change.HeadBranch != in.HeadBranch || change.TargetBranch != in.TargetBranch || change.HeadSHA != in.ExpectedHeadSHA || change.TargetSHA != in.ExpectedTargetSHA || change.State != "open" || change.Draft || !refreshOwner(in.HeadBranch, change, actor) {
 		return failure("conflict", "Pull request identity, owner or expected refs changed")
 	}
 	if err = p.authorizeRefreshBranch(ctx, in); err != nil {

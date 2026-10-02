@@ -20,6 +20,10 @@ type ForgeBranchRefresher interface {
 	RefreshAppBranch(context.Context, RefreshBranchRequest) error
 }
 
+func BotBranch(branch string) bool {
+	return strings.HasPrefix(branch, "dependabot/") && len(branch) > len("dependabot/")
+}
+
 func (r RefreshBranchRequest) Valid() bool {
 	validSHA := func(value string) bool {
 		if len(value) != 40 {
@@ -28,5 +32,5 @@ func (r RefreshBranchRequest) Valid() bool {
 		_, err := hex.DecodeString(value)
 		return err == nil
 	}
-	return r.Repository.NativeID != "" && len(r.Repository.NativeID) <= 256 && r.Repository.FullName != "" && len(r.Repository.FullName) <= 1024 && r.ChangeID != "" && len(r.ChangeID) <= 32 && strings.HasPrefix(r.HeadBranch, "reforge/repair/") && len(r.HeadBranch) > len("reforge/repair/") && len(r.HeadBranch) <= 255 && r.TargetBranch != "" && len(r.TargetBranch) <= 255 && r.TargetBranch != r.HeadBranch && validSHA(r.ExpectedHeadSHA) && validSHA(r.ExpectedTargetSHA)
+	return r.Repository.NativeID != "" && len(r.Repository.NativeID) <= 256 && r.Repository.FullName != "" && len(r.Repository.FullName) <= 1024 && r.ChangeID != "" && len(r.ChangeID) <= 32 && (strings.HasPrefix(r.HeadBranch, "reforge/repair/") && len(r.HeadBranch) > len("reforge/repair/") || BotBranch(r.HeadBranch)) && len(r.HeadBranch) <= 255 && r.TargetBranch != "" && len(r.TargetBranch) <= 255 && r.TargetBranch != r.HeadBranch && validSHA(r.ExpectedHeadSHA) && validSHA(r.ExpectedTargetSHA)
 }
