@@ -54,6 +54,7 @@ type Evidence struct {
 	ReferenceURL      string                 `json:"reference_url,omitempty"`
 	TrackedFiles      []forge.SourceEntry    `json:"tracked_files,omitempty"`
 	Review            *ReviewEvidence        `json:"review,omitempty"`
+	Deployment        string                 `json:"deployment,omitempty"`
 }
 type ReviewEvidence struct {
 	Path       string `json:"path,omitempty"`

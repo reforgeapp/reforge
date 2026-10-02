@@ -17,6 +17,7 @@ import (
 
 	"reforge/internal/auth"
 	"reforge/internal/budget"
+	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
 	"reforge/internal/inventory"
@@ -51,14 +52,15 @@ type Settings struct {
 }
 
 type Service struct {
-	db       *store.Store
-	auth     *auth.Service
-	repairs  *repair.Service
-	merges   *mergecontrol.Service
-	budgets  *budget.Service
-	policies *policy.Service
-	Scan     func(context.Context, auth.Session, string, string, string) error
-	Tasks    *workflow.Service
+	db          *store.Store
+	auth        *auth.Service
+	repairs     *repair.Service
+	merges      *mergecontrol.Service
+	budgets     *budget.Service
+	policies    *policy.Service
+	Scan        func(context.Context, auth.Session, string, string, string) error
+	Tasks       *workflow.Service
+	Deployments *deployment.Service
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -315,6 +317,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			slog.WarnContext(ctx, "autopilot bot merge failed", "org_id", org, "error", err)
 		}
 	}
+	if err = s.observeDeployments(ctx, session, org); err != nil {
+		slog.WarnContext(ctx, "autopilot deployment observation failed", "org_id", org, "error", err)
+	}
 	if err = s.reconcile(ctx, session, org); err != nil {
 		slog.WarnContext(ctx, "autopilot reconcile failed", "org_id", org, "error", err)
 	}
@@ -457,6 +462,13 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
+	}
+	if c.category == "deploy_failure" {
+		reason, err := s.rollback(ctx, session, org, c)
+		if err != nil || reason == "" {
+			return err
+		}
+		slog.InfoContext(ctx, "autopilot rollback unavailable; fixing forward", "org_id", org, "finding_id", c.finding, "reason", reason)
 	}
 	for _, recipe := range recipes.ForFinding(c.category, c.ecosystem) {
 		in := repair.Input{FindingID: c.finding, FindingVersion: c.version, Recipe: recipe, ModelConnectionID: model, ModelRoute: route, RunnerPoolID: pool, Owner: true}
