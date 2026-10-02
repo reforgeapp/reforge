@@ -506,6 +506,38 @@ func (s *Service) CloseReplaced(ctx context.Context, session auth.Session, org s
 	return nil
 }
 
+func (s *Service) CloseObsolete(ctx context.Context, session auth.Session, org string) error {
+	w, ok := s.reader.(writer)
+	if !ok {
+		return nil
+	}
+	type obsolete struct {
+		Repository, Connection string
+		Change                 []byte
+	}
+	var items []obsolete
+	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT rr.repository_id::text,coalesce(rr.context#>>'{finding,evidence,connection_id}',''),rr.native_change FROM repair_runs rr JOIN maintenance_findings f ON f.org_id=rr.org_id AND f.id=rr.finding_id WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND f.state='resolved' AND coalesce(f.evidence#>>'{change,head_branch}','') NOT LIKE 'reforge/repair/%'`, org)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, pgx.RowToStructByPos[obsolete])
+		return err
+	}); err != nil {
+		return err
+	}
+	for _, item := range items {
+		var change forge.Change
+		if json.Unmarshal(item.Change, &change) != nil || !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+			continue
+		}
+		if err := s.closeChange(ctx, session, w, org, item.Repository, item.Connection, change, "Reforge is closing this pull request: the problem it fixed is no longer present on "+change.TargetBranch+"."); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *Service) RefreshBotChange(ctx context.Context, org, connection string, change forge.Change) error {
 	w, ok := s.reader.(writer)
 	if !ok {
