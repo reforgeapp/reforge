@@ -20,6 +20,7 @@ import (
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
+	"reforge/internal/gitops"
 	"reforge/internal/inventory"
 	"reforge/internal/maintenance/discovery"
 	"reforge/internal/maintenance/recipes"
@@ -61,6 +62,7 @@ type Service struct {
 	Scan        func(context.Context, auth.Session, string, string, string) error
 	Tasks       *workflow.Service
 	Deployments *deployment.Service
+	Promotions  *gitops.Service
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -315,6 +317,11 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		}
 		if err = s.mergeBot(ctx, session, org); err != nil {
 			slog.WarnContext(ctx, "autopilot bot merge failed", "org_id", org, "error", err)
+		}
+	}
+	if sc.enabled {
+		if err = s.promote(ctx, session, org); err != nil {
+			slog.WarnContext(ctx, "autopilot promotion failed", "org_id", org, "error", err)
 		}
 	}
 	if err = s.observeDeployments(ctx, session, org); err != nil {

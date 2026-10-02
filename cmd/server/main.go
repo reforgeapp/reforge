@@ -225,6 +225,7 @@ func run() error {
 	autopilots := autopilot.New(db, identity, repairs, merges, budgets, policies)
 	autopilots.Tasks = workflows
 	autopilots.Deployments = deliveries
+	autopilots.Promotions = promotions
 	autopilots.Scan = func(ctx context.Context, session auth.Session, org, repo, request string) error {
 		_, err := discoveries.StartScan(ctx, session, org, repo, request)
 		return err

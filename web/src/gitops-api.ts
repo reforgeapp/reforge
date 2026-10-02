@@ -5,7 +5,7 @@ export type Configuration = {
   environment: string; source_repository_id: string; delivery_repository_id: string; version: number; enabled: boolean
   target_branch: string; manifest_path: string; pointer: string; image_repository: string
   provenance_public_key: string; health_public_key: string; health_checks: string[]
-  observation_seconds: number; max_evidence_age_seconds: number; deadline_seconds: number; recovery_allowed: boolean
+  observation_seconds: number; max_evidence_age_seconds: number; deadline_seconds: number; recovery_allowed: boolean; promote_from?: string
 }
 export type PreviewRequest = { change_id: string; source_sha: string; artifact_digest: string; provenance: unknown; recovery_of?: string; restore_promotion_id?: string }
 export type Gate = { id: string; operation_id: string; configuration: Configuration; request: PreviewRequest; source: { native_id: string; full_name: string }; delivery: { native_id: string; full_name: string }; target_sha: string; before: string; after: string; manifest_sha256: string; patched_manifest: string; decision: { outcome: string; blockers?: string[]; required_actions?: string[] }; blockers: string[]; expires_at: string }

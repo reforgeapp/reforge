@@ -129,6 +129,9 @@ func (s *Service) PutConfiguration(ctx context.Context, session auth.Session, or
 	if _, err := pointerSegments(c.Pointer); err != nil {
 		return c, auth.ErrInvalid
 	}
+	if c.PromoteFrom != "" && (!forge.ValidEnvironment(c.PromoteFrom) || c.PromoteFrom == c.Environment) {
+		return c, auth.ErrInvalid
+	}
 	seen := map[string]bool{}
 	for _, check := range c.HealthChecks {
 		if check == "" || len(check) > 128 || strings.TrimSpace(check) != check || seen[check] {

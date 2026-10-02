@@ -4230,6 +4230,7 @@ export interface components {
             deadline_seconds: number;
             enabled: boolean;
             recovery_allowed: boolean;
+            promote_from?: string;
             health_checks: string[];
         };
         GitOpsPreviewInput: {

@@ -24,6 +24,7 @@ type Configuration struct {
 	MaxEvidenceAgeSeconds int64    `json:"max_evidence_age_seconds"`
 	DeadlineSeconds       int64    `json:"deadline_seconds"`
 	RecoveryAllowed       bool     `json:"recovery_allowed"`
+	PromoteFrom           string   `json:"promote_from,omitempty"`
 }
 
 type PreviewRequest struct {

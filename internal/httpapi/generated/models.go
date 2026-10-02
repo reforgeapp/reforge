@@ -1849,6 +1849,7 @@ type GitOpsConfiguration struct {
 	MaxEvidenceAgeSeconds int64    `json:"max_evidence_age_seconds"`
 	ObservationSeconds    int64    `json:"observation_seconds"`
 	Pointer               string   `json:"pointer"`
+	PromoteFrom           *string  `json:"promote_from,omitempty"`
 	ProvenancePublicKey   string   `json:"provenance_public_key"`
 	RecoveryAllowed       bool     `json:"recovery_allowed"`
 	SourceRepositoryId    string   `json:"source_repository_id"`

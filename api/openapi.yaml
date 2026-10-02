@@ -17942,6 +17942,9 @@
           "recovery_allowed": {
             "type": "boolean"
           },
+          "promote_from": {
+            "type": "string"
+          },
           "health_checks": {
             "type": "array",
             "items": {

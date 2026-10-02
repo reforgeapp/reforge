@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -11,6 +12,7 @@ import (
 	"reforge/internal/auth"
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
+	"reforge/internal/gitops"
 	"reforge/internal/maintenance/discovery"
 )
 
@@ -87,4 +89,54 @@ func (s *Service) rollback(ctx context.Context, session auth.Session, org string
 		return "Rollback unavailable: " + err.Error(), nil
 	}
 	return "", s.record(ctx, org, c, "", "retry", "Rollback requested to deployment "+known, 30*time.Minute)
+}
+
+func (s *Service) promote(ctx context.Context, session auth.Session, org string) error {
+	if s.Promotions == nil {
+		return nil
+	}
+	type pending struct {
+		env     string
+		request gitops.PreviewRequest
+	}
+	var work []pending
+	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT c.environment,g.document->'request' FROM gitops_configurations c CROSS JOIN LATERAL (SELECT gg.document FROM gitops_promotions p JOIN gitops_gates gg ON gg.org_id=p.org_id AND gg.id=p.gate_id WHERE p.org_id=c.org_id AND p.environment=c.document->>'promote_from' AND p.source_repository_id=c.source_repository_id AND p.state IN ('healthy','recovered') ORDER BY p.created_at DESC LIMIT 1) g WHERE c.org_id=$1 AND coalesce(c.document->>'promote_from','')<>'' AND coalesce((c.document->>'enabled')::boolean,false) AND NOT EXISTS(SELECT 1 FROM gitops_promotions t JOIN gitops_gates tg ON tg.org_id=t.org_id AND tg.id=t.gate_id WHERE t.org_id=c.org_id AND t.environment=c.environment AND (t.finished_at IS NULL OR tg.document->'request'->>'artifact_digest'=g.document->'request'->>'artifact_digest' AND t.state NOT IN ('failed','recovery_failed','cancelled','blocked')))`, org)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			var p pending
+			var raw []byte
+			if err = rows.Scan(&p.env, &raw); err != nil {
+				return err
+			}
+			if json.Unmarshal(raw, &p.request) == nil {
+				p.request.RecoveryOf, p.request.RestorePromotionID = "", ""
+				work = append(work, p)
+			}
+		}
+		return rows.Err()
+	})
+	if err != nil {
+		return err
+	}
+	for _, p := range work {
+		gate, err := s.Promotions.Preview(ctx, session, org, p.env, p.request, domain.StableID("autopilot-promote", p.env, p.request.ArtifactDigest))
+		if err != nil || len(gate.Blockers) > 0 {
+			reason := ""
+			if err != nil {
+				reason = err.Error()
+			} else {
+				reason = gate.Blockers[0]
+			}
+			slog.InfoContext(ctx, "autopilot promotion held", "org_id", org, "environment", p.env, "reason", reason)
+			continue
+		}
+		if _, err = s.Promotions.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-promote-request", p.env, gate.ID), "autopilot"); err != nil {
+			slog.WarnContext(ctx, "autopilot promotion request failed", "org_id", org, "environment", p.env, "error", err)
+		}
+	}
+	return nil
 }
