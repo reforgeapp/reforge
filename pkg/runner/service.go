@@ -26,13 +26,13 @@ type Service struct {
 	db              *store.Store
 	auth            *auth.Service
 	workflow        *workflow.Service
-	artifacts       *artifact.Local
+	artifacts       *artifact.Store
 	mu              sync.RWMutex
 	operations      map[string]FixedOperation
 	CompletionCheck func(context.Context, pgx.Tx, workflow.Lease, workflow.Task, workflow.Completion) error
 }
 
-func New(db *store.Store, identity *auth.Service, jobs *workflow.Service, artifacts *artifact.Local) *Service {
+func New(db *store.Store, identity *auth.Service, jobs *workflow.Service, artifacts *artifact.Store) *Service {
 	return &Service{db: db, auth: identity, workflow: jobs, artifacts: artifacts, operations: map[string]FixedOperation{}}
 }
 func token(kind, org, id string) string {

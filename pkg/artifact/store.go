@@ -32,12 +32,20 @@ var ErrContent = errors.New("artifact content is not permitted")
 var ErrQuota = errors.New("artifact storage limit reached")
 var sensitive = regexp.MustCompile(`(?i)(authorization\s*[:=]|bearer\s+[a-z0-9._~+/-]{8,}|-----BEGIN [A-Z ]*PRIVATE KEY-----|(?:api[_-]?key|access[_-]?token|refresh[_-]?token|client[_-]?secret|password|credential)\s*["']?\s*[:=]\s*["']?[^\s"']{4,}|(?:gh[pousr]_|github_pat_|sk-[a-zA-Z0-9_-])[a-zA-Z0-9_-]{12,}|(?:sup|job|enr)/[a-f0-9-]{36}/[a-f0-9-]{36}/)`)
 
-type Local struct {
-	db   *store.Store
-	root *os.Root
+type blobs interface {
+	put(context.Context, string, []byte) error
+	get(context.Context, string) ([]byte, error)
+	remove(context.Context, string) error
+	list(context.Context, func(string, time.Time) error) error
+	close() error
 }
 
-func NewLocal(db *store.Store, directory string) (*Local, error) {
+type Store struct {
+	db    *store.Store
+	blobs blobs
+}
+
+func NewLocal(db *store.Store, directory string) (*Store, error) {
 	if !filepath.IsAbs(directory) {
 		return nil, auth.ErrInvalid
 	}
@@ -55,9 +63,9 @@ func NewLocal(db *store.Store, directory string) (*Local, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &Local{db: db, root: root}, nil
+	return &Store{db: db, blobs: fileBlobs{root}}, nil
 }
-func (s *Local) Close() error { return s.root.Close() }
+func (s *Store) Close() error { return s.blobs.close() }
 func validContent(media string, data []byte) bool {
 	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 || sensitive.Match(data) {
 		return false
@@ -76,7 +84,7 @@ func validContent(media string, data []byte) bool {
 	return false
 }
 func blobName(org, id string) string { return org + "-" + id + ".data" }
-func (s *Local) write(ctx context.Context, m *Metadata, input io.Reader) error {
+func (s *Store) write(ctx context.Context, m *Metadata, input io.Reader) error {
 	if !auth.ValidID(m.ID) || !auth.ValidID(m.OrgID) || !auth.ValidID(m.RepositoryID) || !auth.ValidID(m.TaskID) || len(m.Name) < 1 || len(m.Name) > 160 || m.Name == "." || m.Name == ".." || sensitive.MatchString(m.Name) || strings.ContainsAny(m.Name, "/\\\x00\r\n") {
 		return auth.ErrInvalid
 	}
@@ -96,40 +104,9 @@ func (s *Local) write(ctx context.Context, m *Metadata, input io.Reader) error {
 	digest := sha256.Sum256(data)
 	m.SHA256 = hex.EncodeToString(digest[:])
 	m.Size = int64(len(data))
-	name := blobName(m.OrgID, m.ID)
-	file, err := s.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
-	if err != nil {
-		return err
-	}
-	good := false
-	defer func() {
-		_ = file.Close()
-		if !good {
-			_ = s.root.Remove(name)
-		}
-	}()
-	if _, err = file.Write(data); err != nil {
-		return err
-	}
-	if err = file.Sync(); err != nil {
-		return err
-	}
-	if err = file.Close(); err != nil {
-		return err
-	}
-	directory, err := s.root.Open(".")
-	if err != nil {
-		return err
-	}
-	err = directory.Sync()
-	_ = directory.Close()
-	if err != nil {
-		return err
-	}
-	good = true
-	return nil
+	return s.blobs.put(ctx, blobName(m.OrgID, m.ID), data)
 }
-func (s *Local) Prepare(ctx context.Context, m Metadata, input io.Reader) (Metadata, error) {
+func (s *Store) Prepare(ctx context.Context, m Metadata, input io.Reader) (Metadata, error) {
 	if m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) {
 		return Metadata{}, auth.ErrInvalid
 	}
@@ -141,7 +118,7 @@ func (s *Local) Prepare(ctx context.Context, m Metadata, input io.Reader) (Metad
 	return m, nil
 }
 
-func (s *Local) RecordPreparedTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string) (Metadata, error) {
+func (s *Store) RecordPreparedTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string) (Metadata, error) {
 	if !auth.ValidID(attemptID) || !auth.ValidID(m.ID) || !auth.ValidID(m.OrgID) || !auth.ValidID(m.RepositoryID) || !auth.ValidID(m.TaskID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) || m.Size < 0 || m.Size > MaxSize || len(m.SHA256) != 64 {
 		return Metadata{}, auth.ErrInvalid
 	}
@@ -160,7 +137,7 @@ func (s *Local) RecordPreparedTx(ctx context.Context, tx pgx.Tx, m Metadata, att
 	return m, nil
 }
 
-func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string, input io.Reader) (Metadata, error) {
+func (s *Store) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string, input io.Reader) (Metadata, error) {
 	if !auth.ValidID(attemptID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) {
 		return Metadata{}, auth.ErrInvalid
 	}
@@ -170,13 +147,13 @@ func (s *Local) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID stri
 	}
 	recorded, err := s.RecordPreparedTx(ctx, tx, prepared, attemptID)
 	if err != nil {
-		_ = s.RemoveBlob(prepared.OrgID, prepared.ID)
+		_ = s.RemoveBlob(context.WithoutCancel(ctx), prepared.OrgID, prepared.ID)
 		return Metadata{}, err
 	}
 	return recorded, nil
 }
 
-func (s *Local) MetadataTx(ctx context.Context, tx pgx.Tx, a domain.Actor, id string) (Metadata, error) {
+func (s *Store) MetadataTx(ctx context.Context, tx pgx.Tx, a domain.Actor, id string) (Metadata, error) {
 	var m Metadata
 	if !auth.ValidID(id) {
 		return m, auth.ErrForbidden
@@ -187,22 +164,19 @@ func (s *Local) MetadataTx(ctx context.Context, tx pgx.Tx, a domain.Actor, id st
 	}
 	return m, err
 }
-func (s *Local) Open(m Metadata) (io.ReadCloser, error) {
+func (s *Store) Open(ctx context.Context, m Metadata) (io.ReadCloser, error) {
 	if !auth.ValidID(m.OrgID) || !auth.ValidID(m.ID) || m.Size < 0 || m.Size > MaxSize || !m.ExpiresAt.After(time.Now()) {
 		return nil, auth.ErrForbidden
 	}
-	f, err := s.root.OpenFile(blobName(m.OrgID, m.ID), os.O_RDONLY|syscall.O_NOFOLLOW, 0)
-	if err != nil {
+	data, err := s.blobs.get(ctx, blobName(m.OrgID, m.ID))
+	if errors.Is(err, os.ErrNotExist) {
 		return nil, auth.ErrForbidden
 	}
-	defer f.Close()
-	info, err := f.Stat()
-	if err != nil || !info.Mode().IsRegular() || info.Size() != m.Size {
-		return nil, ErrContent
-	}
-	data, err := io.ReadAll(io.LimitReader(f, MaxSize+1))
 	if err != nil {
 		return nil, err
+	}
+	if int64(len(data)) != m.Size {
+		return nil, ErrContent
 	}
 	digest := sha256.Sum256(data)
 	if hex.EncodeToString(digest[:]) != m.SHA256 {
@@ -210,17 +184,13 @@ func (s *Local) Open(m Metadata) (io.ReadCloser, error) {
 	}
 	return io.NopCloser(bytes.NewReader(data)), nil
 }
-func (s *Local) RemoveBlob(org, id string) error {
+func (s *Store) RemoveBlob(ctx context.Context, org, id string) error {
 	if !auth.ValidID(org) || !auth.ValidID(id) {
 		return auth.ErrInvalid
 	}
-	err := s.root.Remove(blobName(org, id))
-	if errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return err
+	return s.blobs.remove(ctx, blobName(org, id))
 }
-func (s *Local) DeleteByRetention(ctx context.Context, orgID string, before time.Time) (int, error) {
+func (s *Store) DeleteByRetention(ctx context.Context, orgID string, before time.Time) (int, error) {
 	if !auth.ValidID(orgID) || before.After(time.Now()) {
 		return 0, auth.ErrInvalid
 	}
@@ -249,7 +219,7 @@ func (s *Local) DeleteByRetention(ctx context.Context, orgID string, before time
 			return err
 		}
 		for _, id := range ids {
-			if err = s.RemoveBlob(orgID, id); err != nil {
+			if err = s.RemoveBlob(ctx, orgID, id); err != nil {
 				return err
 			}
 			if _, err = tx.Exec(ctx, `DELETE FROM artifacts WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
@@ -262,7 +232,7 @@ func (s *Local) DeleteByRetention(ctx context.Context, orgID string, before time
 	return n, err
 }
 
-func (s *Local) Run(ctx context.Context) {
+func (s *Store) Run(ctx context.Context) {
 	for ctx.Err() == nil {
 		var orgs []string
 		err := pgx.BeginFunc(ctx, s.db.Pool, func(tx pgx.Tx) error {
@@ -296,62 +266,132 @@ func (s *Local) Run(ctx context.Context) {
 	}
 }
 
-func (s *Local) SweepOrphans(ctx context.Context, before time.Time) (int, error) {
+func (s *Store) SweepOrphans(ctx context.Context, before time.Time) (int, error) {
 	if s.db == nil || before.After(time.Now().Add(-time.Hour)) {
 		return 0, auth.ErrInvalid
 	}
-	directory, err := s.root.Open(".")
+	removed := 0
+	err := s.blobs.list(ctx, func(name string, modified time.Time) error {
+		if len(name) != 78 || name[36] != '-' || !strings.HasSuffix(name, ".data") || !modified.Before(before) {
+			return nil
+		}
+		org, id := name[:36], name[37:73]
+		if !auth.ValidID(org) || !auth.ValidID(id) {
+			return nil
+		}
+		err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			var exists bool
+			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND id=$2)`, org, id).Scan(&exists); err != nil {
+				return err
+			}
+			if exists {
+				return nil
+			}
+			if err := s.RemoveBlob(ctx, org, id); err != nil {
+				return err
+			}
+			removed++
+			return nil
+		})
+		if err == nil && removed >= 200 {
+			return errSweepFull
+		}
+		return err
+	})
+	if errors.Is(err, errSweepFull) {
+		err = nil
+	}
+	return removed, err
+}
+
+var errSweepFull = errors.New("sweep limit reached")
+
+type fileBlobs struct{ root *os.Root }
+
+func (f fileBlobs) close() error { return f.root.Close() }
+
+func (f fileBlobs) put(_ context.Context, name string, data []byte) error {
+	file, err := f.root.OpenFile(name, os.O_WRONLY|os.O_CREATE|os.O_EXCL|syscall.O_NOFOLLOW, 0600)
 	if err != nil {
-		return 0, err
+		return err
+	}
+	good := false
+	defer func() {
+		_ = file.Close()
+		if !good {
+			_ = f.root.Remove(name)
+		}
+	}()
+	if _, err = file.Write(data); err != nil {
+		return err
+	}
+	if err = file.Sync(); err != nil {
+		return err
+	}
+	if err = file.Close(); err != nil {
+		return err
+	}
+	directory, err := f.root.Open(".")
+	if err != nil {
+		return err
+	}
+	err = directory.Sync()
+	_ = directory.Close()
+	if err != nil {
+		return err
+	}
+	good = true
+	return nil
+}
+
+func (f fileBlobs) get(_ context.Context, name string) ([]byte, error) {
+	file, err := f.root.OpenFile(name, os.O_RDONLY|syscall.O_NOFOLLOW, 0)
+	if err != nil {
+		return nil, os.ErrNotExist
+	}
+	defer file.Close()
+	info, err := file.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		return nil, ErrContent
+	}
+	return io.ReadAll(io.LimitReader(file, MaxSize+1))
+}
+
+func (f fileBlobs) remove(_ context.Context, name string) error {
+	err := f.root.Remove(name)
+	if errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return err
+}
+
+func (f fileBlobs) list(ctx context.Context, fn func(string, time.Time) error) error {
+	directory, err := f.root.Open(".")
+	if err != nil {
+		return err
 	}
 	defer directory.Close()
-	removed := 0
 	for {
 		if err := ctx.Err(); err != nil {
-			return removed, err
+			return err
 		}
 		entries, readErr := directory.ReadDir(200)
 		if readErr != nil && !errors.Is(readErr, io.EOF) {
-			return removed, readErr
+			return readErr
 		}
 		if len(entries) == 0 {
-			return removed, nil
+			return nil
 		}
 		for _, entry := range entries {
-			name := entry.Name()
-			if len(name) != 78 || name[36] != '-' || !strings.HasSuffix(name, ".data") {
-				continue
-			}
-			org, id := name[:36], name[37:73]
-			if !auth.ValidID(org) || !auth.ValidID(id) {
-				continue
-			}
 			info, err := entry.Info()
 			if err != nil {
-				return removed, err
+				return err
 			}
-			if !info.ModTime().Before(before) || !info.Mode().IsRegular() {
+			if !info.Mode().IsRegular() {
 				continue
 			}
-			err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-				var exists bool
-				if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND id=$2)`, org, id).Scan(&exists); err != nil {
-					return err
-				}
-				if exists {
-					return nil
-				}
-				if err := s.RemoveBlob(org, id); err != nil {
-					return err
-				}
-				removed++
-				return nil
-			})
-			if err != nil {
-				return removed, err
-			}
-			if removed >= 200 {
-				return removed, nil
+			if err = fn(entry.Name(), info.ModTime()); err != nil {
+				return err
 			}
 		}
 	}

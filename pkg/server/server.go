@@ -142,7 +142,12 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	overview := insights.New(identity)
 	app.RegisterInsights(overview)
 	app.RegisterSetup(overview, policies.ResolveTx, len(cfg.RepairImages) > 0, cfg.BuiltinRunnerToken != "")
-	artifacts, err := artifact.NewLocal(db, cfg.ArtifactDirectory)
+	var artifacts *artifact.Store
+	if s3 := cfg.ArtifactS3; s3.Bucket != "" {
+		artifacts, err = artifact.NewS3(ctx, db, artifact.S3Config{Endpoint: s3.Endpoint, Region: s3.Region, Bucket: s3.Bucket, AccessKeyID: s3.AccessKeyID, SecretAccessKey: s3.SecretAccessKey})
+	} else {
+		artifacts, err = artifact.NewLocal(db, cfg.ArtifactDirectory)
+	}
 	if err != nil {
 		return err
 	}

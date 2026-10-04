@@ -99,7 +99,7 @@ func TestRunnerLeaseHolderProcess(t *testing.T) {
 		t.Fatal(err)
 	}
 	jobs := workflow.New(db, identity, func(context.Context, pgx.Tx, workflow.Task, string) (string, error) { return "policy-one", nil })
-	runners := runner.New(db, identity, jobs, (*artifact.Local)(nil))
+	runners := runner.New(db, identity, jobs, (*artifact.Store)(nil))
 	jobs.RegisterScopeCheck(runners.CheckScopeTx)
 	assignment, err := runners.Claim(ctx, input.Token)
 	if err != nil {
@@ -117,7 +117,7 @@ func TestRunnerLeaseHolderProcess(t *testing.T) {
 func TestRunnerLeaseRecoveryAfterSupervisorProcessKill(t *testing.T) {
 	f := newWorkflowFixture(t, 1)
 	ctx := context.Background()
-	runners := runner.New(f.db, f.identity, f.service, (*artifact.Local)(nil))
+	runners := runner.New(f.db, f.identity, f.service, (*artifact.Store)(nil))
 	f.service.RegisterScopeCheck(runners.CheckScopeTx)
 	pool, err := runners.PutPool(ctx, f.owner, f.org, "", runner.PoolInput{Name: "Recovery fixture", RepositoryIDs: []string{f.repos[0]}}, 0, "process-recovery")
 	if err != nil {
@@ -186,7 +186,7 @@ func TestRunnerLeaseRecoveryAfterSupervisorProcessKill(t *testing.T) {
 		t.Fatal(err)
 	}
 	restartedJobs := workflow.New(f.db, f.identity, func(context.Context, pgx.Tx, workflow.Task, string) (string, error) { return "policy-one", nil })
-	restartedRunners := runner.New(f.db, f.identity, restartedJobs, (*artifact.Local)(nil))
+	restartedRunners := runner.New(f.db, f.identity, restartedJobs, (*artifact.Store)(nil))
 	restartedJobs.RegisterScopeCheck(restartedRunners.CheckScopeTx)
 	if err = restartedJobs.Recover(ctx, f.org); err != nil {
 		t.Fatal(err)

@@ -42,7 +42,7 @@ func TestPrivateArtifactStorageRejectsCredentialsTraversalAndCorruption(t *testi
 	if err = s.write(context.Background(), &m, strings.NewReader("go test ./...\nPASS\n")); err != nil {
 		t.Fatal(err)
 	}
-	file, err := s.Open(m)
+	file, err := s.Open(context.Background(), m)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -58,7 +58,7 @@ func TestPrivateArtifactStorageRejectsCredentialsTraversalAndCorruption(t *testi
 	if err = os.WriteFile(filepath.Join(directory, blobName(m.OrgID, m.ID)), []byte("tampered same size!!!"), 0600); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = s.Open(m); !errors.Is(err, ErrContent) {
+	if _, err = s.Open(context.Background(), m); !errors.Is(err, ErrContent) {
 		t.Fatal("corrupted artifact accepted")
 	}
 	outside := filepath.Join(t.TempDir(), "secret")
@@ -73,7 +73,7 @@ func TestPrivateArtifactStorageRejectsCredentialsTraversalAndCorruption(t *testi
 	if err = s.write(context.Background(), &m, strings.NewReader("safe")); err == nil {
 		t.Fatal("symlink write accepted")
 	}
-	if _, err = s.Open(m); err == nil {
+	if _, err = s.Open(context.Background(), m); err == nil {
 		t.Fatal("symlink read accepted")
 	}
 	host, err := os.ReadFile(outside)

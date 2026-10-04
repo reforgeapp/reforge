@@ -39,7 +39,7 @@ type fixture struct {
 	identity  *auth.Service
 	workflow  *workflow.Service
 	service   *runner.Service
-	artifacts *artifact.Local
+	artifacts *artifact.Store
 	session   auth.Session
 	org       string
 	repos     []string

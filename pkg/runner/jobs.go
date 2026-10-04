@@ -221,7 +221,7 @@ func (s *Service) recordPreparedUpload(ctx context.Context, raw string, prepared
 	var result artifact.Metadata
 	defer func() {
 		if result.ID == "" {
-			_ = s.artifacts.RemoveBlob(prepared.OrgID, prepared.ID)
+			_ = s.artifacts.RemoveBlob(context.WithoutCancel(ctx), prepared.OrgID, prepared.ID)
 		}
 	}()
 	err := s.withJob(ctx, raw, "artifact.upload", "artifact.upload", func(tx pgx.Tx, l workflow.Lease, _ workflow.Task, _ string) error {
@@ -255,7 +255,7 @@ func (s *Service) Download(ctx context.Context, session auth.Session, org, id st
 	if err != nil {
 		return m, nil, err
 	}
-	reader, err := s.artifacts.Open(m)
+	reader, err := s.artifacts.Open(ctx, m)
 	if err != nil {
 		return m, nil, err
 	}
@@ -297,7 +297,7 @@ func (s *Service) DownloadJob(ctx context.Context, raw, id string) (artifact.Met
 	if err := check(); err != nil {
 		return m, nil, err
 	}
-	reader, err := s.artifacts.Open(m)
+	reader, err := s.artifacts.Open(ctx, m)
 	if err != nil {
 		return m, nil, err
 	}

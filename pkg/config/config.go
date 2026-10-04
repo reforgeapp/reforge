@@ -35,6 +35,7 @@ type Config struct {
 	KMSPreviousKeyARNs []string
 	PolicyFile         string
 	ArtifactDirectory  string
+	ArtifactS3         ArtifactS3
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
@@ -48,6 +49,11 @@ type Config struct {
 	BootstrapExpiresAt time.Time
 	GitHubApp          GitHubAppFiles
 	BuiltinRunnerToken string `json:"-"`
+}
+
+type ArtifactS3 struct {
+	Endpoint, Region, Bucket, AccessKeyID string
+	SecretAccessKey                       string `json:"-"`
 }
 
 type GitHubAppFiles struct {
@@ -72,6 +78,10 @@ func Load() (Config, error) {
 		KMSKeyARN:         os.Getenv("REFORGE_KMS_KEY_ARN"),
 		PolicyFile:        os.Getenv("REFORGE_POLICY_FILE"),
 		ArtifactDirectory: value("REFORGE_ARTIFACT_DIRECTORY", "var/artifacts"),
+		ArtifactS3: ArtifactS3{
+			Endpoint: os.Getenv("REFORGE_ARTIFACT_S3_ENDPOINT"), Region: os.Getenv("REFORGE_ARTIFACT_S3_REGION"), Bucket: os.Getenv("REFORGE_ARTIFACT_S3_BUCKET"),
+			AccessKeyID: os.Getenv("REFORGE_ARTIFACT_S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("REFORGE_ARTIFACT_S3_SECRET_ACCESS_KEY"),
+		},
 		OIDCIssuer:        os.Getenv("REFORGE_OIDC_ISSUER"),
 		OIDCClientID:      os.Getenv("REFORGE_OIDC_CLIENT_ID"),
 		OIDCClientSecret:  os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
