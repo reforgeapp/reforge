@@ -27,6 +27,8 @@ func (s *Service) BuiltinOrgs(ctx context.Context) ([]string, error) {
 	return orgs, err
 }
 
+const BuiltinTenantConcurrency = 4
+
 func (s *Service) EnrollBuiltin(ctx context.Context, org, name string, slots int) (Credential, error) {
 	var c Credential
 	if !auth.ValidID(org) || strings.TrimSpace(name) == "" || len(name) > 160 || slots < 1 || slots > 16 {

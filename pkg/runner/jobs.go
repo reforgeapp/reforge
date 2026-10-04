@@ -33,7 +33,8 @@ func (s *Service) Claim(ctx context.Context, raw string) (Assignment, error) {
 			return err
 		}
 		var busy bool
-		if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM workflow_jobs WHERE org_id=$1 AND lease_owner=$2 AND state='running' AND lease_expires_at>clock_timestamp())>=(SELECT slots FROM runners WHERE org_id=$1 AND id=$2::uuid)`, org, id).Scan(&busy); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT (SELECT count(*) FROM workflow_jobs WHERE org_id=$1 AND lease_owner=$2 AND state='running' AND lease_expires_at>clock_timestamp())>=(SELECT slots FROM runners WHERE org_id=$1 AND id=$2::uuid)
+			OR (SELECT count(*) FROM workflow_jobs j JOIN runners pr ON pr.org_id=j.org_id AND pr.id::text=j.lease_owner WHERE j.org_id=$1 AND pr.pool_id=$3 AND j.state='running' AND j.lease_expires_at>clock_timestamp())>=(SELECT coalesce(max_concurrent,CASE WHEN builtin THEN $4::int END,2147483647) FROM runner_pools WHERE org_id=$1 AND id=$3)`, org, id, r.PoolID, BuiltinTenantConcurrency).Scan(&busy); err != nil {
 			return err
 		}
 		if busy {

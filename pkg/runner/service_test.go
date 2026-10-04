@@ -846,3 +846,35 @@ func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 		t.Fatalf("built-in orgs: %v", err)
 	}
 }
+
+func TestBuiltinPoolCapsConcurrentJobsPerTenant(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c, err := f.service.EnrollBuiltin(ctx, f.org, "built-in", 2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE runner_pools SET max_concurrent=1 WHERE org_id=$1 AND id=$2`, f.org, c.Runner.PoolID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	f.enqueue(t, f.repos[0], c.Runner.PoolID, "main")
+	f.enqueue(t, f.repos[1], c.Runner.PoolID, "main")
+	if a, err := f.service.Claim(ctx, c.Token); err != nil || a.Lease.JobID == "" {
+		t.Fatalf("first claim: %+v %v", a, err)
+	}
+	if _, err = f.service.Claim(ctx, c.Token); !errors.Is(err, workflow.ErrNoWork) {
+		t.Fatalf("claim above tenant cap: %v", err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE runner_pools SET max_concurrent=2 WHERE org_id=$1 AND id=$2`, f.org, c.Runner.PoolID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if a, err := f.service.Claim(ctx, c.Token); err != nil || a.Lease.JobID == "" {
+		t.Fatalf("claim after raising cap: %+v %v", a, err)
+	}
+}
