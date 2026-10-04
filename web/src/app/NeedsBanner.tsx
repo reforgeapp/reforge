@@ -5,7 +5,7 @@ import { Icon } from '../components/Icons'
 import { autopilotAPI, type Need } from '../policy-api'
 import { useSession } from './query'
 
-const groups: Array<{ kind: Need['kind']; label: string }> = [{ kind: 'grant', label: 'Permissions' }, { kind: 'review', label: 'Reviews' }, { kind: 'blocked', label: 'Blocked' }]
+const groups: Array<{ kind: Need['kind']; label: string }> = [{ kind: 'grant', label: 'Permissions' }, { kind: 'review', label: 'Reviews' }]
 
 export function CheckAgain({ orgID, repositoryID, icon = false }: { orgID: string; repositoryID: string; icon?: boolean }) {
   const csrf = useSession().data?.csrf_token ?? ''

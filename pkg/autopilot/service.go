@@ -7,10 +7,13 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/reforgeapp/reforge/pkg/heartbeat"
+	"io"
 	"log/slog"
+	"os"
 	"slices"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -202,10 +205,27 @@ func (s *Service) capability() string {
 	if s.repairs != nil {
 		images = s.repairs.Recipes()
 	}
-	body, _ := json.Marshal([]any{recipes.CurrentVersion, images})
+	body, _ := json.Marshal([]any{recipes.CurrentVersion, images, build()})
 	sum := sha256.Sum256(body)
 	return hex.EncodeToString(sum[:8])
 }
+
+var build = sync.OnceValue(func() string {
+	path, err := os.Executable()
+	if err != nil {
+		return ""
+	}
+	file, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer file.Close()
+	h := sha256.New()
+	if _, err = io.Copy(h, file); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(h.Sum(nil))
+})
 
 func (s *Service) status(ctx context.Context, org, message string) error {
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {

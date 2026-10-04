@@ -31,7 +31,7 @@ export const policyAPI = {
 
 export type Autopilot = components['schemas']['Autopilot']
 export type AutopilotMetric = components['schemas']['AutopilotMetric']
-export type Need = { kind: 'grant' | 'review' | 'blocked'; finding_id: string; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string }
+export type Need = { kind: 'grant' | 'review'; finding_id: string; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string }
 export const autopilotAPI = {
   get: (orgID: string, signal?: AbortSignal) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { signal }),
   needs: (orgID: string, signal?: AbortSignal) => apiRequest<Need[]>(path(orgID, '/autopilot/needs'), { signal }),
