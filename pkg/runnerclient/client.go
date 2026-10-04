@@ -31,13 +31,14 @@ var ErrUnauthorized = errors.New("runner credential rejected")
 var ErrSourceMoved = errors.New("native source or target moved")
 
 type Config struct {
-	Endpoint       string       `json:"endpoint"`
-	Development    bool         `json:"development"`
-	Name           string       `json:"name"`
-	Slots          int          `json:"slots"`
-	Internal       bool         `json:"internal"`
-	CredentialFile string       `json:"credential_file"`
-	Client         *http.Client `json:"-"`
+	Endpoint       string        `json:"endpoint"`
+	Development    bool          `json:"development"`
+	Name           string        `json:"name"`
+	Slots          int           `json:"slots"`
+	Internal       bool          `json:"internal"`
+	CredentialFile string        `json:"credential_file"`
+	DrainTimeout   time.Duration `json:"drain_timeout"`
+	Client         *http.Client  `json:"-"`
 }
 
 type Client struct {
@@ -310,8 +311,10 @@ func (c *Client) Run(ctx context.Context, process Processor) error {
 	if process == nil {
 		return errors.New("runner processor is not configured")
 	}
+	work, stop := Draining(ctx, c.config.DrainTimeout)
+	defer stop()
 	for ctx.Err() == nil {
-		worked, err := c.Step(ctx, process)
+		worked, err := c.Step(work, process)
 		if err != nil {
 			return err
 		}
@@ -324,6 +327,22 @@ func (c *Client) Run(ctx context.Context, process Processor) error {
 		}
 	}
 	return ctx.Err()
+}
+
+func Draining(stop context.Context, timeout time.Duration) (context.Context, context.CancelFunc) {
+	work, cancel := context.WithCancel(context.WithoutCancel(stop))
+	go func() {
+		select {
+		case <-stop.Done():
+			select {
+			case <-time.After(timeout):
+			case <-work.Done():
+			}
+			cancel()
+		case <-work.Done():
+		}
+	}()
+	return work, cancel
 }
 
 func (c *Client) Step(ctx context.Context, process Processor) (bool, error) {

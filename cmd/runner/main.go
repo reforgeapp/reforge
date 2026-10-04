@@ -58,6 +58,7 @@ func run() error {
 	caFile := flags.String("ca-file", "", "controller CA certificate PEM")
 	development := flags.Bool("development", false, "allow explicit loopback development endpoints")
 	runtimeConfig := flags.String("runtime-config", "", "strict sandbox runtime configuration JSON")
+	drain := flags.Duration("drain-timeout", 20*time.Minute, "time running jobs get to finish after a stop signal")
 	if err := flags.Parse(os.Args[2:]); err != nil {
 		return err
 	}
@@ -101,7 +102,7 @@ func run() error {
 		transport.TLSClientConfig.RootCAs = roots
 	}
 	defer transport.CloseIdleConnections()
-	client, err := runnerclient.New(runnerclient.Config{Endpoint: strings.TrimRight(*endpoint, "/"), Name: *name, Development: *development, CredentialFile: absolute, Client: &http.Client{Transport: transport}})
+	client, err := runnerclient.New(runnerclient.Config{Endpoint: strings.TrimRight(*endpoint, "/"), Name: *name, Development: *development, CredentialFile: absolute, DrainTimeout: *drain, Client: &http.Client{Transport: transport}})
 	if err != nil {
 		return err
 	}

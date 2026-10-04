@@ -31,6 +31,7 @@ type builtinFlags struct {
 	dir, images, runsc, tool, state, cgroup, endpoint, publicURL string
 	runtimeConfig                                                string
 	slots                                                        int
+	drain                                                        time.Duration
 }
 
 func parseBuiltin(name string, args []string) (builtinFlags, error) {
@@ -46,6 +47,7 @@ func parseBuiltin(name string, args []string) (builtinFlags, error) {
 	flags.StringVar(&f.publicURL, "public-url", os.Getenv("REFORGE_PUBLIC_URL"), "control-plane public URL")
 	flags.StringVar(&f.runtimeConfig, "runtime-config", "", "strict Kubernetes runtime configuration JSON")
 	flags.IntVar(&f.slots, "slots", 2, "jobs run at once")
+	flags.DurationVar(&f.drain, "drain-timeout", 20*time.Minute, "time running jobs get to finish after a stop signal")
 	if err := flags.Parse(args); err != nil {
 		return f, err
 	}
@@ -245,6 +247,8 @@ func runBuiltin(args []string) (retErr error) {
 	}
 	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer cancel()
+	work, stopWork := runnerclient.Draining(ctx, f.drain)
+	defer stopWork()
 	process, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	var mu sync.Mutex
 	orgs := map[string]*builtinOrg{}
@@ -292,7 +296,7 @@ func runBuiltin(args []string) (retErr error) {
 					if !ready(id, org) {
 						continue
 					}
-					done, err := org.client.Step(ctx, process)
+					done, err := org.client.Step(work, process)
 					if err != nil && ctx.Err() == nil {
 						slog.Warn("built-in runner step failed", "org_id", id, "error", err)
 						mu.Lock()
