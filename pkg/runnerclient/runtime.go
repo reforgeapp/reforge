@@ -26,12 +26,14 @@ func ValidateRuntimeConfig(cfg sandbox.RuntimeConfig) error {
 			return sandbox.ErrBoundary
 		}
 		kube := cfg.Kubernetes
-		allowed := map[string]bool{"go": true, "javascript": true, "python": true}
-		if len(kube.Toolchains) != len(allowed) {
-			return sandbox.ErrBoundary
+		required := map[string]bool{"go": true, "javascript": true, "python": true, "maintenance": false}
+		for name, needed := range required {
+			if _, ok := kube.Toolchains[name]; needed && !ok {
+				return sandbox.ErrBoundary
+			}
 		}
 		for name, digest := range kube.Toolchains {
-			if !allowed[name] {
+			if _, known := required[name]; !known {
 				return sandbox.ErrBoundary
 			}
 			if _, ok := kube.Images[digest]; !ok {

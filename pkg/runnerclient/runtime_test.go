@@ -21,6 +21,15 @@ func TestValidateRuntimeConfigSelectsPinnedKubernetesImages(t *testing.T) {
 	if err := ValidateRuntimeConfig(config); err != nil {
 		t.Fatalf("valid Kubernetes config rejected: %v", err)
 	}
+	config.Kubernetes.Toolchains["maintenance"] = image
+	if err := ValidateRuntimeConfig(config); err != nil {
+		t.Fatalf("maintenance toolchain rejected: %v", err)
+	}
+	config.Kubernetes.Toolchains["ruby"] = image
+	if err := ValidateRuntimeConfig(config); err == nil {
+		t.Fatal("unknown toolchain accepted")
+	}
+	delete(config.Kubernetes.Toolchains, "ruby")
 	config.Images = map[string]string{image: "/images/go"}
 	if err := ValidateRuntimeConfig(config); err == nil {
 		t.Fatal("local rootfs image accepted for Kubernetes backend")
