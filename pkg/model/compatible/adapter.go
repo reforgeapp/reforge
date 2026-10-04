@@ -719,7 +719,7 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 			}, detail[:min(len(detail), 300)])
 		}
 	}
-	return &domain.ProviderError{Kind: kind, Message: message, Uncertain: uncertain || response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests}
+	return &domain.ProviderError{Kind: kind, Message: message, Uncertain: uncertain || response.StatusCode >= 500}
 }
 
 func classifyTransport(ctx context.Context, err error, uncertain bool) error {

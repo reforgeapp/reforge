@@ -13,6 +13,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/modelbroker"
 )
@@ -51,7 +52,10 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		}
 		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(time.Duration(in.TimeoutMS)*time.Millisecond + 15*time.Second))
 		result, err := service.Turn(c.Request.Context(), strings.TrimPrefix(token, "Bearer "), in)
+		var provider *domain.ProviderError
 		switch {
+		case errors.As(err, &provider) && (provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited"):
+			Fail(c, 429, "model_rate_limit", "Model provider rate limit or quota reached; retry later", false)
 		case errors.Is(err, modelbroker.ErrTurnFailed):
 			Fail(c, 409, "model_retry", "Model turn failed and was settled; retry the turn", true)
 		case errors.Is(err, modelbroker.ErrUncertain):
