@@ -1,6 +1,9 @@
 package httpapi
 
 import (
+	"bytes"
+	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -27,8 +30,31 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 		}
 		c.Set("private_credential", strings.TrimPrefix(value, "Bearer "))
 		c.Header("Cache-Control", "no-store")
+		if c.GetHeader(forwardedHeader) != "" {
+			c.Request = c.Request.WithContext(privateconnector.WithForwarded(c.Request.Context()))
+		}
 		c.Next()
 	})
+	toOwner := func(c *gin.Context, limit int64) bool {
+		raw, err := io.ReadAll(io.LimitReader(c.Request.Body, limit+1))
+		if err != nil || int64(len(raw)) > limit {
+			IdentityFailure(c, auth.ErrInvalid)
+			return true
+		}
+		c.Request.Body = io.NopCloser(bytes.NewReader(raw))
+		var in struct {
+			GrantID string `json:"grant_id"`
+		}
+		if c.GetHeader(forwardedHeader) != "" || json.Unmarshal(raw, &in) != nil || connector.Holds(in.GrantID) {
+			return false
+		}
+		address, err := connector.GrantOwner(c.Request.Context(), c.GetString("private_credential"), in.GrantID)
+		if err != nil || address == "" {
+			return false
+		}
+		s.forwardPrivate(c, address, raw, 2*time.Minute)
+		return true
+	}
 	group.POST("/poll", func(c *gin.Context) {
 		if strings.Split(c.GetHeader("Content-Type"), ";")[0] != "application/json" {
 			Fail(c, 415, "unsupported_media_type", "JSON required", false)
@@ -41,6 +67,11 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 			return
 		}
 		grant, e := connector.Poll(c.Request.Context(), c.GetString("private_credential"))
+		var elsewhere privateconnector.Elsewhere
+		if errors.As(e, &elsewhere) {
+			s.forwardPrivate(c, elsewhere.Address, raw, privateconnector.MaxTTL+30*time.Second)
+			return
+		}
 		if errors.Is(e, privateconnector.ErrUnavailable) {
 			c.Status(204)
 			return
@@ -57,6 +88,9 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 		c.Data(200, "application/json", raw)
 	})
 	group.POST("/status", func(c *gin.Context) {
+		if toOwner(c, 4096) {
+			return
+		}
 		var in struct {
 			GrantID string `json:"grant_id"`
 		}
@@ -72,6 +106,9 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 	group.POST("/results", func(c *gin.Context) {
 		_ = http.NewResponseController(c.Writer).SetReadDeadline(time.Now().Add(5 * time.Second))
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, privateconnector.MaxResponse)
+		if toOwner(c, privateconnector.MaxResponse) {
+			return
+		}
 		var in privateconnector.Completion
 		if !identityJSON(c, &in) {
 			return
@@ -83,6 +120,40 @@ func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector)
 		c.Status(204)
 	})
 }
+
+const forwardedHeader = "X-Reforge-Forwarded"
+
+var privateForwarder = &http.Client{Transport: &http.Transport{Proxy: nil}}
+
+func (s *Server) forwardPrivate(c *gin.Context, address string, body []byte, timeout time.Duration) {
+	origin, err := url.Parse(s.Config.PublicURL)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), timeout)
+	defer cancel()
+	request, requestErr := http.NewRequestWithContext(ctx, c.Request.Method, "http://"+address+c.Request.URL.Path, bytes.NewReader(body))
+	if err != nil || requestErr != nil {
+		privateFailure(c, privateconnector.ErrUnavailable)
+		return
+	}
+	request.Host = origin.Host
+	for _, name := range []string{"Authorization", "Content-Type", "X-Private-Result-Capability"} {
+		if value := c.GetHeader(name); value != "" {
+			request.Header.Set(name, value)
+		}
+	}
+	request.Header.Set(forwardedHeader, "1")
+	response, err := privateForwarder.Do(request)
+	if err != nil {
+		privateFailure(c, privateconnector.ErrUncertain)
+		return
+	}
+	defer response.Body.Close()
+	if value := response.Header.Get("Content-Type"); value != "" {
+		c.Header("Content-Type", value)
+	}
+	c.Status(response.StatusCode)
+	_, _ = io.Copy(c.Writer, io.LimitReader(response.Body, privateconnector.MaxResponse))
+}
+
 func privateFailure(c *gin.Context, e error) {
 	switch {
 	case errors.Is(e, privateconnector.ErrConflict):

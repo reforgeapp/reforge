@@ -25,6 +25,7 @@ type Config struct {
 	TTL           time.Duration
 	MaxConcurrent int
 	Development   bool
+	Routes        Routes
 }
 type Connector struct {
 	auth        Authenticate
@@ -36,6 +37,9 @@ type Connector struct {
 	active      map[string]bool
 	pending     map[string]*pending
 	used        map[string]time.Time
+	routes      Routes
+	watch       map[string]chan struct{}
+	waiting     map[string]int
 	now         func() time.Time
 	changed     chan struct{}
 	closed      chan struct{}
@@ -72,7 +76,7 @@ func New(cfg Config) (*Connector, error) {
 	if cfg.MaxConcurrent < 1 || cfg.MaxConcurrent > 1024 {
 		return nil, ErrInvalid
 	}
-	return &Connector{auth: cfg.Authenticate, development: cfg.Development, ttl: cfg.TTL, limit: cfg.MaxConcurrent, ready: map[string]*readiness{}, active: map[string]bool{}, pending: map[string]*pending{}, used: map[string]time.Time{}, now: time.Now, changed: make(chan struct{}), closed: make(chan struct{})}, nil
+	return &Connector{auth: cfg.Authenticate, development: cfg.Development, ttl: cfg.TTL, limit: cfg.MaxConcurrent, ready: map[string]*readiness{}, active: map[string]bool{}, pending: map[string]*pending{}, used: map[string]time.Time{}, routes: cfg.Routes, watch: map[string]chan struct{}{}, waiting: map[string]int{}, now: time.Now, changed: make(chan struct{}), closed: make(chan struct{})}, nil
 }
 func (c *Connector) pruneUsed() {
 	now := c.now()
@@ -101,6 +105,34 @@ func (c *Connector) orgSlots(org string) int {
 	return n
 }
 func (c *Connector) signal() { close(c.changed); c.changed = make(chan struct{}) }
+
+func (c *Connector) Notify(route string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	for key, ch := range c.watch {
+		if route == "" || route == key {
+			close(ch)
+			delete(c.watch, key)
+		}
+	}
+}
+
+func (c *Connector) Holds(grantID string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.pending[grantID] != nil
+}
+
+func (c *Connector) GrantOwner(ctx context.Context, credential, grantID string) (string, error) {
+	if c.routes == nil || !auth.ValidID(grantID) || len(credential) > 256 {
+		return "", nil
+	}
+	identity, err := c.auth(ctx, credential)
+	if err != nil {
+		return "", err
+	}
+	return c.routes.Elsewhere(ctx, identity.OrgID, "grant:"+grantID)
+}
 func (c *Connector) Close() {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -126,6 +158,24 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 	defer cancel()
 	ready := &readiness{identity: identity, credential: credential, grants: make(chan Grant), ctx: ctx}
 	key := targetKey(Target{OrgID: identity.OrgID, RunnerID: identity.ID})
+	route := "wait:" + identity.ID
+	routed := c.routes != nil && !forwarded(ctx)
+	elsewhere := func() string {
+		c.mu.Lock()
+		local := c.waiting[key] > 0
+		c.mu.Unlock()
+		if !routed || local {
+			return ""
+		}
+		address, err := c.routes.Elsewhere(ctx, identity.OrgID, route)
+		if err != nil {
+			return ""
+		}
+		return address
+	}
+	if address := elsewhere(); address != "" {
+		return Grant{}, Elsewhere{Address: address}
+	}
 	c.mu.Lock()
 	if c.stopped {
 		c.mu.Unlock()
@@ -140,6 +190,11 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 		return Grant{}, ErrUnavailable
 	}
 	c.ready[key] = ready
+	var remote chan struct{}
+	if routed {
+		remote = make(chan struct{})
+		c.watch[route] = remote
+	}
 	c.signal()
 	c.mu.Unlock()
 	defer func() {
@@ -148,15 +203,37 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 			delete(c.ready, key)
 			c.signal()
 		}
+		if c.watch[route] == remote {
+			delete(c.watch, route)
+		}
 		c.mu.Unlock()
 	}()
-	select {
-	case grant := <-ready.grants:
-		return grant, nil
-	case <-ctx.Done():
-		return Grant{}, ErrUnavailable
-	case <-c.closed:
-		return Grant{}, ErrUnavailable
+	for {
+		select {
+		case grant := <-ready.grants:
+			return grant, nil
+		case <-ctx.Done():
+			return Grant{}, ErrUnavailable
+		case <-c.closed:
+			return Grant{}, ErrUnavailable
+		case <-remote:
+			address := elsewhere()
+			c.mu.Lock()
+			if c.ready[key] != ready {
+				remote = nil
+				c.mu.Unlock()
+				continue
+			}
+			if address != "" {
+				delete(c.ready, key)
+				c.signal()
+				c.mu.Unlock()
+				return Grant{}, Elsewhere{Address: address}
+			}
+			remote = make(chan struct{})
+			c.watch[route] = remote
+			c.mu.Unlock()
+		}
 	}
 }
 func (c *Connector) Dispatch(ctx context.Context, target Target, operation Operation, authorize Authorize) (Result, error) {
@@ -176,6 +253,25 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 	defer cancelWait()
 	key := targetKey(target)
 	opKey := target.OrgID + "/" + operation.ID
+	var announce sync.Once
+	var release sync.Once
+	announced := false
+	c.mu.Lock()
+	c.waiting[key]++
+	c.mu.Unlock()
+	stopWaiting := func() {
+		release.Do(func() {
+			c.mu.Lock()
+			if c.waiting[key]--; c.waiting[key] <= 0 {
+				delete(c.waiting, key)
+			}
+			c.mu.Unlock()
+			if announced {
+				c.routes.Release(target.OrgID, "wait:"+target.RunnerID)
+			}
+		})
+	}
+	defer stopWaiting()
 	var ready *readiness
 	for ready == nil {
 		c.mu.Lock()
@@ -199,6 +295,11 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 		if ready != nil {
 			break
 		}
+		if c.routes != nil {
+			announce.Do(func() {
+				announced = c.routes.Claim(wait, target.OrgID, "wait:"+target.RunnerID, time.Now().Add(c.ttl)) == nil
+			})
+		}
 		select {
 		case <-wait.Done():
 			return Result{}, ErrUnavailable
@@ -207,6 +308,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 		case <-changed:
 		}
 	}
+	stopWaiting()
 	defer func() { c.mu.Lock(); delete(c.active, key); c.signal(); c.mu.Unlock() }()
 	operationTTL := operation.ttl(c.ttl)
 	authctx, cancel := context.WithTimeout(ctx, operationTTL)
@@ -284,7 +386,19 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 			c.used[opKey] = c.now().Add(5 * time.Minute)
 			c.pending[grant.ID] = item
 			c.mu.Unlock()
+			if c.routes != nil {
+				if e = c.routes.Claim(authctx, target.OrgID, "grant:"+grant.ID, grant.ExpiresAt); e != nil {
+					c.mu.Lock()
+					delete(c.pending, grant.ID)
+					c.mu.Unlock()
+					deliveryErr = ErrUnavailable
+					return
+				}
+			}
 			defer func() {
+				if c.routes != nil {
+					c.routes.Release(target.OrgID, "grant:"+grant.ID)
+				}
 				c.mu.Lock()
 				delete(c.pending, grant.ID)
 				c.mu.Unlock()

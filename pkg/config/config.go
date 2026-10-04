@@ -36,6 +36,7 @@ type Config struct {
 	PolicyFile         string
 	ArtifactDirectory  string
 	ArtifactS3         ArtifactS3
+	PodAddress         string
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
@@ -78,6 +79,7 @@ func Load() (Config, error) {
 		KMSKeyARN:         os.Getenv("REFORGE_KMS_KEY_ARN"),
 		PolicyFile:        os.Getenv("REFORGE_POLICY_FILE"),
 		ArtifactDirectory: value("REFORGE_ARTIFACT_DIRECTORY", "var/artifacts"),
+		PodAddress:        os.Getenv("REFORGE_POD_ADDRESS"),
 		ArtifactS3: ArtifactS3{
 			Endpoint: os.Getenv("REFORGE_ARTIFACT_S3_ENDPOINT"), Region: os.Getenv("REFORGE_ARTIFACT_S3_REGION"), Bucket: os.Getenv("REFORGE_ARTIFACT_S3_BUCKET"),
 			AccessKeyID: os.Getenv("REFORGE_ARTIFACT_S3_ACCESS_KEY_ID"), SecretAccessKey: os.Getenv("REFORGE_ARTIFACT_S3_SECRET_ACCESS_KEY"),

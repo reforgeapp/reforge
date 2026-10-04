@@ -159,11 +159,18 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	if cfg.BuiltinRunnerToken != "" {
 		app.RegisterBuiltinRunner(runners, cfg.BuiltinRunnerToken)
 	}
-	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 256})
+	var routes privateconnector.Routes
+	if cfg.PodAddress != "" {
+		routes = privateconnector.NewPostgresRoutes(db, cfg.PodAddress)
+	}
+	private, err := privateconnector.New(privateconnector.Config{Authenticate: runners.AuthenticateSupervisor, Development: cfg.Development, MaxConcurrent: 256, Routes: routes})
 	if err != nil {
 		return err
 	}
 	defer private.Close()
+	if postgres, ok := routes.(privateconnector.PostgresRoutes); ok {
+		go postgres.Listen(ctx, private.Notify)
+	}
 	providers.RegisterPrivate(connectionService, private, runners)
 	app.RegisterPrivateConnector(private)
 	authority.Register("model.turn", func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
