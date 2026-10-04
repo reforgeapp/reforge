@@ -14,8 +14,8 @@ import (
 )
 
 const (
-	maxGeneratedFiles = 2000
-	maxGeneratedBytes = 32 << 20
+	maxGeneratedFiles = 8000
+	maxGeneratedBytes = 128 << 20
 )
 
 var interpreters = map[string]string{"bash": "/bin/bash", "sh": "/bin/sh", "python": "/usr/local/bin/python3", "python3": "/usr/local/bin/python3", "node": "/usr/local/bin/node"}
@@ -23,7 +23,7 @@ var interpreters = map[string]string{"bash": "/bin/bash", "sh": "/bin/sh", "pyth
 func scriptInterpreter(body []byte) string {
 	line, _, _ := bytes.Cut(body, []byte("\n"))
 	if !bytes.HasPrefix(line, []byte("#!")) {
-		return ""
+		return "/bin/bash"
 	}
 	fields := strings.Fields(string(line[2:]))
 	if len(fields) > 1 && path.Base(fields[0]) == "env" {
@@ -46,14 +46,17 @@ func (u updater) regenerate(ctx context.Context, files map[string][]byte, g repa
 	if image == "" {
 		return nil, errors.New("regeneration needs the maintenance workspace image on this runner")
 	}
+	if _, ok := files[g.Script]; !ok {
+		return nil, errors.New(g.Script + " not found")
+	}
 	interpreter := scriptInterpreter(files[g.Script])
 	if interpreter == "" {
-		return nil, errors.New(g.Script + " needs a bash, sh, python3 or node shebang")
+		return nil, errors.New(g.Script + " shebang names an interpreter this workspace lacks; use bash, sh, python3 or node")
 	}
-	ctx, cancel := context.WithTimeout(ctx, 20*time.Minute)
+	ctx, cancel := context.WithTimeout(ctx, 70*time.Minute)
 	defer cancel()
 	request := u.request
-	request.Image, request.Egress, request.Dependencies, request.Timeout = image, "registry", "", 20*time.Minute
+	request.Image, request.Egress, request.Dependencies, request.Timeout = image, "registry", "", 70*time.Minute
 	workspace, err := u.runtime.PreparePinnedWorkspace(ctx, request)
 	if err != nil {
 		return nil, err
@@ -69,7 +72,7 @@ func (u updater) regenerate(ctx context.Context, files map[string][]byte, g repa
 		}
 	}
 	args := append([]string{"/usr/bin/env", "GOMODCACHE=/tmp/gomod", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", interpreter, g.Script}, g.Args...)
-	result, err := u.runtime.ExecuteBoundedCommand(ctx, workspace, sandbox.Command{Args: args, Directory: ".", Timeout: 15 * time.Minute, MaxOutputBytes: 64 << 10, NetworkProfile: "egress"})
+	result, err := u.runtime.ExecuteBoundedCommand(ctx, workspace, sandbox.Command{Args: args, Directory: ".", Timeout: time.Hour, MaxOutputBytes: 64 << 10, NetworkProfile: "egress"})
 	if err != nil {
 		return nil, err
 	}

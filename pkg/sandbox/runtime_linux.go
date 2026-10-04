@@ -330,7 +330,7 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace Workspace
 	if err != nil {
 		return CommandResult{}, err
 	}
-	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" && (command.NetworkProfile != "egress" || w.egress == "") || len(command.Stdin) > 1<<20 {
+	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > time.Hour || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || command.NetworkProfile != "none" && (command.NetworkProfile != "egress" || w.egress == "") || len(command.Stdin) > 1<<20 {
 		return CommandResult{}, ErrBoundary
 	}
 	for _, arg := range command.Args {

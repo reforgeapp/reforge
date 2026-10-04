@@ -462,7 +462,7 @@ func (r *Runtime) ExecuteBoundedCommand(ctx context.Context, workspace sandbox.W
 	}
 	state.mu.Lock()
 	defer state.mu.Unlock()
-	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > 30*time.Minute || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || len(command.Stdin) > 1<<20 || command.NetworkProfile != "none" && command.NetworkProfile != "egress" || command.NetworkProfile == "egress" && !state.egress {
+	if len(command.Args) == 0 || len(command.Args) > 128 || command.Timeout < time.Millisecond || command.Timeout > time.Hour || command.MaxOutputBytes < 1 || command.MaxOutputBytes > 4<<20 || len(command.Stdin) > 1<<20 || command.NetworkProfile != "none" && command.NetworkProfile != "egress" || command.NetworkProfile == "egress" && !state.egress {
 		return sandbox.CommandResult{}, ErrBoundary
 	}
 	for _, arg := range command.Args {

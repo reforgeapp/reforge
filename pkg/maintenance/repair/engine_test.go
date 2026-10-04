@@ -541,7 +541,7 @@ func TestOwnerDependencyEditsUseLatestStagedManifest(t *testing.T) {
 	}
 }
 
-func TestOwnerRegenerateStagesOutputsFromCommittedScript(t *testing.T) {
+func TestOwnerRegenerateStagesOutputs(t *testing.T) {
 	plan, files := testPlan(t)
 	plan.Owner, plan.Recipe.MaxTurns = true, 4
 	plan.Digest = planDigest(plan)
@@ -558,6 +558,9 @@ func TestOwnerRegenerateStagesOutputsFromCommittedScript(t *testing.T) {
 			runs++
 			if string(in["package-lock.json"]) != `{"version":"2.0.0"}` {
 				t.Fatalf("regeneration missed staged lockfile: %s", in["package-lock.json"])
+			}
+			if runs == 2 && string(in["gen.sh"]) != "#!/bin/sh\necho\n" {
+				t.Fatalf("regeneration missed staged script: %q", in["gen.sh"])
 			}
 			return map[string][]byte{"licenses/a.txt": []byte("new"), "licenses/b.txt": []byte("b"), "elsewhere.txt": []byte("x")}, nil
 		},
@@ -582,7 +585,7 @@ func TestOwnerRegenerateStagesOutputsFromCommittedScript(t *testing.T) {
 		},
 	}
 	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
-	if err != nil || report.State != "validated" || runs != 1 {
+	if err != nil || report.State != "validated" || runs != 2 {
 		t.Fatalf("report=%+v runs=%d error=%v", report, runs, err)
 	}
 	staged := map[string]sandbox.Patch{}

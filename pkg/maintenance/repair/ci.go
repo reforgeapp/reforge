@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
-	"maps"
 	"path"
 	"slices"
 	"sort"
@@ -71,7 +70,7 @@ func (r Regeneration) Valid() bool {
 			return false
 		}
 	}
-	return !r.Covers(r.Script)
+	return true
 }
 
 func (r Regeneration) Covers(name string) bool {
@@ -277,7 +276,7 @@ func ownerTools() []model.Tool {
 		{Name: "write_file", Description: "Create or replace a file with its complete contents", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"content":{"type":"string","maxLength":262144}},"required":["path","content"],"additionalProperties":false}`)},
 		{Name: "edit_file", Description: "Replace one exact, unique snippet in a file; prefer this for small changes to large files", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"old":{"type":"string","minLength":1,"maxLength":16384},"new":{"type":"string","maxLength":16384}},"required":["path","old","new"],"additionalProperties":false}`)},
 		{Name: "delete_file", Description: "Delete a file", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024}},"required":["path"],"additionalProperties":false}`)},
-		{Name: "regenerate", Description: "Run a committed generator script with access to the Go module proxy and npm registry, for generated files that must track dependencies such as license bundles. The workspace holds the target branch plus staged dependency updates only. Every file under outputs is staged as the script leaves it; files it removes are deleted", Schema: json.RawMessage(`{"type":"object","properties":{"script":{"type":"string","maxLength":1024},"args":{"type":"array","items":{"type":"string","maxLength":256},"maxItems":16},"outputs":{"type":"array","items":{"type":"string","maxLength":1024},"minItems":1,"maxItems":10}},"required":["script","outputs"],"additionalProperties":false}`)},
+		{Name: "regenerate", Description: "Run a generator script with access to the Go module proxy and npm registry, for generated files that must track dependencies such as license bundles. The workspace holds your staged changes, so a script you wrote or fixed can be run. Every file under outputs is staged as the script leaves it; files it removes are deleted", Schema: json.RawMessage(`{"type":"object","properties":{"script":{"type":"string","maxLength":1024},"args":{"type":"array","items":{"type":"string","maxLength":256},"maxItems":16},"outputs":{"type":"array","items":{"type":"string","maxLength":1024},"minItems":1,"maxItems":10}},"required":["script","outputs"],"additionalProperties":false}`)},
 		{Name: "run_command", Description: "Run a command offline for up to 5 minutes in a disposable workspace with your staged changes; all filesystem mutations, including supplied helper files, are discarded afterward. Persist changes with edit_file, write_file, delete_file or update_dependency. Returns exit code and output", Schema: json.RawMessage(`{"type":"object","properties":{"args":{"type":"array","items":{"type":"string","maxLength":4096},"minItems":1,"maxItems":64},"directory":{"type":"string","maxLength":1024},"files":{"type":"array","maxItems":10,"items":{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"content":{"type":"string","maxLength":65536}},"required":["path","content"],"additionalProperties":false}}},"required":["args"],"additionalProperties":false}`)},
 	}
 	for _, tool := range ciTools() {
@@ -668,20 +667,10 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			case "regenerate":
 				var g Regeneration
 				if !owner || e.Regenerate == nil || json.Unmarshal(call.Arguments, &g) != nil || !g.Valid() {
-					reply = "Regeneration rejected: script must be a repository path and outputs one to ten repository paths that exclude it"
+					reply = "Regeneration rejected: script must be a repository path and outputs one to ten repository paths"
 					break
 				}
-				if _, staged := patches[g.Script]; staged || files[g.Script] == nil {
-					reply = "Regeneration rejected: the script must be committed and unchanged"
-					break
-				}
-				seed := maps.Clone(files)
-				for name := range dependencyPaths(updates) {
-					if patch, ok := patches[name]; ok && !patch.Delete {
-						seed[name] = patch.Content
-					}
-				}
-				generated, err := e.Regenerate(ctx, seed, g)
+				generated, err := e.Regenerate(ctx, updated(), g)
 				if err != nil {
 					reply = "Regeneration failed: " + bounded(err.Error())
 					break
