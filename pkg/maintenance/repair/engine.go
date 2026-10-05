@@ -469,7 +469,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					}
 					key := hashBytes([]byte(input.Path + "\x00" + input.Content))
 					if rejected[key] {
-						return fail("Model repeated a rejected patch; select a qualified model or review the repair constraints", ErrHandoff)
+						return fail("Model repeated a rejected patch", ErrHandoff)
 					}
 					rejected[key] = true
 					reply = "Patch rejected: protected path, content or size limit. Change application source within the frozen plan."
