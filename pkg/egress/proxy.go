@@ -15,7 +15,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/network"
 )
 
-var Registries = []string{"registry.npmjs.org", "proxy.golang.org", "sum.golang.org"}
+var Registries = []string{"registry.npmjs.org", "proxy.golang.org", "sum.golang.org", "storage.googleapis.com"}
 
 type Proxy struct {
 	listener net.Listener
