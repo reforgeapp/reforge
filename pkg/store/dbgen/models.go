@@ -779,6 +779,13 @@ type PolicyVersion struct {
 	CreatedAt  pgtype.Timestamptz `json:"created_at"`
 }
 
+type PrivateRoute struct {
+	OrgID     pgtype.UUID        `json:"org_id"`
+	Route     string             `json:"route"`
+	Pod       string             `json:"pod"`
+	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
+}
+
 type RepairRun struct {
 	OrgID                  pgtype.UUID        `json:"org_id"`
 	TaskID                 pgtype.UUID        `json:"task_id"`
@@ -880,13 +887,14 @@ type RunnerJobCredential struct {
 }
 
 type RunnerPool struct {
-	OrgID     pgtype.UUID        `json:"org_id"`
-	ID        pgtype.UUID        `json:"id"`
-	Name      string             `json:"name"`
-	State     string             `json:"state"`
-	Version   int64              `json:"version"`
-	CreatedAt pgtype.Timestamptz `json:"created_at"`
-	Builtin   bool               `json:"builtin"`
+	OrgID         pgtype.UUID        `json:"org_id"`
+	ID            pgtype.UUID        `json:"id"`
+	Name          string             `json:"name"`
+	State         string             `json:"state"`
+	Version       int64              `json:"version"`
+	CreatedAt     pgtype.Timestamptz `json:"created_at"`
+	Builtin       bool               `json:"builtin"`
+	MaxConcurrent pgtype.Int4        `json:"max_concurrent"`
 }
 
 type RunnerPoolRepository struct {
