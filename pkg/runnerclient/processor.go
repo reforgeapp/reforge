@@ -48,7 +48,13 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		return runtime, err
 	}
 	process := func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
+		outer := ctx
+		var attempt context.Context
+		progressed := false
 		defer func() {
+			if completion.Outcome == "failed" && progressed && outer.Err() == nil && attempt != nil && errors.Is(attempt.Err(), context.DeadlineExceeded) {
+				completion, failure = workflow.Completion{Outcome: "paused", Reason: "Run reached its time limit; continuing from its checkpoint", RetryAfterMS: time.Minute.Milliseconds()}, nil
+			}
 			if completion.Outcome == "failed" && (errors.Is(failure, ErrTransientControlPlane) || errors.Is(failure, repair.ErrSandbox) || errors.Is(failure, sandbox.ErrResourceLimit)) {
 				completion.Retryable = true
 			}
@@ -68,6 +74,7 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		execution := run.Context
 		ctx, cancel := context.WithTimeout(ctx, repair.AttemptTimeout(execution.Plan))
 		defer cancel()
+		attempt = ctx
 		baseline, err := c.RepairSnapshot(ctx, j, execution.Plan.BaselineSHA)
 		if err != nil {
 			return failed, err
@@ -144,7 +151,11 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		}
 		deps := updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust}, target: targetFiles}
 		engine := repair.Engine{Restore: run.Checkpoint, AllowObsolete: repair.ConflictFinding(run.Context.Finding), ReviewFinding: run.Context.Finding.Source == "repository_review", SaveCheckpoint: func(ctx context.Context, checkpoint repair.Checkpoint) error {
-			return c.RepairCheckpoint(ctx, j, checkpoint)
+			err := c.RepairCheckpoint(ctx, j, checkpoint)
+			if err == nil && (run.Checkpoint == nil || checkpoint.Turns > run.Checkpoint.Turns) {
+				progressed = true
+			}
+			return err
 		}, PrepareWorkspace: commandPreparer{cfg: cfg, runtime: runtime, org: j.Lease.OrgID, fetch: fetch, image: image}.prepare, Dependencies: dependencies, CILogs: execution.CILogs, Goal: repair.Goal(execution.Finding) + repair.Instructions(execution.Request.Instructions), OpenFixes: execution.OpenFixes, RecentMerges: execution.RecentMerges, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: deps.update, Regenerate: deps.regenerate, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, string, error) {
 			m, err := c.Upload(ctx, j, name, "text/plain", artifact.SanitizeTextLog(data))
 			return m.ID, m.SHA256, err
