@@ -71,7 +71,7 @@ func (u updater) regenerate(ctx context.Context, files map[string][]byte, g repa
 			return nil, err
 		}
 	}
-	args := append([]string{"/usr/bin/env", "GOMODCACHE=/tmp/gomod", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", interpreter, g.Script}, g.Args...)
+	args := append([]string{"/usr/bin/env", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", interpreter, g.Script}, g.Args...)
 	result, err := u.runtime.ExecuteBoundedCommand(ctx, workspace, sandbox.Command{Args: args, Directory: ".", Timeout: time.Hour, MaxOutputBytes: 64 << 10, NetworkProfile: "egress"})
 	if err != nil {
 		return nil, err

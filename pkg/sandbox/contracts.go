@@ -18,6 +18,7 @@ type WorkspaceRequest struct {
 	Timeout       time.Duration
 	Dependencies  string
 	Egress        string
+	Cache         string
 }
 type Workspace struct {
 	ID        string

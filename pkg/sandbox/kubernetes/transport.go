@@ -98,6 +98,31 @@ func (c *HTTPPodClient) Create(ctx context.Context, spec PodSpec) (Pod, error) {
 	return pod, err
 }
 
+func (c *HTTPPodClient) EnsureClaim(ctx context.Context, claim Claim) error {
+	if !strings.HasPrefix(claim.Name, "rf-cache-") || len(claim.Name) > 63 || claim.Bytes <= 0 {
+		return ErrBoundary
+	}
+	if _, err := c.request(ctx, http.MethodGet, c.resourceURL("persistentvolumeclaims", claim.Name), nil); err == nil || !apiStatus(err, http.StatusNotFound) {
+		return err
+	}
+	spec := map[string]any{"accessModes": []string{claim.AccessMode}, "resources": map[string]any{"requests": map[string]string{"storage": strconv.FormatInt(claim.Bytes, 10)}}}
+	if claim.StorageClass != "" {
+		spec["storageClassName"] = claim.StorageClass
+	}
+	body, err := json.Marshal(map[string]any{"apiVersion": "v1", "kind": "PersistentVolumeClaim", "metadata": map[string]any{"name": claim.Name, "labels": map[string]string{"app.kubernetes.io/name": "reforge-cache"}}, "spec": spec})
+	if err != nil {
+		return ErrBoundary
+	}
+	if _, err = c.request(ctx, http.MethodPost, c.resourceURL("persistentvolumeclaims"), body); err != nil && !apiStatus(err, http.StatusConflict) {
+		return err
+	}
+	return nil
+}
+
+func apiStatus(err error, code int) bool {
+	return err != nil && strings.Contains(err.Error(), fmt.Sprintf("API status %d:", code))
+}
+
 func (c *HTTPPodClient) Get(ctx context.Context, ref PodRef) (Pod, error) {
 	if err := c.validateRef(ref, false); err != nil {
 		return Pod{}, err
@@ -515,11 +540,16 @@ func makePodBody(spec PodSpec) map[string]any {
 		"resources":       resources,
 		"volumeMounts":    []map[string]any{{"name": "workspace", "mountPath": "/workspace"}, {"name": "tmp", "mountPath": "/tmp"}},
 	}
+	volumes := []map[string]any{{"name": "workspace", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.WorkspaceEmptyDirBytes, 10)}}, {"name": "tmp", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.TempEmptyDirBytes, 10)}}}
+	if spec.CacheClaim != "" {
+		container["volumeMounts"] = append(container["volumeMounts"].([]map[string]any), map[string]any{"name": "cache", "mountPath": "/cache"})
+		volumes = append(volumes, map[string]any{"name": "cache", "persistentVolumeClaim": map[string]string{"claimName": spec.CacheClaim}})
+	}
 	podSpec := map[string]any{
 		"automountServiceAccountToken": false, "restartPolicy": "Never", "activeDeadlineSeconds": spec.ActiveDeadlineSeconds,
 		"securityContext": map[string]any{"runAsUser": spec.RunAsUser, "runAsGroup": spec.RunAsGroup, "runAsNonRoot": spec.RunAsNonRoot, "fsGroup": spec.FSGroup, "seccompProfile": map[string]string{"type": spec.SeccompProfile}},
 		"containers":      []any{container},
-		"volumes":         []map[string]any{{"name": "workspace", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.WorkspaceEmptyDirBytes, 10)}}, {"name": "tmp", "emptyDir": map[string]string{"sizeLimit": strconv.FormatInt(spec.TempEmptyDirBytes, 10)}}},
+		"volumes":         volumes,
 	}
 	if len(spec.ImagePullSecrets) > 0 {
 		secrets := make([]map[string]string, 0, len(spec.ImagePullSecrets))

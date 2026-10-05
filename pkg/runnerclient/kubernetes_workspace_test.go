@@ -79,7 +79,7 @@ func TestKubernetesWorkspaceBootstrapsPatchedGoModulesOnce(t *testing.T) {
 		t.Fatalf("Go bootstrap commands=%+v", runtime.commands)
 	}
 	bootstrap := strings.Join(runtime.commands[0].Args, " ")
-	for _, want := range []string{"go mod download", "root=/tmp/reforge-manifests", "GOMODCACHE=/tmp/gomod", "GOFLAGS=-mod=mod", "go.mod go.sum go.work go.work.sum nested/go.mod nested/go.sum -- . nested"} {
+	for _, want := range []string{"go mod download", "root=/tmp/reforge-manifests", "GOFLAGS=-mod=mod", "go.mod go.sum go.work go.work.sum nested/go.mod nested/go.sum -- . nested"} {
 		if !strings.Contains(bootstrap, want) {
 			t.Fatalf("Go bootstrap must resolve copied manifests in scratch: missing %q in %s", want, bootstrap)
 		}

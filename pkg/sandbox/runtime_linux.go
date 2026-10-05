@@ -42,6 +42,9 @@ type KubernetesRuntimeConfig struct {
 	Toolchains             map[string]string `json:"toolchains"`
 	BrokerListenAddress    string            `json:"broker_listen_address,omitempty"`
 	BrokerAdvertiseAddress string            `json:"broker_advertise_address,omitempty"`
+	CacheBytes             int64             `json:"cache_bytes,omitempty"`
+	CacheStorageClass      string            `json:"cache_storage_class,omitempty"`
+	CacheAccessMode        string            `json:"cache_access_mode,omitempty"`
 }
 
 type RuntimeConfig struct {

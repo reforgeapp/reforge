@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -78,6 +79,7 @@ type PodSpec struct {
 	HostPID                      bool
 	HostIPC                      bool
 	HostPaths                    []string
+	CacheClaim                   string
 	WorkspaceEmptyDirBytes       int64
 	TempEmptyDirBytes            int64
 	NetworkProfile               string
@@ -93,6 +95,25 @@ type PodClient interface {
 	List(context.Context, map[string]string) ([]Pod, error)
 	Exec(context.Context, PodRef, []string, io.Reader, io.Writer, io.Writer) (int, error)
 	Delete(context.Context, PodRef) error
+	EnsureClaim(context.Context, Claim) error
+}
+
+type Claim struct {
+	Name         string
+	StorageClass string
+	AccessMode   string
+	Bytes        int64
+}
+
+type Cache struct {
+	StorageClass string
+	AccessMode   string
+	Bytes        int64
+}
+
+func (c Cache) claim(key string) Claim {
+	digest := sha256.Sum256([]byte(key))
+	return Claim{Name: "rf-cache-" + hex.EncodeToString(digest[:12]), StorageClass: c.StorageClass, AccessMode: c.AccessMode, Bytes: c.Bytes}
 }
 
 type BootstrapLease interface {
@@ -115,6 +136,7 @@ type Config struct {
 	RuntimeClassName string
 	ImagePullSecrets []string
 	Images           map[string]string
+	Cache            Cache
 	MemoryBytes      int64
 	DiskBytes        int64
 	CPUs             int64
@@ -175,6 +197,9 @@ func NewRuntime(cfg Config) (*Runtime, error) {
 
 func ValidateConfig(cfg Config) error {
 	if !namespaceValue.MatchString(cfg.Namespace) || len(cfg.Images) == 0 || !validPullSecrets(cfg.ImagePullSecrets) {
+		return ErrBoundary
+	}
+	if cfg.Cache.Bytes != 0 && (cfg.Cache.Bytes < 1<<30 || cfg.Cache.Bytes > 1<<40 || cfg.Cache.AccessMode != "ReadWriteOnce" && cfg.Cache.AccessMode != "ReadWriteMany" || cfg.Cache.StorageClass != "" && !labelValue.MatchString(cfg.Cache.StorageClass)) {
 		return ErrBoundary
 	}
 	if cfg.RuntimeClassName != "" && !labelValue.MatchString(cfg.RuntimeClassName) {
@@ -257,7 +282,15 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		"reforge.io/attempt-id":  in.AttemptID,
 		"reforge.io/commit":      in.CommitSHA,
 	}
-	moduleCache := "/tmp/gomod"
+	moduleCache, cacheRoot := "/tmp/gomod", "/tmp/.cache"
+	var claim Claim
+	if r.config.Cache.Bytes > 0 && in.Cache != "" {
+		claim = r.config.Cache.claim(in.Cache)
+		if err = r.config.Client.EnsureClaim(prepareCtx, claim); err != nil {
+			return sandbox.Workspace{}, errors.Join(err, cleanupLease())
+		}
+		moduleCache, cacheRoot = "/cache/gomod", "/cache"
+	}
 	if refs.Dependencies != "" {
 		moduleCache = "/opt/deps/go"
 	}
@@ -273,8 +306,10 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 			"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin",
 			"HOME=/tmp",
 			"TMPDIR=/tmp",
-			"GOCACHE=/tmp/go-build",
+			"GOCACHE=" + cacheRoot + "/go-build",
 			"GOMODCACHE=" + moduleCache,
+			"npm_config_cache=" + cacheRoot + "/npm",
+			"PIP_CACHE_DIR=" + cacheRoot + "/pip",
 			"GOPROXY=off",
 			"GOSUMDB=off",
 			"GOPATH=/workspace/.reforge/gopath",
@@ -299,6 +334,7 @@ func (r *Runtime) PreparePinnedWorkspace(ctx context.Context, in sandbox.Workspa
 		ActiveDeadlineSeconds:  int64((in.Timeout + time.Second - 1) / time.Second),
 		RestartPolicy:          "Never",
 		Bootstrap:              refs,
+		CacheClaim:             claim.Name,
 	}
 	if err = validPodSpec(spec); err != nil {
 		return sandbox.Workspace{}, errors.Join(err, cleanupLease())
@@ -699,6 +735,9 @@ func (r *Runtime) endEgress(ctx context.Context, state *workspaceState) error {
 }
 
 func validPodSpec(spec PodSpec) error {
+	if spec.CacheClaim != "" && (!strings.HasPrefix(spec.CacheClaim, "rf-cache-") || len(spec.CacheClaim) > 63) {
+		return ErrBoundary
+	}
 	if !namespaceValue.MatchString(spec.Ref.Namespace) || len(spec.Ref.Name) > 63 || !strings.HasPrefix(spec.Ref.Name, "rf-ws-") || !validImageRef(spec.Image) || !validPullSecrets(spec.ImagePullSecrets) || spec.RunAsUser != 65532 || !spec.RunAsNonRoot || spec.RunAsGroup != 65532 || spec.FSGroup != 65532 || spec.AllowPrivilegeEscalation || !spec.ReadOnlyRootFilesystem || !slicesEqual(spec.DropCapabilities, []string{"ALL"}) || spec.SeccompProfile != "RuntimeDefault" || spec.AutomountServiceAccountToken || spec.HostNetwork || spec.HostPID || spec.HostIPC || len(spec.HostPaths) != 0 || spec.WorkspaceEmptyDirBytes <= 0 || spec.TempEmptyDirBytes <= 0 || spec.ActiveDeadlineSeconds <= 0 || spec.RestartPolicy != "Never" || spec.NetworkProfile != "none" || spec.Resources.MemoryBytes <= 0 || spec.Resources.CPUs <= 0 || spec.Resources.DiskBytes <= 0 {
 		return ErrBoundary
 	}

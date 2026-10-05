@@ -27,6 +27,12 @@ type fakePodClient struct {
 	failApply  bool
 	commandOut []byte
 	events     *[]string
+	claims     []Claim
+}
+
+func (f *fakePodClient) EnsureClaim(_ context.Context, claim Claim) error {
+	f.claims = append(f.claims, claim)
+	return nil
 }
 
 func (f *fakePodClient) Create(_ context.Context, spec PodSpec) (Pod, error) {
@@ -504,5 +510,21 @@ func TestRuntimeWaitsForCapacityWhileUnschedulable(t *testing.T) {
 	request.Timeout = time.Second
 	if _, err := runtime.PreparePinnedWorkspace(context.Background(), request); !errors.Is(err, sandbox.ErrResourceLimit) {
 		t.Fatalf("full cluster error = %v", err)
+	}
+}
+
+func TestRuntimeMountsTenantCache(t *testing.T) {
+	client := &fakePodClient{}
+	runtime := newTestRuntime(t, client, func(_ context.Context, got sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+		return testSnapshot(got), nil
+	})
+	runtime.config.Cache = Cache{AccessMode: "ReadWriteOnce", Bytes: 10 << 30}
+	request := testRequest()
+	request.Cache = "org-1"
+	if _, err := runtime.PreparePinnedWorkspace(context.Background(), request); err != nil {
+		t.Fatal(err)
+	}
+	if len(client.claims) != 1 || client.spec.CacheClaim != client.claims[0].Name || !contains(client.spec.Environment, "GOCACHE=/cache/go-build") || !contains(client.spec.Environment, "GOMODCACHE=/cache/gomod") {
+		t.Fatalf("claims=%+v spec=%+v", client.claims, client.spec)
 	}
 }

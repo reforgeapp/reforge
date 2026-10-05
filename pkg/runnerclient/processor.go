@@ -149,7 +149,7 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 		if err != nil {
 			return failed, err
 		}
-		deps := updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust}, target: targetFiles}
+		deps := updater{cfg: cfg, runtime: runtime, request: sandbox.WorkspaceRequest{JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, CommitSHA: execution.Plan.TargetSHA, Trust: trust, Cache: j.Lease.OrgID}, target: targetFiles}
 		engine := repair.Engine{Restore: run.Checkpoint, AllowObsolete: repair.ConflictFinding(run.Context.Finding), ReviewFinding: run.Context.Finding.Source == "repository_review", SaveCheckpoint: func(ctx context.Context, checkpoint repair.Checkpoint) error {
 			err := c.RepairCheckpoint(ctx, j, checkpoint)
 			if err == nil && (run.Checkpoint == nil || checkpoint.Turns > run.Checkpoint.Turns) {

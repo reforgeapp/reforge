@@ -17,6 +17,7 @@ func (p commandPreparer) prepareKubernetes(ctx context.Context, request sandbox.
 		return sandbox.Workspace{}, sandbox.ErrBoundary
 	}
 	request.Image = p.kubernetesImage(request.Image, path.Base(command.Args[0]))
+	request.Cache = p.org
 	if request.Image == "" {
 		return sandbox.Workspace{}, sandbox.ErrUnavailable
 	}
@@ -94,7 +95,7 @@ func kubernetesBootstrapCommand(snapshot sandbox.Snapshot, command sandbox.Comma
 		}
 		manifests := goManifestPaths(snapshot)
 		script := `set -eu; root=/tmp/reforge-manifests; while [ "$1" != "--" ]; do file=$1; shift; mkdir -p "$root/$(dirname -- "$file")"; cp "/workspace/$file" "$root/$file"; done; shift; for module do (cd -- "$root/$module" && /usr/local/go/bin/go mod download); done`
-		args := []string{"/usr/bin/env", "GOMODCACHE=/tmp/gomod", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "/bin/sh", "-c", script, "reforge-bootstrap"}
+		args := []string{"/usr/bin/env", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "/bin/sh", "-c", script, "reforge-bootstrap"}
 		args = append(args, manifests...)
 		args = append(args, "--")
 		args = append(args, modules...)
@@ -141,7 +142,7 @@ func (u updater) updateKubernetes(ctx context.Context, files map[string][]byte, 
 		return nil, errors.New(paths[0] + " not found")
 	}
 	binary := "usr/local/go/bin/go"
-	args := []string{"/usr/bin/env", "GOMODCACHE=/tmp/gomod", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "/usr/local/go/bin/go", "get", update.Package + "@" + goVersion(update.Version)}
+	args := []string{"/usr/bin/env", "GOPROXY=https://proxy.golang.org", "GOSUMDB=sum.golang.org", "GOFLAGS=-mod=mod", "GOTOOLCHAIN=local", "/usr/local/go/bin/go", "get", update.Package + "@" + goVersion(update.Version)}
 	if update.Ecosystem == "npm" {
 		binary = "usr/local/bin/node"
 		installArgs := []string{"install", update.Package + "@" + update.Version}

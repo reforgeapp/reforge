@@ -378,3 +378,46 @@ func TestHTTPPodClientRequiresV5WebSocket(t *testing.T) {
 		t.Fatalf("unsupported WebSocket protocol accepted: %v", err)
 	}
 }
+
+func TestHTTPPodClientEnsureClaimCreatesOnlyMissingClaims(t *testing.T) {
+	existing := map[string]bool{}
+	var created []map[string]any
+	server := httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		name := strings.TrimPrefix(r.URL.Path, "/api/v1/namespaces/reforge/persistentvolumeclaims/")
+		switch {
+		case r.Method == http.MethodGet && existing[name]:
+			_, _ = io.WriteString(w, `{}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/api/v1/namespaces/reforge/persistentvolumeclaims":
+			var body map[string]any
+			_ = json.NewDecoder(r.Body).Decode(&body)
+			created = append(created, body)
+			existing[body["metadata"].(map[string]any)["name"].(string)] = true
+			_, _ = io.WriteString(w, `{}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+	client, _ := testHTTPClient(t, server)
+	claim := Cache{StorageClass: "px-pool-rwx", AccessMode: "ReadWriteMany", Bytes: 10 << 30}.claim("org-1")
+	for range 2 {
+		if err := client.EnsureClaim(context.Background(), claim); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if len(created) != 1 {
+		t.Fatalf("created %d claims", len(created))
+	}
+	spec := created[0]["spec"].(map[string]any)
+	if spec["storageClassName"] != "px-pool-rwx" || spec["accessModes"].([]any)[0] != "ReadWriteMany" {
+		t.Fatalf("claim spec %#v", spec)
+	}
+	if other := (Cache{Bytes: 1 << 30}).claim("org-2"); other.Name == claim.Name {
+		t.Fatal("tenants share a cache claim")
+	}
+	body := makePodBody(PodSpec{CacheClaim: claim.Name})
+	volumes := body["spec"].(map[string]any)["volumes"].([]map[string]any)
+	if volumes[len(volumes)-1]["persistentVolumeClaim"].(map[string]string)["claimName"] != claim.Name {
+		t.Fatalf("cache volume missing: %#v", volumes)
+	}
+}
