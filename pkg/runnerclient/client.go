@@ -405,12 +405,17 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	if cancelRequested && result.Outcome != "uncertain" {
 		result.Outcome = "cancelled"
 	}
-	if ctx.Err() != nil {
-		return ctx.Err()
+	stopping := ctx.Err() != nil && !cancelRequested
+	if stopping && result.Outcome != "uncertain" {
+		result = workflow.Completion{Outcome: "paused", Reason: "Runner stopped for an update", RetryAfterMS: time.Minute.Milliseconds()}
 	}
-	finish, stop := context.WithTimeout(ctx, 10*time.Second)
+	finish, stop := context.WithTimeout(context.WithoutCancel(ctx), 10*time.Second)
 	defer stop()
-	return c.Complete(finish, job, result)
+	err = c.Complete(finish, job, result)
+	if stopping {
+		return errors.Join(ctx.Err(), err)
+	}
+	return err
 }
 
 func completionReason(err error) string {
