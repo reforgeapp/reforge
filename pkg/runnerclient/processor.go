@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"sort"
 	"strings"
 	"sync"
@@ -201,6 +202,9 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 					return failed, err
 				}
 				return workflow.Completion{Outcome: "completed"}, nil
+			}
+			if errors.Is(err, repair.ErrHandoff) && report.Reason != "" {
+				err = fmt.Errorf("%w: %s", err, report.Reason)
 			}
 			if err != nil {
 				return failed, err

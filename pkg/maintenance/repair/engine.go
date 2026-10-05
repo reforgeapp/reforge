@@ -65,7 +65,7 @@ type Engine struct {
 	TurnTimeout      time.Duration
 }
 
-var ErrHandoff = errors.New("repair requires human review")
+var ErrHandoff = errors.New("repair stopped without a change")
 var ErrRunLimit = errors.New("run reached its model turn or time limit")
 var ErrPaused = errors.New("paused until budget or provider limits allow")
 var ErrSandbox = errors.New("sandbox could not complete a file operation")
