@@ -420,4 +420,7 @@ func TestHTTPPodClientEnsureClaimCreatesOnlyMissingClaims(t *testing.T) {
 	if volumes[len(volumes)-1]["persistentVolumeClaim"].(map[string]string)["claimName"] != claim.Name {
 		t.Fatalf("cache volume missing: %#v", volumes)
 	}
+	if body["spec"].(map[string]any)["securityContext"].(map[string]any)["fsGroupChangePolicy"] != "OnRootMismatch" {
+		t.Fatal("cache ownership would be rewritten on every mount")
+	}
 }

@@ -547,7 +547,7 @@ func makePodBody(spec PodSpec) map[string]any {
 	}
 	podSpec := map[string]any{
 		"automountServiceAccountToken": false, "restartPolicy": "Never", "activeDeadlineSeconds": spec.ActiveDeadlineSeconds,
-		"securityContext": map[string]any{"runAsUser": spec.RunAsUser, "runAsGroup": spec.RunAsGroup, "runAsNonRoot": spec.RunAsNonRoot, "fsGroup": spec.FSGroup, "seccompProfile": map[string]string{"type": spec.SeccompProfile}},
+		"securityContext": map[string]any{"runAsUser": spec.RunAsUser, "runAsGroup": spec.RunAsGroup, "runAsNonRoot": spec.RunAsNonRoot, "fsGroup": spec.FSGroup, "fsGroupChangePolicy": "OnRootMismatch", "seccompProfile": map[string]string{"type": spec.SeccompProfile}},
 		"containers":      []any{container},
 		"volumes":         volumes,
 	}
