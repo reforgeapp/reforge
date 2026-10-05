@@ -371,11 +371,21 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		var c candidate
 		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),f.category,coalesce(f.evidence->'dependencies'->0->>'ecosystem',''),coalesce((SELECT to_char(q.requested_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISSUS') FROM autopilot_requests q WHERE q.org_id=f.org_id AND q.repository_id=f.repository_id),'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND coalesce((f.evidence->>'complete')::boolean,false) AND jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='blocked' AND a.capability<>$5 OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$4 AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%' AND rr.updated_at>clock_timestamp()-interval '6 hours') OR a.outcome='queued' AND t.state='completed' AND a.runs<$4 AND EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND NOT m.active))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.evidence_digest=f.evidence_digest AND m.supersession IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.active AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,f.source='native_ci' DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,f.first_seen,f.id LIMIT 1`, org, filter, sc.requested, maxRuns, s.capability()).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.category, &c.ecosystem, &c.requestGeneration)
 		if errors.Is(err, pgx.ErrNoRows) {
-			var count int
-			err = tx.QueryRow(ctx, `SELECT count(*),coalesce(min(coalesce(f.evidence->'blockers'->>0,a.reason)),'') FROM maintenance_findings f LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND a.outcome='blocked' WHERE f.org_id=$1 AND f.state='open' AND (jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0 OR a.finding_id IS NOT NULL)`, org).Scan(&count, &blocked)
+			var count, stale, incomplete, held, waiting int
+			err = tx.QueryRow(ctx, `SELECT count(*) FILTER (WHERE blocked),coalesce(min(reason) FILTER (WHERE blocked),''),count(*) FILTER (WHERE NOT blocked AND stale),count(*) FILTER (WHERE NOT blocked AND NOT stale AND incomplete),count(*) FILTER (WHERE NOT blocked AND held),count(*) FILTER (WHERE NOT blocked AND NOT stale AND NOT incomplete AND NOT held) FROM (SELECT jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0 OR a.outcome='blocked' AS blocked,coalesce(f.evidence->'blockers'->>0,a.reason) AS reason,f.last_seen<=clock_timestamp()-interval '1 hour' AS stale,NOT coalesce((f.evidence->>'complete')::boolean,false) AS incomplete,NOT r.accessible OR r.archived OR r.paused AS held FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version WHERE f.org_id=$1 AND f.state='open') open`, org).Scan(&count, &blocked, &stale, &incomplete, &held, &waiting)
+			parts := []string{}
 			if count > 0 {
-				blocked = strconv.Itoa(count) + " blocked: " + blocked
+				parts = append(parts, strconv.Itoa(count)+" blocked: "+blocked)
 			}
+			for _, part := range []struct {
+				n     int
+				label string
+			}{{stale, "waiting for a fresh scan"}, {incomplete, "with incomplete evidence"}, {held, "in paused, archived or inaccessible repositories"}, {waiting, "cooling down between attempts or in progress"}} {
+				if part.n > 0 {
+					parts = append(parts, strconv.Itoa(part.n)+" "+part.label)
+				}
+			}
+			blocked = strings.Join(parts, "; ")
 			return err
 		}
 		next = &c

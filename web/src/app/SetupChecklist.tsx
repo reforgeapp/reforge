@@ -13,7 +13,7 @@ const steps: Record<Step['id'], { label: string; action?: string; href?: (org: s
   budget: { label: 'Set a spending limit', action: 'Budgets', href: org => `/org/${org}/usage` },
   runner: { label: 'Start a runner', action: 'Runners', href: org => `/org/${org}/runners` },
   assignment: { label: 'Give a runner your repositories', action: 'Assign', href: (org, step) => `/org/${org}/repositories${step.repository_id ? `?repository=${step.repository_id}` : ''}` },
-  policy: { label: 'Allow Reforge to propose fixes', action: 'Policies', href: org => `/org/${org}/policies` },
+  policy: { label: 'Turn on Autopilot', action: 'Policies', href: org => `/org/${org}/policies` },
   server: { label: 'Enable fixes on this server', note: 'Ask your administrator to configure repair images.' },
 }
 
