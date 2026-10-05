@@ -293,7 +293,10 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 			return response.StatusCode, fmt.Errorf("%w: %w", ErrControlPlane, ErrSourceMoved)
 		}
 		if decoded && failure.Message != "" && len(failure.Message) <= 300 {
-			return response.StatusCode, fmt.Errorf("%w: %s", base, failure.Message)
+			base = fmt.Errorf("%w: %s", base, failure.Message)
+		}
+		if delay := model.RetryAfter(response.Header, time.Now()); delay > 0 {
+			return response.StatusCode, domain.Delayed{Err: base, After: delay}
 		}
 		return response.StatusCode, base
 	}

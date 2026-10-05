@@ -600,10 +600,6 @@ func checkResponse(response *http.Response) error {
 	if response.StatusCode >= 200 && response.StatusCode < 300 {
 		return nil
 	}
-	retryAfter := time.Duration(0)
-	if seconds, err := strconv.Atoi(response.Header.Get("Retry-After")); err == nil && seconds > 0 && seconds < 3600 {
-		retryAfter = time.Duration(seconds) * time.Second
-	}
 	kind := "provider"
 	switch response.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
@@ -615,7 +611,7 @@ func checkResponse(response *http.Response) error {
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		kind = "invalid_request"
 	}
-	return &domain.ProviderError{Kind: kind, Message: "OpenAI request failed", RetryAfter: retryAfter, Uncertain: response.StatusCode >= 500 || response.StatusCode == http.StatusTooManyRequests}
+	return &domain.ProviderError{Kind: kind, Message: "OpenAI request failed", RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: response.StatusCode >= 500}
 }
 
 func decodeBounded(reader io.Reader, target any) error {

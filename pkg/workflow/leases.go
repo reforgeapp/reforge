@@ -370,7 +370,7 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 	if _, err := tx.Exec(ctx, `UPDATE workflow_attempts SET state=$3,ended_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, l.OrgID, l.AttemptID, attemptState); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE workflow_jobs SET state=$3,lease_expires_at=NULL,lease_owner='',attempts=CASE WHEN $4 THEN greatest(attempts-1,0) ELSE attempts END,available_at=clock_timestamp()+CASE WHEN $4 THEN interval '15 minutes' ELSE LEAST(attempts*attempts,60)*interval '1 second' END WHERE org_id=$1 AND id=$2`, l.OrgID, l.JobID, jobState, paused); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE workflow_jobs SET state=$3,lease_expires_at=NULL,lease_owner='',attempts=CASE WHEN $4 THEN greatest(attempts-1,0) ELSE attempts END,available_at=clock_timestamp()+CASE WHEN $4 THEN $5::bigint*interval '1 millisecond' ELSE LEAST(attempts*attempts,60)*interval '1 second' END WHERE org_id=$1 AND id=$2`, l.OrgID, l.JobID, jobState, paused, pauseFor(result.RetryAfterMS).Milliseconds()); err != nil {
 		return err
 	}
 	if err := setTaskState(ctx, tx, t, state, reason, ""); err != nil {
@@ -517,4 +517,11 @@ func (s *Service) AdvanceTx(ctx context.Context, tx pgx.Tx, l Lease, next domain
 	}
 	err = setTaskState(ctx, tx, &task, next, "", "")
 	return task, err
+}
+
+func pauseFor(retryAfterMS int64) time.Duration {
+	if retryAfterMS <= 0 {
+		return 15 * time.Minute
+	}
+	return min(max(time.Duration(retryAfterMS)*time.Millisecond, time.Minute), 6*time.Hour)
 }

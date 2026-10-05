@@ -68,6 +68,14 @@ type ProviderError struct {
 
 func (e *ProviderError) Error() string { return fmt.Sprintf("%s: %s", e.Kind, e.Message) }
 
+type Delayed struct {
+	Err   error
+	After time.Duration
+}
+
+func (d Delayed) Error() string { return d.Err.Error() }
+func (d Delayed) Unwrap() error { return d.Err }
+
 type Page[T any] struct {
 	Items      []T    `json:"items"`
 	NextCursor string `json:"next_cursor,omitempty"`

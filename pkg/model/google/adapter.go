@@ -339,7 +339,7 @@ func classifyError(ctx context.Context, err error, uncertain bool) error {
 		case http.StatusBadRequest, http.StatusUnprocessableEntity:
 			kind = "invalid_request"
 		}
-		return &domain.ProviderError{Kind: kind, Message: "Google request failed", Uncertain: uncertain || apiErr.Code >= 500 || apiErr.Code == http.StatusTooManyRequests}
+		return &domain.ProviderError{Kind: kind, Message: "Google request failed", Uncertain: uncertain || apiErr.Code >= 500}
 	}
 	return &domain.ProviderError{Kind: "transport", Message: "Google request could not be completed", Uncertain: uncertain}
 }

@@ -54,6 +54,10 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			}
 			if errors.Is(failure, repair.ErrPaused) {
 				completion.Outcome = "paused"
+				var delayed domain.Delayed
+				if errors.As(failure, &delayed) {
+					completion.RetryAfterMS = delayed.After.Milliseconds()
+				}
 			}
 		}()
 		failed := workflow.Completion{Outcome: "failed"}

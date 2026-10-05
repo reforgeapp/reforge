@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 	"time"
 
@@ -55,6 +56,9 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		var provider *domain.ProviderError
 		switch {
 		case errors.As(err, &provider) && (provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited"):
+			if provider.RetryAfter > 0 {
+				c.Header("Retry-After", strconv.FormatInt(int64(provider.RetryAfter/time.Second), 10))
+			}
 			Fail(c, 429, "model_rate_limit", "Model provider rate limit or quota reached; retry later", false)
 		case errors.Is(err, modelbroker.ErrTurnFailed):
 			Fail(c, 409, "model_retry", "Model turn failed and was settled; retry the turn", true)
