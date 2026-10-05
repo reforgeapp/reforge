@@ -175,6 +175,8 @@ func (s *Server) workflowStream(c *gin.Context, service *workflow.Service) {
 		after = page.ScanAfter
 		if page.Complete {
 			select {
+			case <-s.Closing:
+				return
 			case <-c.Request.Context().Done():
 				return
 			case <-ticker.C:

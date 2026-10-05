@@ -26,6 +26,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/mergecontrol"
+	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/modelbroker"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
@@ -308,6 +309,9 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	go func() { defer close(artifactDone); artifacts.Run(artifactContext) }()
 	defer func() { stopArtifacts(); <-artifactDone }()
 	srv := &http.Server{Addr: cfg.Address, Handler: app.Router, ReadHeaderTimeout: 5 * time.Second, ReadTimeout: 30 * time.Second, WriteTimeout: 30 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 32 << 10}
+	closing := make(chan struct{})
+	app.Closing = closing
+	srv.RegisterOnShutdown(func() { close(closing) })
 	errCh := make(chan error, 1)
 	go func() { errCh <- srv.ListenAndServe() }()
 	slog.Info("server ready", "address", cfg.Address, "edition", cfg.Edition, "development", cfg.Development)
@@ -318,7 +322,7 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 		}
 	case <-ctx.Done():
 	}
-	shutdown, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	shutdown, cancel := context.WithTimeout(context.Background(), model.MaxTurnTimeout+time.Minute)
 	defer cancel()
 	return srv.Shutdown(shutdown)
 }

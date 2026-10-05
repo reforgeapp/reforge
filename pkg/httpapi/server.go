@@ -18,10 +18,11 @@ import (
 )
 
 type Server struct {
-	Config config.Config
-	Store  *store.Store
-	Router *gin.Engine
-	Auth   *auth.Service
+	Config  config.Config
+	Store   *store.Store
+	Router  *gin.Engine
+	Auth    *auth.Service
+	Closing <-chan struct{}
 }
 
 func New(cfg config.Config, db *store.Store) *Server {
