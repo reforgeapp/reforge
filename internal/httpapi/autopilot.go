@@ -17,6 +17,15 @@ func (s *Server) RegisterAutopilot(service *autopilot.Service) {
 		}
 		c.JSON(200, value)
 	})
+	g.GET("/metrics", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, err := service.Metrics(c.Request.Context(), session, c.Param("orgID"))
+		if err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
 	g.PUT("", func(c *gin.Context) {
 		version, ok := identityVersion(c)
 		if !ok {

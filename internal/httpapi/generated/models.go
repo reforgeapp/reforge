@@ -1170,6 +1170,18 @@ type Autopilot struct {
 	Status    string     `json:"status"`
 	Version   int64      `json:"version"`
 }
+type AutopilotMetric struct {
+	AutoMerged       int      `json:"auto_merged"`
+	Blocked          int      `json:"blocked"`
+	Class            string   `json:"class"`
+	Fixed            int      `json:"fixed"`
+	MedianHoursToFix *float32 `json:"median_hours_to_fix,omitempty"`
+	Open             int      `json:"open"`
+	Regressed        int      `json:"regressed"`
+	Repository       string   `json:"repository"`
+	RepositoryId     string   `json:"repository_id"`
+	Reverted         int      `json:"reverted"`
+}
 type AutopilotUpdate struct {
 	Enabled bool `json:"enabled"`
 }

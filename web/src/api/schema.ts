@@ -2395,6 +2395,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/autopilot/metrics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAutopilotMetrics"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/orgs/{orgID}/autopilot": {
         parameters: {
             query?: never;
@@ -4681,6 +4697,18 @@ export interface components {
             awaiting: number;
 
             version: number;
+        };
+        AutopilotMetric: {
+            repository_id: string;
+            repository: string;
+            class: string;
+            open: number;
+            blocked: number;
+            fixed: number;
+            median_hours_to_fix?: number;
+            auto_merged: number;
+            regressed: number;
+            reverted: number;
         };
         AutopilotUpdate: {
             enabled: boolean;
@@ -11361,6 +11389,37 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getAutopilotMetrics: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AutopilotMetric"][];
+                };
             };
 
             default: {

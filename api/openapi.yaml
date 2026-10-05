@@ -11345,6 +11345,51 @@
         }
       }
     },
+    "/api/v1/orgs/{orgID}/autopilot/metrics": {
+      "get": {
+        "operationId": "getAutopilotMetrics",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/AutopilotMetric"
+                  }
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/orgs/{orgID}/autopilot": {
       "get": {
         "operationId": "getAutopilot",
@@ -19587,6 +19632,52 @@
           "version": {
             "type": "integer",
             "format": "int64"
+          }
+        }
+      },
+      "AutopilotMetric": {
+        "type": "object",
+        "required": [
+          "repository_id",
+          "repository",
+          "class",
+          "open",
+          "blocked",
+          "fixed",
+          "auto_merged",
+          "regressed",
+          "reverted"
+        ],
+        "properties": {
+          "repository_id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "class": {
+            "type": "string"
+          },
+          "open": {
+            "type": "integer"
+          },
+          "blocked": {
+            "type": "integer"
+          },
+          "fixed": {
+            "type": "integer"
+          },
+          "median_hours_to_fix": {
+            "type": "number"
+          },
+          "auto_merged": {
+            "type": "integer"
+          },
+          "regressed": {
+            "type": "integer"
+          },
+          "reverted": {
+            "type": "integer"
           }
         }
       },

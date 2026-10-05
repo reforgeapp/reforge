@@ -30,8 +30,10 @@ export const policyAPI = {
 }
 
 export type Autopilot = components['schemas']['Autopilot']
+export type AutopilotMetric = components['schemas']['AutopilotMetric']
 export const autopilotAPI = {
   get: (orgID: string, signal?: AbortSignal) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { signal }),
+  metrics: (orgID: string, signal?: AbortSignal) => apiRequest<AutopilotMetric[]>(path(orgID, '/autopilot/metrics'), { signal }),
   run: (orgID: string, repositoryID: string, csrf: string) => apiRequest<void>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/run`), { method: 'POST' }, csrf),
   put: (orgID: string, version: number, enabled: boolean, csrf: string) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': `"${version}"` }, body: JSON.stringify({ enabled }) }, csrf),
 }
