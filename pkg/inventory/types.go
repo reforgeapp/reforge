@@ -68,6 +68,7 @@ type Repository struct {
 	SyncReason        string     `json:"sync_reason,omitempty"`
 	ConnectionVersion int64      `json:"connection_version"`
 	ChangesObservedAt *time.Time `json:"changes_observed_at,omitempty"`
+	PauseVersion      int64      `json:"pause_version"`
 }
 type Webhook struct {
 	ID           string `json:"id"`

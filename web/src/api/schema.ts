@@ -2658,6 +2658,8 @@ export interface components {
             connection_version?: number;
 
             changes_observed_at?: string;
+
+            pause_version?: number;
         };
         RepositoryPage: {
             items: components["schemas"]["Repository"][];

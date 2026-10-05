@@ -2730,6 +2730,7 @@ type Repository struct {
 	Name              string             `json:"name"`
 	NativeId          string             `json:"native_id"`
 	OrgId             string             `json:"org_id"`
+	PauseVersion      *int64             `json:"pause_version,omitempty"`
 	Paused            bool               `json:"paused"`
 	Provider          RepositoryProvider `json:"provider"`
 	SyncReason        *string            `json:"sync_reason,omitempty"`
