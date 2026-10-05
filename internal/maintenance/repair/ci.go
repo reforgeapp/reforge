@@ -743,6 +743,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			if reply == "" {
 				reply = "(empty)"
 			}
+			if review && 3*(turn+1) >= 2*p.Recipe.MaxTurns {
+				reply += fmt.Sprintf("\n[%d turns left: call report_finding for each confirmed problem now, then finish.]", p.Recipe.MaxTurns-turn-1)
+			}
 			if owner {
 				recentToolResults = appendOwnerRecent(recentToolResults, call.Name, reply)
 			}
