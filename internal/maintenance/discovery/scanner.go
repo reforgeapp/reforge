@@ -313,6 +313,8 @@ func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, 
 	return id, state == "open" || reviewed != head && time.Since(seen) > reviewCadence, nil
 }
 
+var DefaultBots = map[string]string{"dependabot[bot]\x0049699333": "dependabot", "renovate[bot]\x0029139614": "renovate"}
+
 func validationGap(entries []forge.SourceEntry) string {
 	ci, tests := false, false
 	for _, entry := range entries {
@@ -541,6 +543,11 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 			if bot.ActorID == change.AuthorID {
 				e.Bot = bot.Kind
 				e.Ownership = "bot"
+			}
+		}
+		if len(cfg.TrustedBots) == 0 && strings.EqualFold(change.AuthorType, "Bot") {
+			if kind := DefaultBots[change.AuthorLogin+"\x00"+change.AuthorID]; kind != "" {
+				e.Bot, e.Ownership = kind, "bot"
 			}
 		}
 		if strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
