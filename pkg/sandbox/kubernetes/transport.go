@@ -432,9 +432,14 @@ func parsePod(data []byte) (Pod, error) {
 			ActiveDeadlineSeconds int64 `json:"activeDeadlineSeconds"`
 		} `json:"spec"`
 		Status struct {
-			Phase   string `json:"phase"`
-			Reason  string `json:"reason"`
-			Message string `json:"message"`
+			Phase      string `json:"phase"`
+			Reason     string `json:"reason"`
+			Message    string `json:"message"`
+			Conditions []struct {
+				Type   string `json:"type"`
+				Status string `json:"status"`
+				Reason string `json:"reason"`
+			} `json:"conditions"`
 		} `json:"status"`
 	}
 	if err := json.Unmarshal(data, &response); err != nil {
@@ -451,7 +456,11 @@ func parsePod(data []byte) (Pod, error) {
 			return Pod{}, ErrBoundary
 		}
 	}
-	return Pod{Ref: PodRef{Namespace: response.Metadata.Namespace, Name: response.Metadata.Name, UID: response.Metadata.UID}, Phase: response.Status.Phase, Reason: response.Status.Reason, Message: response.Status.Message, CreatedAt: createdAt, ActiveDeadlineSeconds: response.Spec.ActiveDeadlineSeconds, Labels: response.Metadata.Labels}, nil
+	unschedulable := false
+	for _, condition := range response.Status.Conditions {
+		unschedulable = unschedulable || condition.Type == "PodScheduled" && condition.Status == "False" && condition.Reason == "Unschedulable"
+	}
+	return Pod{Ref: PodRef{Namespace: response.Metadata.Namespace, Name: response.Metadata.Name, UID: response.Metadata.UID}, Phase: response.Status.Phase, Reason: response.Status.Reason, Message: response.Status.Message, CreatedAt: createdAt, ActiveDeadlineSeconds: response.Spec.ActiveDeadlineSeconds, Labels: response.Metadata.Labels, Unschedulable: unschedulable}, nil
 }
 
 func (c *HTTPPodClient) readToken() (string, error) {

@@ -471,3 +471,38 @@ func TestValidateConfigBoundsImagePullSecretNames(t *testing.T) {
 		}
 	}
 }
+
+func TestRuntimeWaitsForCapacityWhileUnschedulable(t *testing.T) {
+	gets := 0
+	client := &fakePodClient{getHook: func(pod Pod) Pod {
+		gets++
+		if gets <= 8 {
+			pod.Phase, pod.Unschedulable = "Pending", true
+		}
+		return pod
+	}}
+	runtime := newTestRuntime(t, client, func(_ context.Context, got sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+		return testSnapshot(got), nil
+	})
+	runtime.config.ReadyTimeout = 20 * time.Millisecond
+	if _, err := runtime.PreparePinnedWorkspace(context.Background(), testRequest()); err != nil {
+		t.Fatalf("workspace failed while waiting for capacity: %v", err)
+	}
+	if gets <= 8 {
+		t.Fatalf("stopped waiting after %d polls", gets)
+	}
+
+	full := &fakePodClient{getHook: func(pod Pod) Pod {
+		pod.Phase, pod.Unschedulable = "Pending", true
+		return pod
+	}}
+	runtime = newTestRuntime(t, full, func(_ context.Context, got sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+		return testSnapshot(got), nil
+	})
+	runtime.config.ReadyTimeout = 20 * time.Millisecond
+	request := testRequest()
+	request.Timeout = time.Second
+	if _, err := runtime.PreparePinnedWorkspace(context.Background(), request); !errors.Is(err, sandbox.ErrResourceLimit) {
+		t.Fatalf("full cluster error = %v", err)
+	}
+}

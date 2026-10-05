@@ -41,6 +41,7 @@ type Pod struct {
 	CreatedAt             time.Time
 	ActiveDeadlineSeconds int64
 	Labels                map[string]string
+	Unschedulable         bool
 }
 
 type Resources struct {
@@ -405,15 +406,16 @@ func (r *Runtime) Close() error {
 }
 
 func (r *Runtime) awaitRunning(ctx context.Context, pod Pod) (Pod, error) {
-	ready, cancel := context.WithTimeout(ctx, r.config.ReadyTimeout)
-	defer cancel()
-	ticker := time.NewTicker(r.config.PollInterval)
-	defer ticker.Stop()
+	deadline := time.Now().Add(r.config.ReadyTimeout)
 	for {
-		next, err := r.config.Client.Get(ready, pod.Ref)
+		next, err := r.config.Client.Get(ctx, pod.Ref)
 		if err != nil {
+			if ctx.Err() != nil && pod.Unschedulable {
+				return pod, sandbox.ErrResourceLimit
+			}
 			return pod, err
 		}
+		pod.Unschedulable = next.Unschedulable
 		if err = validPodIdentity(pod, next); err != nil {
 			return next, err
 		}
@@ -423,10 +425,21 @@ func (r *Runtime) awaitRunning(ctx context.Context, pod Pod) (Pod, error) {
 		case "Failed", "Succeeded", "Unknown":
 			return next, ErrUnavailable
 		}
-		select {
-		case <-ready.Done():
+		wait := r.config.PollInterval
+		if next.Unschedulable {
+			deadline = time.Now().Add(r.config.ReadyTimeout)
+			wait = max(wait, min(2*time.Second, r.config.ReadyTimeout/4))
+		}
+		if time.Now().After(deadline) {
 			return next, ErrUnavailable
-		case <-ticker.C:
+		}
+		select {
+		case <-ctx.Done():
+			if next.Unschedulable {
+				return next, sandbox.ErrResourceLimit
+			}
+			return next, ErrUnavailable
+		case <-time.After(wait):
 		}
 	}
 }
