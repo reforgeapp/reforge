@@ -18,13 +18,13 @@ type Budget struct {
 	Files, Lines, Bytes, GeneratedBytes, Turns int
 }
 
-var Ceiling = Budget{Files: 200, Lines: 50000, Bytes: 2 << 20, GeneratedBytes: 8 << 20, Turns: 300}
+var Ceiling = Budget{Files: 200, Lines: 50000, Bytes: 2 << 20, GeneratedBytes: 8 << 20, Turns: 120}
 
 func (b Budget) Clamp() Budget {
 	return Budget{min(b.Files, Ceiling.Files), min(b.Lines, Ceiling.Lines), min(b.Bytes, Ceiling.Bytes), min(b.GeneratedBytes, Ceiling.GeneratedBytes), min(b.Turns, Ceiling.Turns)}
 }
 
-var codeBudget = Budget{Files: 40, Lines: 20000, Bytes: 1 << 20, GeneratedBytes: 8 << 20, Turns: 200}
+var codeBudget = Budget{Files: 40, Lines: 20000, Bytes: 1 << 20, GeneratedBytes: 8 << 20, Turns: 60}
 
 type Archetype struct {
 	Name         string
@@ -44,10 +44,10 @@ var archetypes = []Archetype{
 	{Name: "go", Toolchain: "go", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"go", "gomod", "go_modules"}},
 	{Name: "javascript", Toolchain: "javascript", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"npm", "yarn", "pnpm", "javascript"}},
 	{Name: "python", Toolchain: "python", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"pip", "pypi", "python", "poetry"}},
-	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Budget: Budget{Files: 4, Lines: 400, Bytes: 64 << 10, Turns: 40}, Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
-	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", Budget: Budget{Files: 30, Lines: 4000, Bytes: 256 << 10, GeneratedBytes: 2 << 20, Turns: 120}, Categories: []string{"missing_validation", "ci_gap", "test_gap"}},
-	{Name: "docs", MinProof: ProofStructural, Validator: "validate-docs", Budget: Budget{Files: 20, Lines: 3000, Bytes: 256 << 10, Turns: 80}, Categories: []string{"docs_gap", "docs_drift"}, AllowedPaths: []string{"**/*.md", "docs/**"}},
-	{Name: "review", MinProof: ProofStructural, Validator: "validate-bootstrap", ReadOnly: true, Budget: Budget{Files: 1, Lines: 1, Bytes: 1, Turns: 60}, Categories: []string{"repository_review"}},
+	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Budget: Budget{Files: 4, Lines: 400, Bytes: 64 << 10, Turns: 20}, Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
+	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", Budget: Budget{Files: 30, Lines: 4000, Bytes: 256 << 10, GeneratedBytes: 2 << 20, Turns: 50}, Categories: []string{"missing_validation", "ci_gap", "test_gap"}},
+	{Name: "docs", MinProof: ProofStructural, Validator: "validate-docs", Budget: Budget{Files: 20, Lines: 3000, Bytes: 256 << 10, Turns: 30}, Categories: []string{"docs_gap", "docs_drift"}, AllowedPaths: []string{"**/*.md", "docs/**"}},
+	{Name: "review", MinProof: ProofStructural, Validator: "validate-bootstrap", ReadOnly: true, Budget: Budget{Files: 1, Lines: 1, Bytes: 1, Turns: 40}, Categories: []string{"repository_review"}},
 }
 
 func Lookup(name string) (Archetype, bool) {
