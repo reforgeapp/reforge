@@ -207,6 +207,8 @@ func (c *HTTPPodClient) Exec(ctx context.Context, ref PodRef, command []string, 
 	if err != nil {
 		if response != nil {
 			defer response.Body.Close()
+			body, _ := io.ReadAll(io.LimitReader(response.Body, 512))
+			err = fmt.Errorf("%w: %s %s", err, response.Status, strings.Join(strings.Fields(string(body)), " "))
 		}
 		return 0, errors.Join(ErrTransport, err)
 	}
