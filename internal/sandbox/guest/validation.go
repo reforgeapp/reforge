@@ -75,6 +75,20 @@ func ValidateBootstrap(root fs.FS) []string {
 
 var markdownLink = regexp.MustCompile(`\]\(([^)\s]+)\)`)
 
+func BrokenLinks(name string, body []byte, exists func(string) bool) []string {
+	broken := []string{}
+	for _, match := range markdownLink.FindAllStringSubmatch(string(body), -1) {
+		target, _, _ := strings.Cut(match[1], "#")
+		if target == "" || strings.Contains(target, ":") || strings.HasPrefix(target, "/") {
+			continue
+		}
+		if !exists(path.Join(path.Dir(name), target)) {
+			broken = append(broken, match[1])
+		}
+	}
+	return broken
+}
+
 func ValidateDocs(root fs.FS) []string {
 	problems := []string{}
 	files := 0
@@ -98,13 +112,9 @@ func ValidateDocs(root fs.FS) []string {
 		if err != nil {
 			return err
 		}
-		for _, match := range markdownLink.FindAllStringSubmatch(string(body), -1) {
-			target, _, _ := strings.Cut(match[1], "#")
-			if target == "" || strings.Contains(target, ":") || strings.HasPrefix(target, "/") {
-				continue
-			}
-			if _, err := fs.Stat(root, path.Join(path.Dir(name), target)); err != nil && len(problems) < 100 {
-				problems = append(problems, name+": broken link "+match[1])
+		for _, link := range BrokenLinks(name, body, func(file string) bool { _, err := fs.Stat(root, file); return err == nil }) {
+			if len(problems) < 100 {
+				problems = append(problems, name+": broken link "+link)
 			}
 		}
 		return nil

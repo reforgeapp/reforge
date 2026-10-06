@@ -315,6 +315,34 @@ func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, 
 
 var DefaultBots = map[string]string{"dependabot[bot]\x0049699333": "dependabot", "renovate[bot]\x0029139614": "renovate"}
 
+func docsDrift(ctx context.Context, reader source.Reader, m forge.SourceManifest) (string, error) {
+	entries := m.Entries
+	exists := map[string]bool{}
+	docs := []forge.SourceEntry{}
+	for _, entry := range entries {
+		exists[entry.Path] = true
+		for dir := path.Dir(entry.Path); dir != "." && !exists[dir]; dir = path.Dir(dir) {
+			exists[dir] = true
+		}
+		if entry.Type == "blob" && strings.EqualFold(path.Ext(entry.Path), ".md") && entry.Size <= 256<<10 && len(docs) < 20 && !strings.Contains("/"+entry.Path, "/node_modules/") && !strings.Contains("/"+entry.Path, "/vendor/") {
+			docs = append(docs, entry)
+		}
+	}
+	broken := []string{}
+	for _, entry := range docs {
+		body, err := reader.Blob(ctx, m.Repository, entry, m.ObjectFormat, m.CommitSHA)
+		if err != nil {
+			return "", err
+		}
+		for _, link := range guest.BrokenLinks(entry.Path, body, func(file string) bool { return exists[file] }) {
+			if len(broken) < 20 {
+				broken = append(broken, entry.Path+" -> "+link)
+			}
+		}
+	}
+	return strings.Join(broken, "\n"), nil
+}
+
 func validationGap(entries []forge.SourceEntry) string {
 	ci, tests := false, false
 	for _, entry := range entries {
@@ -359,16 +387,16 @@ func BotUpdateJob(name string) bool {
 	name = strings.ToLower(strings.TrimSpace(name))
 	return name == "dependabot" || name == "renovate" || name == ".github/dependabot.yml" || name == ".github/dependabot.yaml" || strings.HasPrefix(name, "dependabot ") || strings.HasPrefix(name, "renovate ")
 }
-func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, []forge.SourceEntry, error) {
+func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef, commit string) (map[string][]byte, forge.SourceManifest, error) {
 	m, err := reader.Manifest(ctx, repo, commit)
 	if err != nil {
-		return nil, nil, err
+		return nil, m, err
 	}
 	if m.Repository != repo || m.CommitSHA != commit {
-		return nil, nil, ErrStale
+		return nil, m, ErrStale
 	}
 	if _, err = source.ValidateManifest(ctx, m); err != nil {
-		return nil, nil, err
+		return nil, m, err
 	}
 	files := map[string][]byte{}
 	total := 0
@@ -381,19 +409,19 @@ func manifestFiles(ctx context.Context, reader source.Reader, repo forge.RepoRef
 			continue
 		}
 		if len(files) >= 100 {
-			return nil, nil, errors.New("manifest count exceeds discovery bound")
+			return nil, m, errors.New("manifest count exceeds discovery bound")
 		}
 		content, err := reader.Blob(ctx, repo, entry, m.ObjectFormat, commit)
 		if err != nil {
-			return nil, nil, err
+			return nil, m, err
 		}
 		if len(content) > 1<<20 || total+len(content) > 4<<20 {
-			return nil, nil, ErrStale
+			return nil, m, ErrStale
 		}
 		total += len(content)
 		files[entry.Path] = content
 	}
-	return files, m.Entries, nil
+	return files, m, nil
 }
 func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, error) {
 	authorize := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
@@ -412,7 +440,8 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		return nil, ErrStale
 	}
 	sourceReader := s.reader.SourceReader(lease.Org, lease.Connection, authorize)
-	base, entries, err := manifestFiles(ctx, sourceReader, lease.Ref, resolved.SHA)
+	base, manifest, err := manifestFiles(ctx, sourceReader, lease.Ref, resolved.SHA)
+	entries := manifest.Entries
 	if err != nil {
 		return nil, readFailure(privateconnector.ForgeSourceManifest, err)
 	}
@@ -456,6 +485,13 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	}
 	if title := validationGap(entries); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "validation-bootstrap", Category: "missing_validation", Severity: "medium", Title: title, Evidence: initial})
+	}
+	if gap, err := docsDrift(ctx, sourceReader, manifest); err != nil {
+		return nil, err
+	} else if gap != "" {
+		e := initial
+		e.Review = &ReviewEvidence{Confidence: "high", Objective: "Fix or remove every broken relative link in the repository's Markdown files", Detail: gap}
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "docs-links", Category: "docs_drift", Severity: "low", Title: "Documentation links to files that do not exist", Evidence: e})
 	}
 	out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "repository-review", Category: "repository_review", Severity: "info", Title: "Review repository for issues no rule detects", Evidence: initial})
 	out = append(out, largeFileObservations(entries, lease.Repo, initial)...)
