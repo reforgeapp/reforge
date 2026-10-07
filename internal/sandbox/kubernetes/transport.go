@@ -319,7 +319,7 @@ func writeExecInput(ctx context.Context, conn *websocket.Conn, input io.Reader, 
 	if input == nil {
 		input = strings.NewReader("")
 	}
-	buffer := make([]byte, 32<<10)
+	buffer := make([]byte, 4095)
 	total := 0
 	for {
 		select {
