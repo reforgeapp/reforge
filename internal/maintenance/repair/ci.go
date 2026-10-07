@@ -455,8 +455,11 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			continuation = nil
 			messages = modelTurn.Messages
 		}
-		result, err := e.turn(ctx, modelTurn)
+		result, err := e.turnWithRetry(ctx, modelTurn)
 		if err != nil {
+			if pausable(err) {
+				return fail("Paused: "+modelFailure(err), fmt.Errorf("%w: %s", ErrPaused, modelFailure(err)))
+			}
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++

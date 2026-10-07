@@ -294,6 +294,7 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 		reason = "Attempt failed"
 	}
 	jobState, attemptState := "failed", "failed"
+	paused := false
 	switch result.Outcome {
 	case "completed":
 		if t.State != domain.TaskPublishing {
@@ -333,6 +334,16 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 		} else {
 			reason = "External outcome unknown: " + reason
 		}
+	case "paused":
+		if err := checkUncertain(ctx, tx, l.OrgID, l.TaskID); err != nil {
+			if !errors.Is(err, ErrReconciliation) {
+				return err
+			}
+			state, jobState, attemptState, reason = domain.TaskReconciling, "reconciling", "uncertain", "External outcome unknown; reconcile before retry"
+		} else {
+			state, jobState, paused = domain.TaskQueued, "queued", true
+			reason = "Paused: " + strings.TrimPrefix(reason, "Paused: ") + "; resumes automatically"
+		}
 	case "failed":
 		if err := checkUncertain(ctx, tx, l.OrgID, l.TaskID); err != nil {
 			if !errors.Is(err, ErrReconciliation) {
@@ -359,7 +370,7 @@ func (s *Service) completeTx(ctx context.Context, tx pgx.Tx, l Lease, t *Task, r
 	if _, err := tx.Exec(ctx, `UPDATE workflow_attempts SET state=$3,ended_at=clock_timestamp() WHERE org_id=$1 AND id=$2`, l.OrgID, l.AttemptID, attemptState); err != nil {
 		return err
 	}
-	if _, err := tx.Exec(ctx, `UPDATE workflow_jobs SET state=$3,lease_expires_at=NULL,lease_owner='',available_at=clock_timestamp()+LEAST(attempts*attempts,60)*interval '1 second' WHERE org_id=$1 AND id=$2`, l.OrgID, l.JobID, jobState); err != nil {
+	if _, err := tx.Exec(ctx, `UPDATE workflow_jobs SET state=$3,lease_expires_at=NULL,lease_owner='',attempts=CASE WHEN $4 THEN greatest(attempts-1,0) ELSE attempts END,available_at=clock_timestamp()+CASE WHEN $4 THEN interval '15 minutes' ELSE LEAST(attempts*attempts,60)*interval '1 second' END WHERE org_id=$1 AND id=$2`, l.OrgID, l.JobID, jobState, paused); err != nil {
 		return err
 	}
 	if err := setTaskState(ctx, tx, t, state, reason, ""); err != nil {

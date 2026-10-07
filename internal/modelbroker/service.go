@@ -25,6 +25,7 @@ import (
 )
 
 var ErrUncertain = errors.New("model turn outcome requires reconciliation; allowance remains held")
+var ErrTurnFailed = errors.New("model turn failed; retry with a new operation")
 var ErrUnavailable = errors.New("configured model route is not available for this runner")
 
 type Service struct {
@@ -42,7 +43,7 @@ func New(db *store.Store, runners *runner.Service, connections *connections.Serv
 	return &Service{db: db, runners: runners, connections: connections, budgets: budgets, private: private, vault: vault, factory: providers.Factory{Development: development}}
 }
 func (s *Service) settleOrphansTx(ctx context.Context, tx pgx.Tx, l workflow.Lease) error {
-	rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns WHERE org_id=$1 AND task_id=$2 AND attempt_id<>$3 AND state IN ('dispatched','unknown')`, l.OrgID, l.TaskID, l.AttemptID)
+	rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown') AND (attempt_id<>$3 OR state='unknown' OR created_at<clock_timestamp()-interval '20 minutes')`, l.OrgID, l.TaskID, l.AttemptID)
 	if err != nil {
 		return err
 	}
@@ -76,6 +77,9 @@ func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id,
 	}
 	if oldHash != hash || task != l.TaskID || attempt != l.AttemptID {
 		return nil, auth.ErrConflict
+	}
+	if state == "failed" {
+		return nil, ErrTurnFailed
 	}
 	if state != "complete" {
 		return nil, ErrUncertain
@@ -121,10 +125,10 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		if initial.Kind != "model" || initial.State != "healthy" || initial.Settings.Model != in.Model || initial.Settings.BillingRoute != "direct_api" {
 			return ErrUnavailable
 		}
-		cached, err = s.existing(ctx, tx, l, in.OperationID, hash)
-		if err == nil && cached == nil {
-			err = s.settleOrphansTx(ctx, tx, l)
+		if err = s.settleOrphansTx(ctx, tx, l); err != nil {
+			return err
 		}
+		cached, err = s.existing(ctx, tx, l, in.OperationID, hash)
 		if err == nil && cached == nil {
 			var unresolved bool
 			err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, l.OrgID, l.TaskID).Scan(&unresolved)

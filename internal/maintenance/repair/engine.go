@@ -65,6 +65,7 @@ type Engine struct {
 
 var ErrHandoff = errors.New("repair requires human review")
 var ErrRunLimit = errors.New("run reached its model turn or time limit")
+var ErrPaused = errors.New("paused until budget or provider limits allow")
 
 type protectedEvidenceError struct {
 	path  string
@@ -702,6 +703,26 @@ func bounded(text string) string {
 		return text
 	}
 	return text[:32<<10] + "\n[truncated]"
+}
+
+func (e Engine) turnWithRetry(ctx context.Context, in model.Turn) (model.TurnResult, error) {
+	for attempt := 0; ; attempt++ {
+		result, err := e.turn(ctx, in)
+		if err == nil || attempt == 2 || !strings.Contains(err.Error(), "Model turn failed and was settled") {
+			return result, err
+		}
+		in.OperationID = domain.NewID()
+	}
+}
+
+func pausable(err error) bool {
+	message := strings.ToLower(err.Error())
+	for _, marker := range []string{"wait for the applicable budget", "model usage is unresolved", "rate limit", "too many requests", "429"} {
+		if strings.Contains(message, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func modelFailure(err error) string {

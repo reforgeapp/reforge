@@ -51,6 +51,9 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			if completion.Outcome == "failed" && errors.Is(failure, ErrTransientControlPlane) {
 				completion.Retryable = true
 			}
+			if errors.Is(failure, repair.ErrPaused) {
+				completion.Outcome = "paused"
+			}
 		}()
 		failed := workflow.Completion{Outcome: "failed"}
 		run, err := c.RepairRun(ctx, j)
