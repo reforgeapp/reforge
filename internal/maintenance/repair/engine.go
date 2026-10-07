@@ -46,6 +46,7 @@ type Engine struct {
 	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
 	Artifact         func(context.Context, string, []byte) (string, string, error)
 	Progress         func(context.Context, string) error
+	Log              func(context.Context, string, string)
 	Model            string
 	JobID            string
 	AttemptID        string
@@ -180,7 +181,14 @@ func (e Engine) turnTimeout() time.Duration {
 	}
 	return e.TurnTimeout
 }
+func (e Engine) log(ctx context.Context, kind, message string) {
+	if e.Log != nil {
+		e.Log(ctx, kind, message)
+	}
+}
+
 func (e Engine) stage(ctx context.Context, state string) error {
+	e.log(ctx, "stage", state)
 	if e.Progress != nil {
 		return e.Progress(ctx, state)
 	}

@@ -10,6 +10,7 @@ import (
 	"reforge/internal/maintenance/recipes"
 	"reforge/internal/maintenance/repair"
 	"reforge/internal/workflow"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -61,6 +62,16 @@ func (s *Server) RegisterRepair(service *repair.Service) {
 	browser.GET("/repair-runs/:taskID", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
 		out, err := service.Get(c.Request.Context(), session, c.Param("orgID"), c.Param("taskID"))
+		if err != nil {
+			repairFailure(c, err)
+			return
+		}
+		c.JSON(200, out)
+	})
+	browser.GET("/repair-runs/:taskID/logs", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		after, _ := strconv.ParseInt(c.Query("after"), 10, 64)
+		out, err := service.Logs(c.Request.Context(), session, c.Param("orgID"), c.Param("taskID"), max(after, 0))
 		if err != nil {
 			repairFailure(c, err)
 			return
@@ -152,6 +163,17 @@ func (s *Server) RegisterRepair(service *repair.Service) {
 			return
 		}
 		c.JSON(200, out)
+	})
+	jobs.POST("/logs", func(c *gin.Context) {
+		var in []repair.LogEntry
+		if !identityJSON(c, &in) {
+			return
+		}
+		if err := service.AppendLogs(c.Request.Context(), c.GetString("runner_token"), in); err != nil {
+			repairFailure(c, err)
+			return
+		}
+		c.Status(http.StatusNoContent)
 	})
 	jobs.POST("/checkpoint", func(c *gin.Context) {
 		var in repair.Checkpoint

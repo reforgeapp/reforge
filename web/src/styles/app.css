@@ -362,3 +362,8 @@ label.switch { display: inline-flex; align-items: center; gap: 10px; width: fit-
 .switch input::after { content: ""; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--text-muted); transition: transform .15s ease, background-color .15s ease; }
 .switch input:checked { border-color: var(--primary-border); background: var(--primary-soft); }
 .switch input:checked::after { transform: translateX(14px); background: var(--primary); }
+.run-log { display: grid; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.run-log li { display: grid; gap: 4px; }
+.run-log pre { max-height: 320px; margin: 0; overflow: auto; white-space: pre-wrap; }
+.run-log-model pre { border-left: 2px solid var(--primary); }
+.run-log-result pre { border-left: 2px solid var(--amber); }

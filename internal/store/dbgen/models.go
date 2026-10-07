@@ -788,6 +788,16 @@ type Repository struct {
 	Version       int64              `json:"version"`
 }
 
+type RunLog struct {
+	OrgID     pgtype.UUID        `json:"org_id"`
+	TaskID    pgtype.UUID        `json:"task_id"`
+	Seq       int64              `json:"seq"`
+	AttemptID pgtype.UUID        `json:"attempt_id"`
+	Kind      string             `json:"kind"`
+	Message   string             `json:"message"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
 type Runner struct {
 	OrgID               pgtype.UUID        `json:"org_id"`
 	ID                  pgtype.UUID        `json:"id"`

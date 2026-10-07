@@ -464,6 +464,11 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		}
 		out.Turns++
 		e.logTurn(ctx, out.Turns, result)
+		said := strings.TrimSpace(result.Text)
+		for _, call := range result.ToolCalls {
+			said += "\n→ " + call.Name + " " + clip(string(call.Arguments), 600)
+		}
+		e.log(ctx, "model", fmt.Sprintf("Turn %d\n%s", out.Turns, strings.TrimSpace(said)))
 		if transcript.Len() < 2<<20 {
 			fmt.Fprintf(&transcript, "\n## turn %d (%s)\n%s\n", out.Turns, result.FinishReason, clip(result.Text, 2000))
 			for _, call := range result.ToolCalls {
@@ -754,6 +759,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			}
 			if transcript.Len() < 2<<20 {
 				fmt.Fprintf(&transcript, "< %s: %s\n", call.Name, clip(reply, 3000))
+				e.log(ctx, "tool", call.Name+": "+clip(reply, 4000))
 			}
 			messages = append(messages, model.Message{Role: "tool", ToolCallID: call.ID, Text: reply})
 			if revision != checkpointRevision {

@@ -13,6 +13,7 @@ export type RepairRun = {
   report?: { diff?: string; plan_digest: string; state: string; reason: string; baseline: CheckResult[]; candidate: CheckResult[]; target: CheckResult[]; patches: Array<{ path: string; content: string }>; artifacts: string[]; turns: number }
   state: string; version: number; updated_at: string
 }
+export type RunLog = { seq: number; attempt_id: string; kind: 'stage' | 'model' | 'tool' | 'result'; message: string; created_at: string }
 export type RunEvent = { id: number; type: string; aggregate_type: string; aggregate_id: string; aggregate_version: number; occurred_at: string; data: unknown }
 const path = (orgID: string, suffix: string) => '/api/v1/orgs/' + encodeURIComponent(orgID) + suffix
 const tag = (version: number) => '"' + version + '"'
@@ -30,6 +31,7 @@ export const runsAPI = {
   cancel: (orgID: string, taskID: string, version: number, csrf: string) => apiRequest<Task>(path(orgID, '/tasks/' + encodeURIComponent(taskID) + '/cancel'), { method: 'POST', headers: { 'If-Match': tag(version) } }, csrf),
   resume: (orgID: string, taskID: string, version: number, csrf: string) => apiRequest<Task>(path(orgID, '/tasks/' + encodeURIComponent(taskID) + '/resume'), { method: 'POST', headers: { 'If-Match': tag(version) } }, csrf),
   reconcile: (orgID: string, taskID: string, version: number, csrf: string) => apiRequest<RepairRun>(path(orgID, '/repair-runs/' + encodeURIComponent(taskID) + '/reconcile'), { method: 'POST', headers: { 'If-Match': tag(version) } }, csrf),
+  logs: (orgID: string, taskID: string, after: number, signal?: AbortSignal) => apiRequest<RunLog[]>(path(orgID, '/repair-runs/' + encodeURIComponent(taskID) + '/logs?after=' + after), { signal }),
   artifactURL: (orgID: string, artifactID: string) => path(orgID, '/artifacts/' + encodeURIComponent(artifactID) + '/download'),
 }
 

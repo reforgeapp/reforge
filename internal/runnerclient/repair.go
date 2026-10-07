@@ -34,6 +34,11 @@ func (c *Client) RepairSnapshot(ctx context.Context, j Job, sha string) (sandbox
 	_, err = scoped.responseLimit(req, &out, 90<<20)
 	return out, err
 }
+func (c *Client) RepairLogs(ctx context.Context, j Job, entries []repair.LogEntry) error {
+	_, err := c.call(ctx, "POST", "/runner/v1/repair/logs", j.Token, entries, nil)
+	return err
+}
+
 func (c *Client) RepairCheckpoint(ctx context.Context, j Job, in repair.Checkpoint) error {
 	body, err := json.Marshal(in)
 	if err != nil || len(body) > 1<<20 {
