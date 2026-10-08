@@ -298,6 +298,44 @@ func bounded(value string, limit int) string {
 	return strings.ToValidUTF8(value, "")
 }
 
+func refreshReviewFindings(ctx context.Context, tx pgx.Tx, lease scanLease, observations []Observation) error {
+	var current *Evidence
+	for i := range observations {
+		if observations[i].Category == "repository_review" {
+			current = &observations[i].Evidence
+		}
+	}
+	if current == nil {
+		return nil
+	}
+	rows, err := tx.Query(ctx, `SELECT `+columns+` FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND source='repository_review' AND state='open'`, lease.Org, lease.Repo)
+	if err != nil {
+		return err
+	}
+	var open []Finding
+	for rows.Next() {
+		f, err := scanFinding(rows)
+		if err != nil {
+			rows.Close()
+			return err
+		}
+		open = append(open, f)
+	}
+	rows.Close()
+	if err = rows.Err(); err != nil {
+		return err
+	}
+	for _, f := range open {
+		o := f.Observation
+		o.Evidence.ConnectionID, o.Evidence.ConnectionVersion, o.Evidence.ConfigVersion = current.ConnectionID, current.ConnectionVersion, current.ConfigVersion
+		o.Evidence.HeadSHA, o.Evidence.TargetSHA, o.Evidence.TargetBranch = current.HeadSHA, current.TargetSHA, current.TargetBranch
+		if _, err = ObserveTx(ctx, tx, lease.Org, o, lease.User, "discovery-"+lease.Repo); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 const reviewCadence = 24 * time.Hour
 
 func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, bool, error) {
@@ -776,6 +814,9 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 				return err
 			}
 			seen = append(seen, f.ID)
+		}
+		if err := refreshReviewFindings(persistCtx, tx, lease, observations); err != nil {
+			return err
 		}
 		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
 		if err != nil {
