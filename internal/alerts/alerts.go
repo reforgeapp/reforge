@@ -139,7 +139,7 @@ func recipients(s Settings) []string {
 	return s.Defaults
 }
 
-type item struct{ key, line string }
+type item struct{ Key, Line string }
 
 func (s *Service) Notify(ctx context.Context, org string) error {
 	if !s.configured() {
@@ -173,7 +173,7 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 	lines := make([]string, len(items))
 	keys := make([]string, len(items))
 	for i, it := range items {
-		lines[i], keys[i] = "- "+it.line, it.key
+		lines[i], keys[i] = "- "+it.Line, it.Key
 	}
 	if err = s.send(s.smtp, to, fmt.Sprintf("Reforge: %d item(s) need attention", len(items)), strings.Join(lines, "\n")+"\n"); err != nil {
 		return err
