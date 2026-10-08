@@ -63,6 +63,7 @@ type Service struct {
 	Tasks       *workflow.Service
 	Deployments *deployment.Service
 	Promotions  *gitops.Service
+	Notify      func(context.Context, string) error
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -301,6 +302,13 @@ func verifyMergesTx(ctx context.Context, tx pgx.Tx, org string) error {
 }
 
 func (s *Service) Step(ctx context.Context, org string) error {
+	if s.Notify != nil {
+		defer func() {
+			if e := s.Notify(context.WithoutCancel(ctx), org); e != nil {
+				slog.WarnContext(ctx, "alert delivery failed", "org_id", org, "error", e)
+			}
+		}()
+	}
 	session, sc, err := s.session(ctx, org)
 	if err != nil {
 		return s.status(ctx, org, "Import a repository to start")

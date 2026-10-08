@@ -8,6 +8,7 @@ import { organisationAPI, type Membership, type OrgOIDCSettings, type OrgOIDCInv
 import '../styles/organisation.css'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
+import { AlertSettings } from './AlertSettings'
 
 const roles = ['owner', 'admin', 'maintainer', 'reviewer', 'viewer'] as const
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'Request failed.'
@@ -16,13 +17,13 @@ const identityName = (member: Membership, ownID?: string, ownName?: string) => m
 export function OrganisationPage({ orgID }: { orgID: string }) {
   const session = useSession()
   const role = session.data?.memberships.find(item => item.org_id === orgID)?.role
-  const [tab, setTab] = useState<'teams' | 'members' | 'identity'>('teams')
+  const [tab, setTab] = useState<'teams' | 'members' | 'identity' | 'alerts'>('teams')
 
   if (!session.data && session.isPending) return <StatePanel kind="loading" title="Loading organisation access" detail="" />
   if (!session.data && session.error) return <StatePanel kind="error" title="Organisation access unavailable" detail={errorText(session.error)} action={<Button onClick={() => void session.refetch()}>Retry</Button>} />
   if (role !== 'owner' && role !== 'admin') return <StatePanel kind="blocked" title="Organisation access restricted" detail="Ask an organisation owner or administrator to manage this organisation." />
 
-  const items = [{ id: 'teams', label: 'Teams' }, ...(role === 'owner' ? [{ id: 'members', label: 'Members' }, { id: 'identity', label: 'Identity' }] : [])]
+  const items = [{ id: 'teams', label: 'Teams' }, ...(role === 'owner' ? [{ id: 'members', label: 'Members' }, { id: 'identity', label: 'Identity' }] : []), { id: 'alerts', label: 'Alerts' }]
   const activeTab = items.some(item => item.id === tab) ? tab : 'teams'
 
   return <div className="organisation-page">
@@ -30,6 +31,7 @@ export function OrganisationPage({ orgID }: { orgID: string }) {
     {activeTab === 'teams' && <section id="organisation-workspace-panel-teams"><TeamsSection orgID={orgID} /></section>}
     {activeTab === 'members' && <section id="organisation-workspace-panel-members"><MembersSection orgID={orgID} /></section>}
     {activeTab === 'identity' && <section id="organisation-workspace-panel-identity"><IdentitySettings orgID={orgID} /></section>}
+    {activeTab === 'alerts' && <section id="organisation-workspace-panel-alerts"><AlertSettings orgID={orgID} csrf={session.data?.csrf_token ?? ''} canWrite={role === 'owner'} /></section>}
   </div>
 }
 

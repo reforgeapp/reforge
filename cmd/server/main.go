@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/signal"
 	"reforge/internal/agent"
+	"reforge/internal/alerts"
 	"reforge/internal/artifact"
 	"reforge/internal/auth"
 	"reforge/internal/autopilot"
@@ -226,11 +227,14 @@ func run() error {
 	autopilots.Tasks = workflows
 	autopilots.Deployments = deliveries
 	autopilots.Promotions = promotions
+	notices := alerts.New(db, identity, alerts.SMTP{Address: cfg.SMTPAddress, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom}, cfg.PublicURL)
+	autopilots.Notify = notices.Notify
 	autopilots.Scan = func(ctx context.Context, session auth.Session, org, repo, request string) error {
 		_, err := discoveries.StartScan(ctx, session, org, repo, request)
 		return err
 	}
 	app.RegisterAutopilot(autopilots)
+	app.RegisterAlerts(notices)
 	autopilotContext, stopAutopilot := context.WithCancel(ctx)
 	autopilotDone := make(chan struct{})
 	defer func() { stopAutopilot(); <-autopilotDone }()

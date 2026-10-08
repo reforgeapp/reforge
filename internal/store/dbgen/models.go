@@ -16,6 +16,19 @@ type AgentQualification struct {
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
 }
 
+type AlertDelivery struct {
+	OrgID  pgtype.UUID        `json:"org_id"`
+	Key    string             `json:"key"`
+	SentAt pgtype.Timestamptz `json:"sent_at"`
+}
+
+type AlertSetting struct {
+	OrgID      pgtype.UUID `json:"org_id"`
+	Enabled    bool        `json:"enabled"`
+	Recipients []byte      `json:"recipients"`
+	Version    int64       `json:"version"`
+}
+
 type Artifact struct {
 	OrgID        pgtype.UUID        `json:"org_id"`
 	ID           pgtype.UUID        `json:"id"`

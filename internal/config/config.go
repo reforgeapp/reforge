@@ -38,6 +38,10 @@ type Config struct {
 	OIDCIssuer         string
 	OIDCClientID       string
 	OIDCClientSecret   string `json:"-"`
+	SMTPAddress        string
+	SMTPUsername       string
+	SMTPPassword       string `json:"-"`
+	SMTPFrom           string
 	BootstrapToken     string `json:"-"`
 	BootstrapExpiresAt time.Time
 	GitHubApp          GitHubAppFiles
@@ -69,6 +73,10 @@ func Load() (Config, error) {
 		OIDCIssuer:        os.Getenv("REFORGE_OIDC_ISSUER"),
 		OIDCClientID:      os.Getenv("REFORGE_OIDC_CLIENT_ID"),
 		OIDCClientSecret:  os.Getenv("REFORGE_OIDC_CLIENT_SECRET"),
+		SMTPAddress:       os.Getenv("REFORGE_SMTP_ADDRESS"),
+		SMTPUsername:      os.Getenv("REFORGE_SMTP_USERNAME"),
+		SMTPPassword:      os.Getenv("REFORGE_SMTP_PASSWORD"),
+		SMTPFrom:          os.Getenv("REFORGE_SMTP_FROM"),
 		BootstrapToken:    os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
 		GitHubApp: GitHubAppFiles{
 			AppID: os.Getenv("REFORGE_GITHUB_APP_ID"), Slug: os.Getenv("REFORGE_GITHUB_APP_SLUG"), ClientID: os.Getenv("REFORGE_GITHUB_APP_CLIENT_ID"),
