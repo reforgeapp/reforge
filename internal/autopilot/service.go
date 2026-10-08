@@ -465,6 +465,13 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	if len(candidates) > 0 {
 		return "", "", "Model connection budgets used up", nil
 	}
+	var configured int
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id WHERE c.org_id=$1 AND c.kind='model' AND r.config->>'mode'='priced'`, org).Scan(&configured); err != nil {
+		return "", "", "", err
+	}
+	if configured > 0 {
+		return "", "", "Waiting for a model connection: all are degraded or cooling down after failed calls", nil
+	}
 	return "", "", "", nil
 }
 
