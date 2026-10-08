@@ -291,6 +291,7 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 		if digest != "" {
 			check.OutputSHA256 = digest
 		}
+		e.log(ctx, "tool", fmt.Sprintf("%s check %s: exit %d, %d cases%s", label, command.ID, check.ExitCode, len(check.Cases), map[bool]string{false: ", incomplete: " + check.Reason, true: ""}[check.Complete]))
 		results = append(results, check)
 	}
 	return results, nil
