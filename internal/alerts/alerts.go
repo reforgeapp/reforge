@@ -59,6 +59,9 @@ func (s *Service) Get(ctx context.Context, session auth.Session, org string) (Se
 		out, err = s.settingsTx(ctx, tx, org)
 		return err
 	})
+	if err == nil {
+		out.Defaults, err = s.owners(ctx, org)
+	}
 	return out, err
 }
 
@@ -92,6 +95,9 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, in 
 		out, err = s.settingsTx(ctx, tx, org)
 		return err
 	})
+	if err == nil {
+		out.Defaults, err = s.owners(ctx, org)
+	}
 	return out, err
 }
 
@@ -111,6 +117,9 @@ func (s *Service) Test(ctx context.Context, session auth.Session, org string) er
 	if !s.configured() {
 		return ErrNotConfigured
 	}
+	if settings.Defaults, err = s.owners(ctx, org); err != nil {
+		return err
+	}
 	return s.send(s.smtp, recipients(settings), "Reforge alert test", "Reforge can send alerts to this address.\n\n"+s.publicURL+"/org/"+org+"/organisation\n")
 }
 
@@ -124,12 +133,29 @@ func (s *Service) settingsTx(ctx context.Context, tx pgx.Tx, org string) (Settin
 	if raw != nil {
 		_ = json.Unmarshal(raw, &out.Recipients)
 	}
-	rows, err := tx.Query(ctx, `SELECT u.email FROM memberships m JOIN users u ON u.id=m.user_id WHERE m.org_id=$1 AND m.role='owner' AND u.email<>'' ORDER BY u.email LIMIT 20`, org)
-	if err != nil {
-		return out, err
+	return out, nil
+}
+
+func (s *Service) owners(ctx context.Context, org string) ([]string, error) {
+	var ids []string
+	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT user_id::text FROM memberships WHERE org_id=$1 AND role='owner' ORDER BY user_id LIMIT 20`, org)
+		if err != nil {
+			return err
+		}
+		ids, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	})
+	emails := []string{}
+	for _, id := range ids {
+		var email string
+		if e := s.db.Identity(ctx, id, func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT email FROM users WHERE id=$1`, id).Scan(&email)
+		}); e == nil && email != "" {
+			emails = append(emails, email)
+		}
 	}
-	out.Defaults, err = pgx.CollectRows(rows, pgx.RowTo[string])
-	return out, err
+	return emails, err
 }
 
 func recipients(s Settings) []string {
@@ -164,6 +190,9 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 		return err
 	})
 	if err != nil || len(items) == 0 || !settings.Enabled {
+		return err
+	}
+	if settings.Defaults, err = s.owners(ctx, org); err != nil {
 		return err
 	}
 	to := recipients(settings)
