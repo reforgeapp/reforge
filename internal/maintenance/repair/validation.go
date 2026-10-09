@@ -390,10 +390,6 @@ func caseName(name string) string {
 	return name
 }
 
-func TouchesTests(patches []sandbox.Patch) bool {
-	return slices.ContainsFunc(patches, func(patch sandbox.Patch) bool { return guest.TestPath(patch.Path) })
-}
-
 func changedLines(a, b []byte) int {
 	old, next := strings.Split(string(a), "\n"), strings.Split(string(b), "\n")
 	prefix := 0

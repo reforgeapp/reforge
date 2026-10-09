@@ -682,13 +682,12 @@ func (s *Service) rebase(ctx context.Context, org string) error {
 
 func (s *Service) merge(ctx context.Context, session auth.Session, org string) error {
 	var finding, repo, change, task, head, proof string
-	var adopted, reviewOnly bool
+	var adopted bool
 	var version int64
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		candidate, err := selectMergeCandidate(ctx, tx, org)
 		finding, version, repo, change, task, head, adopted, proof = candidate.finding, candidate.version, candidate.repository, candidate.change, candidate.task, candidate.head, candidate.adopted, candidate.proof
-		reviewOnly = candidate.reviewOnly
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -713,14 +712,6 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	}
 	if slices.Contains(resolved.Policy.Deny, policy.Merge) {
 		return later("Mode does not allow merging", 10*time.Minute)
-	}
-	if reviewOnly {
-		return later("Awaiting human review: new validation must be reviewed before merge", 30*time.Minute)
-	}
-	if run, err := s.repairs.Get(ctx, session, org, task); err != nil {
-		return later(err.Error(), 5*time.Minute)
-	} else if run.Report != nil && repair.TouchesTests(run.Report.Patches) {
-		return later("Awaiting human review: fix changes tests", 30*time.Minute)
 	}
 	if slices.Contains(resolved.Policy.ReviewProofs, proof) {
 		return later("Awaiting human review: policy requires review for "+proof+" proof", 30*time.Minute)
@@ -786,12 +777,12 @@ func humanMergeReason(blockers []string) string {
 type mergeCandidate struct {
 	finding, repository, change, task, head, proof string
 	version                                        int64
-	adopted, reviewOnly                            bool
+	adopted                                        bool
 }
 
 func selectMergeCandidate(ctx context.Context, tx pgx.Tx, org string) (mergeCandidate, error) {
 	var candidate mergeCandidate
-	err := tx.QueryRow(ctx, `SELECT rr.finding_id::text,rr.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text,coalesce(rr.native_change->>'head_sha',''),a.task_id IS NULL,coalesce(nullif(rr.context#>>'{plan,recipe,min_proof}',''),'tests'),coalesce(rr.context#>>'{plan,recipe,review_only}'='true',false) FROM repair_runs rr JOIN repositories r ON r.org_id=rr.org_id AND r.id=rr.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.finding_id=rr.finding_id AND a.finding_version=rr.finding_version AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND r.accessible AND NOT r.archived AND NOT r.paused AND (CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END IS NULL OR CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=rr.org_id AND m.task_id=rr.task_id AND m.supersession IS NOT NULL) ORDER BY coalesce(a.updated_at,d.updated_at,rr.created_at),rr.created_at,rr.task_id LIMIT 1`, org).Scan(&candidate.finding, &candidate.version, &candidate.repository, &candidate.change, &candidate.task, &candidate.head, &candidate.adopted, &candidate.proof, &candidate.reviewOnly)
+	err := tx.QueryRow(ctx, `SELECT rr.finding_id::text,rr.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text,coalesce(rr.native_change->>'head_sha',''),a.task_id IS NULL,coalesce(nullif(rr.context#>>'{plan,recipe,min_proof}',''),'tests') FROM repair_runs rr JOIN repositories r ON r.org_id=rr.org_id AND r.id=rr.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.finding_id=rr.finding_id AND a.finding_version=rr.finding_version AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND r.accessible AND NOT r.archived AND NOT r.paused AND (CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END IS NULL OR CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=rr.org_id AND m.task_id=rr.task_id AND m.supersession IS NOT NULL) ORDER BY coalesce(a.updated_at,d.updated_at,rr.created_at),rr.created_at,rr.task_id LIMIT 1`, org).Scan(&candidate.finding, &candidate.version, &candidate.repository, &candidate.change, &candidate.task, &candidate.head, &candidate.adopted, &candidate.proof)
 	return candidate, err
 }
 

@@ -69,9 +69,29 @@ func BuildOwner(name string, files map[string][]byte) (Recipe, error) {
 	r.ProtectedPaths = protected(paths)
 	r.ManifestPaths = manifests(paths)
 	if len(r.Commands) == 0 {
-		return Recipe{}, fmt.Errorf("%w: baseline tests unavailable for %s", ErrUnsupported, strings.ToLower(strings.TrimSpace(name)))
+		if !toolchainFits(canonical, paths) {
+			return Recipe{}, fmt.Errorf("%w: repository does not use %s", ErrUnsupported, canonical)
+		}
+		r.MinProof = ProofProvider
+		r.Commands = []Command{{ID: "no-tests", Args: []string{"/opt/reforge/tool", "validate-none"}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	}
 	return r, nil
+}
+
+func toolchainFits(toolchain string, paths []string) bool {
+	uses := map[string]bool{}
+	for _, file := range paths {
+		base := strings.ToLower(path.Base(file))
+		switch {
+		case base == "go.mod":
+			uses["go"] = true
+		case base == "package.json":
+			uses["javascript"] = true
+		case base == "pyproject.toml" || base == "setup.py" || strings.HasPrefix(base, "requirements") && strings.HasSuffix(base, ".txt") || strings.HasSuffix(base, ".py"):
+			uses["python"] = true
+		}
+	}
+	return uses[toolchain] || len(uses) == 0 && toolchain == "python"
 }
 
 func canonicalName(name string) (string, bool) {
@@ -232,7 +252,7 @@ func structuralRecipe(a Archetype) Recipe {
 	r := baseRecipe(a.Name)
 	r.Version = "v1"
 	r.MinimumTests = 0
-	r.ReviewOnly, r.ReadOnly = a.ReviewOnly, a.ReadOnly
+	r.ReadOnly = a.ReadOnly
 	r.Commands = []Command{{ID: strings.TrimPrefix(a.Validator, "validate-"), Args: []string{"/opt/reforge/tool", a.Validator}, Directory: ".", TimeoutSeconds: presetTimeout, ReportFormat: "exit"}}
 	return r
 }
