@@ -23,10 +23,14 @@ type AlertDelivery struct {
 }
 
 type AlertSetting struct {
-	OrgID      pgtype.UUID `json:"org_id"`
-	Enabled    bool        `json:"enabled"`
-	Recipients []byte      `json:"recipients"`
-	Version    int64       `json:"version"`
+	OrgID        pgtype.UUID `json:"org_id"`
+	Enabled      bool        `json:"enabled"`
+	Recipients   []byte      `json:"recipients"`
+	Version      int64       `json:"version"`
+	SmtpAddress  string      `json:"smtp_address"`
+	SmtpUsername string      `json:"smtp_username"`
+	SmtpFrom     string      `json:"smtp_from"`
+	SmtpPassword []byte      `json:"smtp_password"`
 }
 
 type Artifact struct {

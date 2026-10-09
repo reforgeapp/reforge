@@ -16,6 +16,7 @@ import (
 
 	"reforge/internal/auth"
 	"reforge/internal/domain"
+	"reforge/internal/secrets"
 	"reforge/internal/store"
 )
 
@@ -26,14 +27,26 @@ type SMTP struct {
 }
 
 type Settings struct {
-	Enabled    bool     `json:"enabled"`
-	Recipients []string `json:"recipients"`
-	Defaults   []string `json:"default_recipients"`
-	Configured bool     `json:"server_configured"`
-	Version    int64    `json:"version"`
+	Enabled     bool     `json:"enabled"`
+	Recipients  []string `json:"recipients"`
+	Defaults    []string `json:"default_recipients"`
+	Configured  bool     `json:"server_configured"`
+	Address     string   `json:"smtp_address"`
+	Username    string   `json:"smtp_username"`
+	From        string   `json:"smtp_from"`
+	PasswordSet bool     `json:"smtp_password_set"`
+	Password    *string  `json:"smtp_password,omitempty"`
+	Version     int64    `json:"version"`
+	password    []byte
+}
+
+type Vault interface {
+	SealContext(context.Context, secrets.Binding, []byte) (secrets.Envelope, error)
+	OpenContext(context.Context, secrets.Binding, secrets.Envelope) ([]byte, error)
 }
 
 type Service struct {
+	vault     Vault
 	db        *store.Store
 	auth      *auth.Service
 	smtp      SMTP
@@ -41,11 +54,32 @@ type Service struct {
 	send      func(SMTP, []string, string, string) error
 }
 
-func New(db *store.Store, identity *auth.Service, server SMTP, publicURL string) *Service {
-	return &Service{db: db, auth: identity, smtp: server, publicURL: strings.TrimRight(publicURL, "/"), send: deliver}
+func New(db *store.Store, identity *auth.Service, vault Vault, server SMTP, publicURL string) *Service {
+	return &Service{db: db, auth: identity, vault: vault, smtp: server, publicURL: strings.TrimRight(publicURL, "/"), send: deliver}
 }
 
-func (s *Service) configured() bool { return s.smtp.Address != "" && s.smtp.From != "" }
+func binding(org string) secrets.Binding {
+	return secrets.Binding{OrgID: org, ConnectionID: org, Version: 1}
+}
+
+func (s *Service) server(ctx context.Context, org string, settings Settings) (SMTP, bool) {
+	if settings.Address == "" {
+		return s.smtp, s.smtp.Address != "" && s.smtp.From != ""
+	}
+	server := SMTP{Address: settings.Address, Username: settings.Username, From: settings.From}
+	if len(settings.password) > 0 {
+		var envelope secrets.Envelope
+		if json.Unmarshal(settings.password, &envelope) != nil {
+			return server, false
+		}
+		plain, err := s.vault.OpenContext(ctx, binding(org), envelope)
+		if err != nil {
+			return server, false
+		}
+		server.Password = string(plain)
+	}
+	return server, server.From != ""
+}
 
 func manage(a domain.Actor) bool { return a.Role == domain.Owner || a.Role == domain.Admin }
 
@@ -67,8 +101,16 @@ func (s *Service) Get(ctx context.Context, session auth.Session, org string) (Se
 
 func (s *Service) Put(ctx context.Context, session auth.Session, org string, in Settings, expected int64) (Settings, error) {
 	var out Settings
-	if len(in.Recipients) > 20 {
+	if len(in.Recipients) > 20 || len(in.Address) > 255 || len(in.Username) > 255 || in.Password != nil && len(*in.Password) > 1024 {
 		return out, auth.ErrInvalid
+	}
+	if in.Address != "" {
+		if host, port, err := net.SplitHostPort(in.Address); err != nil || host == "" || port == "" {
+			return out, auth.ErrInvalid
+		}
+		if _, err := mail.ParseAddress(in.From); err != nil {
+			return out, auth.ErrInvalid
+		}
 	}
 	for i, recipient := range in.Recipients {
 		address, err := mail.ParseAddress(strings.TrimSpace(recipient))
@@ -89,7 +131,18 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, in 
 			return auth.ErrConflict
 		}
 		raw, _ := json.Marshal(in.Recipients)
-		if _, err = tx.Exec(ctx, `INSERT INTO alert_settings(org_id,enabled,recipients,version) VALUES($1,$2,$3,2) ON CONFLICT(org_id) DO UPDATE SET enabled=EXCLUDED.enabled,recipients=EXCLUDED.recipients,version=alert_settings.version+1`, org, in.Enabled, raw); err != nil {
+		password := current.password
+		if in.Password != nil {
+			password = nil
+			if *in.Password != "" {
+				envelope, err := s.vault.SealContext(ctx, binding(org), []byte(*in.Password))
+				if err != nil {
+					return err
+				}
+				password, _ = json.Marshal(envelope)
+			}
+		}
+		if _, err = tx.Exec(ctx, `INSERT INTO alert_settings(org_id,enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,version) VALUES($1,$2,$3,$4,$5,$6,$7,2) ON CONFLICT(org_id) DO UPDATE SET enabled=EXCLUDED.enabled,recipients=EXCLUDED.recipients,smtp_address=EXCLUDED.smtp_address,smtp_username=EXCLUDED.smtp_username,smtp_from=EXCLUDED.smtp_from,smtp_password=EXCLUDED.smtp_password,version=alert_settings.version+1`, org, in.Enabled, raw, in.Address, in.Username, in.From, password); err != nil {
 			return err
 		}
 		out, err = s.settingsTx(ctx, tx, org)
@@ -114,25 +167,28 @@ func (s *Service) Test(ctx context.Context, session auth.Session, org string) er
 	if err != nil {
 		return err
 	}
-	if !s.configured() {
+	server, ok := s.server(ctx, org, settings)
+	if !ok {
 		return ErrNotConfigured
 	}
 	if settings.Defaults, err = s.owners(ctx, org); err != nil {
 		return err
 	}
-	return s.send(s.smtp, recipients(settings), "Reforge alert test", "Reforge can send alerts to this address.\n\n"+s.publicURL+"/org/"+org+"/organisation\n")
+	return s.send(server, recipients(settings), "Reforge alert test", "Reforge can send alerts to this address.\n\n"+s.publicURL+"/org/"+org+"/organisation\n")
 }
 
 func (s *Service) settingsTx(ctx context.Context, tx pgx.Tx, org string) (Settings, error) {
-	out := Settings{Enabled: true, Recipients: []string{}, Configured: s.configured()}
+	out := Settings{Enabled: true, Recipients: []string{}}
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT enabled,recipients,version FROM alert_settings WHERE org_id=$1`, org).Scan(&out.Enabled, &raw, &out.Version)
+	err := tx.QueryRow(ctx, `SELECT enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,version FROM alert_settings WHERE org_id=$1`, org).Scan(&out.Enabled, &raw, &out.Address, &out.Username, &out.From, &out.password, &out.Version)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return out, err
 	}
 	if raw != nil {
 		_ = json.Unmarshal(raw, &out.Recipients)
 	}
+	out.PasswordSet = len(out.password) > 0
+	out.Configured = out.Address != "" && out.From != "" || out.Address == "" && s.smtp.Address != "" && s.smtp.From != ""
 	return out, nil
 }
 
@@ -168,14 +224,11 @@ func recipients(s Settings) []string {
 type item struct{ Key, Line string }
 
 func (s *Service) Notify(ctx context.Context, org string) error {
-	if !s.configured() {
-		return nil
-	}
 	var settings Settings
 	var items []item
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		var err error
-		if settings, err = s.settingsTx(ctx, tx, org); err != nil || !settings.Enabled {
+		if settings, err = s.settingsTx(ctx, tx, org); err != nil || !settings.Enabled || !settings.Configured {
 			return err
 		}
 		rows, err := tx.Query(ctx, `SELECT key,line FROM (
@@ -189,8 +242,12 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 		items, err = pgx.CollectRows(rows, pgx.RowToStructByPos[item])
 		return err
 	})
-	if err != nil || len(items) == 0 || !settings.Enabled {
+	if err != nil || len(items) == 0 || !settings.Enabled || !settings.Configured {
 		return err
+	}
+	server, ok := s.server(ctx, org, settings)
+	if !ok {
+		return ErrNotConfigured
 	}
 	if settings.Defaults, err = s.owners(ctx, org); err != nil {
 		return err
@@ -204,7 +261,7 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 	for i, it := range items {
 		lines[i], keys[i] = "- "+it.Line, it.Key
 	}
-	if err = s.send(s.smtp, to, fmt.Sprintf("Reforge: %d item(s) need attention", len(items)), strings.Join(lines, "\n")+"\n"); err != nil {
+	if err = s.send(server, to, fmt.Sprintf("Reforge: %d item(s) need attention", len(items)), strings.Join(lines, "\n")+"\n"); err != nil {
 		return err
 	}
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {

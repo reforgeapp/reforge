@@ -1,6 +1,6 @@
 import { apiRequest } from './api/client'
 
-export type AlertSettings = { enabled: boolean; recipients: string[]; default_recipients: string[]; server_configured: boolean; version: number }
+export type AlertSettings = { enabled: boolean; recipients: string[]; default_recipients: string[]; server_configured: boolean; smtp_address: string; smtp_username: string; smtp_from: string; smtp_password_set: boolean; smtp_password?: string; version: number }
 const path = (orgID: string, suffix = '') => `/api/v1/orgs/${encodeURIComponent(orgID)}/alerts${suffix}`
 export const alertsAPI = {
   get: (orgID: string, signal?: AbortSignal) => apiRequest<AlertSettings>(path(orgID), { signal }),
