@@ -279,6 +279,9 @@ func providerObservations(read func(privateconnector.Operation) (privateconnecto
 	if len(missing) > 0 {
 		e := initial
 		e.Blockers = []string{"Needs a person: grant Reforge's forge access read permission for " + strings.Join(missing, " and ")}
+		if link, err := read(privateconnector.Operation{Kind: privateconnector.ForgePermissionsURL, Repository: &privateconnector.RepositoryArgs{Repository: lease.Ref}}); err == nil && link.Link != "" {
+			e.ActionURL, e.ActionLabel = link.Link, "Grant permissions on GitHub"
+		}
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "provider-access", Category: "provider_access", Severity: "low", Title: "Grant read access to " + strings.Join(missing, " and "), Evidence: e})
 	}
 	return out, nil

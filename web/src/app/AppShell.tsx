@@ -10,6 +10,7 @@ import { Icon } from '../components/Icons'
 import { SignInPage } from './SignInPage'
 import { BootstrapPage } from './BootstrapPage'
 import { BrandMark } from '../components/BrandMark'
+import { NeedsBanner } from './NeedsBanner'
 
 export function AppShell() {
   const { data: meta, isLoading: metaLoading } = useMeta()
@@ -214,6 +215,7 @@ export function AppShell() {
       </aside>
       <div ref={mainColumnRef} className="main-column">
       {meta?.development && <div className="fixture-banner" role="status"><Icon name="warning" size={15} /><strong>Development environment</strong><span>{meta.fixture_auth ? 'Fixture authentication is enabled for this server.' : 'Live authentication is configured.'}</span></div>}
+      <NeedsBanner orgID={org.id} />
       {org.paused && <div className="pause-banner" role="status"><strong>{org.name} is paused.</strong><span>New automation is blocked until an organisation administrator resumes it.</span></div>}
       <main id="main-content" className="content"><Outlet key={`${session.data.user.id}:${org.id}`} /></main>
       </div>

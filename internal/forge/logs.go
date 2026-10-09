@@ -62,6 +62,10 @@ type IssueReader interface {
 	ListIssues(context.Context, RepoRef) ([]Issue, error)
 }
 
+type PermissionLinker interface {
+	PermissionsURL(context.Context) (string, error)
+}
+
 type AdvisoryReader interface {
 	ListAdvisories(context.Context, RepoRef) ([]Advisory, error)
 }

@@ -2048,12 +2048,14 @@ type MaintenanceDependency struct {
 	To        string `json:"to"`
 }
 type MaintenanceEvidence struct {
-	AdvisoryId *string               `json:"advisory_id,omitempty"`
-	Blockers   []string              `json:"blockers"`
-	Bot        *string               `json:"bot,omitempty"`
-	BotConfig  *MaintenanceBotConfig `json:"bot_config,omitempty"`
-	Change     *ForgeChange          `json:"change,omitempty"`
-	Checks     []struct {
+	ActionLabel *string               `json:"action_label,omitempty"`
+	ActionUrl   *string               `json:"action_url,omitempty"`
+	AdvisoryId  *string               `json:"advisory_id,omitempty"`
+	Blockers    []string              `json:"blockers"`
+	Bot         *string               `json:"bot,omitempty"`
+	BotConfig   *MaintenanceBotConfig `json:"bot_config,omitempty"`
+	Change      *ForgeChange          `json:"change,omitempty"`
+	Checks      []struct {
 		Conclusion  string `json:"conclusion"`
 		HeadSha     string `json:"head_sha"`
 		Id          string `json:"id"`
@@ -2073,9 +2075,16 @@ type MaintenanceEvidence struct {
 	Ownership         string                  `json:"ownership"`
 	Provenance        string                  `json:"provenance"`
 	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
-	TargetBranch      string                  `json:"target_branch"`
-	TargetSha         string                  `json:"target_sha"`
-	TrackedFiles      *[]struct {
+	Review            *struct {
+		Confidence *string `json:"confidence,omitempty"`
+		Detail     *string `json:"detail,omitempty"`
+		Line       *int    `json:"line,omitempty"`
+		Objective  *string `json:"objective,omitempty"`
+		Path       *string `json:"path,omitempty"`
+	} `json:"review,omitempty"`
+	TargetBranch string `json:"target_branch"`
+	TargetSha    string `json:"target_sha"`
+	TrackedFiles *[]struct {
 		Mode string `json:"mode"`
 		Path string `json:"path"`
 		Sha  string `json:"sha"`

@@ -72,6 +72,7 @@ const (
 	ForgeChecks              Kind = "forge.checks"
 	ForgeIssues              Kind = "forge.issues"
 	ForgeAdvisories          Kind = "forge.advisories"
+	ForgePermissionsURL      Kind = "forge.permissions_url"
 	ForgeApprovals           Kind = "forge.approvals"
 	ForgeReconcileChanges    Kind = "forge.reconcile_changes"
 	ModelProbe               Kind = "model.probe"
@@ -236,7 +237,7 @@ func (o Operation) validate() error {
 		valid = o.Changes != nil && len(o.Changes.Cursor) <= 32
 	case GiteaInventory:
 		valid = o.Inventory != nil && o.Inventory.Limit > 0 && o.Inventory.Limit <= 100 && len(o.Inventory.Namespace) <= 256 && len(o.Inventory.Cursor) <= 32
-	case GiteaRepository, ForgeIssues, ForgeAdvisories:
+	case GiteaRepository, ForgeIssues, ForgeAdvisories, ForgePermissionsURL:
 		valid = o.Repository != nil
 	case GiteaResolveRef:
 		valid = o.Ref != nil && o.Ref.Ref != "" && len(o.Ref.Ref) <= 1024
@@ -381,6 +382,7 @@ type Result struct {
 	Approvals         []forge.Approval               `json:"approvals,omitempty"`
 	Issues            []forge.Issue                  `json:"issues,omitempty"`
 	Advisories        []forge.Advisory               `json:"advisories,omitempty"`
+	Link              string                         `json:"link,omitempty"`
 }
 type Authenticate func(context.Context, string) (runner.Runner, error)
 type Deliver func(GrantSpec) (Result, error)

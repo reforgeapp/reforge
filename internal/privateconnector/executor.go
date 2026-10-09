@@ -439,6 +439,12 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 			return result, ErrUnsupported
 		}
 		result.Issues, err = reader.ListIssues(ctx, op.Repository.Repository)
+	case ForgePermissionsURL:
+		linker, ok := provider.(forge.PermissionLinker)
+		if !ok {
+			return result, ErrUnsupported
+		}
+		result.Link, err = linker.PermissionsURL(ctx)
 	case ForgeAdvisories:
 		reader, ok := provider.(forge.AdvisoryReader)
 		if !ok {

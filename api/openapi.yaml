@@ -15412,6 +15412,22 @@
           "reference_url": {
             "type": "string"
           },
+          "action_url": {
+            "type": "string"
+          },
+          "action_label": {
+            "type": "string"
+          },
+          "review": {
+            "type": "object",
+            "properties": {
+              "path": { "type": "string" },
+              "line": { "type": "integer" },
+              "confidence": { "type": "string" },
+              "objective": { "type": "string" },
+              "detail": { "type": "string" }
+            }
+          },
           "tracked_files": {
             "type": "array",
             "items": {

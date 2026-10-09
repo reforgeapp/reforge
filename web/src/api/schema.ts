@@ -3518,6 +3518,15 @@ export interface components {
             blockers: string[];
             advisory_id?: string;
             reference_url?: string;
+            action_url?: string;
+            action_label?: string;
+            review?: {
+                path?: string;
+                line?: number;
+                confidence?: string;
+                objective?: string;
+                detail?: string;
+            };
             tracked_files?: {
                 path: string;
                 sha: string;

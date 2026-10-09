@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"reforge/internal/forge"
 )
@@ -104,4 +105,40 @@ func truncate(value string, limit int) string {
 		return value
 	}
 	return value[:limit]
+}
+
+func (p *Provider) PermissionsURL(ctx context.Context) (string, error) {
+	if p.app == nil {
+		return "", failure("unsupported", "Only GitHub App connections have app permissions")
+	}
+	jwt, err := p.app.jwt()
+	if err != nil {
+		return "", err
+	}
+	status, headers, body, err := p.requestToken(ctx, http.MethodGet, []string{"app"}, nil, nil, jwt)
+	if err != nil {
+		return "", err
+	}
+	if status < 200 || status >= 300 {
+		return "", responseError(status, headers)
+	}
+	var app struct {
+		Slug    string `json:"slug"`
+		HTMLURL string `json:"html_url"`
+		Owner   struct {
+			Login string `json:"login"`
+			Type  string `json:"type"`
+		} `json:"owner"`
+	}
+	if err = decode(body, &app); err != nil {
+		return "", err
+	}
+	web, _, found := strings.Cut(app.HTMLURL, "/apps/")
+	if !found || app.Slug == "" || app.Owner.Login == "" {
+		return "", failure("provider", "GitHub App identity is incomplete")
+	}
+	if app.Owner.Type == "Organization" {
+		return web + "/organizations/" + url.PathEscape(app.Owner.Login) + "/settings/apps/" + url.PathEscape(app.Slug) + "/permissions", nil
+	}
+	return web + "/settings/apps/" + url.PathEscape(app.Slug) + "/permissions", nil
 }

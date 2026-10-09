@@ -386,7 +386,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Workflows != nil, r.DeploymentGates != nil, r.Deployment != nil, r.TrainGate != nil, r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.Behind != nil, r.File != nil, r.Files != nil, r.Log != "", r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil, r.Issues != nil, r.Advisories != nil} {
+	for _, present := range []bool{r.Workflows != nil, r.DeploymentGates != nil, r.Deployment != nil, r.TrainGate != nil, r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.Behind != nil, r.File != nil, r.Files != nil, r.Log != "", r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil, r.Issues != nil, r.Advisories != nil, r.Link != ""} {
 		if present {
 			count++
 		}
@@ -458,6 +458,8 @@ func (r Result) valid(kind Kind) bool {
 		return count == 0 || count == 1 && r.Issues != nil
 	case ForgeAdvisories:
 		return count == 0 || count == 1 && r.Advisories != nil
+	case ForgePermissionsURL:
+		return count == 1 && r.Link != ""
 	case GiteaApprovals:
 		return count == 0 || count == 1 && r.Approvals != nil
 	}
