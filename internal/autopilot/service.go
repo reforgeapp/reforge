@@ -495,6 +495,17 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
+	if slices.Equal(recipes.ForFinding(c.category, c.ecosystem), []string{"bootstrap"}) {
+		var open string
+		if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT coalesce(max(rr.native_change->>'id'),'') FROM repair_runs rr WHERE rr.org_id=$1 AND rr.repository_id=$2 AND rr.finding_id<>$3 AND rr.state='published' AND rr.context#>>'{plan,recipe,name}'='bootstrap' AND coalesce(rr.native_change->>'state','open')='open'`, org, c.repository, c.finding).Scan(&open)
+		}); err != nil {
+			return err
+		}
+		if open != "" {
+			return s.record(ctx, org, c, "", "retry", "Waiting for open validation pull request #"+open, time.Hour)
+		}
+	}
 	if c.category == "deploy_failure" {
 		reason, err := s.rollback(ctx, session, org, c)
 		if err != nil || reason == "" {
