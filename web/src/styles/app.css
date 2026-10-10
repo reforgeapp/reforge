@@ -381,3 +381,4 @@ label.switch { display: inline-flex; align-items: center; gap: 10px; width: fit-
 .run-log pre { max-height: 320px; margin: 0; overflow: auto; white-space: pre-wrap; }
 .run-log-model pre { border-left: 2px solid var(--primary); }
 .run-log-result pre { border-left: 2px solid var(--amber); }
+.needs-list a > svg:last-child { transform: rotate(-90deg); color: var(--text-subtle); }
