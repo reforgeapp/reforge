@@ -31,6 +31,7 @@ type AlertSetting struct {
 	SmtpUsername string      `json:"smtp_username"`
 	SmtpFrom     string      `json:"smtp_from"`
 	SmtpPassword []byte      `json:"smtp_password"`
+	SmtpSecurity string      `json:"smtp_security"`
 }
 
 type Artifact struct {

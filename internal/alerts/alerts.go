@@ -2,6 +2,7 @@ package alerts
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ import (
 var ErrNotConfigured = errors.New("server email is not configured")
 
 type SMTP struct {
-	Address, Username, Password, From string
+	Address, Username, Password, From, Security string
 }
 
 type Settings struct {
@@ -34,6 +35,7 @@ type Settings struct {
 	Address     string   `json:"smtp_address"`
 	Username    string   `json:"smtp_username"`
 	From        string   `json:"smtp_from"`
+	Security    string   `json:"smtp_security"`
 	PasswordSet bool     `json:"smtp_password_set"`
 	Password    *string  `json:"smtp_password,omitempty"`
 	Version     int64    `json:"version"`
@@ -66,7 +68,7 @@ func (s *Service) server(ctx context.Context, org string, settings Settings) (SM
 	if settings.Address == "" {
 		return s.smtp, s.smtp.Address != "" && s.smtp.From != ""
 	}
-	server := SMTP{Address: settings.Address, Username: settings.Username, From: settings.From}
+	server := SMTP{Address: settings.Address, Username: settings.Username, From: settings.From, Security: settings.Security}
 	if len(settings.password) > 0 {
 		var envelope secrets.Envelope
 		if json.Unmarshal(settings.password, &envelope) != nil {
@@ -112,6 +114,9 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, in 
 			return out, auth.ErrInvalid
 		}
 	}
+	if !slices.Contains([]string{"starttls", "tls", "none"}, in.Security) {
+		return out, auth.ErrInvalid
+	}
 	for i, recipient := range in.Recipients {
 		address, err := mail.ParseAddress(strings.TrimSpace(recipient))
 		if err != nil {
@@ -142,7 +147,7 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, in 
 				password, _ = json.Marshal(envelope)
 			}
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO alert_settings(org_id,enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,version) VALUES($1,$2,$3,$4,$5,$6,$7,2) ON CONFLICT(org_id) DO UPDATE SET enabled=EXCLUDED.enabled,recipients=EXCLUDED.recipients,smtp_address=EXCLUDED.smtp_address,smtp_username=EXCLUDED.smtp_username,smtp_from=EXCLUDED.smtp_from,smtp_password=EXCLUDED.smtp_password,version=alert_settings.version+1`, org, in.Enabled, raw, in.Address, in.Username, in.From, password); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO alert_settings(org_id,enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,smtp_security,version) VALUES($1,$2,$3,$4,$5,$6,$7,$8,2) ON CONFLICT(org_id) DO UPDATE SET enabled=EXCLUDED.enabled,recipients=EXCLUDED.recipients,smtp_address=EXCLUDED.smtp_address,smtp_username=EXCLUDED.smtp_username,smtp_from=EXCLUDED.smtp_from,smtp_password=EXCLUDED.smtp_password,smtp_security=EXCLUDED.smtp_security,version=alert_settings.version+1`, org, in.Enabled, raw, in.Address, in.Username, in.From, password, in.Security); err != nil {
 			return err
 		}
 		out, err = s.settingsTx(ctx, tx, org)
@@ -178,9 +183,9 @@ func (s *Service) Test(ctx context.Context, session auth.Session, org string) er
 }
 
 func (s *Service) settingsTx(ctx context.Context, tx pgx.Tx, org string) (Settings, error) {
-	out := Settings{Enabled: true, Recipients: []string{}}
+	out := Settings{Enabled: true, Recipients: []string{}, Security: "starttls"}
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,version FROM alert_settings WHERE org_id=$1`, org).Scan(&out.Enabled, &raw, &out.Address, &out.Username, &out.From, &out.password, &out.Version)
+	err := tx.QueryRow(ctx, `SELECT enabled,recipients,smtp_address,smtp_username,smtp_from,smtp_password,smtp_security,version FROM alert_settings WHERE org_id=$1`, org).Scan(&out.Enabled, &raw, &out.Address, &out.Username, &out.From, &out.password, &out.Security, &out.Version)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return out, err
 	}
@@ -275,11 +280,56 @@ func deliver(server SMTP, to []string, subject, body string) error {
 	if err != nil {
 		return err
 	}
-	var auth smtp.Auth
-	if server.Username != "" {
-		auth = smtp.PlainAuth("", server.Username, server.Password, host)
+	config := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12}
+	var conn net.Conn
+	if server.Security == "tls" {
+		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", server.Address, config)
+	} else {
+		conn, err = net.DialTimeout("tcp", server.Address, 15*time.Second)
 	}
-	to = slices.Clone(to)
+	if err != nil {
+		return err
+	}
+	client, err := smtp.NewClient(conn, host)
+	if err != nil {
+		conn.Close()
+		return err
+	}
+	defer client.Close()
+	if server.Security != "tls" && server.Security != "none" {
+		if ok, _ := client.Extension("STARTTLS"); !ok {
+			return errors.New("mail server does not offer STARTTLS; choose implicit TLS or no encryption")
+		}
+		if err = client.StartTLS(config); err != nil {
+			return err
+		}
+	}
+	if server.Username != "" {
+		if server.Security == "none" {
+			return errors.New("a username and password need STARTTLS or TLS")
+		}
+		if err = client.Auth(smtp.PlainAuth("", server.Username, server.Password, host)); err != nil {
+			return err
+		}
+	}
+	if err = client.Mail(server.From); err != nil {
+		return err
+	}
+	for _, recipient := range to {
+		if err = client.Rcpt(recipient); err != nil {
+			return err
+		}
+	}
+	writer, err := client.Data()
+	if err != nil {
+		return err
+	}
 	message := "From: " + server.From + "\r\nTo: " + strings.Join(to, ", ") + "\r\nSubject: " + subject + "\r\nDate: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + strings.ReplaceAll(body, "\n", "\r\n")
-	return smtp.SendMail(server.Address, auth, server.From, to, []byte(message))
+	if _, err = writer.Write([]byte(message)); err != nil {
+		return err
+	}
+	if err = writer.Close(); err != nil {
+		return err
+	}
+	return client.Quit()
 }

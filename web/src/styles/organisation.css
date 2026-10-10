@@ -82,3 +82,8 @@
   .identity-invitation-form .button { width: 100%; }
   .identity-invitation-created { min-width: min(100%, calc(100vw - 48px)); }
 }
+.alert-settings { display: grid; gap: 16px; padding: 18px 20px; }
+.alert-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 14px; }
+.alert-grid .span-2 { grid-column: span 2; }
+.alert-grid .span-4 { grid-column: 1 / -1; }
+@media (max-width: 720px) { .alert-grid { grid-template-columns: minmax(0, 1fr); } .alert-grid .span-2 { grid-column: auto; } }
