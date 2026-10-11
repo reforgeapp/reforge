@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"reforge/internal/egress"
+	"reforge/internal/maintenance/recipes"
+	"reforge/internal/maintenance/repair"
 	"reforge/internal/sandbox"
 	"reforge/internal/sandbox/guest"
 )
@@ -18,10 +20,14 @@ type commandPreparer struct {
 	cfg     sandbox.RuntimeConfig
 	runtime sandbox.SandboxRuntime
 	org     string
+	image   string
 	fetch   func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error)
 }
 
 func (p commandPreparer) prepare(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {
+	if p.image != "" && !imageAvailable(p.cfg, request.Image) {
+		request.Image = p.image
+	}
 	if p.cfg.Backend == "kubernetes" {
 		return p.prepareKubernetes(ctx, request, patches, command)
 	}
@@ -206,4 +212,34 @@ func npmLockfileDirectory(snapshot sandbox.Snapshot, patches []sandbox.Patch, co
 			dir = ""
 		}
 	}
+}
+
+func imageAvailable(cfg sandbox.RuntimeConfig, image string) bool {
+	images := cfg.Images
+	if cfg.Kubernetes != nil {
+		images = cfg.Kubernetes.Images
+	}
+	_, ok := images[image]
+	return ok
+}
+
+func planImage(cfg sandbox.RuntimeConfig, p repair.Plan) string {
+	if imageAvailable(cfg, p.Image) {
+		return p.Image
+	}
+	toolchains := recipes.Toolchains
+	if a, ok := recipes.Lookup(p.Recipe.Name); ok && a.Toolchain != "" {
+		toolchains = []string{a.Toolchain}
+	}
+	binaries := map[string]string{"go": "usr/local/go/bin/go", "javascript": "usr/local/bin/node", "python": "usr/local/bin/python3"}
+	for _, t := range toolchains {
+		image := (updater{cfg: cfg}).image(binaries[t])
+		if cfg.Kubernetes != nil {
+			image = cfg.Kubernetes.Toolchains[t]
+		}
+		if image != "" {
+			return image
+		}
+	}
+	return p.Image
 }
