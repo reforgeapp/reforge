@@ -176,8 +176,8 @@ func (e Engine) logTurn(ctx context.Context, turn int, result model.TurnResult) 
 }
 
 func (e Engine) turnTimeout() time.Duration {
-	if e.TurnTimeout <= 0 || e.TurnTimeout > 5*time.Minute {
-		return 60 * time.Second
+	if e.TurnTimeout <= 0 || e.TurnTimeout > model.MaxTurnTimeout {
+		return 5 * time.Minute
 	}
 	return e.TurnTimeout
 }

@@ -5,9 +5,12 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"time"
 
 	"reforge/internal/skills"
 )
+
+const MaxTurnTimeout = 10 * time.Minute
 
 type Turn struct {
 	OperationID     string          `json:"operation_id"`
@@ -46,7 +49,7 @@ func (t Turn) WithSkills() (Turn, error) {
 	return t, nil
 }
 func (t Turn) Valid() bool {
-	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > 300000 || len(t.Messages) == 0 || len(t.Messages) > 400 || len(t.Tools) > 32 {
+	if t.OperationID == "" || t.Model == "" || len(t.Model) > 200 || t.MaxOutputTokens < 1 || t.MaxOutputTokens > 131072 || t.TimeoutMS < 1000 || t.TimeoutMS > MaxTurnTimeout.Milliseconds() || len(t.Messages) == 0 || len(t.Messages) > 400 || len(t.Tools) > 32 {
 		return false
 	}
 	b, err := json.Marshal(t)
