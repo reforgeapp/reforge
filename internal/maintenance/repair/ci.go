@@ -496,7 +496,8 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			continue
 		}
 		returned := 0
-		for _, call := range result.ToolCalls {
+		note := wrapUp(ctx, p, turn)
+		for i, call := range result.ToolCalls {
 			if call.Invalid != "" {
 				reply := "Rejected: arguments do not match the " + call.Name + " tool schema: " + call.Invalid
 				if owner {
@@ -762,6 +763,8 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			}
 			if review && 3*(turn+1) >= 2*p.Recipe.MaxTurns {
 				reply += fmt.Sprintf("\n[%d turns left: call report_finding for each confirmed problem now, then finish.]", p.Recipe.MaxTurns-turn-1)
+			} else if i == len(result.ToolCalls)-1 {
+				reply += note
 			}
 			if owner {
 				recentToolResults = appendOwnerRecent(recentToolResults, call.Name, reply)
@@ -911,4 +914,16 @@ func Goal(f discovery.Finding) string {
 
 func ConflictFinding(f discovery.Finding) bool {
 	return f.Evidence.Change != nil && discovery.RepairConflict(*f.Evidence.Change)
+}
+
+func wrapUp(ctx context.Context, p Plan, turn int) string {
+	turns := p.Recipe.MaxTurns - turn - 1
+	left := AttemptTimeout(p)
+	if deadline, ok := ctx.Deadline(); ok {
+		left = time.Until(deadline)
+	}
+	if 4*turns > p.Recipe.MaxTurns && 4*left > AttemptTimeout(p) {
+		return ""
+	}
+	return fmt.Sprintf("\n[%d turns and %d minutes left: stop exploring. Keep the change that passes run_checks and finish, or skip with a reason.]", turns, int(left.Minutes()))
 }
