@@ -72,7 +72,7 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .theme-toggle { font-size: 16px; }
 .connection-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
 .connection-dot.fixture { background: var(--amber); }
-.needs-banner { display: flex; align-items: center; gap: 10px; padding: 8px 32px; border-bottom: 1px solid var(--primary-border); color: var(--primary); background: var(--primary-soft); font-size: 12.5px; }
+.needs-banner { display: flex; width: 100%; align-items: center; gap: 10px; padding: 8px 32px; border-width: 0 0 1px; cursor: pointer; text-align: left; border-bottom: 1px solid var(--primary-border); color: var(--primary); background: var(--primary-soft); font-size: 12.5px; }
 .needs-banner .button { margin-left: auto; }
 .needs-callout { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-bottom: 14px; padding: 10px 12px; border: 1px solid var(--primary-border); border-radius: var(--radius); background: var(--primary-soft); }
 .needs-callout strong { color: var(--primary); }
@@ -80,6 +80,9 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .needs-groups { display: grid; gap: 16px; padding: 14px 18px 18px; }
 .needs-groups h3 { display: flex; gap: 6px; margin: 0 0 6px; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
 .needs-list { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+.needs-list li { display: flex; align-items: center; gap: 8px; padding-right: 10px; }
+.needs-list li > a { flex: 1; min-width: 0; }
+.needs-banner:hover { filter: brightness(1.08); }
 .needs-list li + li { border-top: 1px solid var(--border); }
 .needs-list a { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 12px; padding: 9px 12px; color: var(--text); text-decoration: none; }
 .needs-list a:hover { background: var(--surface-3); }
