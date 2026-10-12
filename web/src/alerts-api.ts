@@ -5,5 +5,5 @@ const path = (orgID: string, suffix = '') => `/api/v1/orgs/${encodeURIComponent(
 export const alertsAPI = {
   get: (orgID: string, signal?: AbortSignal) => apiRequest<AlertSettings>(path(orgID), { signal }),
   put: (orgID: string, value: AlertSettings, csrf: string) => apiRequest<AlertSettings>(path(orgID), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': `"${value.version}"` }, body: JSON.stringify(value) }, csrf),
-  test: (orgID: string, csrf: string) => apiRequest<void>(path(orgID, '/test'), { method: 'POST' }, csrf),
+  test: (orgID: string, value: AlertSettings, csrf: string) => apiRequest<void>(path(orgID, '/test'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(value) }, csrf),
 }

@@ -15,7 +15,8 @@ export function AlertSettings({ orgID, csrf, canWrite }: { orgID: string; csrf: 
   if (!draft) return <p role="status">Loading alerts…</p>
   const disabled = !canWrite || busy
   const run = async (action: () => Promise<unknown>, done: string) => { setBusy(true); setStatus(''); try { await action(); setStatus(done); await query.refetch() } catch (reason) { setStatus(errorText(reason)) } finally { setBusy(false) } }
-  const save = () => run(() => alertsAPI.put(orgID, { ...draft, smtp_address: host.trim() ? `${host.trim()}:${port.trim() || ports[draft.smtp_security]}` : '', recipients: recipients.split(',').map(value => value.trim()).filter(Boolean), smtp_password: password }, csrf), 'Saved')
+  const staged = (): Settings => ({ ...draft, smtp_address: host.trim() ? `${host.trim()}:${port.trim() || ports[draft.smtp_security]}` : '', recipients: recipients.split(',').map(value => value.trim()).filter(Boolean), smtp_password: password })
+  const save = () => run(() => alertsAPI.put(orgID, staged(), csrf), 'Saved')
   return <div className="organisation-workspace alert-settings">
     <label className="checkbox-label"><input type="checkbox" checked={draft.enabled} disabled={disabled} onChange={event => setDraft({ ...draft, enabled: event.target.checked })} /> Email alerts <span className="help-tip" tabIndex={0} title="Sent when a run pauses on budget or limits, a finding is blocked, or something needs a person.">?</span></label>
     <div className="alert-grid">
@@ -28,6 +29,6 @@ export function AlertSettings({ orgID, csrf, canWrite }: { orgID: string; csrf: 
       <label className="checkbox-label span-4"><input type="checkbox" checked={draft.smtp_verify} disabled={disabled || draft.smtp_security === 'none'} onChange={event => setDraft({ ...draft, smtp_verify: event.target.checked })} /> Verify certificate <span className="help-tip" tabIndex={0} title="Turn off only for an internal relay whose certificate does not match its host name.">?</span></label>
       <label className="span-4">Recipients<input value={recipients} disabled={disabled} placeholder={draft.default_recipients.join(', ') || 'Organisation owners'} onChange={event => setRecipients(event.target.value)} /></label>
     </div>
-    <div className="row-actions"><Button className="button button-primary" disabled={disabled || !csrf} onClick={() => void save()}>Save</Button><Button disabled={busy || !csrf || !draft.server_configured} title={draft.server_configured ? undefined : 'Save a mail server first'} onClick={() => void run(() => alertsAPI.test(orgID, csrf), 'Test email sent')}>Send test</Button>{status && <span className="table-meta" role="status">{status}</span>}</div>
+    <div className="row-actions"><Button className="button button-primary" disabled={disabled || !csrf} onClick={() => void save()}>Save</Button><Button disabled={busy || !csrf} onClick={() => void run(() => alertsAPI.test(orgID, staged(), csrf), 'Test email sent')}>Send test</Button>{status && <span className="table-meta" role="status">{status}</span>}</div>
   </div>
 }

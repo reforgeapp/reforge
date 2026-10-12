@@ -103,28 +103,35 @@ func (s *Service) Get(ctx context.Context, session auth.Session, org string) (Se
 	return out, err
 }
 
-func (s *Service) Put(ctx context.Context, session auth.Session, org string, in Settings, expected int64) (Settings, error) {
-	var out Settings
+func normalise(in *Settings) error {
 	if len(in.Recipients) > 20 || len(in.Address) > 255 || len(in.Username) > 255 || in.Password != nil && len(*in.Password) > 1024 {
-		return out, auth.ErrInvalid
+		return auth.ErrInvalid
 	}
 	if in.Address != "" {
 		if host, port, err := net.SplitHostPort(in.Address); err != nil || host == "" || port == "" {
-			return out, auth.ErrInvalid
+			return auth.ErrInvalid
 		}
 		if _, err := mail.ParseAddress(in.From); err != nil {
-			return out, auth.ErrInvalid
+			return auth.ErrInvalid
 		}
 	}
 	if !slices.Contains([]string{"starttls", "tls", "none"}, in.Security) {
-		return out, auth.ErrInvalid
+		return auth.ErrInvalid
 	}
 	for i, recipient := range in.Recipients {
 		address, err := mail.ParseAddress(strings.TrimSpace(recipient))
 		if err != nil {
-			return out, auth.ErrInvalid
+			return auth.ErrInvalid
 		}
 		in.Recipients[i] = address.Address
+	}
+	return nil
+}
+
+func (s *Service) Put(ctx context.Context, session auth.Session, org string, in Settings, expected int64) (Settings, error) {
+	var out Settings
+	if err := normalise(&in); err != nil {
+		return out, err
 	}
 	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if a.Role != domain.Owner {
@@ -161,20 +168,25 @@ func (s *Service) Put(ctx context.Context, session auth.Session, org string, in 
 	return out, err
 }
 
-func (s *Service) Test(ctx context.Context, session auth.Session, org string) error {
-	var settings Settings
+func (s *Service) Test(ctx context.Context, session auth.Session, org string, settings Settings) error {
+	if err := normalise(&settings); err != nil {
+		return err
+	}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if !manage(a) {
 			return auth.ErrForbidden
 		}
-		var err error
-		settings, err = s.settingsTx(ctx, tx, org)
+		saved, err := s.settingsTx(ctx, tx, org)
+		settings.password = saved.password
 		return err
 	})
 	if err != nil {
 		return err
 	}
 	server, ok := s.server(ctx, org, settings)
+	if settings.Password != nil {
+		server.Password = *settings.Password
+	}
 	if !ok {
 		return ErrNotConfigured
 	}
@@ -306,10 +318,7 @@ func deliver(server SMTP, to []string, subject, body string) error {
 			return err
 		}
 	}
-	if server.Username != "" {
-		if server.Security == "none" {
-			return errors.New("a username and password need STARTTLS or TLS")
-		}
+	if server.Username != "" && server.Security != "none" {
 		if err = client.Auth(smtp.PlainAuth("", server.Username, server.Password, host)); err != nil {
 			return err
 		}

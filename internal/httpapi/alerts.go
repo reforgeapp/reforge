@@ -38,11 +38,15 @@ func (s *Server) RegisterAlerts(service *alerts.Service) {
 		c.JSON(200, value)
 	})
 	g.POST("/test", func(c *gin.Context) {
+		var input alerts.Settings
+		if !identityJSON(c, &input) {
+			return
+		}
 		session, _ := SessionFromContext(c)
-		err := service.Test(c.Request.Context(), session, c.Param("orgID"))
+		err := service.Test(c.Request.Context(), session, c.Param("orgID"), input)
 		switch {
 		case errors.Is(err, alerts.ErrNotConfigured):
-			Fail(c, 409, "email_unconfigured", "Server email is not configured; set REFORGE_SMTP_ADDRESS and REFORGE_SMTP_FROM", false)
+			Fail(c, 409, "email_unconfigured", "Enter a mail server host and from address", false)
 		case errors.Is(err, auth.ErrForbidden), errors.Is(err, auth.ErrInvalid):
 			IdentityFailure(c, err)
 		case err != nil:
