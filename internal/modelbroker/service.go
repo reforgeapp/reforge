@@ -338,10 +338,10 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			return e
 		}
 		if !known {
-			if _, e := s.budgets.MarkUnknownTx(finalctx, tx, lease.OrgID, reservation.ID, "model-turn:"+in.OperationID); e != nil {
+			if e := s.budgets.SettleUnknownAtMaximumTx(finalctx, tx, lease.OrgID, reservation.ID, "model-turn:"+in.OperationID); e != nil {
 				return e
 			}
-			changed, e := tx.Exec(finalctx, `UPDATE model_turns SET state='unknown',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
+			changed, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',failure='uncertain',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
 			if e == nil && changed.RowsAffected() != 1 {
 				return auth.ErrConflict
 			}
@@ -384,7 +384,10 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	if persistErr != nil {
 		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
-	if persistErr != nil || !known {
+	if persistErr == nil && !known {
+		return model.TurnResult{}, ErrTurnFailed
+	}
+	if persistErr != nil {
 		return model.TurnResult{}, ErrUncertain
 	}
 	if err = s.runners.WithJob(finalctx, credential, "model.turn", func(pgx.Tx, workflow.Lease, workflow.Task) error { return nil }); err != nil {
