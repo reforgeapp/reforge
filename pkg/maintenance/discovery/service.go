@@ -16,13 +16,14 @@ import (
 )
 
 type Service struct {
-	db     *store.Store
-	auth   *auth.Service
-	reader Reader
+	db           *store.Store
+	auth         *auth.Service
+	reader       Reader
+	FixRequested func(context.Context, auth.Session, string, Finding, string) error
 }
 
 func New(db *store.Store, identity *auth.Service, reader Reader) *Service {
-	return &Service{db, identity, reader}
+	return &Service{db: db, auth: identity, reader: reader}
 }
 func manage(a domain.Actor, repo string) bool {
 	return auth.CanReadRepository(a, repo) && (a.Role == domain.Owner || a.Role == domain.Admin || a.Role == domain.Maintainer)

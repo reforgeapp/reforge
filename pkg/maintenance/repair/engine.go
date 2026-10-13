@@ -36,33 +36,35 @@ type Report struct {
 	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
 	Disposition  string             `json:"disposition,omitempty"`
 	Findings     []ReviewFinding    `json:"findings,omitempty"`
+	Reproduction []CheckResult      `json:"reproduction,omitempty"`
 }
 type Engine struct {
-	Restore          *Checkpoint
-	SaveCheckpoint   func(context.Context, Checkpoint) error
-	Runtime          sandbox.SandboxRuntime
-	originalFiles    map[string][]byte
-	PrepareWorkspace func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
-	Turn             func(context.Context, model.Turn) (model.TurnResult, error)
-	Artifact         func(context.Context, string, []byte) (string, string, error)
-	Progress         func(context.Context, string) error
-	Log              func(context.Context, string, string)
-	Model            string
-	JobID            string
-	AttemptID        string
-	Trust            string
-	Dependencies     string
-	CILogs           []CILog
-	Goal             string
-	OpenFixes        []string
-	RecentMerges     []string
-	OpenFixFiles     []map[string]string
-	AllowObsolete    bool
-	ReviewFinding    bool
-	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
-	Regenerate       func(context.Context, map[string][]byte, Regeneration) (map[string][]byte, error)
-	MaxOutputTokens  int
-	TurnTimeout      time.Duration
+	Restore             *Checkpoint
+	SaveCheckpoint      func(context.Context, Checkpoint) error
+	Runtime             sandbox.SandboxRuntime
+	originalFiles       map[string][]byte
+	PrepareWorkspace    func(context.Context, sandbox.WorkspaceRequest, []sandbox.Patch, sandbox.Command) (sandbox.Workspace, error)
+	Turn                func(context.Context, model.Turn) (model.TurnResult, error)
+	Artifact            func(context.Context, string, []byte) (string, string, error)
+	Progress            func(context.Context, string) error
+	Log                 func(context.Context, string, string)
+	Model               string
+	JobID               string
+	AttemptID           string
+	Trust               string
+	Dependencies        string
+	CILogs              []CILog
+	Goal                string
+	OpenFixes           []string
+	RecentMerges        []string
+	OpenFixFiles        []map[string]string
+	AllowObsolete       bool
+	ReviewFinding       bool
+	RequireReproduction bool
+	UpdateDependency    func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
+	Regenerate          func(context.Context, map[string][]byte, Regeneration) (map[string][]byte, error)
+	MaxOutputTokens     int
+	TurnTimeout         time.Duration
 }
 
 var ErrHandoff = errors.New("repair stopped without a change")

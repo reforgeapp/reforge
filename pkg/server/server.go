@@ -247,6 +247,7 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	autopilots.Connections = connectionService
 	autopilots.Deployments = deliveries
 	autopilots.Promotions = promotions
+	discoveries.FixRequested = autopilots.RequestFinding
 	notices := alerts.New(db, identity, vault, alerts.SMTP{Address: cfg.SMTPAddress, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom, Security: cfg.SMTPSecurity, ServerName: cfg.SMTPTLSServerName}, cfg.PublicURL)
 	autopilots.Notify = notices.Notify
 	autopilots.Scan = func(ctx context.Context, session auth.Session, org, repo, request string) error {

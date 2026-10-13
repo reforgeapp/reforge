@@ -668,6 +668,9 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
+			if current.Context.Finding.Source == "user_report" && !BehaviourReproduced(p, in.Reproduction) {
+				return ErrValidation
+			}
 			if t.State != domain.TaskValidating || !ci && !owner && !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
 				return ErrValidation
 			}
@@ -687,7 +690,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			}
 		}
 
-		for _, group := range [][]CheckResult{in.Baseline, in.Candidate, in.Target} {
+		for _, group := range [][]CheckResult{in.Baseline, in.Candidate, in.Target, in.Reproduction} {
 			for _, check := range group {
 				var bound bool
 				if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND task_id=$2 AND attempt_id=$3 AND id=ANY($4::uuid[]) AND sha256=$5 AND expires_at>clock_timestamp())`, l.OrgID, l.TaskID, l.AttemptID, in.Artifacts, check.OutputSHA256).Scan(&bound); err != nil {

@@ -282,6 +282,25 @@ func Reproduced(results []CheckResult) bool {
 	}
 	return len(results) > 0 && failed
 }
+
+func BehaviourReproduced(p Plan, results []CheckResult) bool {
+	if !p.Valid() || len(results) != len(p.Recipe.Commands) || !Reproduced(results) {
+		return false
+	}
+	for i, result := range results {
+		if result.CommandID != p.Recipe.Commands[i].ID {
+			return false
+		}
+	}
+	for _, result := range results {
+		for _, state := range result.Cases {
+			if state == "fail" {
+				return true
+			}
+		}
+	}
+	return false
+}
 func Verified(p Plan, baseline, candidate []CheckResult) bool {
 	if p.Owner {
 		return ownerVerified(p, baseline, candidate)

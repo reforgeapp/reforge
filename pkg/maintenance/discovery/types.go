@@ -57,6 +57,21 @@ type Evidence struct {
 	Deployment        string                 `json:"deployment,omitempty"`
 	ActionURL         string                 `json:"action_url,omitempty"`
 	ActionLabel       string                 `json:"action_label,omitempty"`
+	Report            *BugReport             `json:"report,omitempty"`
+}
+
+type BugReport struct {
+	Observed      string `json:"observed"`
+	Expected      string `json:"expected"`
+	URL           string `json:"url,omitempty"`
+	ScreenshotURL string `json:"screenshot_url,omitempty"`
+	Error         string `json:"error,omitempty"`
+}
+
+type BugReportInput struct {
+	RepositoryID string `json:"repository_id"`
+	Kind         string `json:"kind"`
+	BugReport
 }
 type ReviewEvidence struct {
 	Path         string `json:"path,omitempty"`

@@ -11,6 +11,19 @@ import (
 
 func (s *Server) RegisterDiscovery(service *discovery.Service) {
 	g := s.Router.Group("/api/v1/orgs/:orgID", s.IdentitySession())
+	g.POST("/findings/reports", func(c *gin.Context) {
+		var input discovery.BugReportInput
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		finding, err := service.ReportBug(c.Request.Context(), session, c.Param("orgID"), input, c.GetString("request_id"))
+		if err != nil {
+			discoveryFailure(c, err)
+			return
+		}
+		discoveryResponse(c, 201, finding.Version, finding)
+	})
 	g.GET("/findings", func(c *gin.Context) {
 		limit, cursor, ok := identityPage(c)
 		if !ok {

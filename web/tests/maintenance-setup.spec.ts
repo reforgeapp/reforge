@@ -61,3 +61,23 @@ test('organisation mode remains distinct from work enabled and previews every re
   await expect(dialog).not.toBeVisible()
   expect(activated).toBe(true)
 })
+
+test('owner reports existing defect without hashes, package metadata or model choices', async ({ page }) => {
+  await fixture(page)
+  const finding = { id: 'reported', repository_id: repo, title: 'Checkout button does nothing on mobile', category: 'reported_defect', source: 'user_report', state: 'open', severity: 'medium', version: 1, last_seen: new Date().toISOString(), reason: '', evidence: { head_sha: 'a'.repeat(40), target_sha: 'a'.repeat(40), target_branch: 'main', complete: true, ownership: 'human', provenance: 'Owner-reported defect; reproduction required', checks: [], dependencies: [], blockers: [], report: { observed: 'Checkout button does nothing on mobile', expected: 'Checkout opens payment' } } }
+  let submitted: Record<string, unknown> | undefined
+  await page.route(`**${base}/findings/reports`, route => { submitted = route.request().postDataJSON(); return route.fulfill({ status: 201, json: finding }) })
+  await page.route(`**${base}/findings/reported`, route => route.fulfill({ json: finding }))
+  await page.goto(`/org/${org}/findings?repository=${repo}`)
+  await page.getByRole('button', { name: 'Fix this', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Fix this' })
+  await dialog.getByLabel('What stopped working?').fill(finding.evidence.report.observed)
+  await dialog.getByLabel('What should happen?').fill(finding.evidence.report.expected)
+  await dialog.getByRole('button', { name: 'Fix this', exact: true }).click()
+  await expect(dialog).not.toBeVisible()
+  await expect(page.getByText('Reported. Fix starts when checks and maintenance permissions allow.')).toBeVisible()
+  await expect(page.getByText('Expected: Checkout opens payment')).toBeVisible()
+  expect(submitted).toMatchObject({ repository_id: repo, kind: 'defect', observed: finding.evidence.report.observed, expected: finding.evidence.report.expected })
+  expect(submitted).not.toHaveProperty('head_sha')
+  expect(submitted).not.toHaveProperty('model_connection_id')
+})

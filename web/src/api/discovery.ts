@@ -5,11 +5,13 @@ export type Finding = components['schemas']['Finding']
 export type FindingPage = components['schemas']['FindingPage']
 export type FindingUpdate = components['schemas']['FindingUpdate']
 export type AdvisoryInput = components['schemas']['AdvisoryInput']
+export type BugReportInput = { repository_id: string; kind: 'defect'; observed: string; expected: string; url?: string; screenshot_url?: string; error?: string }
 
 const path = (orgID: string, suffix: string) => `/api/v1/orgs/${encodeURIComponent(orgID)}${suffix}`
 const tag = (version: number) => `"${version}"`
 
 export const discoveryAPI = {
+  reportBug: (orgID: string, input: BugReportInput, csrf: string) => apiRequest<Finding>(path(orgID, '/findings/reports'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   findings: (orgID: string, params: { q?: string; repository_id?: string; state?: string; category?: string; severity?: string; cursor?: string; limit?: number; signal?: AbortSignal } = {}) => {
     const query = new URLSearchParams()
     Object.entries(params).forEach(([key, value]) => { if (key !== 'signal' && value) query.set(key, String(value)) })

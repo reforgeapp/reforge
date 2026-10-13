@@ -322,7 +322,7 @@ func refreshReviewFindings(ctx context.Context, tx pgx.Tx, lease scanLease, obse
 	if current == nil {
 		return nil
 	}
-	rows, err := tx.Query(ctx, `SELECT `+columns+` FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND source='repository_review' AND state='open'`, lease.Org, lease.Repo)
+	rows, err := tx.Query(ctx, `SELECT `+columns+` FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND source IN ('repository_review','user_report') AND state='open'`, lease.Org, lease.Repo)
 	if err != nil {
 		return err
 	}
@@ -845,7 +845,7 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 		if err := refreshReviewFindings(persistCtx, tx, lease, observations); err != nil {
 			return err
 		}
-		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review','deployment') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
+		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review','deployment','user_report') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
 		if err != nil {
 			return err
 		}

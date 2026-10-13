@@ -73,6 +73,19 @@ func (e BudgetLimitInputPeriod) Valid() bool {
 }
 
 const (
+	Defect BugReportInputKind = "defect"
+)
+
+func (e BugReportInputKind) Valid() bool {
+	switch e {
+	case Defect:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	ContinueCurrentStage CampaignControlInputStageDecision = "continue_current_stage"
 )
 
@@ -1381,6 +1394,23 @@ type BudgetScopeSnapshot struct {
 	Scope       BudgetScope `json:"scope"`
 	Version     int64       `json:"version"`
 }
+type BugReport struct {
+	Error         *string `json:"error,omitempty"`
+	Expected      string  `json:"expected"`
+	Observed      string  `json:"observed"`
+	ScreenshotUrl *string `json:"screenshot_url,omitempty"`
+	Url           *string `json:"url,omitempty"`
+}
+type BugReportInput struct {
+	Error         *string            `json:"error,omitempty"`
+	Expected      string             `json:"expected"`
+	Kind          BugReportInputKind `json:"kind"`
+	Observed      string             `json:"observed"`
+	RepositoryId  openapi_types.UUID `json:"repository_id"`
+	ScreenshotUrl *string            `json:"screenshot_url,omitempty"`
+	Url           *string            `json:"url,omitempty"`
+}
+type BugReportInputKind string
 type Campaign struct {
 	Counts         CampaignCounts `json:"counts"`
 	CreatedAt      time.Time      `json:"created_at"`
@@ -2162,6 +2192,7 @@ type MaintenanceEvidence struct {
 	Ownership         string                  `json:"ownership"`
 	Provenance        string                  `json:"provenance"`
 	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
+	Report            *BugReport              `json:"report,omitempty"`
 	Review            *struct {
 		Confidence   *string `json:"confidence,omitempty"`
 		Detail       *string `json:"detail,omitempty"`
@@ -2800,16 +2831,17 @@ type RepairRecipe struct {
 	Version        string           `json:"version"`
 }
 type RepairReport struct {
-	Artifacts  *[]string      `json:"artifacts"`
-	Baseline   *[]RepairCheck `json:"baseline"`
-	Candidate  *[]RepairCheck `json:"candidate"`
-	Diff       *string        `json:"diff,omitempty"`
-	Patches    *[]RepairPatch `json:"patches"`
-	PlanDigest string         `json:"plan_digest"`
-	Reason     string         `json:"reason"`
-	State      string         `json:"state"`
-	Target     *[]RepairCheck `json:"target"`
-	Turns      int64          `json:"turns"`
+	Artifacts    *[]string      `json:"artifacts"`
+	Baseline     *[]RepairCheck `json:"baseline"`
+	Candidate    *[]RepairCheck `json:"candidate"`
+	Diff         *string        `json:"diff,omitempty"`
+	Patches      *[]RepairPatch `json:"patches"`
+	PlanDigest   string         `json:"plan_digest"`
+	Reason       string         `json:"reason"`
+	Reproduction *[]RepairCheck `json:"reproduction,omitempty"`
+	State        string         `json:"state"`
+	Target       *[]RepairCheck `json:"target"`
+	Turns        int64          `json:"turns"`
 }
 type RepairRun struct {
 	Branch             string          `json:"branch"`
@@ -3625,6 +3657,7 @@ type PreviewDeploymentJSONRequestBody = DeploymentPreviewInput
 type TrackDeploymentJSONRequestBody = DeploymentTrackInput
 type RequestDeploymentJSONRequestBody = DeploymentRequestInput
 type ImportAdvisoryJSONRequestBody = AdvisoryInput
+type ReportBugJSONRequestBody = BugReportInput
 type UpdateFindingJSONRequestBody = FindingUpdate
 type StartGitHubAppSetupJSONRequestBody = GitHubAppSetupCreate
 type PutGitOpsConfigurationJSONRequestBody = GitOpsConfiguration

@@ -11742,6 +11742,55 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/findings/reports": {
+      "post": {
+        "operationId": "reportBug",
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Finding"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BugReportInput"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -15671,6 +15720,9 @@
                 "type"
               ]
             }
+          },
+          "report": {
+            "$ref": "#/components/schemas/BugReport"
           }
         },
         "required": [
@@ -16253,6 +16305,13 @@
           "turns": {
             "type": "integer",
             "format": "int64"
+          },
+          "reproduction": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepairCheck"
+            },
+            "nullable": true
           }
         },
         "required": [
@@ -20059,6 +20118,80 @@
           },
           "pool_id": {
             "type": "string"
+          }
+        }
+      },
+      "BugReport": {
+        "type": "object",
+        "required": [
+          "observed",
+          "expected"
+        ],
+        "properties": {
+          "observed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "screenshot_url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "error": {
+            "type": "string",
+            "maxLength": 4096
+          }
+        }
+      },
+      "BugReportInput": {
+        "type": "object",
+        "required": [
+          "observed",
+          "expected",
+          "repository_id",
+          "kind"
+        ],
+        "properties": {
+          "observed": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "expected": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          },
+          "url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "screenshot_url": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "error": {
+            "type": "string",
+            "maxLength": 4096
+          },
+          "repository_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "defect"
+            ]
           }
         }
       }
