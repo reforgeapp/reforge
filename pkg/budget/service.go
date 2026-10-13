@@ -212,6 +212,9 @@ func (s *Service) PutRoute(ctx context.Context, session auth.Session, org string
 		if err := s.scopeExists(ctx, tx, org, Scope{"connection", input.ConnectionID}); err != nil {
 			return err
 		}
+		if err := pricingMetadataTx(ctx, tx, org, &input); err != nil {
+			return err
+		}
 		old, err := loadRoute(ctx, tx, org, input.ConnectionID, input.Model, input.Name)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err

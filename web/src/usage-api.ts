@@ -3,7 +3,9 @@ import { apiRequest } from './api/client'
 export type Amount = { micro_usd: number; tokens: number; milliseconds: number; requests: number; concurrency: number }
 export type Caps = { micro_usd?: number; tokens?: number; milliseconds?: number; requests?: number; concurrency?: number }
 export type Limit = { scope: { kind: string; id: string }; period: string; start?: string; end?: string; caps: Caps; paused: boolean; version: number; held: Amount; spent: Amount }
-export type Route = { connection_id: string; model: string; name: string; mode: string; pricing_version: string; input_micro_usd_per_million: number; output_micro_usd_per_million: number; request_micro_usd: number; max_input_tokens: number; max_output_tokens: number; max_milliseconds: number; max_requests: number; qualified: boolean; qualification_ref: string; paused: boolean; version: number }
+export type Route = { pricing_preset_id?: string; pricing_source?: string; pricing_checked_at?: string; cost_basis?: string; connection_id: string; model: string; name: string; mode: string; pricing_version: string; input_micro_usd_per_million: number; output_micro_usd_per_million: number; request_micro_usd: number; max_input_tokens: number; max_output_tokens: number; max_milliseconds: number; max_requests: number; qualified: boolean; qualification_ref: string; paused: boolean; version: number }
+export type PricingPreset = { id: string; provider: string; model: string; source: string; checked_at: string; input_micro_usd_per_million: number; output_micro_usd_per_million: number }
+export type PricingOptions = { presets: PricingPreset[]; manual: boolean; automatic: boolean; reason: string }
 export type Reservation = { id: string; connection_id: string; maximum: Amount; actual?: Amount; state: string; created_at: string; quote: { model: string; route: string; input_tokens: number; max_output_tokens: number }; lease: { repository_id: string; task_id: string; operation_id: string }; route: Route }
 export type UsageRow = { reservation: Reservation; provider: string; recipe: string; repository_name: string }
 export type UsagePage = { items: UsageRow[]; complete: boolean; next_cursor?: string }
@@ -16,6 +18,8 @@ const json = <T>(url: string, body: unknown, csrf: string, init: RequestInit = {
 export type UsageFilters = { repository_id?: string; team_id?: string; recipe?: string; provider?: string; connection_id?: string; state?: string; since?: string; until?: string; cursor?: string; limit?: number; signal?: AbortSignal }
 const query = (filters: UsageFilters, includePage = true) => { const value = new URLSearchParams(); for (const key of ['repository_id', 'team_id', 'recipe', 'provider', 'connection_id', 'state', 'since', 'until'] as const) if (filters[key]) value.set(key, filters[key]!) ; if (includePage && filters.cursor) value.set('cursor', filters.cursor); if (includePage) value.set('limit', String(Math.min(filters.limit ?? 50, 100))); return value.toString() }
 export const usageAPI = {
+ pricing: (orgID:string,connectionID:string,signal?:AbortSignal)=>apiRequest<PricingOptions>(path(orgID,`/model-pricing/${encodeURIComponent(connectionID)}`),{signal}),
+ applyPricePreset: (orgID:string,connectionID:string,presetID:string,version:number,csrf:string)=>json<Route>(path(orgID,`/budget-routes/${encodeURIComponent(connectionID)}/price-preset`),{preset_id:presetID},csrf,{method:'POST',headers:{'If-Match':tag(version)}}),
   list: (orgID: string, filters: UsageFilters = {}) => apiRequest<UsagePage>(path(orgID, `/usage?${query(filters)}`), { signal: filters.signal }),
   summary: (orgID: string, filters: UsageFilters = {}) => apiRequest<UsageSummary>(path(orgID, `/usage/summary?${query(filters, false)}`), { signal: filters.signal }),
   series: (orgID: string, filters: UsageFilters = {}) => apiRequest<UsageSeries>(path(orgID, `/usage/series?${query(filters, false)}`), { signal: filters.signal }),

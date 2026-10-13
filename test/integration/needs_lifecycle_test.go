@@ -40,11 +40,12 @@ func TestNeedsKeepExhaustionAndBoundExplicitRetry(t *testing.T) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'approved','default','{"mode":"priced"}',1)`, f.org, model)
+
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedPricedFixtureRoute(t, f, model, "approved")
 	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
 	if err != nil {
 		t.Fatal(err)
@@ -170,7 +171,6 @@ func TestNeedsResolveInfrastructureHoldsFromCurrentState(t *testing.T) {
 			{`INSERT INTO autopilot_requests(org_id,repository_id,requested_by,continuous) VALUES($1,$2,$3,true)`, []any{f.org, repo, f.owner.User.ID}},
 			{`INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Approved','https://model.example','{"model":"approved"}','degraded')`, []any{f.org, model}},
 			{`UPDATE connections SET state='degraded' WHERE org_id=$1 AND id=$2`, []any{f.org, f.connection.ID}},
-			{`INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'approved','default','{"mode":"priced"}',1)`, []any{f.org, model}},
 			{`INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,paused,version) VALUES($1,'organisation',$1,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month','{"micro_usd":5000000}',true,1)`, []any{f.org}},
 		}
 		for _, q := range queries {
@@ -182,6 +182,7 @@ func TestNeedsResolveInfrastructureHoldsFromCurrentState(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedPricedFixtureRoute(t, f, model, "approved")
 	service := autopilot.New(f.db, f.identity, nil, nil, nil, nil)
 	result, err := service.NeedsPage(ctx, f.owner, f.org, 50, "")
 	if err != nil || result.Total != 4 {

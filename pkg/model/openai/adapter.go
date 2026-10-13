@@ -238,7 +238,7 @@ func (p *Provider) turnBody(request model.TurnRequest, modelID string) ([]byte, 
 		}
 		tools = append(tools, map[string]any{"type": "function", "name": tool.Name, "description": tool.Description, "parameters": schema, "strict": true})
 	}
-	body := map[string]any{"model": modelID, "input": input, "stream": true, "store": false}
+	body := map[string]any{"model": modelID, "input": input, "stream": true, "store": false, "service_tier": "default"}
 	if request.System != "" {
 		body["instructions"] = request.System
 	}

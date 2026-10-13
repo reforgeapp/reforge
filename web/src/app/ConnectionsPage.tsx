@@ -10,7 +10,7 @@ import { DataTable, EmptyTable, useSort } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { SplitView, DetailPanel } from '../components/Workspace'
-import { ModelPricing } from './ModelPricing'
+import { ModelEligibility, ModelPricing } from './ModelPricing'
 import { CustomProfilesPanel } from './CustomProfilesPanel'
 import { AgentQualificationPanel } from './AgentQualificationPanel'
 import { ModelConnectionForm } from './ModelConnectionForm'
@@ -386,6 +386,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
     </form>}
     <ConnectionDetailTabs kind={connection.kind} value={detailTab} onChange={setDetailTab} />
     {detailTab === 'overview' && <ConnectionOverview connection={connection} capabilities={capabilities} />}
+    {detailTab === 'overview' && connection.kind==='agent' && !revoked && <ModelEligibility orgID={orgID} connectionID={connection.id} />}
     {detailTab === 'overview' && connection.kind === 'model' && connection.settings.billing_route === 'direct_api' && connection.settings.model && !revoked && <ModelPricing orgID={orgID} connectionID={connection.id} model={connection.settings.model} csrf={csrf} />}
     {detailTab === 'qualification' && connection.kind === 'agent' && <AgentQualificationPanel orgID={orgID} connectionID={connection.id} provider={connection.provider} />}
     {detailTab === 'configuration' && connection.kind !== 'agent' && <PrivateRouteEditor

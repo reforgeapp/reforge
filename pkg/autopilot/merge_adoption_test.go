@@ -277,14 +277,14 @@ func TestEscalatedModelPrefersEligibleAlternativeAndFallsBackToPrior(t *testing.
 			return err
 		}
 		for i, model := range []string{priorModel, alternateModel} {
-			if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,reason) VALUES($1,$2,'model','test',$3,'https://model.invalid','{}','healthy','')`, org, model, "Model "+strconv.Itoa(i)); err != nil {
+			if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,reason) VALUES($1,$2,'model','test',$3,'https://model.invalid',jsonb_build_object('model',$4::text),'healthy','')`, org, model, "Model "+strconv.Itoa(i), "model-"+strconv.Itoa(i)); err != nil {
 				return err
 			}
 			price := 1000000
 			if i == 1 {
 				price = 500000
 			}
-			config, _ := json.Marshal(map[string]any{"mode": "priced", "input_micro_usd_per_million": price})
+			config, _ := json.Marshal(budget.Route{ConnectionID: model, Model: "model-" + strconv.Itoa(i), Name: "default", Mode: "priced", PricingVersion: "fixture-v1", InputMicroUSDPerMillion: int64(price), MaxInputTokens: 64_000, MaxOutputTokens: 4096, MaxMilliseconds: 600_000, MaxRequests: 1, Version: 1})
 			if _, err := tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,$3,'default',$4,1)`, org, model, "model-"+strconv.Itoa(i), config); err != nil {
 				return err
 			}

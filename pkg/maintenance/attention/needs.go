@@ -8,6 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/domain"
 )
 
@@ -31,7 +32,7 @@ type Page struct {
 	Total int64 `json:"total"`
 }
 
-const Query = `WITH managed AS (
+var query = `WITH managed AS (
  SELECT r.*,coalesce(rp.document#>>'{defaults,model}',op.document#>>'{defaults,model}','') AS model,
  coalesce(rp.document#>>'{defaults,route}',op.document#>>'{defaults,route}','') AS route
   ,coalesce(rp.document#>>'{defaults,connection_id}',op.document#>>'{defaults,connection_id}','') AS model_connection
@@ -83,12 +84,12 @@ const Query = `WITH managed AS (
  WHERE NOT EXISTS(SELECT 1 FROM runner_pools p JOIN runners n ON n.org_id=p.org_id AND n.pool_id=p.id WHERE p.org_id=r.org_id AND p.state='active' AND n.state='active' AND n.credential_expires_at>now() AND n.last_seen_at>now()-interval '5 minutes' AND (p.builtin OR EXISTS(SELECT 1 FROM runner_pool_repositories pr WHERE pr.org_id=p.org_id AND pr.pool_id=p.id AND pr.repository_id=r.id)))
  UNION ALL
  SELECT 'model:'||r.id,'reconnect','',0,r.id::text,r.name,'Connect approved maintenance model','Healthy approved model with known pricing unavailable','repositories?repository='||r.id,'Set up maintenance','operator',NULL FROM managed r
- WHERE NOT EXISTS(SELECT 1 FROM connections c JOIN budget_routes b ON b.org_id=c.org_id AND b.connection_id=c.id AND b.model=c.settings->>'model' WHERE c.org_id=r.org_id AND c.kind='model' AND c.state='healthy' AND b.config->>'mode'='priced' AND NOT coalesce((b.config->>'paused')::boolean,false) AND (r.model_connection='' OR r.model_connection=c.id::text) AND (r.model='' OR r.model=c.settings->>'model' AND r.route=b.name))
+ WHERE NOT EXISTS(SELECT 1 FROM connections c JOIN budget_routes b ON b.org_id=c.org_id AND b.connection_id=c.id AND b.model=c.settings->>'model' WHERE c.org_id=r.org_id AND c.kind='model' AND c.state='healthy' AND ` + budget.AutomaticRouteSQL("b") + ` AND (r.model_connection='' OR r.model_connection=c.id::text) AND (r.model='' OR r.model=c.settings->>'model' AND r.route=b.name))
 ) `
 
 func CountTx(ctx context.Context, tx pgx.Tx, a domain.Actor) (int64, error) {
 	var count int64
-	err := tx.QueryRow(ctx, Query+`SELECT count(*) FROM needs`, a.OrgID, a.AllRepositories, a.RepositoryIDs).Scan(&count)
+	err := tx.QueryRow(ctx, query+`SELECT count(*) FROM needs`, a.OrgID, a.AllRepositories, a.RepositoryIDs).Scan(&count)
 	return count, err
 }
 
@@ -105,7 +106,7 @@ func ListTx(ctx context.Context, tx pgx.Tx, a domain.Actor, limit int, cursor st
 		}
 		key = string(raw)
 	}
-	rows, err := tx.Query(ctx, Query+`SELECT * FROM needs WHERE id>$4 ORDER BY id LIMIT $5`, a.OrgID, a.AllRepositories, a.RepositoryIDs, key, limit+1)
+	rows, err := tx.Query(ctx, query+`SELECT * FROM needs WHERE id>$4 ORDER BY id LIMIT $5`, a.OrgID, a.AllRepositories, a.RepositoryIDs, key, limit+1)
 	if err != nil {
 		return out, err
 	}

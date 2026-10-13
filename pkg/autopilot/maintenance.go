@@ -100,7 +100,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	var connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion int64
 	out.BudgetPeriod = "monthly"
 	if in.Mode != "observe" {
-		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
+		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
 		if err != nil {
 			return out, err
 		}

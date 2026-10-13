@@ -45,6 +45,10 @@ type Limit struct {
 	Spent   Amount    `json:"spent"`
 }
 type Route struct {
+	PricingPresetID          string `json:"pricing_preset_id,omitempty"`
+	PricingSource            string `json:"pricing_source,omitempty"`
+	PricingCheckedAt         string `json:"pricing_checked_at,omitempty"`
+	CostBasis                string `json:"cost_basis,omitempty"`
 	ConnectionID             string `json:"connection_id"`
 	Model                    string `json:"model"`
 	Name                     string `json:"name"`

@@ -28,7 +28,6 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 			{`UPDATE connections SET state='healthy' WHERE org_id=$1 AND id=$2`, []any{f.org, f.connection.ID}},
 			{`INSERT INTO repositories(org_id,id,connection_id,native_id,name) VALUES($1,$2,$4,'maintained','maintained'),($1,$3,$4,'untouched','untouched')`, []any{f.org, repo, other, f.connection.ID}},
 			{`INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Approved','https://model.example','{"model":"approved"}','healthy')`, []any{f.org, model}},
-			{`INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'approved','default','{"mode":"priced","paused":false}',1)`, []any{f.org, model}},
 			{`INSERT INTO runner_pools(org_id,id,name,state,builtin) VALUES($1,$2,'Built in','active',true)`, []any{f.org, pool}},
 			{`INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at) VALUES($1,$2,$3,'Runner','fixture',now()+interval '1 hour')`, []any{f.org, domain.NewID(), pool}},
 		}
@@ -41,6 +40,7 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedPricedFixtureRoute(t, f, model, "approved")
 	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
 	if err != nil {
 		t.Fatal(err)
@@ -153,14 +153,13 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 		if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Paid mirror','https://paid.example','{"model":"approved"}','healthy')`, f.org, replacement); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'approved','default','{"mode":"priced","paused":false}',1)`, f.org, replacement); err != nil {
-			return err
-		}
+
 		_, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'repository_review','checkout','code_defect','high','Checkout failed','{"complete":true,"blockers":[]}',$4)`, f.org, finding, repo, strings.Repeat("f", 64))
 		return err
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedPricedFixtureRoute(t, f, replacement, "approved")
 	command.ConnectionID = ""
 	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
 	if err != nil || plan.Ready || plan.ConnectionID != "" {

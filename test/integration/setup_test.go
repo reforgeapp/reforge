@@ -22,7 +22,6 @@ func TestSetupRequiresOneRepositoryExecutionPath(t *testing.T) {
 			{`UPDATE connections SET state='healthy' WHERE org_id=$1 AND id=$2`, []any{f.org, f.connection.ID}},
 			{`INSERT INTO repositories(org_id,id,connection_id,native_id,name) VALUES($1,$2,$4,'main','a-main'),($1,$3,$4,'other','z-other')`, []any{f.org, repo, other, f.connection.ID}},
 			{`INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,created_at) VALUES($1,$2,'model','compatible','Unpriced','https://model.example','{"model":"unpriced"}','healthy',now()-interval '1 day'),($1,$3,'model','compatible','Priced','https://model.example','{"model":"priced"}','healthy',now())`, []any{f.org, unpriced, model}},
-			{`INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'priced','default','{"mode":"priced","paused":false}',1)`, []any{f.org, model}},
 			{`INSERT INTO runner_pools(org_id,id,name,state) VALUES($1,$2,'Other repo runner','active')`, []any{f.org, pool}},
 			{`INSERT INTO runner_pool_repositories(org_id,pool_id,repository_id) VALUES($1,$2,$3)`, []any{f.org, pool, other}},
 			{`INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at) VALUES($1,$2,$3,'Runner','fixture',now()+interval '1 hour')`, []any{f.org, domain.NewID(), pool}},
@@ -37,6 +36,7 @@ func TestSetupRequiresOneRepositoryExecutionPath(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	seedPricedFixtureRoute(t, f, model, "priced")
 	service := insights.New(f.identity)
 	resolve := func(context.Context, pgx.Tx, string, string) (policy.Resolved, error) {
 		return policy.Resolved{Hash: "valid", Policy: policy.Policy{Schema: "maintenance/v1"}}, nil

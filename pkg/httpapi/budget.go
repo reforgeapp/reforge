@@ -37,6 +37,34 @@ func (s *Server) RegisterBudget(service *budget.Service) {
 		}
 		budgetResponse(c, value.Version, value)
 	})
+	g.GET("/model-pricing/:connectionID", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, err := service.Pricing(c.Request.Context(), session, c.Param("orgID"), c.Param("connectionID"))
+		if err != nil {
+			budgetFailure(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
+	g.POST("/budget-routes/:connectionID/price-preset", func(c *gin.Context) {
+		version, ok := identityVersion(c)
+		if !ok {
+			return
+		}
+		var input struct {
+			PresetID string `json:"preset_id"`
+		}
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		value, err := service.ApplyPricingPreset(c.Request.Context(), session, c.Param("orgID"), c.Param("connectionID"), input.PresetID, version, c.GetString("request_id"))
+		if err != nil {
+			budgetFailure(c, err)
+			return
+		}
+		budgetResponse(c, value.Version, value)
+	})
 	g.GET("/budget-routes/:connectionID", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
 		value, err := service.GetRoute(c.Request.Context(), session, c.Param("orgID"), c.Param("connectionID"), c.Query("model"), c.DefaultQuery("route", "default"))

@@ -12048,6 +12048,124 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/model-pricing/{connectionID}": {
+      "get": {
+        "operationId": "getModelPricing",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Model pricing and eligibility",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PricingOptions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/budget-routes/{connectionID}/price-preset": {
+      "post": {
+        "operationId": "applyPricingPreset",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PricingPresetCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Versioned published price ceiling",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BudgetRoute"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -14540,6 +14658,18 @@
           },
           "paused": {
             "type": "boolean"
+          },
+          "pricing_preset_id": {
+            "type": "string"
+          },
+          "pricing_source": {
+            "type": "string"
+          },
+          "pricing_checked_at": {
+            "type": "string"
+          },
+          "cost_basis": {
+            "type": "string"
           }
         }
       },
@@ -20730,6 +20860,83 @@
         "required": [
           "items",
           "complete"
+        ],
+        "additionalProperties": false
+      },
+      "PricingPreset": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "provider": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "checked_at": {
+            "type": "string"
+          },
+          "input_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "output_micro_usd_per_million": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "id",
+          "provider",
+          "model",
+          "source",
+          "checked_at",
+          "input_micro_usd_per_million",
+          "output_micro_usd_per_million"
+        ],
+        "additionalProperties": false
+      },
+      "PricingOptions": {
+        "type": "object",
+        "properties": {
+          "presets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PricingPreset"
+            }
+          },
+          "manual": {
+            "type": "boolean"
+          },
+          "automatic": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "presets",
+          "manual",
+          "automatic",
+          "reason"
+        ],
+        "additionalProperties": false
+      },
+      "PricingPresetCommand": {
+        "type": "object",
+        "properties": {
+          "preset_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "preset_id"
         ],
         "additionalProperties": false
       }

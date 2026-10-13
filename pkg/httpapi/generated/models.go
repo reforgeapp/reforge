@@ -1461,22 +1461,26 @@ type BudgetReservation struct {
 	State             string                `json:"state"`
 }
 type BudgetRoute struct {
-	ConnectionId             string `json:"connection_id"`
-	InputMicroUsdPerMillion  int64  `json:"input_micro_usd_per_million"`
-	MaxInputTokens           int64  `json:"max_input_tokens"`
-	MaxMilliseconds          int64  `json:"max_milliseconds"`
-	MaxOutputTokens          int64  `json:"max_output_tokens"`
-	MaxRequests              int64  `json:"max_requests"`
-	Mode                     string `json:"mode"`
-	Model                    string `json:"model"`
-	Name                     string `json:"name"`
-	OutputMicroUsdPerMillion int64  `json:"output_micro_usd_per_million"`
-	Paused                   bool   `json:"paused"`
-	PricingVersion           string `json:"pricing_version"`
-	QualificationRef         string `json:"qualification_ref"`
-	Qualified                bool   `json:"qualified"`
-	RequestMicroUsd          int64  `json:"request_micro_usd"`
-	Version                  int64  `json:"version"`
+	ConnectionId             string  `json:"connection_id"`
+	CostBasis                *string `json:"cost_basis,omitempty"`
+	InputMicroUsdPerMillion  int64   `json:"input_micro_usd_per_million"`
+	MaxInputTokens           int64   `json:"max_input_tokens"`
+	MaxMilliseconds          int64   `json:"max_milliseconds"`
+	MaxOutputTokens          int64   `json:"max_output_tokens"`
+	MaxRequests              int64   `json:"max_requests"`
+	Mode                     string  `json:"mode"`
+	Model                    string  `json:"model"`
+	Name                     string  `json:"name"`
+	OutputMicroUsdPerMillion int64   `json:"output_micro_usd_per_million"`
+	Paused                   bool    `json:"paused"`
+	PricingCheckedAt         *string `json:"pricing_checked_at,omitempty"`
+	PricingPresetId          *string `json:"pricing_preset_id,omitempty"`
+	PricingSource            *string `json:"pricing_source,omitempty"`
+	PricingVersion           string  `json:"pricing_version"`
+	QualificationRef         string  `json:"qualification_ref"`
+	Qualified                bool    `json:"qualified"`
+	RequestMicroUsd          int64   `json:"request_micro_usd"`
+	Version                  int64   `json:"version"`
 }
 type BudgetRouteInput struct {
 	InputMicroUsdPerMillion  int64  `json:"input_micro_usd_per_million"`
@@ -2855,6 +2859,24 @@ type PolicyVersionPage struct {
 	Items      []PolicyVersion `json:"items"`
 	NextCursor *string         `json:"next_cursor,omitempty"`
 }
+type PricingOptions struct {
+	Automatic bool            `json:"automatic"`
+	Manual    bool            `json:"manual"`
+	Presets   []PricingPreset `json:"presets"`
+	Reason    string          `json:"reason"`
+}
+type PricingPreset struct {
+	CheckedAt                string `json:"checked_at"`
+	Id                       string `json:"id"`
+	InputMicroUsdPerMillion  int64  `json:"input_micro_usd_per_million"`
+	Model                    string `json:"model"`
+	OutputMicroUsdPerMillion int64  `json:"output_micro_usd_per_million"`
+	Provider                 string `json:"provider"`
+	Source                   string `json:"source"`
+}
+type PricingPresetCommand struct {
+	PresetId string `json:"preset_id"`
+}
 type PrivateCompletion struct {
 	GrantId string                 `json:"grant_id"`
 	Result  map[string]interface{} `json:"result"`
@@ -3312,6 +3334,9 @@ type GetBudgetRouteParams struct {
 type PutBudgetRouteParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
+}
+type ApplyPricingPresetParams struct {
+	IfMatch string `json:"If-Match"`
 }
 type PutBudgetParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -3824,6 +3849,7 @@ type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
 type UpdateAutopilotJSONRequestBody = AutopilotUpdate
 type RetryFindingJSONRequestBody = RetryCommand
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
+type ApplyPricingPresetJSONRequestBody = PricingPresetCommand
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type PreviewCampaignJSONRequestBody = CampaignInput
 type CreateCampaignJSONRequestBody = CampaignCreateInput

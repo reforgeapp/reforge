@@ -53,6 +53,13 @@ func TestStreamTurnAssemblesParallelToolCalls(t *testing.T) {
 		if request.Method != http.MethodPost || request.URL.Path != "/v1/responses" {
 			t.Fatalf("unexpected request %s %s", request.Method, request.URL.Path)
 		}
+		var payload map[string]any
+		if err := json.NewDecoder(request.Body).Decode(&payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload["service_tier"] != "default" {
+			t.Fatalf("provider can select higher-price project tier: %v", payload["service_tier"])
+		}
 		return response(http.StatusOK, stream), nil
 	}))
 	var events []model.Event

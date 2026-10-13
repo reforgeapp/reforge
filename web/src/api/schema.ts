@@ -2571,6 +2571,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/model-pricing/{connectionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getModelPricing"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/budget-routes/{connectionID}/price-preset": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["applyPricingPreset"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3238,6 +3270,10 @@ export interface components {
             version: number;
             qualified: boolean;
             paused: boolean;
+            pricing_preset_id?: string;
+            pricing_source?: string;
+            pricing_checked_at?: string;
+            cost_basis?: string;
         };
         BudgetRouteInput: {
             model: string;
@@ -4978,6 +5014,26 @@ export interface components {
             items: components["schemas"]["Work"][];
             complete: boolean;
             next_cursor?: string;
+        };
+        PricingPreset: {
+            id: string;
+            provider: string;
+            model: string;
+            source: string;
+            checked_at: string;
+
+            input_micro_usd_per_million: number;
+
+            output_micro_usd_per_million: number;
+        };
+        PricingOptions: {
+            presets: components["schemas"]["PricingPreset"][];
+            manual: boolean;
+            automatic: boolean;
+            reason: string;
+        };
+        PricingPresetCommand: {
+            preset_id: string;
         };
     };
     responses: never;
@@ -12070,6 +12126,76 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["WorkPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getModelPricing: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PricingOptions"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    applyPricingPreset: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PricingPresetCommand"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetRoute"];
                 };
             };
 
