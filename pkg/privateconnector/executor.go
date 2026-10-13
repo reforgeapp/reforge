@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net"
 	"net/url"
 	"strings"
@@ -207,6 +208,9 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 		}
 	}
 	if err != nil {
+		if errors.Is(err, ErrUnsupported) {
+			return fail("unsupported", false)
+		}
 		if p, ok := err.(*domain.ProviderError); ok {
 			return Result{OperationID: grant.Operation.ID, Failure: &Failure{Code: p.Kind, Uncertain: p.Uncertain, RetryAfterMS: min(max(p.RetryAfter.Milliseconds(), 0), 3600000)}}
 		}
