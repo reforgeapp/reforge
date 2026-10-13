@@ -158,7 +158,7 @@ func ownerJavaScriptCommands(paths []string, files map[string][]byte) ([]Command
 			}
 		}
 		if strings.TrimSpace(pkg.Scripts["test:unit"]) != "" {
-			commands = append(commands, npmCommand("test:unit", directory, testRunnerArgs(pkg.Scripts["test:unit"]), len(commands)+1))
+			commands = append(commands, npmTestCommand("test:unit", directory, pkg.Scripts["test:unit"], len(commands)+1))
 			coveredDirs = append(coveredDirs, directory)
 			continue
 		}
@@ -167,9 +167,9 @@ func ownerJavaScriptCommands(paths []string, files map[string][]byte) ([]Command
 			continue
 		}
 		coveredDirs = append(coveredDirs, directory)
-		args, supported := testRunnerArgs(testScript), supportedTestRunner(testScript)
+		supported := supportedTestRunner(testScript)
 		if supported {
-			commands = append(commands, npmCommand("test", directory, args, len(commands)+1))
+			commands = append(commands, npmTestCommand("test", directory, testScript, len(commands)+1))
 		}
 	}
 	return commands, coveredDirs
@@ -247,6 +247,15 @@ func npmCommand(script, directory string, extra []string, index int) Command {
 		args = append(args, extra...)
 	}
 	return Command{ID: id, Args: args, Directory: directory, TimeoutSeconds: presetTimeout, ReportFormat: "exit"}
+}
+
+func npmTestCommand(script, directory, body string, index int) Command {
+	command := npmCommand(script, directory, testRunnerArgs(body), index)
+	if strings.HasPrefix(strings.TrimSpace(body), "node --test") && !strings.ContainsAny(body, ";&|") {
+		command.Args = append([]string{"env", "NODE_OPTIONS=--test-reporter=tap"}, command.Args...)
+		command.ReportFormat = "tap"
+	}
+	return command
 }
 
 func baseRecipe(name string) Recipe {

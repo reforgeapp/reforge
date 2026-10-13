@@ -2,6 +2,14 @@ package recipes
 
 import "testing"
 
+func TestOwnerNodeScriptProducesCountedReceipts(t *testing.T) {
+	files := map[string][]byte{"package.json": []byte(`{"scripts":{"test":"node --test tests/*.test.js"}}`)}
+	r, err := BuildOwner("javascript", files)
+	if err != nil || len(r.Commands) != 1 || r.Commands[0].ReportFormat != "tap" || r.Commands[0].Args[0] != "env" || r.Commands[0].Args[1] != "NODE_OPTIONS=--test-reporter=tap" {
+		t.Fatalf("Node receipts missing: %+v %v", r, err)
+	}
+}
+
 func TestBuildPresetsCorpus(t *testing.T) {
 	tests := []struct {
 		name    string
