@@ -780,6 +780,40 @@ func (e ModelCatalogSettingsBillingRoute) Valid() bool {
 }
 
 const (
+	NeedKindApprove       NeedKind = "approve"
+	NeedKindExhausted     NeedKind = "exhausted"
+	NeedKindGrant         NeedKind = "grant"
+	NeedKindRaiseLimit    NeedKind = "raise_limit"
+	NeedKindReconnect     NeedKind = "reconnect"
+	NeedKindRestoreRunner NeedKind = "restore_runner"
+	NeedKindReview        NeedKind = "review"
+	NeedKindUnsupported   NeedKind = "unsupported"
+)
+
+func (e NeedKind) Valid() bool {
+	switch e {
+	case NeedKindApprove:
+		return true
+	case NeedKindExhausted:
+		return true
+	case NeedKindGrant:
+		return true
+	case NeedKindRaiseLimit:
+		return true
+	case NeedKindReconnect:
+		return true
+	case NeedKindRestoreRunner:
+		return true
+	case NeedKindReview:
+		return true
+	case NeedKindUnsupported:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	OrgOIDCInvitationRoleAdmin      OrgOIDCInvitationRole = "admin"
 	OrgOIDCInvitationRoleMaintainer OrgOIDCInvitationRole = "maintainer"
 	OrgOIDCInvitationRoleOwner      OrgOIDCInvitationRole = "owner"
@@ -2500,6 +2534,27 @@ type NativeDeploymentStatus struct {
 	WorkflowPath   string    `json:"workflow_path"`
 	WorkflowSha    string    `json:"workflow_sha"`
 }
+type Need struct {
+	FindingId      string     `json:"finding_id"`
+	FindingVersion int64      `json:"finding_version"`
+	Id             string     `json:"id"`
+	Kind           NeedKind   `json:"kind"`
+	Label          *string    `json:"label,omitempty"`
+	NextRetryAt    *time.Time `json:"next_retry_at,omitempty"`
+	Owner          string     `json:"owner"`
+	Reason         string     `json:"reason"`
+	Repository     string     `json:"repository"`
+	RepositoryId   string     `json:"repository_id"`
+	Title          string     `json:"title"`
+	Url            *string    `json:"url,omitempty"`
+}
+type NeedKind string
+type NeedsPage struct {
+	Complete   bool    `json:"complete"`
+	Items      []Need  `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+	Total      int64   `json:"total"`
+}
 type OrgOIDCInput struct {
 	ClientId     string  `json:"client_id"`
 	ClientSecret *string `json:"client_secret,omitempty"`
@@ -2946,6 +3001,10 @@ type ResolvedPolicy struct {
 	RepositoryId    string         `json:"repository_id"`
 	ScopePaused     bool           `json:"scope_paused"`
 }
+type RetryCommand struct {
+	FindingVersion int64  `json:"finding_version"`
+	Reason         string `json:"reason"`
+}
 type Role string
 type Runner struct {
 	BusySlots           int       `json:"busy_slots"`
@@ -3178,6 +3237,10 @@ type ExportAuditPageParams struct {
 type UpdateAutopilotParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type GetNeedsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 type GetBudgetRouteParams struct {
 	Model *string `form:"model,omitempty" json:"model,omitempty"`
@@ -3690,6 +3753,7 @@ type RunnerProgressJSONBody struct {
 type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
 type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
 type UpdateAutopilotJSONRequestBody = AutopilotUpdate
+type RetryFindingJSONRequestBody = RetryCommand
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput
 type PutBudgetJSONRequestBody = BudgetLimitInput
 type PreviewCampaignJSONRequestBody = CampaignInput

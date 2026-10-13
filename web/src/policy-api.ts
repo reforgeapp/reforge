@@ -33,13 +33,15 @@ export type Autopilot = components['schemas']['Autopilot']
 export type AutopilotMetric = components['schemas']['AutopilotMetric']
 export type MaintenanceCommand = { mode: string; micro_usd: number; continuous: boolean; proof?: string }
 export type MaintenancePlan = MaintenanceCommand & { repository_id: string; repository: string; actions: Action[]; decisions: Partial<Record<Action, string>>; blockers: string[]; model?: string; connection_id?: string; route?: string; pool_id?: string; ready: boolean; proof: string }
-export type Need = { kind: 'grant' | 'review'; finding_id: string; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string }
+export type Need = { id: string; kind: 'grant' | 'review' | 'approve' | 'reconnect' | 'raise_limit' | 'restore_runner' | 'unsupported' | 'exhausted'; finding_id: string; finding_version: number; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string; owner: string; next_retry_at?: string }
+export type NeedsPage = { items: Need[]; complete: boolean; next_cursor?: string; total: number }
 export const autopilotAPI = {
   maintenanceStatus: (orgID: string, repositoryID: string, signal?: AbortSignal) => apiRequest<MaintenanceCommand>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/maintenance-status`), { signal }),
   previewMaintenance: (orgID: string, repositoryID: string, input: MaintenanceCommand, csrf: string) => apiRequest<MaintenancePlan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/set-up-maintenance/preview`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   configureMaintenance: (orgID: string, repositoryID: string, input: MaintenanceCommand, csrf: string) => apiRequest<MaintenancePlan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/set-up-maintenance`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   get: (orgID: string, signal?: AbortSignal) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { signal }),
-  needs: (orgID: string, signal?: AbortSignal) => apiRequest<Need[]>(path(orgID, '/autopilot/needs'), { signal }),
+  needs: (orgID: string, cursor?: string, signal?: AbortSignal) => apiRequest<NeedsPage>(path(orgID, `/autopilot/needs?limit=50${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`), { signal }),
+  retryFinding: (orgID: string, findingID: string, findingVersion: number, reason: string, csrf: string) => apiRequest<void>(path(orgID, `/autopilot/needs/${encodeURIComponent(findingID)}/retry`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ finding_version: findingVersion, reason }) }, csrf),
   metrics: (orgID: string, signal?: AbortSignal) => apiRequest<AutopilotMetric[]>(path(orgID, '/autopilot/metrics'), { signal }),
   run: (orgID: string, repositoryID: string, csrf: string) => apiRequest<void>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/run`), { method: 'POST' }, csrf),
   put: (orgID: string, version: number, enabled: boolean, csrf: string) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': `"${version}"` }, body: JSON.stringify({ enabled }) }, csrf),

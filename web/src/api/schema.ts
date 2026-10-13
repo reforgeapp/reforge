@@ -2523,6 +2523,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/autopilot/needs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNeeds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/autopilot/needs/{findingID}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["retryFinding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4874,6 +4906,35 @@ export interface components {
             items: components["schemas"]["EnvironmentHealth"][];
             complete: boolean;
             next_cursor?: string;
+        };
+        Need: {
+            id: string;
+
+            kind: "grant" | "review" | "approve" | "reconnect" | "raise_limit" | "restore_runner" | "unsupported" | "exhausted";
+            finding_id: string;
+            repository_id: string;
+            repository: string;
+            title: string;
+            reason: string;
+            url?: string;
+            label?: string;
+            owner: string;
+
+            finding_version: number;
+
+            next_retry_at?: string;
+        };
+        NeedsPage: {
+            items: components["schemas"]["Need"][];
+            complete: boolean;
+            next_cursor?: string;
+
+            total: number;
+        };
+        RetryCommand: {
+
+            finding_version: number;
+            reason: string;
         };
     };
     responses: never;
@@ -11864,6 +11925,74 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["EnvironmentHealthPage"];
                 };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getNeeds: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NeedsPage"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    retryFinding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                findingID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RetryCommand"];
+            };
+        };
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
 
             default: {

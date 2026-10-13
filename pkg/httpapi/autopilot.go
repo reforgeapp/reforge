@@ -54,12 +54,28 @@ func (s *Server) RegisterAutopilot(service *autopilot.Service) {
 	})
 	g.GET("/needs", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
-		value, err := service.Needs(c.Request.Context(), session, c.Param("orgID"))
+		filter, ok := insightFilter(c)
+		if !ok {
+			return
+		}
+		value, err := service.NeedsPage(c.Request.Context(), session, c.Param("orgID"), filter.Limit, filter.Cursor)
 		if err != nil {
 			IdentityFailure(c, err)
 			return
 		}
 		c.JSON(200, value)
+	})
+	g.POST("/needs/:findingID/retry", func(c *gin.Context) {
+		var input autopilot.RetryCommand
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		if err := service.RetryFinding(c.Request.Context(), session, c.Param("orgID"), c.Param("findingID"), input, c.GetString("request_id")); err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.Status(204)
 	})
 	g.GET("/metrics", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)

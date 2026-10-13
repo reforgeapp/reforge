@@ -11864,6 +11864,118 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/autopilot/needs": {
+      "get": {
+        "operationId": "getNeeds",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Human decisions",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NeedsPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/autopilot/needs/{findingID}/retry": {
+      "post": {
+        "operationId": "retryFinding",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "findingID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetryCommand"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "One additional fix attempt requested"
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20336,6 +20448,118 @@
             "type": "string"
           }
         }
+      },
+      "Need": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "grant",
+              "review",
+              "approve",
+              "reconnect",
+              "raise_limit",
+              "restore_runner",
+              "unsupported",
+              "exhausted"
+            ]
+          },
+          "finding_id": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "url": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "owner": {
+            "type": "string"
+          },
+          "finding_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "next_retry_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        },
+        "required": [
+          "id",
+          "kind",
+          "finding_id",
+          "finding_version",
+          "repository_id",
+          "repository",
+          "title",
+          "reason",
+          "owner"
+        ],
+        "additionalProperties": false
+      },
+      "NeedsPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Need"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          },
+          "total": {
+            "type": "integer",
+            "format": "int64"
+          }
+        },
+        "required": [
+          "items",
+          "complete",
+          "total"
+        ],
+        "additionalProperties": false
+      },
+      "RetryCommand": {
+        "type": "object",
+        "properties": {
+          "finding_version": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 1
+          },
+          "reason": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 2000
+          }
+        },
+        "required": [
+          "finding_version",
+          "reason"
+        ],
+        "additionalProperties": false
       }
     },
     "securitySchemes": {

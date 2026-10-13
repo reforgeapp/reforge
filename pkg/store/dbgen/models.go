@@ -62,18 +62,21 @@ type AuditEvent struct {
 }
 
 type AutopilotAttempt struct {
-	OrgID          pgtype.UUID        `json:"org_id"`
-	FindingID      pgtype.UUID        `json:"finding_id"`
-	FindingVersion int64              `json:"finding_version"`
-	TaskID         pgtype.UUID        `json:"task_id"`
-	Outcome        string             `json:"outcome"`
-	Reason         string             `json:"reason"`
-	RetryAfter     pgtype.Timestamptz `json:"retry_after"`
-	MergeReason    string             `json:"merge_reason"`
-	MergeAfter     pgtype.Timestamptz `json:"merge_after"`
-	UpdatedAt      pgtype.Timestamptz `json:"updated_at"`
-	Runs           int32              `json:"runs"`
-	Capability     string             `json:"capability"`
+	OrgID           pgtype.UUID        `json:"org_id"`
+	FindingID       pgtype.UUID        `json:"finding_id"`
+	FindingVersion  int64              `json:"finding_version"`
+	TaskID          pgtype.UUID        `json:"task_id"`
+	Outcome         string             `json:"outcome"`
+	Reason          string             `json:"reason"`
+	RetryAfter      pgtype.Timestamptz `json:"retry_after"`
+	MergeReason     string             `json:"merge_reason"`
+	MergeAfter      pgtype.Timestamptz `json:"merge_after"`
+	UpdatedAt       pgtype.Timestamptz `json:"updated_at"`
+	Runs            int32              `json:"runs"`
+	Capability      string             `json:"capability"`
+	BlockerKind     string             `json:"blocker_kind"`
+	MaxRuns         int32              `json:"max_runs"`
+	MergeNeedsHuman bool               `json:"merge_needs_human"`
 }
 
 type AutopilotBotMerge struct {
@@ -84,6 +87,7 @@ type AutopilotBotMerge struct {
 	Reason       string             `json:"reason"`
 	MergeAfter   pgtype.Timestamptz `json:"merge_after"`
 	UpdatedAt    pgtype.Timestamptz `json:"updated_at"`
+	NeedsHuman   bool               `json:"needs_human"`
 }
 
 type AutopilotRequest struct {
