@@ -40,3 +40,9 @@ func RecordTx(ctx context.Context, tx pgx.Tx, in Observation) error {
 }
 
 const CurrentPredicate = `(h.expires_at>clock_timestamp() AND CASE h.kind WHEN 'native' THEN EXISTS(SELECT 1 FROM deployment_configurations c WHERE c.org_id=h.org_id AND c.repository_id=h.repository_id AND c.environment=h.environment AND c.version=h.configuration_version) AND NOT EXISTS(SELECT 1 FROM deployments d WHERE d.org_id=h.org_id AND d.repository_id=h.repository_id AND d.environment=h.environment AND coalesce(d.native_result->>'id','')<>'' AND (d.created_at,d.id)>(h.release_created_at,h.operation_id)) ELSE EXISTS(SELECT 1 FROM gitops_configurations c WHERE c.org_id=h.org_id AND c.source_repository_id=h.repository_id AND c.environment=h.environment AND c.version=h.configuration_version) AND NOT EXISTS(SELECT 1 FROM gitops_promotions p WHERE p.org_id=h.org_id AND p.source_repository_id=h.repository_id AND p.environment=h.environment AND p.merge_sha<>'' AND (p.created_at,p.id)>(h.release_created_at,h.operation_id)) END)`
+
+func UnhealthyTx(ctx context.Context, tx pgx.Tx, org, kind, operation string) (bool, error) {
+	var unhealthy bool
+	err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM environment_health h WHERE h.org_id=$1 AND h.kind=$2 AND h.operation_id=$3 AND NOT h.healthy AND `+CurrentPredicate+`)`, org, kind, operation).Scan(&unhealthy)
+	return unhealthy, err
+}

@@ -10,6 +10,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/environmenthealth"
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
@@ -183,8 +184,26 @@ func (s *Service) checkRecovery(ctx context.Context, tx pgx.Tx, org string, cfg 
 	if err != nil {
 		return err
 	}
-	if failed.Environment != cfg.Environment || known.Environment != cfg.Environment || failed.RepositoryID != cfg.RepositoryID || known.RepositoryID != cfg.RepositoryID || (failed.State != "failed" && failed.State != "recovery_failed") || (known.State != "healthy" && known.State != "recovered") {
+	unhealthy, err := environmenthealth.UnhealthyTx(ctx, tx, org, "native", failed.ID)
+	if err != nil {
+		return err
+	}
+	if failed.Environment != cfg.Environment || known.Environment != cfg.Environment || failed.RepositoryID != cfg.RepositoryID || known.RepositoryID != cfg.RepositoryID || (failed.State != "failed" && failed.State != "recovery_failed" && !unhealthy) || (known.State != "healthy" && known.State != "recovered") || known.ID == failed.ID || !known.CreatedAt.Before(failed.CreatedAt) {
 		return auth.ErrConflict
+	}
+	var current bool
+	if err = tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM deployments WHERE org_id=$1 AND repository_id=$2 AND environment=$3 AND coalesce(native_result->>'id','')<>'' AND (created_at,id)>($4,$5::uuid))`, org, cfg.RepositoryID, cfg.Environment, failed.CreatedAt, failed.ID).Scan(&current); err != nil {
+		return err
+	}
+	if !current {
+		return &domain.ProviderError{Kind: "conflict", Message: "A newer rollout exists; recover the current release instead"}
+	}
+	failedGate, err := gateTx(ctx, tx, org, failed.GateID)
+	if err != nil {
+		return err
+	}
+	if !SafeRecovery(failedGate.Request.Provenance.Document, in.ArtifactDigest) {
+		return &domain.ProviderError{Kind: "unsupported", Message: "Database compatibility unknown: operator must attest stateless operation or compatibility with the previous release"}
 	}
 	gate, err := gateTx(ctx, tx, org, known.GateID)
 	if err != nil {

@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"errors"
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
@@ -19,6 +22,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 	"github.com/reforgeapp/reforge/pkg/providers"
+	"github.com/reforgeapp/reforge/pkg/release"
 )
 
 type deploymentContractProvider struct {
@@ -163,7 +167,7 @@ func TestDeploymentSignedProvenanceAndHealthContract(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	provenance := deployment.Provenance{OrgID: f.org, RepositoryID: f.repo, SourceSHA: head, ArtifactDigest: artifact, BuildID: "build-1", IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour)}
+	provenance := deployment.Provenance{Recovery: &deployment.RecoverySafety{State: "stateless"}, OrgID: f.org, RepositoryID: f.repo, SourceSHA: head, ArtifactDigest: artifact, BuildID: "build-1", IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour)}
 	raw, _ := json.Marshal(provenance)
 	signed := deployment.SignedProvenance{Document: provenance, Signature: base64.StdEncoding.EncodeToString(ed25519.Sign(priv, raw))}
 	gate, err := svc.Preview(ctx, f.owner, f.org, "production", deployment.PreviewRequest{ChangeID: "1", SourceSHA: head, ArtifactDigest: artifact, Provenance: signed}, "deploy-contract")
@@ -285,14 +289,27 @@ func TestDeploymentSignedProvenanceAndHealthContract(t *testing.T) {
 	if err != nil || failedOp.State != "failed" {
 		t.Fatalf("failed deployment: %+v %v", failedOp, err)
 	}
-	recoveryGate, err := svc.Preview(ctx, f.owner, f.org, "production", deployment.PreviewRequest{ChangeID: "1", SourceSHA: head, ArtifactDigest: artifact, Provenance: signed, RecoveryOf: failedOp.ID, RestoreDeploymentID: healthy.ID}, "recovery-preview")
-	if err != nil || recoveryGate.Decision.Outcome != "allow" {
-		t.Fatalf("recovery preview: %+v %v", recoveryGate, err)
+	commands := &delivery.Service{Releases: &release.Service{DB: f.db, Auth: f.identity}, Native: svc}
+	plan, err := commands.PreviewRestore(ctx, f.owner, f.org, "native", failedOp.ID, failedOp.Version, "restore-preview")
+	if err != nil || len(plan.Blockers) > 0 || !plan.PreviousAt.Equal(healthy.CreatedAt) || len(plan.Limits) == 0 {
+		t.Fatalf("owner restore preview: %+v %v", plan, err)
 	}
-	recovery, err := svc.Request(ctx, f.owner, f.org, recoveryGate.ID, "recovery-key", "recovery")
+	if _, err = commands.ConfirmRestore(ctx, f.owner, f.org, "native", failedOp.ID, plan.GateID, failedOp.Version+1, "stale-restore"); !errors.Is(err, auth.ErrConflict) {
+		t.Fatalf("stale restore admitted: %v", err)
+	}
+	if _, err = commands.ConfirmRestore(ctx, f.owner, f.org, "native", failedOp.ID, failedGate.ID, failedOp.Version, "wrong-preview"); !errors.Is(err, auth.ErrForbidden) {
+		t.Fatalf("unrelated preview admitted: %v", err)
+	}
+	restored, err := commands.ConfirmRestore(ctx, f.owner, f.org, "native", failedOp.ID, plan.GateID, failedOp.Version, "restore")
 	if err != nil {
 		t.Fatal(err)
 	}
+	detail, err := svc.Get(ctx, f.owner, f.org, restored.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovery := detail.Operation
+
 	recovery, err = svc.Observe(ctx, f.org, recovery.ID)
 	if err != nil || recovery.State != "completed_unverified" {
 		t.Fatalf("recovery native completion: %+v %v", recovery, err)

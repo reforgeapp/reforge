@@ -5,7 +5,9 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/environmenthealth"
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/policy"
@@ -74,8 +76,19 @@ func (s *Service) recoveryTx(ctx context.Context, tx pgx.Tx, org string, g Gate)
 	if err != nil {
 		return err
 	}
-	if failed.Environment != g.Configuration.Environment || known.Environment != failed.Environment || failed.SourceRepositoryID != g.Configuration.SourceRepositoryID || failed.DeliveryRepositoryID != g.Configuration.DeliveryRepositoryID || known.SourceRepositoryID != failed.SourceRepositoryID || known.DeliveryRepositoryID != failed.DeliveryRepositoryID || (failed.State != "failed" && failed.State != "recovery_failed") || (known.State != "healthy" && known.State != "recovered") {
+	unhealthy, err := environmenthealth.UnhealthyTx(ctx, tx, org, "gitops", failed.ID)
+	if err != nil {
+		return err
+	}
+	if failed.Environment != g.Configuration.Environment || known.Environment != failed.Environment || failed.SourceRepositoryID != g.Configuration.SourceRepositoryID || failed.DeliveryRepositoryID != g.Configuration.DeliveryRepositoryID || known.SourceRepositoryID != failed.SourceRepositoryID || known.DeliveryRepositoryID != failed.DeliveryRepositoryID || (failed.State != "failed" && failed.State != "recovery_failed" && !unhealthy) || (known.State != "healthy" && known.State != "recovered") || known.ID == failed.ID || !known.CreatedAt.Before(failed.CreatedAt) {
 		return auth.ErrConflict
+	}
+	var current bool
+	if err = tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM gitops_promotions WHERE org_id=$1 AND source_repository_id=$2 AND environment=$3 AND merge_sha<>'' AND (created_at,id)>($4,$5::uuid))`, org, failed.SourceRepositoryID, failed.Environment, failed.CreatedAt, failed.ID).Scan(&current); err != nil {
+		return err
+	}
+	if !current {
+		return &domain.ProviderError{Kind: "conflict", Message: "A newer rollout exists; recover the current release instead"}
 	}
 	failedGate, err := gateTx(ctx, tx, org, failed.GateID)
 	if err != nil {
@@ -83,6 +96,9 @@ func (s *Service) recoveryTx(ctx context.Context, tx pgx.Tx, org string, g Gate)
 	}
 	if !sameTarget(failedGate.Configuration, g.Configuration) {
 		return auth.ErrConflict
+	}
+	if !deployment.SafeRecovery(failedGate.Request.Provenance.Document, g.Request.ArtifactDigest) {
+		return &domain.ProviderError{Kind: "unsupported", Message: "Database compatibility unknown: operator must attest stateless operation or compatibility with the previous release"}
 	}
 	old, err := gateTx(ctx, tx, org, known.GateID)
 	if err != nil {
