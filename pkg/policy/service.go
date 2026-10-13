@@ -299,7 +299,7 @@ func checkScope(ctx context.Context, tx pgx.Tx, a domain.Actor, scope Scope, wri
 	var ok bool
 	switch scope.Kind {
 	case "organisation":
-		if scope.ID != a.OrgID || (write && a.Role != domain.Owner) {
+		if scope.ID != a.OrgID || (write && (a.Role != domain.Owner || !a.AllRepositories)) {
 			return auth.ErrForbidden
 		}
 		return nil

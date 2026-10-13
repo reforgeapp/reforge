@@ -67,6 +67,16 @@ func TestPolicyHTTPActivationAndSimulation(t *testing.T) {
 	if response.Code != 200 || len(page.Items) != 1 {
 		t.Fatal("policy history unavailable")
 	}
+	if err := db.Tenant(context.Background(), orgID, owner.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(context.Background(), `UPDATE memberships SET all_repositories=false WHERE org_id=$1 AND user_id=$2`, orgID, owner.User.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	response = identityRequest(server, "POST", base+"/versions", body, cookie, headers)
+	if response.Code != 403 {
+		t.Fatalf("scoped owner changed portfolio policy: %d %s", response.Code, response.Body.String())
+	}
 	response = identityRequest(server, "POST", base+"/versions", body, cookie, nil)
 	if response.Code != 403 {
 		t.Fatal("policy write omitted CSRF")

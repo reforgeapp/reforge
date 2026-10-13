@@ -45,7 +45,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
   const repos = repositories.data?.pages.flatMap(page => page.items) ?? []
   const [repositoryID, setRepositoryID] = useState('')
   const [scopeKind, setScopeKind] = useState('organisation')
-  const canWrite = role === 'owner' || role === 'admin' && scopeKind !== 'organisation'
+  const canWrite = (role === 'owner' || role === 'admin') && (scopeKind !== 'organisation' || role === 'owner' && !!membership?.all_repositories)
   const [scopeID, setScopeID] = useState(orgID)
   const [versionID, setVersionID] = useState('')
   const [error, setError] = useState('')
@@ -98,7 +98,7 @@ export function PoliciesPage({ orgID }: { orgID: string }) {
         {!effective.isLoading && !effective.error && !effective.data ? <p>Select a repository.</p> : null}
       </section>
       </div>
-      <PolicyMode orgID={orgID} repositoryID={repositoryID} effective={effective.data} base={normalisePolicy(effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.policy)} currentVersion={effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.binding_version ?? 0} csrf={csrf} canWrite={role === 'owner'} onChanged={() => { void effective.refetch(); void versions.refetch() }} />
+      <PolicyMode orgID={orgID} repositoryID={repositoryID} effective={effective.data} base={normalisePolicy(effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.policy)} currentVersion={effective.data?.layers?.find(layer => layer.scope.kind === 'organisation')?.binding_version ?? 0} csrf={csrf} canWrite={role === 'owner' && !!membership?.all_repositories} onChanged={() => { void effective.refetch(); void versions.refetch() }} />
       <div className="policy-layout">
         <section className="panel policy-editor-surface" aria-label="Policy editor">
           <Tabs
