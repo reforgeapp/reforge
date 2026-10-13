@@ -41,6 +41,7 @@ type Limits struct {
 }
 
 type Defaults struct {
+	ConnectionID string `json:"connection_id,omitempty"`
 	Model        string `json:"model,omitempty"`
 	Route        string `json:"route,omitempty"`
 	BranchPrefix string `json:"branch_prefix,omitempty"`

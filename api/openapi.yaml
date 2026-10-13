@@ -13587,6 +13587,9 @@
           },
           "branch_prefix": {
             "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
           }
         }
       },
@@ -20291,6 +20294,9 @@
             "type": "boolean"
           },
           "proof": {
+            "type": "string"
+          },
+          "connection_id": {
             "type": "string"
           }
         }

@@ -5,7 +5,7 @@ export type Action = 'read' | 'repair' | 'publish' | 'merge' | 'deploy' | 'recov
 export type Scope = { kind: string; id: string }
 export type Lists = { recipes: string[] | null; models: string[] | null; routes: string[] | null; merge_methods: string[] | null; environments: string[] | null; workflows: string[] | null }
 export type Limits = { budget?: number; concurrency?: number; attempts?: number; changed_files?: number; changed_lines?: number; open_changes?: number }
-export type Defaults = { model?: string; route?: string; branch_prefix?: string }
+export type Defaults = { connection_id?: string; model?: string; route?: string; branch_prefix?: string }
 export type Requirement = { id: string; identity?: string; actions: Action[]; approvals?: number }
 export type Proof = 'tests' | 'structural'
 export type Policy = { schema: string; repository_setup_required?: boolean; allow: Lists; deny: Action[]; forbidden_paths: string[]; review_proofs?: Proof[]; limits: Limits; required: Requirement[]; defaults: Defaults; max_evidence_age_seconds?: number; paused: boolean }
@@ -31,7 +31,7 @@ export const policyAPI = {
 
 export type Autopilot = components['schemas']['Autopilot']
 export type AutopilotMetric = components['schemas']['AutopilotMetric']
-export type MaintenanceCommand = { mode: string; micro_usd: number; continuous: boolean; proof?: string }
+export type MaintenanceCommand = { connection_id?: string; mode: string; micro_usd: number; continuous: boolean; proof?: string }
 export type MaintenancePlan = MaintenanceCommand & { repository_id: string; repository: string; actions: Action[]; decisions: Partial<Record<Action, string>>; blockers: string[]; model?: string; connection_id?: string; route?: string; pool_id?: string; budget_period: string; organisation_micro_usd?: number; organisation_period?: string; creates_organisation_limit: boolean; ready: boolean; proof: string }
 export type Need = { id: string; kind: 'grant' | 'review' | 'approve' | 'reconnect' | 'raise_limit' | 'restore_runner' | 'unsupported' | 'exhausted'; finding_id: string; finding_version: number; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string; owner: string; next_retry_at?: string }
 export type NeedsPage = { items: Need[]; complete: boolean; next_cursor?: string; total: number }

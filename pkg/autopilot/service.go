@@ -553,7 +553,7 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if resolved.Policy.Defaults.Model != "" {
 		err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route).Scan(&model, &route)
+			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&model, &route)
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			return s.record(ctx, org, c, "", "retry", "Approved model unavailable; reconnect it or choose a new default", 10*time.Minute, "reconnect")

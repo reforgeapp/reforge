@@ -142,6 +142,58 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	if resolved.Policy.Defaults.ConnectionID != model {
+		t.Fatalf("approved connection not pinned: %+v", resolved.Policy.Defaults)
+	}
+	replacement, finding := domain.NewID(), domain.NewID()
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE connections SET state='degraded' WHERE org_id=$1 AND id=$2`, f.org, model); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Paid mirror','https://paid.example','{"model":"approved"}','healthy')`, f.org, replacement); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'approved','default','{"mode":"priced","paused":false}',1)`, f.org, replacement); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'repository_review','checkout','code_defect','high','Checkout failed','{"complete":true,"blockers":[]}',$4)`, f.org, finding, repo, strings.Repeat("f", 64))
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	command.ConnectionID = ""
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil || plan.Ready || plan.ConnectionID != "" {
+		t.Fatalf("setup silently replaced unavailable approved endpoint: %+v %v", plan, err)
+	}
+	if err = service.Step(ctx, f.org); err != nil {
+		t.Fatalf("unavailable approved endpoint observation: %v", err)
+	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		var kind string
+		if err := tx.QueryRow(ctx, `SELECT blocker_kind FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, f.org, finding).Scan(&kind); err != nil {
+			return err
+		}
+		if kind != "reconnect" {
+			t.Fatalf("automatic paid fallback: %s", kind)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	command.ConnectionID = replacement
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil || !plan.Ready || plan.ConnectionID != replacement {
+		t.Fatalf("explicit replacement unavailable: %+v %v", plan, err)
+	}
+	command.Proof = plan.Proof
+	if _, err = service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "replace-approved-endpoint"); err != nil {
+		t.Fatal(err)
+	}
+	resolved, err = policies.Resolve(ctx, f.owner, f.org, repo)
+	if err != nil || resolved.Policy.Defaults.ConnectionID != replacement {
+		t.Fatalf("replacement not bound: %+v %v", resolved.Policy.Defaults, err)
+	}
 	var orgVersion int64
 	for _, layer := range resolved.Layers {
 		if layer.Scope.Kind == "organisation" {

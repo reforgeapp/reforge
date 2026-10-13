@@ -17,10 +17,11 @@ import (
 )
 
 type MaintenanceCommand struct {
-	Mode       string `json:"mode"`
-	MicroUSD   int64  `json:"micro_usd"`
-	Continuous bool   `json:"continuous"`
-	Proof      string `json:"proof,omitempty"`
+	ConnectionID string `json:"connection_id,omitempty"`
+	Mode         string `json:"mode"`
+	MicroUSD     int64  `json:"micro_usd"`
+	Continuous   bool   `json:"continuous"`
+	Proof        string `json:"proof,omitempty"`
 }
 
 type MaintenancePlan struct {
@@ -57,6 +58,7 @@ func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, o
 			return err
 		}
 		if len(r.Problems) == 0 && !slices.Contains(r.Policy.Deny, policy.Repair) {
+			out.ConnectionID = r.Policy.Defaults.ConnectionID
 			out.Mode = "propose"
 			if !slices.Contains(r.Policy.Deny, policy.Merge) {
 				out.Mode = "merge"
@@ -75,7 +77,7 @@ func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, o
 
 func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, repo string, in MaintenanceCommand) (MaintenancePlan, error) {
 	out := MaintenancePlan{RepositoryID: repo, Mode: in.Mode, MicroUSD: in.MicroUSD, Continuous: in.Continuous, Actions: []policy.Action{}, Decisions: map[policy.Action]string{}, Blockers: []string{}}
-	if !auth.ValidID(repo) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 || in.Mode != "observe" && in.MicroUSD == 0 {
+	if !auth.ValidID(repo) || in.ConnectionID != "" && !auth.ValidID(in.ConnectionID) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 || in.Mode != "observe" && in.MicroUSD == 0 {
 		return out, auth.ErrInvalid
 	}
 	var forgeHealthy, global, orgPolicy bool
@@ -110,6 +112,13 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			return out, err
 		}
 		for _, m := range models {
+			selected := in.ConnectionID
+			if selected == "" {
+				selected = current.Policy.Defaults.ConnectionID
+			}
+			if selected != "" && selected != m.Connection {
+				continue
+			}
 			if parent.Policy.Allow.Models != nil && !slices.Contains(parent.Policy.Allow.Models, m.Model) || parent.Policy.Allow.Routes != nil && !slices.Contains(parent.Policy.Allow.Routes, m.Route) {
 				continue
 			}
@@ -118,7 +127,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			break
 		}
 		if out.Model == "" {
-			out.Blockers = append(out.Blockers, "Operator: connect an approved model with known pricing")
+			out.Blockers = append(out.Blockers, "Operator: reconnect approved model or explicitly choose a replacement with known pricing")
 		}
 		err = tx.QueryRow(ctx, `SELECT p.id::text,p.version FROM runner_pools p WHERE p.org_id=$1 AND p.state='active' AND (p.builtin OR EXISTS(SELECT 1 FROM runner_pool_repositories rp WHERE rp.org_id=p.org_id AND rp.pool_id=p.id AND rp.repository_id=$2)) AND EXISTS(SELECT 1 FROM runners n WHERE n.org_id=p.org_id AND n.pool_id=p.id AND n.state='active' AND n.credential_expires_at>now() AND n.last_seen_at>now()-interval '5 minutes') ORDER BY p.builtin DESC,p.created_at LIMIT 1`, a.OrgID, repo).Scan(&out.PoolID, &poolVersion)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -155,7 +164,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			return out, err
 		}
 	}
-	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, in.MicroUSD, out.initialize)
+	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, out.ConnectionID, in.MicroUSD, out.initialize)
 	if err != nil {
 		return out, err
 	}

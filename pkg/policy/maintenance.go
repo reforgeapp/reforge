@@ -10,7 +10,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/domain"
 )
 
-func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode, model, route string, cap int64, initialize bool) (Resolved, Policy, error) {
+func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode, model, route, connection string, cap int64, initialize bool) (Resolved, Policy, error) {
 	r, err := s.ResolveTx(ctx, tx, org, repo)
 	if err != nil {
 		return r, Policy{}, err
@@ -45,7 +45,7 @@ func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode,
 	}
 	if mode != "observe" {
 		if model != "" && route != "" {
-			p.Defaults.Model, p.Defaults.Route = model, route
+			p.Defaults.Model, p.Defaults.Route, p.Defaults.ConnectionID = model, route, connection
 			p.Allow.Models, p.Allow.Routes = []string{model}, []string{route}
 		}
 		p.Limits.Budget = &cap

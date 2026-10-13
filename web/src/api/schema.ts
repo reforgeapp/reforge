@@ -2966,6 +2966,7 @@ export interface components {
             model?: string;
             route?: string;
             branch_prefix?: string;
+            connection_id?: string;
         };
         PolicyRequirement: {
             id: string;
@@ -4866,6 +4867,7 @@ export interface components {
             micro_usd: number;
             continuous: boolean;
             proof?: string;
+            connection_id?: string;
         };
         MaintenancePlan: {
 

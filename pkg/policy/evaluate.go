@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"github.com/reforgeapp/reforge/pkg/auth"
 	"io"
 	"path"
 	"sort"
@@ -32,6 +33,9 @@ func validAction(a Action) bool {
 }
 
 func Validate(p Policy) error {
+	if p.Defaults.ConnectionID != "" && !auth.ValidID(p.Defaults.ConnectionID) {
+		return fmt.Errorf("invalid default connection")
+	}
 	if p.Schema != "maintenance/v1" {
 		return fmt.Errorf("unsupported policy schema")
 	}
@@ -284,6 +288,7 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 	r.Policy.Defaults = orgDefaults
 	for _, d := range []Defaults{teamDefaults, repoDefaults} {
 		if d.Model != "" {
+			r.Policy.Defaults.ConnectionID = d.ConnectionID
 			r.Policy.Defaults.Model = d.Model
 		}
 		if d.Route != "" {

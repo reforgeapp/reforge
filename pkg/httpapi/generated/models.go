@@ -2268,10 +2268,11 @@ type MaintenanceBotStatus struct {
 }
 type MaintenanceBotStatusAutomerge string
 type MaintenanceCommand struct {
-	Continuous bool                   `json:"continuous"`
-	MicroUsd   int64                  `json:"micro_usd"`
-	Mode       MaintenanceCommandMode `json:"mode"`
-	Proof      *string                `json:"proof,omitempty"`
+	ConnectionId *string                `json:"connection_id,omitempty"`
+	Continuous   bool                   `json:"continuous"`
+	MicroUsd     int64                  `json:"micro_usd"`
+	Mode         MaintenanceCommandMode `json:"mode"`
+	Proof        *string                `json:"proof,omitempty"`
 }
 type MaintenanceCommandMode string
 type MaintenanceConfig struct {
@@ -2725,6 +2726,7 @@ type PolicyBindingVersion struct {
 }
 type PolicyDefaults struct {
 	BranchPrefix *string `json:"branch_prefix,omitempty"`
+	ConnectionId *string `json:"connection_id,omitempty"`
 	Model        *string `json:"model,omitempty"`
 	Route        *string `json:"route,omitempty"`
 }
