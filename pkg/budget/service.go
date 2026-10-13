@@ -55,7 +55,7 @@ func (s *Service) PutLimit(ctx context.Context, session auth.Session, org string
 	input.Held = Amount{}
 	input.Spent = Amount{}
 	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
-		if a.Role != domain.Owner || !canReadScope(a, input.Scope) {
+		if a.Role != domain.Owner || !canReadScope(a, input.Scope) || !a.AllRepositories && (input.Scope.Kind == "organisation" || input.Scope.Kind == "connection") {
 			return auth.ErrForbidden
 		}
 		if err := s.scopeExists(ctx, tx, org, input.Scope); err != nil {
@@ -206,7 +206,7 @@ func (s *Service) PutRoute(ctx context.Context, session auth.Session, org string
 		return Route{}, ErrInvalid
 	}
 	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
-		if a.Role != domain.Owner {
+		if a.Role != domain.Owner || !a.AllRepositories {
 			return auth.ErrForbidden
 		}
 		if err := s.scopeExists(ctx, tx, org, Scope{"connection", input.ConnectionID}); err != nil {
