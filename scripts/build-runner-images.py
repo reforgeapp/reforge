@@ -70,7 +70,7 @@ def copy_tree(root, source, absolute, skip_nested=True):
         files.sort()
         for filename in files:
             source_file = os.path.join(current, filename)
-            if filename.lower() == "readme.md" or filename.endswith(".pyc") or filename.endswith(".pyo") or filename.endswith("_test.go"):
+            if filename.lower().endswith(".md") or filename.endswith(".pyc") or filename.endswith(".pyo") or filename.endswith("_test.go"):
                 continue
             rel = filename if relative == "." else os.path.join(relative, filename)
             copy_file(root, source_file, os.path.join(absolute, rel))
@@ -161,7 +161,10 @@ def copy_glibc_compatibility_libraries(root, binary):
 
 def node_toolchain(root, binary):
     copy_file(root, binary, "/usr/local/bin/node")
-    copy_tree(root, "/usr/local/lib/node_modules/npm", "/usr/local/lib/node_modules/npm", skip_nested=False)
+    npm_root = subprocess.run([command_path("npm"), "root", "-g"], check=True, capture_output=True, text=True).stdout.strip()
+    if not os.path.isabs(npm_root):
+        fail("npm global module path is not absolute")
+    copy_tree(root, os.path.join(npm_root, "npm"), "/usr/local/lib/node_modules/npm", skip_nested=False)
     write_launcher(root, "npm", "/usr/local/lib/node_modules/npm/bin/npm-cli.js")
     write_launcher(root, "npx", "/usr/local/lib/node_modules/npm/bin/npx-cli.js")
     copy_binary_dependencies(root, binary)
@@ -185,6 +188,25 @@ def python_toolchain(root, binary):
     copy_file(root, binary, "/usr/local/bin/python3")
     copy_binary_dependencies(root, binary)
     return subprocess.run([binary, "--version"], check=True, capture_output=True, text=True).stdout.strip()
+
+
+def browser_toolchain(root, chromium, headless):
+    revision = None
+    for binary, kind in ((chromium, "chromium"), (headless, "chromium_headless_shell")):
+        binary = regular_source(binary, executable=True)
+        directory = os.path.dirname(binary)
+        bundle = os.path.basename(os.path.dirname(directory))
+        match = re.fullmatch(kind + r"-([0-9]+)", bundle)
+        if not match or revision is not None and revision != match.group(1):
+            fail("matching approved Playwright Chromium bundles required")
+        revision = match.group(1)
+        copy_tree(root, directory, "/opt/reforge/browsers/" + bundle + "/" + os.path.basename(directory), skip_nested=False)
+        copy_binary_dependencies(root, binary)
+    fonts = "/usr/share/fonts/truetype/dejavu"
+    if not os.path.isdir(fonts):
+        fail("DejaVu browser fonts required")
+    copy_tree(root, fonts, fonts)
+    copy_file(root, "/etc/fonts/fonts.conf", "/etc/fonts/fonts.conf")
 
 
 def git_tool(root):
@@ -228,7 +250,11 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--stack", choices=("go", "javascript", "python", "maintenance"), required=True)
     parser.add_argument("--output", required=True)
+    parser.add_argument("--chromium")
+    parser.add_argument("--chromium-headless-shell")
     args = parser.parse_args()
+    if bool(args.chromium) != bool(args.chromium_headless_shell) or args.chromium and args.stack not in ("javascript", "maintenance"):
+        fail("browser support requires both approved Chromium bundles and a JavaScript-capable stack")
     output = os.path.abspath(args.output)
     if not os.path.isabs(args.output) or os.path.lexists(output):
         fail("output must be an absolute path that does not exist")
@@ -243,6 +269,8 @@ def main():
             elif args.stack == "javascript": version = node_toolchain(output, binary)
             else: version = python_toolchain(output, binary)
         git_tool(output)
+        if args.chromium:
+            browser_toolchain(output, args.chromium, args.chromium_headless_shell)
         print("imagepath=" + output)
         print("toolchainversion=" + version)
     except Exception:

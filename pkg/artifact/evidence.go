@@ -3,13 +3,17 @@ package artifact
 import (
 	"archive/zip"
 	"bytes"
+	"encoding/json"
 	"image"
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
 	"path"
+	"regexp"
 	"strings"
 )
+
+var traceCredentials = regexp.MustCompile(`(?i)"(?:cookie|set-cookie|authorization|proxy-authorization)"`)
 
 func EvidenceMedia(name string) string {
 	switch strings.ToLower(path.Ext(name)) {
@@ -63,10 +67,61 @@ func validTrace(data []byte) bool {
 			return false
 		}
 		media := EvidenceMedia(name)
-		if media == "application/zip" || media != "text/plain" && !validImage(media, body) || media == "text/plain" && !validContent(media, body) {
+		if media == "application/zip" || media != "text/plain" && !validImage(media, body) || media == "text/plain" && (!validContent(media, body) || traceCredentials.Match(body)) {
 			return false
 		}
 		trace = trace || strings.HasSuffix(name, ".trace")
 	}
 	return trace
+}
+
+func TraceScreenshot(data []byte) ([]byte, string) {
+	if len(data) > int(MaxSize) || !validTrace(data) {
+		return nil, ""
+	}
+	reader, _ := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	frame := ""
+	for _, file := range reader.File {
+		if !strings.HasSuffix(file.Name, ".trace") {
+			continue
+		}
+		stream, err := file.Open()
+		if err != nil {
+			return nil, ""
+		}
+		body, err := io.ReadAll(io.LimitReader(stream, MaxSize+1))
+		stream.Close()
+		if err != nil {
+			return nil, ""
+		}
+		for _, line := range bytes.Split(body, []byte("\n")) {
+			var event struct {
+				Type string `json:"type"`
+				SHA1 string `json:"sha1"`
+			}
+			if json.Unmarshal(line, &event) == nil && event.Type == "screencast-frame" && path.Base(event.SHA1) == event.SHA1 {
+				frame = "resources/" + event.SHA1
+			}
+		}
+	}
+	for _, file := range reader.File {
+		if file.Name != frame {
+			continue
+		}
+		media := EvidenceMedia(file.Name)
+		if media != "image/png" && media != "image/jpeg" {
+			return nil, ""
+		}
+		stream, err := file.Open()
+		if err != nil {
+			return nil, ""
+		}
+		body, err := io.ReadAll(io.LimitReader(stream, MaxSize+1))
+		stream.Close()
+		if err != nil || !validImage(media, body) {
+			return nil, ""
+		}
+		return body, media
+	}
+	return nil, ""
 }

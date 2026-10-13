@@ -34,15 +34,24 @@ func TestBrowserEvidenceRejectsTraversalSecretsAndNonTraceArchives(t *testing.T)
 	if !validContent("application/zip", archive(map[string][]byte{"0.trace": []byte(`{"type":"action","title":"Checkout"}`), "resources/page.png": screenshot.Bytes()})) {
 		t.Fatal("bounded browser trace rejected")
 	}
+	frame, media := TraceScreenshot(archive(map[string][]byte{"0.trace": []byte("{\"type\":\"screencast-frame\",\"sha1\":\"page.png\"}\n"), "resources/page.png": screenshot.Bytes()}))
+	if media != "image/png" || !bytes.Equal(frame, screenshot.Bytes()) {
+		t.Fatal("executed trace frame unavailable")
+	}
 	for name, files := range map[string]map[string][]byte{
 		"escape":               {"../0.trace": []byte("trace")},
 		"credential":           {"0.trace": []byte(`{"Authorization":"Bearer secret-value-123456789"}`)},
+		"cookie header":        {"0.trace": []byte(`{"headers":[{"name":"cookie","value":"session=private-value"}]}`)},
 		"compressed oversized": {"0.trace": bytes.Repeat([]byte("x"), int(MaxSize)+1)},
 		"arbitrary zip":        {"app.js": []byte("code")},
 		"nested zip":           {"0.trace": []byte("trace"), "nested.zip": []byte("zip")},
 	} {
-		if validContent("application/zip", archive(files)) {
+		data := archive(files)
+		if validContent("application/zip", data) {
 			t.Fatalf("unsafe evidence accepted: %s", name)
+		}
+		if frame, _ := TraceScreenshot(data); len(frame) > 0 {
+			t.Fatalf("unsafe trace extracted: %s", name)
 		}
 	}
 }

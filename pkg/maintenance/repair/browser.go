@@ -39,8 +39,22 @@ func (e Engine) browserArtifacts(ctx context.Context, w sandbox.Workspace, comma
 		}
 	}
 	bytes := 0
+	upload := func(name, media string, data []byte) {
+		if count >= 8 || bytes+len(data) > 8<<20 {
+			return
+		}
+		id, digest, err := e.Artifact(ctx, name, data)
+		if err != nil {
+			e.log(ctx, "tool", "Browser artifact unavailable: "+name)
+			return
+		}
+		bytes += len(data)
+		count++
+		report.Artifacts = append(report.Artifacts, id)
+		report.BehaviourArtifacts = append(report.BehaviourArtifacts, BehaviourArtifact{ID: id, Stage: behaviourStage(label), Name: name, MediaType: media, SHA256: digest})
+	}
 	for index, attachment := range parsed.Attachments {
-		if count+len(seen) >= 8 {
+		if count >= 8 {
 			break
 		}
 		file := attachment.Path
@@ -89,15 +103,14 @@ func (e Engine) browserArtifacts(ctx context.Context, w sandbox.Workspace, comma
 			continue
 		}
 		name := label + "-" + command.ID + "-" + path.Base(file)
-		id, digest, err := e.Artifact(ctx, name, collected.Data)
-		if err != nil {
-			e.log(ctx, "tool", "Browser artifact unavailable: "+path.Base(file))
-			continue
-		}
-		bytes += len(collected.Data)
 		seen[file] = true
-		report.Artifacts = append(report.Artifacts, id)
-		report.BehaviourArtifacts = append(report.BehaviourArtifacts, BehaviourArtifact{ID: id, Stage: behaviourStage(label), Name: name, MediaType: media, SHA256: digest})
+		if media == "application/zip" {
+			if frame, frameMedia := artifact.TraceScreenshot(collected.Data); len(frame) > 0 {
+				ext := map[string]string{"image/png": ".png", "image/jpeg": ".jpg"}[frameMedia]
+				upload(label+"-"+command.ID+"-frame"+ext, frameMedia, frame)
+			}
+		}
+		upload(name, media, collected.Data)
 	}
 	return nil
 }

@@ -502,7 +502,7 @@ func (r *Runtime) spec(w *workspaceState, image string) any {
 		map[string]any{"destination": "/workspace", "type": "tmpfs", "source": "tmpfs", "options": []string{"nosuid", "nodev", "mode=700", "uid=65532", "gid=65532", fmt.Sprintf("size=%d", r.config.DiskBytes), "nr_inodes=100000"}},
 		map[string]any{"destination": "/opt/reforge/tool", "type": "bind", "source": r.config.Tool, "options": []string{"ro", "rbind", "nosuid", "nodev"}},
 	}
-	env := []string{"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "TMPDIR=/tmp", "GOCACHE=/tmp/go-build", "GOPATH=/workspace/.reforge/gopath", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "CI=true", "GOFLAGS=-mod=readonly"}
+	env := []string{"PATH=/usr/local/go/bin:/usr/local/bin:/usr/bin:/bin", "HOME=/tmp", "TMPDIR=/tmp", "GOCACHE=/tmp/go-build", "GOPATH=/workspace/.reforge/gopath", "GIT_CONFIG_NOSYSTEM=1", "GIT_CONFIG_GLOBAL=/dev/null", "GIT_TERMINAL_PROMPT=0", "CI=true", "GOFLAGS=-mod=readonly", "PLAYWRIGHT_BROWSERS_PATH=/opt/reforge/browsers"}
 	if w.egress != "" {
 		mounts = append(mounts, map[string]any{"destination": "/run/reforge", "type": "bind", "source": w.egress, "options": []string{"rbind", "nosuid", "nodev", "noexec"}})
 	}
