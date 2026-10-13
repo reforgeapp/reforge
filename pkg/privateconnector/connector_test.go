@@ -7,6 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"net/url"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -15,9 +18,80 @@ import (
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/network"
 	"github.com/reforgeapp/reforge/pkg/runner"
 )
+
+func TestSupportedModelTurnTimeoutReachesPrivateProvider(t *testing.T) {
+	f := fixture(t)
+	provider := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("unexpected model endpoint: %s", r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "text/event-stream")
+		fmt.Fprint(w, "data: {\"id\":\"local-turn\",\"choices\":[{\"delta\":{\"content\":\"checked\"},\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":2,\"completion_tokens\":1}}\n\ndata: [DONE]\n\n")
+	}))
+	defer provider.Close()
+	controller := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/runner/v1/private/poll" {
+			grant, err := f.connector.Poll(r.Context(), f.credential)
+			if err != nil {
+				w.WriteHeader(503)
+				return
+			}
+			raw, _ := grant.MarshalWire()
+			w.Write(raw)
+			return
+		}
+		if r.URL.Path == "/runner/v1/private/status" {
+			w.WriteHeader(204)
+			return
+		}
+		var result Completion
+		if json.NewDecoder(r.Body).Decode(&result) != nil || f.connector.Complete(r.Context(), f.credential, result.GrantID, r.Header.Get("X-Private-Result-Capability"), result.Result) != nil {
+			w.WriteHeader(400)
+			return
+		}
+		w.WriteHeader(204)
+	}))
+	defer controller.Close()
+	client, err := NewClient(ClientConfig{Endpoint: controller.URL, Credential: f.credential, Target: f.target, Development: true})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer client.Close()
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	completed := make(chan error, 1)
+	go func() {
+		callctx, stop := context.WithTimeout(ctx, 5*time.Second)
+		defer stop()
+		err := client.RunOnce(callctx)
+		if err != nil {
+			cancel()
+		}
+		completed <- err
+	}()
+	turn := model.Turn{OperationID: domain.NewID(), Model: "local", Messages: []model.Message{{Role: "user", Text: "Check checkout"}}, MaxOutputTokens: 32, TimeoutMS: model.MaxTurnTimeout.Milliseconds()}
+	op := Operation{ID: turn.OperationID, Kind: ModelTurn, Turn: &turn}
+	result, err := f.connector.Dispatch(ctx, f.target, op, func(ctx context.Context, ready Ready, deliver Deliver) error {
+		spec := f.spec(op.ID)
+		spec.Connection.Kind, spec.Connection.Provider, spec.Connection.Model = "model", "compatible", "local"
+		spec.Connection.Endpoint = provider.URL
+		endpoint, _ := url.Parse(provider.URL)
+		spec.Connection.Route.Host = endpoint.Hostname()
+		var err error
+		_, err = deliver(spec)
+		return err
+	})
+	if err != nil || result.Turn == nil || result.Turn.Text != "checked" {
+		t.Fatalf("supported private model turn held: %+v %v", result, err)
+	}
+	if err = <-completed; err != nil {
+		t.Fatal(err)
+	}
+}
 
 type testFixture struct {
 	connector  *Connector
