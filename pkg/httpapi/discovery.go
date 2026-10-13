@@ -7,6 +7,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/reforgeapp/reforge/pkg/inventory"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
 )
 
 func (s *Server) RegisterDiscovery(service *discovery.Service) {
@@ -141,6 +142,8 @@ func discoveryFailure(c *gin.Context, err error) {
 		Fail(c, 409, "discovery_duplicate", "Overlapping maintenance work exists; review the existing change", false)
 	case errors.Is(err, discovery.ErrBlocked):
 		Fail(c, 409, "discovery_blocked", "Finding requires reviewed ownership or complete evidence", false)
+	case errors.Is(err, privateconnector.ErrUnavailable):
+		Fail(c, 503, "provider_unavailable", "Code host temporarily unavailable; retry shortly", true)
 	default:
 		IdentityFailure(c, err)
 	}
