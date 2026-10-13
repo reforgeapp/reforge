@@ -24,16 +24,19 @@ func TestValidateBotConfig(t *testing.T) {
 }
 
 func TestValidateBootstrap(t *testing.T) {
-	workflow := &fstest.MapFile{Data: []byte("on: push\njobs: {test: {runs-on: ubuntu-latest}}\n")}
+	workflow := &fstest.MapFile{Data: []byte("on: push\njobs: {test: {runs-on: ubuntu-latest, steps: [{run: go test ./...}]}}\n")}
 	for name, tc := range map[string]struct {
 		files fstest.MapFS
 		valid bool
 	}{
-		"empty":    {fstest.MapFS{"main.go": {Data: []byte("package main")}}, false},
-		"no-tests": {fstest.MapFS{".github/workflows/ci.yml": workflow}, false},
-		"broken":   {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: [")}, "main_test.go": {}}, false},
-		"complete": {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {}}, true},
-		"vendored": {fstest.MapFS{".github/workflows/ci.yml": workflow, "node_modules/x/a.test.js": {}}, false},
+		"empty":      {fstest.MapFS{"main.go": {Data: []byte("package main")}}, false},
+		"no-tests":   {fstest.MapFS{".github/workflows/ci.yml": workflow}, false},
+		"broken":     {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: [")}, "main_test.go": {}}, false},
+		"complete":   {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, true},
+		"empty-test": {fstest.MapFS{".github/workflows/ci.yml": workflow, "main_test.go": {}}, false},
+		"echo-only":  {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: push\njobs: {test: {steps: [{run: echo ok}]}}\n")}, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, false},
+		"trivial":    {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("def test_true():\n    assert True\n")}}, false},
+		"vendored":   {fstest.MapFS{".github/workflows/ci.yml": workflow, "node_modules/x/a.test.js": {}}, false},
 	} {
 		if problems := ValidateBootstrap(tc.files); (len(problems) == 0) != tc.valid {
 			t.Errorf("%s: %v", name, problems)

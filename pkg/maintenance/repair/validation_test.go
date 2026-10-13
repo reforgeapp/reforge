@@ -75,6 +75,50 @@ func TestGoAndPythonReportsRetainCaseIdentity(t *testing.T) {
 	}
 }
 
+func TestBootstrapRequiresCountedBuildAndPreservesExistingChecks(t *testing.T) {
+	files := map[string][]byte{"package.json": []byte(`{"scripts":{"test":"node --test"}}`), "old.test.js": []byte("old behavioural test"), ".gitea/workflows/ci.yml": []byte("original workflow")}
+	p, err := freeze("bootstrap", "sha256:"+strings.Repeat("a", 64), strings.Repeat("b", 40), strings.Repeat("c", 40), files, nil, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.Owner = true
+	p.Digest = planDigest(p)
+	command := p.Recipe.Commands[0]
+	good := Interpret(command, sandbox.CommandResult{Output: []byte(`{"bootstrap":{"complete":true,"builds":1,"cases":{"checkout":"pass"},"problems":[]}}`)})
+	if !Verified(p, nil, []CheckResult{good}) {
+		t.Fatalf("counted proof rejected: %+v", good)
+	}
+	for _, body := range []string{
+		"validation passed",
+		`{"bootstrap":{"complete":true,"builds":1,"cases":{},"problems":[]}}`,
+		`{"bootstrap":{"complete":true,"builds":0,"cases":{"checkout":"pass"},"problems":[]}}`,
+		`{"bootstrap":{"complete":true,"builds":1,"cases":{"checkout":"skip"},"problems":[]}}`,
+		`{"bootstrap":{"complete":false,"builds":1,"cases":{"checkout":"pass"},"problems":[]}}`,
+	} {
+		if Verified(p, nil, []CheckResult{Interpret(command, sandbox.CommandResult{Output: []byte(body)})}) {
+			t.Fatalf("unproven bootstrap accepted: %s", body)
+		}
+	}
+	before := good
+	before.Cases = map[string]string{"old test": "pass"}
+	if Verified(p, []CheckResult{before}, []CheckResult{good}) {
+		t.Fatal("existing passing behaviour lost")
+	}
+	for _, patch := range []sandbox.Patch{
+		{Path: "old.test.js", Content: []byte("weakened test")},
+		{Path: ".gitea/workflows/ci.yml", Content: []byte("echo ok")},
+		{Path: "package.json", Content: []byte(`{"scripts":{"test":"echo ok"}}`)},
+		{Path: "app.js", Content: []byte("application behaviour changed")},
+	} {
+		if CheckOwnerPatch(p, files, []sandbox.Patch{patch}) == nil {
+			t.Fatalf("bootstrap changed existing behaviour/checks: %s", patch.Path)
+		}
+	}
+	if err := CheckOwnerPatch(p, files, []sandbox.Patch{{Path: "checkout.test.js", Content: []byte("new behaviour test")}}); err != nil {
+		t.Fatal(err)
+	}
+}
+
 type ansiCommandRuntime struct{ retryRuntime }
 
 func (r *ansiCommandRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {

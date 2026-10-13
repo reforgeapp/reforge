@@ -1,13 +1,23 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
 	"io/fs"
 	"os"
+	"time"
 )
 
 func main() {
+	if len(os.Args) == 2 && os.Args[1] == "validate-bootstrap" {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+		defer cancel()
+		if !guest.RunBootstrap(ctx, os.DirFS("."), os.Stdout) {
+			os.Exit(1)
+		}
+		return
+	}
 	if len(os.Args) > 1 && os.Args[1] == "egress" {
 		os.Exit(guest.Egress(os.Args[2:]))
 	}

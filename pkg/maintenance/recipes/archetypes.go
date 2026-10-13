@@ -45,9 +45,9 @@ var archetypes = []Archetype{
 	{Name: "javascript", Toolchain: "javascript", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"npm", "yarn", "pnpm", "javascript"}},
 	{Name: "python", Toolchain: "python", MinProof: ProofTests, Budget: codeBudget, Ecosystems: []string{"pip", "pypi", "python", "poetry"}},
 	{Name: "config", MinProof: ProofStructural, Validator: "validate-bot-config", Budget: Budget{Files: 4, Lines: 400, Bytes: 64 << 10, Turns: 20}, Categories: []string{"dependency_bots", "renovate_onboarding"}, AllowedPaths: guest.BotConfigPaths},
-	{Name: "bootstrap", MinProof: ProofStructural, Validator: "validate-bootstrap", Budget: Budget{Files: 30, Lines: 4000, Bytes: 256 << 10, GeneratedBytes: 2 << 20, Turns: 50}, Categories: []string{"missing_validation", "ci_gap", "test_gap"}},
+	{Name: "bootstrap", MinProof: ProofTests, Validator: "validate-bootstrap", Budget: Budget{Files: 30, Lines: 4000, Bytes: 256 << 10, GeneratedBytes: 2 << 20, Turns: 50}, Categories: []string{"missing_validation", "ci_gap", "test_gap"}},
 	{Name: "docs", MinProof: ProofStructural, Validator: "validate-docs", Budget: Budget{Files: 20, Lines: 3000, Bytes: 256 << 10, Turns: 30}, Categories: []string{"docs_gap", "docs_drift"}, AllowedPaths: []string{"**/*.md", "docs/**"}},
-	{Name: "review", MinProof: ProofStructural, Validator: "validate-bootstrap", ReadOnly: true, Budget: Budget{Files: 1, Lines: 1, Bytes: 1, Turns: 40}, Categories: []string{"repository_review"}},
+	{Name: "review", MinProof: ProofStructural, Validator: "validate-none", ReadOnly: true, Budget: Budget{Files: 1, Lines: 1, Bytes: 1, Turns: 40}, Categories: []string{"repository_review"}},
 }
 
 func Lookup(name string) (Archetype, bool) {

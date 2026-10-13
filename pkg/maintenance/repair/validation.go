@@ -211,6 +211,23 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 	if command.ReportFormat == "exit" {
 		return out
 	}
+	if command.ReportFormat == "bootstrap" {
+		lines := strings.Split(strings.TrimSpace(body), "\n")
+		var report struct {
+			Bootstrap *guest.BootstrapReport `json:"bootstrap"`
+		}
+		if len(lines) == 0 || json.Unmarshal([]byte(lines[len(lines)-1]), &report) != nil || report.Bootstrap == nil || !report.Bootstrap.Complete {
+			out.Complete = false
+			out.Reason = "Bootstrap build and behavioural execution evidence unavailable"
+			return out
+		}
+		out.Cases = report.Bootstrap.Cases
+		if report.Bootstrap.Builds == 0 || len(report.Bootstrap.Problems) > 0 {
+			out.ExitCode = 1
+			out.Reason = strings.Join(report.Bootstrap.Problems, "; ")
+		}
+		return out
+	}
 	for _, line := range strings.Split(body, "\n") {
 		switch command.ReportFormat {
 		case "json":
@@ -310,6 +327,25 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 	seen := map[string]bool{}
 	for _, patch := range patches {
 		_, exists := baseline[patch.Path]
+		if p.Recipe.Name == "bootstrap" && !guest.TestPath(patch.Path) && !guest.CIPath(patch.Path) && !slices.Contains([]string{"package.json", "package-lock.json", "go.mod", "go.sum", "pyproject.toml", "requirements-dev.txt"}, path.Base(patch.Path)) {
+			return ErrPatch
+		}
+		if p.Recipe.Name == "bootstrap" && exists && ((guest.TestPath(patch.Path) || guest.CIPath(patch.Path)) && !bytes.Equal(baseline[patch.Path], patch.Content) || patch.Delete) {
+			return ErrPatch
+		}
+		if p.Recipe.Name == "bootstrap" && exists && path.Base(patch.Path) == "package.json" {
+			var before, after struct {
+				Scripts map[string]string `json:"scripts"`
+			}
+			if json.Unmarshal(baseline[patch.Path], &before) != nil || json.Unmarshal(patch.Content, &after) != nil {
+				return ErrPatch
+			}
+			for name, script := range before.Scripts {
+				if after.Scripts[name] != script {
+					return ErrPatch
+				}
+			}
+		}
 		if !guest.ValidPath(patch.Path) || !utf8.ValidString(patch.Path) || seen[patch.Path] || secretFile(patch.Path, patch.Content) || patch.Delete && (!exists || len(patch.Content) > 0) || p.Recipe.ReadOnly || len(p.Recipe.AllowedPaths) > 0 && !slices.ContainsFunc(p.Recipe.AllowedPaths, func(glob string) bool { return policy.ForbiddenPath(glob, patch.Path) }) {
 			return ErrPatch
 		}
@@ -337,6 +373,7 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 	if !p.Valid() || len(candidate) != len(p.Recipe.Commands) || lostPassingCase(baseline, candidate) {
 		return false
 	}
+	passed := 0
 	for i, result := range candidate {
 		if !result.Complete || result.ExitCode != 0 || result.CommandID != p.Recipe.Commands[i].ID {
 			return false
@@ -345,7 +382,11 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 			if state != "pass" {
 				return false
 			}
+			passed++
 		}
+	}
+	if p.Recipe.Name == "bootstrap" && passed < p.Recipe.MinimumTests {
+		return false
 	}
 	return true
 }

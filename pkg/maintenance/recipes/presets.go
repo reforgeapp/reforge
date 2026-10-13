@@ -57,7 +57,13 @@ func BuildOwner(name string, files map[string][]byte) (Recipe, error) {
 		return Recipe{}, ErrUnsupported
 	}
 	if a, _ := Lookup(canonical); a.Validator != "" {
-		return structuralRecipe(a), nil
+		r := structuralRecipe(a)
+		if a.Name == "bootstrap" {
+			r.MinimumTests = 1
+			r.Version = "v2"
+			r.Commands[0].ReportFormat = "bootstrap"
+		}
+		return r, nil
 	}
 	r := baseRecipe(canonical)
 	r.Version = "v4"
