@@ -20,6 +20,8 @@ type Configuration struct {
 	ProvenancePublicKey   string   `json:"provenance_public_key"`
 	HealthPublicKey       string   `json:"health_public_key"`
 	HealthChecks          []string `json:"health_checks"`
+	BuildWorkflowPath     string   `json:"build_workflow_path,omitempty"`
+	BuildWorkflowSHA256   string   `json:"build_workflow_sha256,omitempty"`
 	ObservationSeconds    int64    `json:"observation_seconds"`
 	MaxEvidenceAgeSeconds int64    `json:"max_evidence_age_seconds"`
 	DeadlineSeconds       int64    `json:"deadline_seconds"`

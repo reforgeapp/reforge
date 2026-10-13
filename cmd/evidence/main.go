@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/gitops"
+	"github.com/reforgeapp/reforge/pkg/release"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 	"io"
 	"os"
 	"strings"
@@ -24,12 +26,18 @@ func main() {
 }
 func run(args []string, out io.Writer) error {
 	if len(args) == 0 {
-		return errors.New("usage: evidence keygen|sign --key-file PATH [--kind provenance|native-health|gitops-health --document PATH]")
+		return errors.New("usage: evidence capture|keygen|sign|collect")
+	}
+	if args[0] == "capture" {
+		return capture(args[1:], out)
 	}
 	flags := flag.NewFlagSet("evidence", flag.ContinueOnError)
 	keyPath := flags.String("key-file", "", "Private signing key file")
 	kind := flags.String("kind", "", "Evidence document kind")
 	input := flags.String("document", "", "JSON document file")
+	buildResult := flags.String("build-result", "", "Bounded CI build result file")
+	testResult := flags.String("test-result", "", "Bounded CI test result file")
+	reportFormat := flags.String("report-format", "", "Test report format")
 	if err := flags.Parse(args[1:]); err != nil {
 		return err
 	}
@@ -56,7 +64,7 @@ func run(args []string, out io.Writer) error {
 		}
 		_, err = fmt.Fprintln(out, base64.StdEncoding.EncodeToString(pub))
 		return err
-	case "sign":
+	case "sign", "collect":
 		if *input == "" {
 			return errors.New("document file required")
 		}
@@ -85,6 +93,9 @@ func run(args []string, out io.Writer) error {
 		if err != nil || len(raw) > 1<<20 {
 			return errors.New("document must be at most 1 MiB")
 		}
+		if args[0] == "collect" {
+			*kind = "provenance"
+		}
 		document, err := documentFor(*kind)
 		if err != nil {
 			return err
@@ -96,6 +107,24 @@ func run(args []string, out io.Writer) error {
 		}
 		if decoder.Decode(new(any)) != io.EOF {
 			return errors.New("exactly one JSON document required")
+		}
+		if args[0] == "collect" {
+			p := document.(*deployment.Provenance)
+			if p.Validation == nil {
+				return errors.New("CI target revision required")
+			}
+			build, err := commandResult(*buildResult)
+			if err != nil {
+				return err
+			}
+			test, err := commandResult(*testResult)
+			if err != nil {
+				return err
+			}
+			p.Validation, err = release.CollectValidation(p.Validation.TargetSHA, *reportFormat, build, test)
+			if err != nil {
+				return err
+			}
 		}
 		body, err := json.Marshal(document)
 		if err != nil {
@@ -109,6 +138,37 @@ func run(args []string, out io.Writer) error {
 	default:
 		return errors.New("unsupported evidence command")
 	}
+}
+
+func commandResult(name string) (sandbox.CommandResult, error) {
+	var out sandbox.CommandResult
+	file, err := os.Open(name)
+	if err != nil {
+		return out, errors.New("CI result file unavailable")
+	}
+	defer file.Close()
+	raw, err := io.ReadAll(io.LimitReader(file, (2<<20)+1))
+	if err != nil || len(raw) > 2<<20 {
+		return out, errors.New("CI result exceeds limit")
+	}
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(raw, &fields) != nil {
+		return out, errors.New("CI result must be an object")
+	}
+	for _, required := range []string{"ExitCode", "Output", "Duration", "Truncated", "TimedOut"} {
+		if _, exists := fields[required]; !exists {
+			return out, errors.New("complete bounded CI result required")
+		}
+	}
+	decoder := json.NewDecoder(bytes.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err = decoder.Decode(&out); err != nil {
+		return out, err
+	}
+	if decoder.Decode(new(any)) != io.EOF || len(out.Output) > 1<<20 {
+		return out, errors.New("one bounded CI result required")
+	}
+	return out, nil
 }
 func documentFor(kind string) (any, error) {
 	switch kind {

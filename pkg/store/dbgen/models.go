@@ -808,6 +808,21 @@ type PrivateRoute struct {
 	ExpiresAt pgtype.Timestamptz `json:"expires_at"`
 }
 
+type ReleaseReceipt struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	ID                   pgtype.UUID        `json:"id"`
+	RepositoryID         pgtype.UUID        `json:"repository_id"`
+	Environment          string             `json:"environment"`
+	Kind                 string             `json:"kind"`
+	ConfigurationVersion int64              `json:"configuration_version"`
+	SourceSha            string             `json:"source_sha"`
+	TargetSha            string             `json:"target_sha"`
+	ArtifactDigest       string             `json:"artifact_digest"`
+	BuildID              string             `json:"build_id"`
+	Document             []byte             `json:"document"`
+	ReceivedAt           pgtype.Timestamptz `json:"received_at"`
+}
+
 type RepairRun struct {
 	OrgID                  pgtype.UUID        `json:"org_id"`
 	TaskID                 pgtype.UUID        `json:"task_id"`

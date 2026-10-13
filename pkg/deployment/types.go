@@ -41,6 +41,8 @@ type Configuration struct {
 	ProvenancePublicKey   string        `json:"provenance_public_key"`
 	HealthPublicKey       string        `json:"health_public_key"`
 	HealthChecks          []string      `json:"health_checks"`
+	BuildWorkflowPath     string        `json:"build_workflow_path,omitempty"`
+	BuildWorkflowSHA256   string        `json:"build_workflow_sha256,omitempty"`
 	ObservationSeconds    int64         `json:"observation_seconds"`
 	MaxEvidenceAgeSeconds int64         `json:"max_evidence_age_seconds"`
 	DeadlineSeconds       int64         `json:"deadline_seconds"`
@@ -48,13 +50,32 @@ type Configuration struct {
 }
 
 type Provenance struct {
-	OrgID          string    `json:"org_id"`
-	RepositoryID   string    `json:"repository_id"`
-	SourceSHA      string    `json:"source_sha"`
-	ArtifactDigest string    `json:"artifact_digest"`
-	BuildID        string    `json:"build_id"`
-	IssuedAt       time.Time `json:"issued_at"`
-	ExpiresAt      time.Time `json:"expires_at"`
+	Environment          string           `json:"environment,omitempty"`
+	Kind                 string           `json:"kind,omitempty"`
+	ConfigurationVersion int64            `json:"configuration_version,omitempty"`
+	WorkflowSHA256       string           `json:"workflow_sha256,omitempty"`
+	Validation           *BuildValidation `json:"validation,omitempty"`
+	Recovery             *RecoverySafety  `json:"recovery,omitempty"`
+	OrgID                string           `json:"org_id"`
+	RepositoryID         string           `json:"repository_id"`
+	SourceSHA            string           `json:"source_sha"`
+	ArtifactDigest       string           `json:"artifact_digest"`
+	BuildID              string           `json:"build_id"`
+	IssuedAt             time.Time        `json:"issued_at"`
+	ExpiresAt            time.Time        `json:"expires_at"`
+}
+
+type BuildValidation struct {
+	TargetSHA string            `json:"target_sha"`
+	Builds    int               `json:"builds"`
+	Complete  bool              `json:"complete"`
+	Cases     map[string]string `json:"cases"`
+	Outputs   []string          `json:"outputs"`
+}
+
+type RecoverySafety struct {
+	State               string   `json:"state"`
+	CompatibleArtifacts []string `json:"compatible_artifacts,omitempty"`
 }
 
 type SignedProvenance struct {

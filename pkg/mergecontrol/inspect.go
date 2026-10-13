@@ -17,6 +17,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/release"
 	"github.com/reforgeapp/reforge/pkg/source"
 )
 
@@ -243,6 +244,19 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 		return out, privateconnector.ErrInvalid
 	}
 	out.BehaviourRequired = report.State == "unverified" || execution.Plan.Recipe.MinProof == "tests" || execution.Plan.Recipe.MinProof == "provider"
+	if out.BehaviourRequired {
+		tested := snapshot.Change.HeadSHA
+		if snapshot.Queue.TestedSHA != "" {
+			tested = snapshot.Queue.TestedSHA
+		}
+		reference, err := release.BehaviourReferenceTx(ctx, tx, org, repo, tested, snapshot.Change.TargetSHA, now)
+		if err != nil {
+			return out, err
+		}
+		if reference != "" {
+			out.BehaviourHead, out.BehaviourTarget, out.BehaviourReference = tested, snapshot.Change.TargetSHA, reference
+		}
+	}
 	if report.State == "validated" && checkedHead == snapshot.Change.HeadSHA && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && repair.Verified(execution.Plan, report.Baseline, checks) {
 		out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, "repair:"+task
 	}

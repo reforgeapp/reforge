@@ -113,6 +113,9 @@ type Authority struct {
 	ValidationTarget       string
 	ValidationReference    string
 	BehaviourRequired      bool
+	BehaviourHead          string
+	BehaviourTarget        string
+	BehaviourReference     string
 	MergeControlled        bool
 	CooperationVerified    bool
 	Qualified              bool
