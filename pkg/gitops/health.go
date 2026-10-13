@@ -32,7 +32,8 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		if e != nil {
 			return e
 		}
-		if p.FinishedAt != nil || p.State != "completed_unverified" && p.State != "verifying" {
+		ongoing := p.State == "healthy" || p.State == "recovered"
+		if !ongoing && (p.FinishedAt != nil || p.State != "completed_unverified" && p.State != "verifying") {
 			return auth.ErrConflict
 		}
 		if !deployment.VerifySignature(c.HealthPublicKey, in, signature) {
@@ -44,6 +45,15 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		now := time.Now()
 		if in.ObservedAt.IsZero() || in.ObservedAt.Before(p.CreatedAt) || in.ObservedAt.After(now.Add(5*time.Second)) || now.Sub(in.ObservedAt) > time.Duration(c.MaxEvidenceAgeSeconds)*time.Second {
 			return auth.ErrConflict
+		}
+		if ongoing {
+			var current bool
+			if e := tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM gitops_promotions WHERE org_id=$1 AND source_repository_id=$2 AND environment=$3 AND merge_sha<>'' AND (created_at,id)>($4,$5::uuid))`, org, p.SourceRepositoryID, p.Environment, p.CreatedAt, p.ID).Scan(&current); e != nil {
+				return e
+			}
+			if !current {
+				return auth.ErrConflict
+			}
 		}
 		var prior []byte
 		e = tx.QueryRow(ctx, `SELECT document FROM gitops_health_reports WHERE org_id=$1 AND promotion_id=$2 AND nonce=$3`, org, id, in.Nonce).Scan(&prior)
@@ -58,7 +68,7 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 			return e
 		}
 		var first, last *time.Time
-		if e = tx.QueryRow(ctx, `SELECT first_healthy_at,last_health_at FROM gitops_promotions WHERE org_id=$1 AND id=$2`, org, id).Scan(&first, &last); e != nil {
+		if e = tx.QueryRow(ctx, `SELECT first_healthy_at,greatest(last_health_at,(SELECT observed_at FROM environment_health WHERE org_id=$1 AND operation_id=$2 AND kind='gitops')) FROM gitops_promotions WHERE org_id=$1 AND id=$2`, org, id).Scan(&first, &last); e != nil {
 			return e
 		}
 		if last != nil && !in.ObservedAt.After(*last) {
@@ -77,6 +87,9 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		raw, _ := json.Marshal(in)
 		if _, e = tx.Exec(ctx, `INSERT INTO gitops_health_reports(org_id,promotion_id,nonce,document) VALUES($1,$2,$3,$4)`, org, id, in.Nonce, raw); e != nil {
 			return e
+		}
+		if ongoing {
+			return recordCurrentHealth(ctx, tx, org, p, g, c, in)
 		}
 		if _, e = tx.Exec(ctx, `UPDATE gitops_promotions SET first_healthy_at=$3,last_health_at=$4,observe_after=now(),version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, id, first, in.ObservedAt); e != nil {
 			return e

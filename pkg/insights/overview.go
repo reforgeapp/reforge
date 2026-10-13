@@ -7,6 +7,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/environmenthealth"
 )
 
 type OverviewCounts struct {
@@ -91,7 +92,7 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 			(SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND state='blocked' AND ` + repo + `)
 				+(SELECT count(*) FROM merge_operations WHERE org_id=$1 AND state='blocked' AND ` + repo + `)
 				+(SELECT count(*) FROM deployments WHERE org_id=$1 AND state='blocked' AND ` + repo + `),
-			(SELECT count(*) FROM deployments WHERE org_id=$1 AND state='healthy' AND ` + repo + `),
+			(SELECT count(*) FROM environment_health h WHERE h.org_id=$1 AND h.healthy AND ` + environmenthealth.CurrentPredicate + ` AND ` + repo + `),
 			(SELECT count(*) FROM repositories WHERE org_id=$1 AND accessible AND ($2 OR id=ANY($3::uuid[]))),
 			(SELECT count(*) FROM repositories WHERE org_id=$1 AND accessible AND (last_synced_at IS NULL OR last_synced_at<now()-interval '1 day') AND ($2 OR id=ANY($3::uuid[]))),
 			(SELECT count(*) FROM workflow_jobs j JOIN workflow_tasks t ON t.org_id=j.org_id AND t.id=j.task_id WHERE j.org_id=$1 AND j.state='queued' AND ($2 OR t.repository_id=ANY($3::uuid[])))`

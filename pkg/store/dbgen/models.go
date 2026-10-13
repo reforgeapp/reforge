@@ -348,6 +348,22 @@ type DeploymentHealthReport struct {
 	ReceivedAt   pgtype.Timestamptz `json:"received_at"`
 }
 
+type EnvironmentHealth struct {
+	OrgID                pgtype.UUID        `json:"org_id"`
+	RepositoryID         pgtype.UUID        `json:"repository_id"`
+	Environment          string             `json:"environment"`
+	Kind                 string             `json:"kind"`
+	OperationID          pgtype.UUID        `json:"operation_id"`
+	ConfigurationVersion int64              `json:"configuration_version"`
+	ReleaseCreatedAt     pgtype.Timestamptz `json:"release_created_at"`
+	SourceSha            string             `json:"source_sha"`
+	ArtifactDigest       string             `json:"artifact_digest"`
+	Healthy              bool               `json:"healthy"`
+	ObservedAt           pgtype.Timestamptz `json:"observed_at"`
+	ExpiresAt            pgtype.Timestamptz `json:"expires_at"`
+	Document             []byte             `json:"document"`
+}
+
 type GithubAppSetup struct {
 	OrgID          pgtype.UUID        `json:"org_id"`
 	ID             pgtype.UUID        `json:"id"`

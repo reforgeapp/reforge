@@ -179,6 +179,11 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Promotion, error
 		if e != nil {
 			return e
 		}
+		if next == "healthy" || next == "recovered" {
+			if err := recordRolloutHealth(ctx, tx, org, out, g, cfg); err != nil {
+				return err
+			}
+		}
 		return emit(ctx, tx, org, out.DeliveryRepositoryID, "", "gitops.observed", out.ID, out.Version, "", map[string]any{"state": next, "delivery_revision": merged})
 	})
 	return out, err

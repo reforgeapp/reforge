@@ -11791,6 +11791,79 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/environment-health": {
+      "get": {
+        "operationId": "getEnvironmentHealth",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 50
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EnvironmentHealthPage"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20192,6 +20265,75 @@
             "enum": [
               "defect"
             ]
+          }
+        }
+      },
+      "EnvironmentHealth": {
+        "type": "object",
+        "required": [
+          "repository_id",
+          "repository",
+          "environment",
+          "kind",
+          "operation_id",
+          "state"
+        ],
+        "properties": {
+          "repository_id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "native",
+              "gitops"
+            ]
+          },
+          "operation_id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "healthy",
+              "unhealthy",
+              "unknown"
+            ]
+          },
+          "observed_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          }
+        }
+      },
+      "EnvironmentHealthPage": {
+        "type": "object",
+        "required": [
+          "items",
+          "complete"
+        ],
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/EnvironmentHealth"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
           }
         }
       }

@@ -116,7 +116,7 @@ func TestGitOpsHealthExactRevisionNonceReplayAndRestart(t *testing.T) {
 	sourceSHA := strings.Repeat("a", 40)
 	deliveryRevision := strings.Repeat("b", 40)
 	artifact := "sha256:" + strings.Repeat("c", 64)
-	gate := gitops.Gate{ID: gateID, OperationID: promotionID, Configuration: config, Request: gitops.PreviewRequest{ChangeID: "1", SourceSHA: sourceSHA, ArtifactDigest: artifact}, TargetSHA: strings.Repeat("d", 40)}
+	gate := gitops.Gate{ID: gateID, OperationID: promotionID, SourceConnectionID: f.connection.ID, SourceConnectionVersion: f.connection.Version, Configuration: config, Request: gitops.PreviewRequest{ChangeID: "1", SourceSHA: sourceSHA, ArtifactDigest: artifact}, TargetSHA: strings.Repeat("d", 40)}
 	promotion := gitops.Promotion{ID: promotionID, Environment: config.Environment, SourceRepositoryID: config.SourceRepositoryID, DeliveryRepositoryID: config.DeliveryRepositoryID, GateID: gateID, State: "completed_unverified", RequestedBy: f.owner.User.ID, Branch: "reforge/promote/" + promotionID, CandidateSHA: deliveryRevision, MergeSHA: deliveryRevision, Version: 1}
 	gateRaw, _ := json.Marshal(gate)
 	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
@@ -205,6 +205,25 @@ func TestGitOpsHealthExactRevisionNonceReplayAndRestart(t *testing.T) {
 		}
 		if count != 2 {
 			t.Fatalf("health report duplicates: %d", count)
+		}
+		_, err := tx.Exec(ctx, `UPDATE gitops_promotions SET state='healthy',finished_at=now() WHERE org_id=$1 AND id=$2`, f.org, promotionID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	negative.Nonce = domain.NewID()
+	negative.ObservedAt = time.Now().Add(2 * time.Second)
+	if err := restarted.ReceiveHealth(ctx, f.org, promotionID, negative, sign(negative)); err != nil {
+		t.Fatalf("ongoing GitOps health rejected: %v", err)
+	}
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		var healthy bool
+		var historical, incident string
+		if err := tx.QueryRow(ctx, `SELECT h.healthy,p.state,f.state FROM environment_health h JOIN gitops_promotions p ON p.org_id=h.org_id AND p.id=h.operation_id JOIN maintenance_findings f ON f.org_id=h.org_id AND f.repository_id=h.repository_id AND f.source='environment_health' WHERE h.org_id=$1 AND h.operation_id=$2`, f.org, promotionID).Scan(&healthy, &historical, &incident); err != nil {
+			return err
+		}
+		if healthy || historical != "healthy" || incident != "open" {
+			t.Fatalf("GitOps late failure lost or history changed: %v %s %s", healthy, historical, incident)
 		}
 		return nil
 	}); err != nil {

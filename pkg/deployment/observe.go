@@ -139,6 +139,11 @@ func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error
 		if err != nil {
 			return err
 		}
+		if state == "healthy" || state == "recovered" {
+			if err := recordRolloutHealth(ctx, tx, org, out, gate, cfg); err != nil {
+				return err
+			}
+		}
 		if err == nil && !gate.Pipeline.ObserveOnly && native.ID != "" && (state == "running" || state == "awaiting_gates" || state == "recovering") {
 			if out.CancelRequested {
 				cancelNative = out.CancelState == "pending"
@@ -214,7 +219,8 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		if err != nil {
 			return err
 		}
-		if o.FinishedAt != nil || o.State == "healthy" || o.State == "recovered" || o.State == "failed" || o.State == "recovery_failed" || o.State == "cancelled" || o.State == "blocked" {
+		ongoing := o.State == "healthy" || o.State == "recovered"
+		if !ongoing && (o.FinishedAt != nil || o.State == "failed" || o.State == "recovery_failed" || o.State == "cancelled" || o.State == "blocked") {
 			return auth.ErrConflict
 		}
 		if !VerifySignature(cfg.HealthPublicKey, in, signature) {
@@ -226,6 +232,15 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		now := time.Now()
 		if in.ObservedAt.Before(o.CreatedAt) || in.ObservedAt.After(now.Add(5*time.Second)) || in.ObservedAt.Before(now.Add(-time.Duration(cfg.MaxEvidenceAgeSeconds)*time.Second)) {
 			return auth.ErrConflict
+		}
+		if ongoing {
+			var current bool
+			if err := tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM deployments WHERE org_id=$1 AND repository_id=$2 AND environment=$3 AND coalesce(native_result->>'id','')<>'' AND (created_at,id)>($4,$5::uuid))`, org, o.RepositoryID, o.Environment, o.CreatedAt, o.ID).Scan(&current); err != nil {
+				return err
+			}
+			if !current {
+				return auth.ErrConflict
+			}
 		}
 		var old []byte
 		err = tx.QueryRow(ctx, `SELECT document FROM deployment_health_reports WHERE org_id=$1 AND deployment_id=$2 AND nonce=$3`, org, id, in.Nonce).Scan(&old)
@@ -241,7 +256,7 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 			return err
 		}
 		var first, last *time.Time
-		if err = tx.QueryRow(ctx, `SELECT first_healthy_at,last_health_at FROM deployments WHERE org_id=$1 AND id=$2`, org, id).Scan(&first, &last); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT first_healthy_at,greatest(last_health_at,(SELECT observed_at FROM environment_health WHERE org_id=$1 AND operation_id=$2 AND kind='native')) FROM deployments WHERE org_id=$1 AND id=$2`, org, id).Scan(&first, &last); err != nil {
 			return err
 		}
 		if last != nil && !in.ObservedAt.After(*last) {
@@ -261,6 +276,9 @@ func (s *Service) ReceiveHealth(ctx context.Context, org, id string, in HealthRe
 		}
 		if _, err = tx.Exec(ctx, `INSERT INTO deployment_health_reports(org_id,deployment_id,nonce,document) VALUES($1,$2,$3,$4)`, org, id, in.Nonce, raw); err != nil {
 			return err
+		}
+		if ongoing {
+			return recordCurrentHealth(ctx, tx, org, o, gate, cfg, in)
 		}
 		if _, err = tx.Exec(ctx, `UPDATE deployments SET first_healthy_at=$3,last_health_at=$4,observe_after=now(),version=version+1,updated_at=now() WHERE org_id=$1 AND id=$2`, org, id, first, in.ObservedAt); err != nil {
 			return err

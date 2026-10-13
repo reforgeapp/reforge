@@ -10,6 +10,7 @@ import { useSession } from './query'
 import { inventoryAPI } from '../api/inventory'
 import { DeploymentSettings } from './DeploymentSettings'
 import { GitOpsPage } from './GitOpsPage'
+import { EnvironmentHealth } from './EnvironmentHealth'
 import { deploymentAPI, type Configuration, type Gate, type Operation, type PreviewRequest } from '../deployment-api'
 import '../styles/deployment.css'
 
@@ -22,7 +23,7 @@ const expired = (gate: Gate) => { const timestamp = Date.parse(gate.expires_at);
 export function DeploymentsPage({ orgID }: { orgID: string }) {
   const [mode, setMode] = useState<'native' | 'gitops'>('native')
   return <div className="stack deployment-page">
-    <Tabs id="delivery" label="Delivery mode" items={[{ id: 'native', label: 'Native pipelines' }, { id: 'gitops', label: 'GitOps promotions' }]} value={mode} onChange={value => setMode(value as 'native' | 'gitops')} />
+    <EnvironmentHealth orgID={orgID} /><Tabs id="delivery" label="Delivery mode" items={[{ id: 'native', label: 'Native pipelines' }, { id: 'gitops', label: 'GitOps promotions' }]} value={mode} onChange={value => setMode(value as 'native' | 'gitops')} />
     {mode === 'native' ? <div id="delivery-panel-native" aria-labelledby="delivery-tab-native" role="tabpanel"><NativeDeploymentsPage key={orgID} orgID={orgID} /></div> : <div id="delivery-panel-gitops" aria-labelledby="delivery-tab-gitops" role="tabpanel"><GitOpsPage key={orgID} orgID={orgID} /></div>}
   </div>
 }

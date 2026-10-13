@@ -2507,6 +2507,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/environment-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getEnvironmentHealth"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4839,6 +4855,25 @@ export interface components {
             repository_id: string;
 
             kind: "defect";
+        };
+        EnvironmentHealth: {
+            repository_id: string;
+            repository: string;
+            environment: string;
+
+            kind: "native" | "gitops";
+            operation_id: string;
+
+            state: "healthy" | "unhealthy" | "unknown";
+
+            observed_at?: string;
+
+            expires_at?: string;
+        };
+        EnvironmentHealthPage: {
+            items: components["schemas"]["EnvironmentHealth"][];
+            complete: boolean;
+            next_cursor?: string;
         };
     };
     responses: never;
@@ -11792,6 +11827,42 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Finding"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getEnvironmentHealth: {
+        parameters: {
+            query?: {
+                repository_id?: string;
+                state?: string;
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentHealthPage"];
                 };
             };
 

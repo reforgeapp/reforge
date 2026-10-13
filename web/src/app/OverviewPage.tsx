@@ -40,7 +40,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=active`}><span className="metric-label">Running</span><strong>{c.running}</strong><span className="metric-muted">{c.queued_jobs} jobs queued</span></a>
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/changes`}><span className="metric-label">Ready for review</span><strong>{c.ready_for_review}</strong><span className="metric-muted">Published candidates</span></a>
         <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=blocked`}><span className="metric-label">Blocked</span><strong>{c.blocked}</strong><span className="metric-muted">Needs review</span></a>
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/deployments`}><span className="metric-label">Verified deployments</span><strong>{c.verified_deployments}</strong><span className="metric-muted">Health confirmed</span></a>
+        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/deployments?health_state=healthy`}><span className="metric-label">Healthy environments</span><strong>{c.verified_deployments}</strong><span className="metric-muted">Fresh application checks</span></a>
       </div>
       {stale && <div className="overview-sync-attention" role="status">
         <a className="overview-sync-link" href={`/org/${encodeURIComponent(orgID)}/repositories?status=stale`}>

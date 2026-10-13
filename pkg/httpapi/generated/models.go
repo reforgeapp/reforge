@@ -383,6 +383,41 @@ func (e DiscoveryScanState) Valid() bool {
 }
 
 const (
+	EnvironmentHealthKindGitops EnvironmentHealthKind = "gitops"
+	EnvironmentHealthKindNative EnvironmentHealthKind = "native"
+)
+
+func (e EnvironmentHealthKind) Valid() bool {
+	switch e {
+	case EnvironmentHealthKindGitops:
+		return true
+	case EnvironmentHealthKindNative:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	EnvironmentHealthStateHealthy   EnvironmentHealthState = "healthy"
+	EnvironmentHealthStateUnhealthy EnvironmentHealthState = "unhealthy"
+	EnvironmentHealthStateUnknown   EnvironmentHealthState = "unknown"
+)
+
+func (e EnvironmentHealthState) Valid() bool {
+	switch e {
+	case EnvironmentHealthStateHealthy:
+		return true
+	case EnvironmentHealthStateUnhealthy:
+		return true
+	case EnvironmentHealthStateUnknown:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	Critical FindingSeverity = "critical"
 	High     FindingSeverity = "high"
 	Info     FindingSeverity = "info"
@@ -1787,6 +1822,23 @@ type DiscoveryScanState string
 type EnrollmentToken struct {
 	ExpiresAt time.Time `json:"expires_at"`
 	Token     string    `json:"token"`
+}
+type EnvironmentHealth struct {
+	Environment  string                 `json:"environment"`
+	ExpiresAt    *time.Time             `json:"expires_at,omitempty"`
+	Kind         EnvironmentHealthKind  `json:"kind"`
+	ObservedAt   *time.Time             `json:"observed_at,omitempty"`
+	OperationId  string                 `json:"operation_id"`
+	Repository   string                 `json:"repository"`
+	RepositoryId string                 `json:"repository_id"`
+	State        EnvironmentHealthState `json:"state"`
+}
+type EnvironmentHealthKind string
+type EnvironmentHealthState string
+type EnvironmentHealthPage struct {
+	Complete   bool                `json:"complete"`
+	Items      []EnvironmentHealth `json:"items"`
+	NextCursor *string             `json:"next_cursor,omitempty"`
 }
 type Event struct {
 	AggregateId      string                 `json:"aggregate_id"`
@@ -3280,6 +3332,12 @@ type CancelDeploymentParams struct {
 }
 type ObserveDeploymentParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type GetEnvironmentHealthParams struct {
+	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	State        *string `form:"state,omitempty" json:"state,omitempty"`
+	Cursor       *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *int    `form:"limit,omitempty" json:"limit,omitempty"`
 }
 type StreamEventsParams struct {
 	After       *int64  `form:"after,omitempty" json:"after,omitempty"`
