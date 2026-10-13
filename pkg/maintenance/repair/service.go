@@ -213,10 +213,10 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			return err
 		}
 		if spec != nil {
-			if route.Mode != "quota" || route.Paused {
+			if route.Mode != "quota" || route.Paused || !route.Qualified || route.QualificationRef == "" {
 				return budget.ErrUnknown
 			}
-		} else if route.Mode != "priced" || route.Paused {
+		} else if !budget.AutomaticEligible(route) {
 			return budget.ErrUnknown
 		}
 		if err = tx.QueryRow(ctx, `SELECT p.version FROM runner_pool_repositories rp JOIN runner_pools p ON p.org_id=rp.org_id AND p.id=rp.pool_id WHERE rp.org_id=$1 AND rp.pool_id=$2 AND rp.repository_id=$3 AND p.state='active'`, org, in.RunnerPoolID, f.RepositoryID).Scan(&poolVersion); err != nil {
@@ -231,14 +231,8 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		if attempts < 1 {
 			return workflow.ErrPolicy
 		}
-		if in.Owner {
-			var enabled bool
-			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&enabled); err != nil {
-				return err
-			}
-			if (!enabled && session.AutomationID() == "") || spec != nil {
-				return auth.ErrForbidden
-			}
+		if in.Owner && spec != nil {
+			return auth.ErrForbidden
 		}
 		_, err = s.workflow.CheckProposalTx(ctx, tx, workflow.Task{OrgID: org, RepositoryID: f.RepositoryID, Recipe: in.Recipe, ModelConnectionID: in.ModelConnectionID, ModelRoute: in.ModelRoute, RunnerPoolID: in.RunnerPoolID, MaxAttempts: attempts, State: domain.TaskQueued})
 		if err != nil {

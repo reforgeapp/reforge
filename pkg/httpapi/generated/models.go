@@ -2935,6 +2935,16 @@ type RepairCommand struct {
 	ReportFormat   string    `json:"report_format"`
 	TimeoutSeconds int64     `json:"timeout_seconds"`
 }
+type RepairDefaults struct {
+	Blockers          []string `json:"blockers"`
+	MicroUsd          *int64   `json:"micro_usd,omitempty"`
+	Model             string   `json:"model"`
+	ModelConnectionId string   `json:"model_connection_id"`
+	ModelRoute        string   `json:"model_route"`
+	Period            *string  `json:"period,omitempty"`
+	Pool              string   `json:"pool"`
+	RunnerPoolId      string   `json:"runner_pool_id"`
+}
 type RepairExecution struct {
 	BaselineRepository ForgeRepoRef `json:"baseline_repository"`
 	ConnectionId       string       `json:"connection_id"`

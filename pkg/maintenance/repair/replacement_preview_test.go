@@ -88,7 +88,7 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	evidenceBody, _ := json.Marshal(evidence)
 	policyBody, _ := json.Marshal(policy.Policy{Schema: "maintenance/v1"})
 	modelSettings := `{"billing_route":"direct_api","model":"fixture-model"}`
-	routeBody, _ := json.Marshal(budget.Route{ConnectionID: modelID, Model: "fixture-model", Name: "default", Mode: "priced", InputMicroUSDPerMillion: 1000, OutputMicroUSDPerMillion: 1000, MaxInputTokens: 10000, MaxOutputTokens: 1000, MaxMilliseconds: 60000, MaxRequests: 10})
+	routeBody, _ := json.Marshal(budget.Route{ConnectionID: modelID, Model: "fixture-model", Name: "default", Mode: "priced", PricingVersion: "fixture-v1", InputMicroUSDPerMillion: 1000, OutputMicroUSDPerMillion: 1000, MaxInputTokens: 10000, MaxOutputTokens: 1000, MaxMilliseconds: 60000, MaxRequests: 1})
 	if err = db.Identity(ctx, user, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `INSERT INTO users(id,issuer,subject,name,email) VALUES($1,'repair-replacement-preview-test',$2,'Owner',$3)`, user, user, user+"@example.test"); err != nil {
 			return err
@@ -171,6 +171,12 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	})
 	service := New(db, identity, discovery.New(db, identity, replacementSourceReader{}), workflowService, nil, policies, budget.New(db, identity, nil, nil), connections.New(db, identity, nil, true), nil, replacementSourceReader{}, map[string]string{"go": "sha256:" + strings.Repeat("a", 64)})
 	in := Input{FindingID: findingID, FindingVersion: 1, Recipe: "go", ModelConnectionID: modelID, ModelRoute: "default", RunnerPoolID: poolID, Owner: true}
+	if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE autopilot_settings SET enabled=false WHERE org_id=$1`, org)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	ownerPreview, err := service.Preview(ctx, session, org, in)
 	if err != nil {
 		t.Fatal(err)

@@ -12166,6 +12166,56 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/repair-defaults": {
+      "get": {
+        "operationId": "getRepairDefaults",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Approved repair execution path",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RepairDefaults"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -20937,6 +20987,48 @@
         },
         "required": [
           "preset_id"
+        ],
+        "additionalProperties": false
+      },
+      "RepairDefaults": {
+        "type": "object",
+        "properties": {
+          "model_connection_id": {
+            "type": "string"
+          },
+          "model_route": {
+            "type": "string"
+          },
+          "runner_pool_id": {
+            "type": "string"
+          },
+          "model": {
+            "type": "string"
+          },
+          "pool": {
+            "type": "string"
+          },
+          "period": {
+            "type": "string"
+          },
+          "micro_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "model_connection_id",
+          "model_route",
+          "runner_pool_id",
+          "model",
+          "pool",
+          "blockers"
         ],
         "additionalProperties": false
       }

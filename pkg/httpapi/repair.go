@@ -17,6 +17,15 @@ import (
 
 func (s *Server) RegisterRepair(service *repair.Service) {
 	browser := s.Router.Group("/api/v1/orgs/:orgID", s.IdentitySession())
+	browser.GET("/repositories/:repoID/repair-defaults", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, err := service.Defaults(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"))
+		if err != nil {
+			repairFailure(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
 	browser.GET("/repositories/:repoID/repair-baseline", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
 		out, err := service.Baseline(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"))

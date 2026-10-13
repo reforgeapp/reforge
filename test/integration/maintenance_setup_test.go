@@ -78,6 +78,14 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	if err != nil || !slices.Contains(otherPolicy.Policy.Deny, policy.Repair) || !slices.Contains(otherPolicy.Policy.Deny, policy.Deploy) {
 		t.Fatalf("first setup widened unconfigured repository permissions: %+v %v", otherPolicy, err)
 	}
+	defaults, err := repairs.Defaults(ctx, f.owner, f.org, repo)
+	if err != nil || len(defaults.Blockers) != 0 || defaults.ModelConnectionID != model || defaults.RunnerPoolID != pool || defaults.Ceiling == nil || *defaults.Ceiling != command.MicroUSD {
+		t.Fatalf("manual approved defaults: %+v %v", defaults, err)
+	}
+	unconfigured, err := repairs.Defaults(ctx, f.owner, f.org, other)
+	if err != nil || len(unconfigured.Blockers) == 0 || unconfigured.ModelConnectionID != "" {
+		t.Fatalf("unconfigured repository gained repair defaults: %+v %v", unconfigured, err)
+	}
 	if _, err := service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "repeat"); !errors.Is(err, auth.ErrConflict) {
 		t.Fatalf("replayed proof accepted: %v", err)
 	}

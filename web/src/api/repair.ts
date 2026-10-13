@@ -4,7 +4,9 @@ export type RepairInput = { finding_id: string; finding_version: number; recipe:
 export type RepairPreview = { context: { plan: { digest: string; baseline_sha: string; target_sha: string; max_changed_lines: number; recipe: { name: string; max_files: number; max_patch_bytes: number; max_turns: number; timeout_seconds: number; commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } }; policy_hash: string; max_output_tokens: number; turn_timeout_ms: number }; blockers: string[]; expires_at: string }
 export type RepairRun = { task: { id: string; [key: string]: unknown }; state: string; version: number; [key: string]: unknown }
 
+export type RepairDefaults={model_connection_id:string;model_route:string;runner_pool_id:string;model:string;pool:string;micro_usd?:number;period?:string;blockers:string[]}
 export const repairAPI = {
+ defaults: (orgID:string,repositoryID:string,signal?:AbortSignal)=>apiRequest<RepairDefaults>(`/api/v1/orgs/${encodeURIComponent(orgID)}/repositories/${encodeURIComponent(repositoryID)}/repair-defaults`,{signal}),
   recipes: (orgID: string, signal?: AbortSignal) => apiRequest<Record<string, string>>(`/api/v1/orgs/${encodeURIComponent(orgID)}/repair-recipes`, { signal }),
   preview: (orgID: string, input: RepairInput, csrf: string) => apiRequest<RepairPreview>(`/api/v1/orgs/${encodeURIComponent(orgID)}/repair-preview`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   start: (orgID: string, input: RepairInput, csrf: string) => apiRequest<RepairRun>(`/api/v1/orgs/${encodeURIComponent(orgID)}/repair-runs`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
