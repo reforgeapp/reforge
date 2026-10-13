@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/model"
 )
 
 type PricingPreset struct {
@@ -107,7 +108,7 @@ func (s *Service) ApplyPricingPreset(ctx context.Context, session auth.Session, 
 	if !ok {
 		return Route{}, ErrInvalid
 	}
-	r := Route{ConnectionID: connection, Model: p.Model, Name: "default", Mode: "priced", PricingVersion: p.ID, PricingPresetID: p.ID, PricingSource: p.Source, PricingCheckedAt: p.CheckedAt, CostBasis: "published_ceiling", InputMicroUSDPerMillion: p.InputMicroUSDPerMillion, OutputMicroUSDPerMillion: p.OutputMicroUSDPerMillion, MaxInputTokens: 64_000, MaxOutputTokens: 4096, MaxMilliseconds: 600_000, MaxRequests: 1}
+	r := Route{ConnectionID: connection, Model: p.Model, Name: "default", Mode: "priced", PricingVersion: p.ID, PricingPresetID: p.ID, PricingSource: p.Source, PricingCheckedAt: p.CheckedAt, CostBasis: "published_ceiling", InputMicroUSDPerMillion: p.InputMicroUSDPerMillion, OutputMicroUSDPerMillion: p.OutputMicroUSDPerMillion, MaxInputTokens: model.MaxRequestBytes/2 + 4096, MaxOutputTokens: 4096, MaxMilliseconds: 600_000, MaxRequests: 1}
 	return s.PutRoute(ctx, session, org, r, expected, request)
 }
 
@@ -119,7 +120,7 @@ func pricingMetadataTx(ctx context.Context, tx pgx.Tx, org string, r *Route) err
 		return nil
 	}
 	p, ok := pricePreset(r.PricingPresetID)
-	if !ok || r.Mode != "priced" || r.PricingVersion != p.ID || r.Model != p.Model || r.InputMicroUSDPerMillion != p.InputMicroUSDPerMillion || r.OutputMicroUSDPerMillion != p.OutputMicroUSDPerMillion || r.RequestMicroUSD != 0 || r.MaxInputTokens > 64_000 || r.MaxOutputTokens > 4096 {
+	if !ok || r.Mode != "priced" || r.PricingVersion != p.ID || r.Model != p.Model || r.InputMicroUSDPerMillion != p.InputMicroUSDPerMillion || r.OutputMicroUSDPerMillion != p.OutputMicroUSDPerMillion || r.RequestMicroUSD != 0 || r.MaxInputTokens > model.MaxRequestBytes/2+4096 || r.MaxOutputTokens > 4096 {
 		return ErrInvalid
 	}
 	var kind, provider, endpoint, model string
