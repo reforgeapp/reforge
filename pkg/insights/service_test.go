@@ -167,10 +167,10 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 		t.Fatalf("overview trend: %d %v", len(overview.Trend), e)
 	}
 	resolve := func(context.Context, pgx.Tx, string, string) (policy.Resolved, error) {
-		return policy.Resolved{Hash: "h"}, nil
+		return policy.Resolved{Hash: "h", Policy: policy.Policy{Deny: []policy.Action{policy.Merge, policy.Deploy, policy.Recover}}}, nil
 	}
 	setup, e := service.Setup(ctx, viewer, org, resolve, false, false)
-	if e != nil || len(setup.Steps) != 10 || setup.Steps[0].Done || !setup.Steps[3].Done || setup.Steps[8].Done || setup.Steps[9].Done {
+	if e != nil || len(setup.Steps) != 10 || setup.Steps[0].Done || !setup.Steps[3].Done || !setup.Steps[8].Done || setup.Steps[9].Done {
 		t.Fatalf("setup: %+v %v", setup, e)
 	}
 	if setup, e = service.Setup(ctx, viewer, org, resolve, true, true); e != nil || len(setup.Steps) != 8 {

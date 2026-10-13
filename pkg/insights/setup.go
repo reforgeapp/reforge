@@ -4,10 +4,12 @@ import (
 	"context"
 	"errors"
 	"slices"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/policy"
 )
@@ -62,8 +64,9 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 			return auth.ErrForbidden
 		}
 		policyReady, needsRepair := false, true
+		var resolved policy.Resolved
 		if repository != "" {
-			resolved, err := resolve(ctx, tx, org, repository)
+			resolved, err = resolve(ctx, tx, org, repository)
 			if err != nil {
 				return err
 			}
@@ -98,6 +101,20 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 			{ID: "assignment", Done: assigned != "", RepositoryID: repository},
 			{ID: "policy", Done: policyReady, RepositoryID: repository},
 			{ID: "server", Done: repairReady},
+		}
+		if needsRepair && policyReady && !slices.Contains(resolved.Policy.Deny, policy.Merge) {
+			mode := "merge"
+			if !slices.Contains(resolved.Policy.Deny, policy.Deploy) {
+				mode = "deliver"
+				if !slices.Contains(resolved.Policy.Deny, policy.Recover) {
+					mode = "recover"
+				}
+			}
+			blockers, _, err := delivery.ReadinessTx(ctx, tx, a, repository, mode, resolved.Policy.Allow, resolve)
+			if err != nil {
+				return err
+			}
+			out.Steps = append(out.Steps, SetupStep{ID: "delivery", Done: len(blockers) == 0, RepositoryID: repository, Reason: strings.Join(blockers, "; ")})
 		}
 		if builtin {
 			out.Steps = slices.DeleteFunc(out.Steps, func(step SetupStep) bool { return step.ID == "assignment" || step.ID == "server" })

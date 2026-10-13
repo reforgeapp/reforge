@@ -54,6 +54,32 @@ func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode,
 		}
 		p.Limits.Budget = &cap
 	}
+	if mode == "deliver" || mode == "recover" {
+		parent := Resolve(layers, repo, r.PrimaryTeamID, r.ScopePaused)
+		rows, err := tx.Query(ctx, `SELECT environment,document#>>'{workflow,id}' FROM deployment_configurations WHERE org_id=$1 AND repository_id=$2 AND (document->>'enabled')::boolean UNION ALL SELECT environment,'gitops:'||environment FROM gitops_configurations WHERE org_id=$1 AND source_repository_id=$2 AND (document->>'enabled')::boolean ORDER BY 1,2`, org, repo)
+		if err != nil {
+			return r, p, err
+		}
+		p.Allow.Environments, p.Allow.Workflows = []string{}, []string{}
+		for rows.Next() {
+			var env string
+			var workflow *string
+			if err = rows.Scan(&env, &workflow); err != nil {
+				rows.Close()
+				return r, p, err
+			}
+			if workflow == nil || *workflow == "" || parent.Policy.Allow.Environments != nil && !contains(parent.Policy.Allow.Environments, env) || parent.Policy.Allow.Workflows != nil && !contains(parent.Policy.Allow.Workflows, *workflow) {
+				continue
+			}
+			p.Allow.Environments = append(p.Allow.Environments, env)
+			p.Allow.Workflows = append(p.Allow.Workflows, *workflow)
+		}
+		err = rows.Err()
+		rows.Close()
+		if err != nil {
+			return r, p, err
+		}
+	}
 	p.Paused = false
 	p = canonical(p)
 	layers = append(layers, Layer{Scope: Scope{Kind: "repository", ID: repo}, Policy: p})

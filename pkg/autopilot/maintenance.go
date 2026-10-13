@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/policy"
 )
@@ -25,26 +26,28 @@ type MaintenanceCommand struct {
 }
 
 type MaintenancePlan struct {
-	RepositoryID    string                   `json:"repository_id"`
-	Repository      string                   `json:"repository"`
-	Mode            string                   `json:"mode"`
-	MicroUSD        int64                    `json:"micro_usd"`
-	Continuous      bool                     `json:"continuous"`
-	Actions         []policy.Action          `json:"actions"`
-	Decisions       map[policy.Action]string `json:"decisions"`
-	Blockers        []string                 `json:"blockers"`
-	Model           string                   `json:"model,omitempty"`
-	ConnectionID    string                   `json:"connection_id,omitempty"`
-	Route           string                   `json:"route,omitempty"`
-	PoolID          string                   `json:"pool_id,omitempty"`
-	BudgetPeriod    string                   `json:"budget_period"`
-	OrgMicroUSD     *int64                   `json:"organisation_micro_usd,omitempty"`
-	OrgPeriod       string                   `json:"organisation_period,omitempty"`
-	CreatesOrgLimit bool                     `json:"creates_organisation_limit"`
-	Ready           bool                     `json:"ready"`
-	Proof           string                   `json:"proof"`
-	policy          policy.Policy
-	initialize      bool
+	RepositoryID         string                   `json:"repository_id"`
+	Repository           string                   `json:"repository"`
+	Mode                 string                   `json:"mode"`
+	MicroUSD             int64                    `json:"micro_usd"`
+	Continuous           bool                     `json:"continuous"`
+	Actions              []policy.Action          `json:"actions"`
+	Environments         []string                 `json:"environments,omitempty"`
+	DeliveryRepositories []string                 `json:"delivery_repositories,omitempty"`
+	Decisions            map[policy.Action]string `json:"decisions"`
+	Blockers             []string                 `json:"blockers"`
+	Model                string                   `json:"model,omitempty"`
+	ConnectionID         string                   `json:"connection_id,omitempty"`
+	Route                string                   `json:"route,omitempty"`
+	PoolID               string                   `json:"pool_id,omitempty"`
+	BudgetPeriod         string                   `json:"budget_period"`
+	OrgMicroUSD          *int64                   `json:"organisation_micro_usd,omitempty"`
+	OrgPeriod            string                   `json:"organisation_period,omitempty"`
+	CreatesOrgLimit      bool                     `json:"creates_organisation_limit"`
+	Ready                bool                     `json:"ready"`
+	Proof                string                   `json:"proof"`
+	policy               policy.Policy
+	initialize           bool
 }
 
 func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, org, repo string) (MaintenanceCommand, error) {
@@ -196,8 +199,24 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	if in.Mode == "recover" && !slices.Contains(out.Actions, policy.Recover) {
 		out.Blockers = append(out.Blockers, "Organisation or team controls prohibit recovery")
 	}
+	pathBlockers, pathBindings, err := delivery.ReadinessTx(ctx, tx, a, repo, in.Mode, r.Policy.Allow, s.policies.ResolveTx)
+	if err != nil {
+		return out, err
+	}
+	out.Blockers = append(out.Blockers, pathBlockers...)
+	if in.Mode == "deliver" || in.Mode == "recover" {
+		out.Environments = r.Policy.Allow.Environments
+		rows, err := tx.Query(ctx, `SELECT DISTINCT d.name FROM gitops_configurations c JOIN repositories d ON d.org_id=c.org_id AND d.id=c.delivery_repository_id WHERE c.org_id=$1 AND c.source_repository_id=$2 AND c.environment=ANY($3::text[]) AND (c.document->>'enabled')::boolean AND ($4 OR d.id=ANY($5::uuid[])) ORDER BY d.name`, a.OrgID, repo, out.Environments, a.AllRepositories, a.RepositoryIDs)
+		if err != nil {
+			return out, err
+		}
+		out.DeliveryRepositories, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			return out, err
+		}
+	}
 	out.Ready = len(out.Blockers) == 0
-	body, _ := json.Marshal([]any{out, current.Hash, connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion})
+	body, _ := json.Marshal([]any{out, current.Hash, connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion, pathBindings})
 	sum := sha256.Sum256(body)
 	out.Proof = hex.EncodeToString(sum[:])
 	return out, nil
