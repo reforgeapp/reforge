@@ -241,7 +241,7 @@ func TestRebaseCooldownRetriesSameFindingAndCaps(t *testing.T) {
 		if err := tx.QueryRow(ctx, `SELECT outcome,reason FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, finding).Scan(&outcome, &reason); err != nil {
 			return err
 		}
-		if outcome != "skipped" || !strings.Contains(reason, "manually rebase or close") {
+		if outcome != "retry" || !strings.Contains(reason, "repairing it directly") {
 			t.Fatalf("retry cap not surfaced: outcome=%q reason=%q", outcome, reason)
 		}
 		return nil

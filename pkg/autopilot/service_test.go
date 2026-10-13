@@ -12,6 +12,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/autopilot"
 	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/store"
 )
@@ -39,7 +40,8 @@ func TestAutopilotReportsWhyItWaits(t *testing.T) {
 		t.Fatal(e)
 	}
 	budgets := budget.New(db, identity, nil, nil)
-	service := autopilot.New(db, identity, nil, nil, budgets, policies)
+	repairs := repair.New(db, identity, nil, nil, nil, policies, budgets, nil, nil, nil, nil)
+	service := autopilot.New(db, identity, repairs, nil, budgets, policies)
 	owner := auth.Session{ID: domain.NewID(), User: auth.User{ID: domain.NewID()}}
 	org := domain.NewID()
 	if e = db.Identity(ctx, owner.User.ID, func(tx pgx.Tx) error {
