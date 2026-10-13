@@ -5,7 +5,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net"
 	"net/mail"
 	"net/smtp"
@@ -55,7 +54,7 @@ type Service struct {
 	auth      *auth.Service
 	smtp      SMTP
 	publicURL string
-	send      func(SMTP, []string, string, string) error
+	send      func(SMTP, []string, email) error
 }
 
 func New(db *store.Store, identity *auth.Service, vault Vault, server SMTP, publicURL string) *Service {
@@ -193,7 +192,9 @@ func (s *Service) Test(ctx context.Context, session auth.Session, org string, se
 	if settings.Defaults, err = s.owners(ctx, org); err != nil {
 		return err
 	}
-	return s.send(server, recipients(settings), "Reforge alert test", "Reforge can send alerts to this address.\n\n"+s.publicURL+"/org/"+org+"/organisation\n")
+	e := digest(s.publicURL, org, s.orgName(ctx, org), nil)
+	e.Subject, e.Heading, e.Intro = "Reforge: test alert", "Alerts are working", "Reforge can deliver alerts to this address. You will hear from us when autopilot needs a person, pauses or is blocked."
+	return s.send(server, recipients(settings), e)
 }
 
 func (s *Service) settingsTx(ctx context.Context, tx pgx.Tx, org string) (Settings, error) {
@@ -240,8 +241,6 @@ func recipients(s Settings) []string {
 	return s.Defaults
 }
 
-type item struct{ Key, Line string }
-
 func (s *Service) Notify(ctx context.Context, org string) error {
 	var settings Settings
 	var items []item
@@ -250,10 +249,10 @@ func (s *Service) Notify(ctx context.Context, org string) error {
 		if settings, err = s.settingsTx(ctx, tx, org); err != nil || !settings.Enabled || !settings.Configured {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT key,line FROM (
-SELECT 'paused:'||t.id AS key,'Run paused: '||r.name||' — '||t.reason||' '||$2||'/org/'||t.org_id||'/runs?run='||t.id AS line FROM workflow_tasks t JOIN repositories r ON r.org_id=t.org_id AND r.id=t.repository_id WHERE t.org_id=$1 AND t.state='queued' AND t.reason LIKE 'Paused:%'
-UNION ALL SELECT 'blocked:'||f.id||':'||f.version,'Blocked: '||r.name||' — '||f.title||': '||coalesce(f.evidence->'blockers'->>0,a.reason,'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND a.outcome='blocked' WHERE f.org_id=$1 AND f.state='open' AND (a.finding_id IS NOT NULL OR jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0)
-UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||' — '||f.title||' — '||a.merge_reason||' '||coalesce((SELECT rr.native_change->>'url' FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id),'') FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE a.org_id=$1 AND a.merge_reason LIKE 'Awaiting human%'
+		rows, err := tx.Query(ctx, `SELECT key,kind,repository,title,detail,url,action FROM (
+SELECT 'paused:'||t.id AS key,'paused' AS kind,r.name AS repository,'Run paused' AS title,regexp_replace(t.reason,'^Paused: ','') AS detail,$2||'/org/'||t.org_id||'/runs?run='||t.id AS url,'View run' AS action FROM workflow_tasks t JOIN repositories r ON r.org_id=t.org_id AND r.id=t.repository_id WHERE t.org_id=$1 AND t.state='queued' AND t.reason LIKE 'Paused:%'
+UNION ALL SELECT 'blocked:'||f.id||':'||f.version,CASE WHEN f.evidence->'blockers'->>0 LIKE 'Needs a person%' THEN 'person' ELSE 'blocked' END,r.name,f.title,regexp_replace(coalesce(f.evidence->'blockers'->>0,a.reason,''),'^Needs a person: ',''),coalesce(nullif(f.evidence->>'action_url',''),$2||'/org/'||f.org_id||'/findings?finding='||f.id),coalesce(nullif(f.evidence->>'action_label',''),'View finding') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND a.outcome='blocked' WHERE f.org_id=$1 AND f.state='open' AND (a.finding_id IS NOT NULL OR jsonb_array_length(coalesce(f.evidence->'blockers','[]'))>0)
+UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'review',r.name,f.title,a.merge_reason,coalesce((SELECT rr.native_change->>'url' FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id),''),'Review pull request' FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE a.org_id=$1 AND a.merge_reason LIKE 'Awaiting human%'
 ) pending WHERE NOT EXISTS(SELECT 1 FROM alert_deliveries d WHERE d.org_id=$1 AND d.key=pending.key) ORDER BY key LIMIT 50`, org, s.publicURL)
 		if err != nil {
 			return err
@@ -275,12 +274,11 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 	if len(to) == 0 {
 		return nil
 	}
-	lines := make([]string, len(items))
 	keys := make([]string, len(items))
 	for i, it := range items {
-		lines[i], keys[i] = "- "+it.Line, it.Key
+		keys[i] = it.Key
 	}
-	if err = s.send(server, to, fmt.Sprintf("Reforge: %d item(s) need attention", len(items)), strings.Join(lines, "\n")+"\n"); err != nil {
+	if err = s.send(server, to, digest(s.publicURL, org, s.orgName(ctx, org), items)); err != nil {
 		return err
 	}
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
@@ -289,7 +287,19 @@ UNION ALL SELECT 'awaiting:'||f.id||':'||f.version,'Needs a person: '||r.name||'
 	})
 }
 
-func deliver(server SMTP, to []string, subject, body string) error {
+func (s *Service) orgName(ctx context.Context, org string) string {
+	var name string
+	_ = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT name FROM organisations WHERE id=$1`, org).Scan(&name)
+	})
+	return name
+}
+
+func deliver(server SMTP, to []string, e email) error {
+	body, err := e.html()
+	if err != nil {
+		return err
+	}
 	host, _, err := net.SplitHostPort(server.Address)
 	if err != nil {
 		return err
@@ -335,8 +345,7 @@ func deliver(server SMTP, to []string, subject, body string) error {
 	if err != nil {
 		return err
 	}
-	message := "From: " + server.From + "\r\nTo: " + strings.Join(to, ", ") + "\r\nSubject: " + subject + "\r\nDate: " + time.Now().UTC().Format(time.RFC1123Z) + "\r\nMIME-Version: 1.0\r\nContent-Type: text/plain; charset=utf-8\r\n\r\n" + strings.ReplaceAll(body, "\n", "\r\n")
-	if _, err = writer.Write([]byte(message)); err != nil {
+	if _, err = writer.Write(compose(server.From, to, e.Subject, e.text(), body)); err != nil {
 		return err
 	}
 	if err = writer.Close(); err != nil {
