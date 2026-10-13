@@ -3,6 +3,7 @@ package repair
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 	"time"
@@ -12,6 +13,20 @@ import (
 	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
+
+func TestReviewSkipCannotResolveFinding(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner = true
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, target: files, targetSHA: plan.TargetSHA}
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "review-skip", AttemptID: "review-skip", Trust: "fixture", ReviewFinding: true, Progress: func(context.Context, string) error { return nil }, Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "skip", Name: "skip", Arguments: []byte(`{"reason":"Not reproducible: repository looks fine"}`)}}}, nil
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if !errors.Is(err, ErrHandoff) || report.Disposition != "" || report.State != "handoff" {
+		t.Fatalf("model assertion resolves finding: %+v %v", report, err)
+	}
+}
 
 func TestOwnerReadsOriginalRevisionAgainstChangedTarget(t *testing.T) {
 	plan, baseFiles := testPlan(t)

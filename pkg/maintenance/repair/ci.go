@@ -834,7 +834,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				var in struct{ Reason string }
 				_ = json.Unmarshal(call.Arguments, &in)
 				reason := bounded(strings.TrimSpace(in.Reason))
-				if owner && len(current()) == 0 && (e.AllowObsolete && readOriginal && strings.HasPrefix(reason, "Obsolete:") || e.ReviewFinding && strings.HasPrefix(reason, "Not reproducible:")) {
+				if owner && len(current()) == 0 && e.AllowObsolete && readOriginal && strings.HasPrefix(reason, "Obsolete:") {
 					out.Disposition = "superseded"
 					out.Reason = reason
 					return out, nil
@@ -982,7 +982,7 @@ func Goal(f discovery.Finding) string {
 		if f.Evidence.Review.Detail != "" {
 			fmt.Fprintf(&b, "Reviewer notes: %s\n", f.Evidence.Review.Detail)
 		}
-		b.WriteString("Fix the root cause. If the problem is not real, skip with a reason that begins with Not reproducible: and cites evidence.\n")
+		b.WriteString("Fix the root cause. If the problem is not real, skip with a reason that begins with Not reproducible: and cites evidence. The finding remains open for the owner to review and dismiss; a model claim cannot close it.\n")
 	case f.Category == "missing_validation":
 		b.WriteString("This repository lacks the validation needed to prove future changes. Add what is missing: a CI workflow for the forge in use that builds and tests every language present, and a small, meaningful test suite for the main code paths using the ecosystem's standard test runner. Do not change application behaviour.\n")
 	case f.Category == "repository_maintenance" && len(f.Evidence.TrackedFiles) > 0:

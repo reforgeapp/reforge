@@ -664,7 +664,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		if reviewed && (in.State != "handoff" || !owner || !p.Recipe.ReadOnly || len(in.Patches) != 0 || len(in.Dependencies) != 0 || len(in.Findings) > maxReviewFindings || slices.ContainsFunc(in.Findings, func(f ReviewFinding) bool { return !f.Valid() })) {
 			return auth.ErrInvalid
 		}
-		if in.Disposition != "" && !superseded && !reviewed || superseded && (in.State != "handoff" || !owner || !current.Context.Request.Owner || !p.Owner || !(ConflictFinding(current.Context.Finding) && strings.HasPrefix(in.Reason, "Obsolete:") || current.Context.Finding.Source == "repository_review" && strings.HasPrefix(in.Reason, "Not reproducible:")) || len(in.Patches) != 0 || len(in.Dependencies) != 0) {
+		if in.Disposition != "" && !superseded && !reviewed || superseded && (in.State != "handoff" || !owner || !current.Context.Request.Owner || !p.Owner || !ConflictFinding(current.Context.Finding) || !strings.HasPrefix(in.Reason, "Obsolete:") || len(in.Patches) != 0 || len(in.Dependencies) != 0) {
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
