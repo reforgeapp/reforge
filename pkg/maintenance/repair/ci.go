@@ -972,6 +972,9 @@ func Goal(f discovery.Finding) string {
 	case f.Category == "repository_review":
 		b.WriteString("Review the repository at the pinned revision and report every verified problem.\n")
 	case f.Evidence.Review != nil:
+		if f.Evidence.Review.NeedsRecheck {
+			fmt.Fprintf(&b, "Original diagnosis is pinned to %s; current target is %s. Recheck and reproduce the reported problem on the current target before changing files. If already fixed, skip with Not reproducible: and cite the checks and current source evidence.\n", f.Evidence.HeadSHA, f.Evidence.TargetSHA)
+		}
 		fmt.Fprintf(&b, "Objective: %s\n", f.Evidence.Review.Objective)
 		if f.Evidence.Review.Path != "" {
 			fmt.Fprintf(&b, "Location: %s:%d\n", f.Evidence.Review.Path, f.Evidence.Review.Line)

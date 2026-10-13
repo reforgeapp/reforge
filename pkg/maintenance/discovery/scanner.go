@@ -341,8 +341,13 @@ func refreshReviewFindings(ctx context.Context, tx pgx.Tx, lease scanLease, obse
 	}
 	for _, f := range open {
 		o := f.Observation
+		if o.Evidence.Review != nil {
+			review := *o.Evidence.Review
+			review.NeedsRecheck = o.Evidence.HeadSHA != current.HeadSHA
+			o.Evidence.Review = &review
+		}
 		o.Evidence.ConnectionID, o.Evidence.ConnectionVersion, o.Evidence.ConfigVersion = current.ConnectionID, current.ConnectionVersion, current.ConfigVersion
-		o.Evidence.HeadSHA, o.Evidence.TargetSHA, o.Evidence.TargetBranch = current.HeadSHA, current.TargetSHA, current.TargetBranch
+		o.Evidence.TargetSHA, o.Evidence.TargetBranch = current.HeadSHA, current.TargetBranch
 		if _, err = ObserveTx(ctx, tx, lease.Org, o, lease.User, "discovery-"+lease.Repo); err != nil {
 			return err
 		}

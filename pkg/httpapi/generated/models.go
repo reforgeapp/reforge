@@ -2076,11 +2076,12 @@ type MaintenanceEvidence struct {
 	Provenance        string                  `json:"provenance"`
 	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
 	Review            *struct {
-		Confidence *string `json:"confidence,omitempty"`
-		Detail     *string `json:"detail,omitempty"`
-		Line       *int    `json:"line,omitempty"`
-		Objective  *string `json:"objective,omitempty"`
-		Path       *string `json:"path,omitempty"`
+		Confidence   *string `json:"confidence,omitempty"`
+		Detail       *string `json:"detail,omitempty"`
+		Line         *int    `json:"line,omitempty"`
+		NeedsRecheck *bool   `json:"needs_recheck,omitempty"`
+		Objective    *string `json:"objective,omitempty"`
+		Path         *string `json:"path,omitempty"`
 	} `json:"review,omitempty"`
 	TargetBranch string `json:"target_branch"`
 	TargetSha    string `json:"target_sha"`

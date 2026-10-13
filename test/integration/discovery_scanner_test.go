@@ -194,6 +194,48 @@ func TestRepositoryScanPreservesDeploymentIncident(t *testing.T) {
 	}
 }
 
+func TestRepositoryScanKeepsReviewDiagnosticRevision(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	service, _ := f.scannerFixture(t, false)
+	ctx := context.Background()
+	in := f.observation("review:checkout", "main", strings.Repeat("b", 40), nil)
+	in.Source, in.Category = "repository_review", "code_defect"
+	in.Evidence.Provenance = "LLM repository review at " + in.Evidence.HeadSHA
+	in.Evidence.Review = &discovery.ReviewEvidence{Path: "checkout.js", Line: 12, Objective: "Repair checkout", Detail: "Checkout fails at mobile width"}
+	finding := f.observe(t, in)
+	if _, err := service.StartScan(ctx, f.owner, f.org, f.repo, "review-refresh"); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := service.RunOrganisationOnce(ctx, f.org); err != nil || !worked {
+		t.Fatalf("repository scan: %v %v", worked, err)
+	}
+	got, err := service.Get(ctx, f.owner, f.org, finding.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.State != "open" || got.Evidence.HeadSHA != finding.Evidence.HeadSHA || got.Evidence.TargetSHA != strings.Repeat("a", 40) || got.Evidence.Provenance != finding.Evidence.Provenance || got.Evidence.Review == nil || !got.Evidence.Review.NeedsRecheck || got.Evidence.Review.Path != "checkout.js" || got.Evidence.Review.Line != 12 {
+		t.Fatalf("scan relabelled original diagnosis: %+v", got)
+	}
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		var originalHead string
+		if err := tx.QueryRow(ctx, `SELECT evidence->>'head_sha' FROM maintenance_observations WHERE org_id=$1 AND finding_id=$2 AND evidence_digest=$3`, f.org, finding.ID, finding.EvidenceDigest).Scan(&originalHead); err != nil {
+			return err
+		}
+		if originalHead != finding.Evidence.HeadSHA {
+			t.Fatalf("original observation rewritten to %s", originalHead)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	in.Evidence.HeadSHA, in.Evidence.TargetSHA = strings.Repeat("a", 40), strings.Repeat("a", 40)
+	in.Evidence.Provenance = "LLM repository review at " + in.Evidence.HeadSHA
+	rechecked := f.observe(t, in)
+	if rechecked.ID != finding.ID || rechecked.Evidence.Review.NeedsRecheck || rechecked.Evidence.HeadSHA != got.Evidence.TargetSHA {
+		t.Fatalf("fresh review did not replace stale diagnosis: %+v", rechecked)
+	}
+}
+
 func TestDiscoveryScannerStaleConnectionFailsSafe(t *testing.T) {
 	f := newDiscoveryFixture(t)
 	service, _ := f.scannerFixture(t, true)

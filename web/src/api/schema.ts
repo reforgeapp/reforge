@@ -3529,6 +3529,7 @@ export interface components {
                 confidence?: string;
                 objective?: string;
                 detail?: string;
+                needs_recheck?: boolean;
             };
             tracked_files?: {
                 path: string;

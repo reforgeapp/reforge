@@ -15432,7 +15432,8 @@
               "line": { "type": "integer" },
               "confidence": { "type": "string" },
               "objective": { "type": "string" },
-              "detail": { "type": "string" }
+              "detail": { "type": "string" },
+              "needs_recheck": { "type": "boolean" }
             }
           },
           "tracked_files": {

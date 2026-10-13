@@ -59,11 +59,12 @@ type Evidence struct {
 	ActionLabel       string                 `json:"action_label,omitempty"`
 }
 type ReviewEvidence struct {
-	Path       string `json:"path,omitempty"`
-	Line       int    `json:"line,omitempty"`
-	Confidence string `json:"confidence"`
-	Objective  string `json:"objective"`
-	Detail     string `json:"detail"`
+	Path         string `json:"path,omitempty"`
+	Line         int    `json:"line,omitempty"`
+	Confidence   string `json:"confidence"`
+	Objective    string `json:"objective"`
+	Detail       string `json:"detail"`
+	NeedsRecheck bool   `json:"needs_recheck,omitempty"`
 }
 type Observation struct {
 	RepositoryID string   `json:"repository_id"`
