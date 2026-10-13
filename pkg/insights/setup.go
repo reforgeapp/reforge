@@ -2,6 +2,7 @@ package insights
 
 import (
 	"context"
+	"errors"
 	"slices"
 
 	"github.com/jackc/pgx/v5"
@@ -48,7 +49,7 @@ coalesce((SELECT id::text FROM priced_model),(SELECT id::text FROM connections W
 coalesce((SELECT id::text FROM priced_model),''),
 coalesce((SELECT id::text FROM chosen),''),
 coalesce((SELECT s.repository_id::text FROM maintenance_scans s JOIN chosen r ON r.id=s.repository_id WHERE s.org_id=$1 AND s.state='complete' AND s.observed_at IS NOT NULL),''),
-coalesce((SELECT n.id::text FROM runners n JOIN runner_pools p ON p.org_id=n.org_id AND p.id=n.pool_id JOIN runner_pool_repositories rp ON rp.org_id=p.org_id AND rp.pool_id=p.id JOIN chosen r ON r.id=rp.repository_id WHERE n.org_id=$1 AND n.state='active' AND p.state='active' AND n.last_seen_at>now()-interval '5 minutes' ORDER BY n.last_seen_at DESC LIMIT 1),''),
+coalesce((SELECT n.id::text FROM runners n JOIN runner_pools p ON p.org_id=n.org_id AND p.id=n.pool_id JOIN runner_pool_repositories rp ON rp.org_id=p.org_id AND rp.pool_id=p.id JOIN chosen r ON r.id=rp.repository_id WHERE n.org_id=$1 AND n.state='active' AND p.state='active' AND n.credential_expires_at>now() AND n.last_seen_at>now()-interval '5 minutes' ORDER BY n.last_seen_at DESC LIMIT 1),''),
 coalesce((SELECT rp.repository_id::text FROM runner_pool_repositories rp JOIN runner_pools p ON p.org_id=rp.org_id AND p.id=rp.pool_id JOIN chosen r ON r.id=rp.repository_id WHERE rp.org_id=$1 AND p.state='active' LIMIT 1),''),
 coalesce((SELECT s.reason FROM maintenance_scans s JOIN chosen r ON r.id=s.repository_id WHERE s.org_id=$1 AND s.state<>'complete'),''),
 coalesce((SELECT s.repository_id::text FROM maintenance_scans s JOIN chosen r ON r.id=s.repository_id WHERE s.org_id=$1 AND s.state<>'complete'),''),
@@ -75,7 +76,11 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 					return err
 				}
 				var limits budget.Service
-				budgeted = limits.HeadroomTx(ctx, tx, org) == nil
+				err = limits.HeadroomTx(ctx, tx, org)
+				budgeted = err == nil
+				if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
+					return err
+				}
 			}
 		}
 		scan := SetupStep{ID: "scan", Done: scanned != "", RepositoryID: repository}

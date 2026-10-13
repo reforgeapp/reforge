@@ -185,7 +185,7 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 		a, b := r.Layers[i].Scope, r.Layers[j].Scope
 		return a.Kind+":"+a.ID < b.Kind+":"+b.ID
 	})
-	org, primary := false, false
+	org, primary, repository := false, false, false
 	var orgDefaults, teamDefaults, repoDefaults Defaults
 	missingModel, missingRoute, missingBranch := false, false, false
 	seen := map[Scope]bool{}
@@ -216,6 +216,7 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 				missingBranch = missingBranch || l.Policy.Defaults.BranchPrefix != ""
 			}
 		case "repository":
+			repository = true
 			if l.Scope.ID != repositoryID {
 				r.Problems = append(r.Problems, "repository policy mismatch")
 			}
@@ -225,6 +226,7 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 		}
 		p := &r.Policy
 		q := l.Policy
+		p.RepositorySetupRequired = p.RepositorySetupRequired || q.RepositorySetupRequired
 		p.Allow = Lists{intersect(p.Allow.Recipes, q.Allow.Recipes), intersect(p.Allow.Models, q.Allow.Models), intersect(p.Allow.Routes, q.Allow.Routes), intersect(p.Allow.MergeMethods, q.Allow.MergeMethods), intersect(p.Allow.Environments, q.Allow.Environments), intersect(p.Allow.Workflows, q.Allow.Workflows)}
 		p.Limits = Limits{minimum(p.Limits.Budget, q.Limits.Budget), minimum(p.Limits.Concurrency, q.Limits.Concurrency), minimum(p.Limits.Attempts, q.Limits.Attempts), minimum(p.Limits.ChangedFiles, q.Limits.ChangedFiles), minimum(p.Limits.ChangedLines, q.Limits.ChangedLines), minimum(p.Limits.OpenChanges, q.Limits.OpenChanges)}
 		p.MaxEvidenceAgeSeconds = minimum(p.MaxEvidenceAgeSeconds, q.MaxEvidenceAgeSeconds)
@@ -261,6 +263,13 @@ func Resolve(layers []Layer, repositoryID, primaryTeamID string, paused bool) Re
 	sort.Strings(keys)
 	for _, key := range keys {
 		r.Policy.Required = append(r.Policy.Required, requirements[key])
+	}
+	if r.Policy.RepositorySetupRequired && !repository {
+		for _, action := range []Action{Repair, Publish, Merge, Deploy, Recover} {
+			if !applies(r.Policy.Deny, action) {
+				r.Policy.Deny = append(r.Policy.Deny, action)
+			}
+		}
 	}
 	r.Policy.ForbiddenPaths = sorted(r.Policy.ForbiddenPaths)
 	r.Policy.ReviewProofs = sorted(r.Policy.ReviewProofs)

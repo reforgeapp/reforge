@@ -22,16 +22,17 @@ test('repository setup previews named scope and cap, then resumes without techni
   await fixture(page)
   await page.route(`**${base}/repositories/${repo}/maintenance-status`, route => route.fulfill({ json: { mode: 'observe', micro_usd: 10_000_000, continuous: false } }))
   let input: Record<string, unknown> | undefined
-  const plan = { repository_id: repo, repository: 'shop', mode: 'propose', micro_usd: 7_500_000, continuous: true, actions: ['read', 'repair', 'publish'], decisions: {}, blockers: [], ready: true, proof: 'approved', model: 'local', route: 'default' }
+  const plan = { repository_id: repo, repository: 'shop', mode: 'propose', micro_usd: 7_500_000, continuous: true, actions: ['read', 'repair', 'publish'], decisions: {}, blockers: [], ready: true, proof: 'approved', model: 'local', route: 'default', budget_period: 'monthly', organisation_micro_usd: 20_000_000, organisation_period: 'monthly', creates_organisation_limit: false }
   await page.route(`**${base}/repositories/${repo}/set-up-maintenance/preview`, route => { input = route.request().postDataJSON(); return route.fulfill({ json: plan }) })
   let configured = false
   await page.route(`**${base}/repositories/${repo}/set-up-maintenance`, route => { expect(route.request().postDataJSON().proof).toBe('approved'); configured = true; return route.fulfill({ json: plan }) })
   await page.goto(`/org/${org}/repositories?repository=${repo}`)
   await page.getByRole('button', { name: 'Set up maintenance', exact: true }).click()
   const dialog = page.getByRole('dialog', { name: 'Maintain shop' })
-  await dialog.getByLabel('Monthly spending limit ($)').fill('7.50')
+  await dialog.getByLabel('Spending ceiling ($)').fill('7.50')
   await dialog.getByRole('button', { name: 'Check setup' }).click()
   await expect(dialog.getByText(/Only shop: scan, fix, open changes/)).toBeVisible()
+  await expect(dialog.getByText(/Organisation ceiling: \$20.00 per monthly period/)).toBeVisible()
   expect(configured).toBe(false)
   expect(input).toMatchObject({ mode: 'propose', micro_usd: 7_500_000, continuous: true })
   await dialog.getByRole('button', { name: 'Set up maintenance', exact: true }).click()

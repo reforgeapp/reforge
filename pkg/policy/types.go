@@ -54,16 +54,17 @@ type Requirement struct {
 }
 
 type Policy struct {
-	Schema                string        `json:"schema"`
-	Allow                 Lists         `json:"allow"`
-	Deny                  []Action      `json:"deny"`
-	ForbiddenPaths        []string      `json:"forbidden_paths"`
-	ReviewProofs          []string      `json:"review_proofs,omitempty"`
-	Limits                Limits        `json:"limits"`
-	Required              []Requirement `json:"required"`
-	Defaults              Defaults      `json:"defaults"`
-	MaxEvidenceAgeSeconds *int64        `json:"max_evidence_age_seconds,omitempty"`
-	Paused                bool          `json:"paused"`
+	RepositorySetupRequired bool          `json:"repository_setup_required,omitempty"`
+	Schema                  string        `json:"schema"`
+	Allow                   Lists         `json:"allow"`
+	Deny                    []Action      `json:"deny"`
+	ForbiddenPaths          []string      `json:"forbidden_paths"`
+	ReviewProofs            []string      `json:"review_proofs,omitempty"`
+	Limits                  Limits        `json:"limits"`
+	Required                []Requirement `json:"required"`
+	Defaults                Defaults      `json:"defaults"`
+	MaxEvidenceAgeSeconds   *int64        `json:"max_evidence_age_seconds,omitempty"`
+	Paused                  bool          `json:"paused"`
 }
 
 type Layer struct {

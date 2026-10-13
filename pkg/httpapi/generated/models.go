@@ -2336,20 +2336,24 @@ type MaintenanceEvidence struct {
 	} `json:"tracked_files,omitempty"`
 }
 type MaintenancePlan struct {
-	Actions      []MaintenancePlanActions `json:"actions"`
-	Blockers     []string                 `json:"blockers"`
-	ConnectionId *string                  `json:"connection_id,omitempty"`
-	Continuous   bool                     `json:"continuous"`
-	Decisions    map[string]string        `json:"decisions"`
-	MicroUsd     int64                    `json:"micro_usd"`
-	Mode         MaintenancePlanMode      `json:"mode"`
-	Model        *string                  `json:"model,omitempty"`
-	PoolId       *string                  `json:"pool_id,omitempty"`
-	Proof        string                   `json:"proof"`
-	Ready        bool                     `json:"ready"`
-	Repository   string                   `json:"repository"`
-	RepositoryId string                   `json:"repository_id"`
-	Route        *string                  `json:"route,omitempty"`
+	Actions                  []MaintenancePlanActions `json:"actions"`
+	Blockers                 []string                 `json:"blockers"`
+	BudgetPeriod             string                   `json:"budget_period"`
+	ConnectionId             *string                  `json:"connection_id,omitempty"`
+	Continuous               bool                     `json:"continuous"`
+	CreatesOrganisationLimit bool                     `json:"creates_organisation_limit"`
+	Decisions                map[string]string        `json:"decisions"`
+	MicroUsd                 int64                    `json:"micro_usd"`
+	Mode                     MaintenancePlanMode      `json:"mode"`
+	Model                    *string                  `json:"model,omitempty"`
+	OrganisationMicroUsd     *int64                   `json:"organisation_micro_usd,omitempty"`
+	OrganisationPeriod       *string                  `json:"organisation_period,omitempty"`
+	PoolId                   *string                  `json:"pool_id,omitempty"`
+	Proof                    string                   `json:"proof"`
+	Ready                    bool                     `json:"ready"`
+	Repository               string                   `json:"repository"`
+	RepositoryId             string                   `json:"repository_id"`
+	Route                    *string                  `json:"route,omitempty"`
 }
 type MaintenancePlanActions string
 type MaintenancePlanMode string
@@ -2725,16 +2729,17 @@ type PolicyDefaults struct {
 	Route        *string `json:"route,omitempty"`
 }
 type PolicyDocument struct {
-	Allow                 *PolicyLists                  `json:"allow,omitempty"`
-	Defaults              *PolicyDefaults               `json:"defaults,omitempty"`
-	Deny                  *[]string                     `json:"deny,omitempty"`
-	ForbiddenPaths        *[]string                     `json:"forbidden_paths,omitempty"`
-	Limits                *PolicyLimits                 `json:"limits,omitempty"`
-	MaxEvidenceAgeSeconds *int64                        `json:"max_evidence_age_seconds,omitempty"`
-	Paused                *bool                         `json:"paused,omitempty"`
-	Required              *[]PolicyRequirement          `json:"required,omitempty"`
-	ReviewProofs          *[]PolicyDocumentReviewProofs `json:"review_proofs,omitempty"`
-	Schema                PolicyDocumentSchema          `json:"schema"`
+	Allow                   *PolicyLists                  `json:"allow,omitempty"`
+	Defaults                *PolicyDefaults               `json:"defaults,omitempty"`
+	Deny                    *[]string                     `json:"deny,omitempty"`
+	ForbiddenPaths          *[]string                     `json:"forbidden_paths,omitempty"`
+	Limits                  *PolicyLimits                 `json:"limits,omitempty"`
+	MaxEvidenceAgeSeconds   *int64                        `json:"max_evidence_age_seconds,omitempty"`
+	Paused                  *bool                         `json:"paused,omitempty"`
+	RepositorySetupRequired *bool                         `json:"repository_setup_required,omitempty"`
+	Required                *[]PolicyRequirement          `json:"required,omitempty"`
+	ReviewProofs            *[]PolicyDocumentReviewProofs `json:"review_proofs,omitempty"`
+	Schema                  PolicyDocumentSchema          `json:"schema"`
 }
 type PolicyDocumentReviewProofs string
 type PolicyDocumentSchema string

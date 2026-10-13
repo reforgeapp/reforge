@@ -31,7 +31,7 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
     setBusy(true); setOpen(true); setError(''); setPreview(undefined)
     try {
       const label = mode ? `Set organisation permissions to ${mode.label}` : work ? 'Enable organisation maintenance' : 'Disable organisation maintenance'
-      const policy: Policy = mode ? { ...base, deny: [...new Set([...base.deny.filter(action => action === 'read'), ...mode.deny])] } : base
+      const policy: Policy = mode ? { ...base, repository_setup_required: false, deny: [...new Set([...base.deny.filter(action => action === 'read'), ...mode.deny])] } : base
       const activeID = effective?.layers?.find(layer => layer.scope.kind === 'organisation')?.version_id
       if (!mode && !activeID) throw new Error('Set up a repository before enabling organisation work.')
       const candidate = mode ? await policyAPI.createVersion(orgID, { kind: 'organisation', id: orgID }, policy, label, csrf) : await policyAPI.version(orgID, activeID!)
@@ -84,7 +84,7 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
   return <section className="panel policy-mode" aria-label="Organisation permissions">
     <div className="panel-head"><h2>Organisation permissions</h2><span className="help-tip" tabIndex={0} title="Applies across the organisation. Repository and team restrictions still apply. Set up one repository from Repositories.">?</span></div>
     <div className="mode-buttons" role="group" aria-label="Organisation permissions">{presets.map(preset => <Button key={preset.id} className="mode-button" title={preset.title} aria-pressed={current === preset.id} disabled={disabled || current === preset.id} onClick={() => void prepare(preset)}><Icon name={preset.id} size={16} />{preset.label}</Button>)}</div>
-    <div className="row-actions"><span className="table-meta">Organisation work {auto ? 'enabled' : 'disabled'}</span><Button disabled={disabled} onClick={() => void prepare(undefined, !auto)}>{auto ? 'Disable work' : 'Enable work'}</Button></div>
+    <div className="row-actions"><span className="table-meta">Organisation work {auto ? 'enabled' : 'disabled'}{base.repository_setup_required ? ' · configured repositories only' : ''}</span><Button disabled={disabled} onClick={() => void prepare(undefined, !auto)}>{auto ? 'Disable work' : 'Enable work'}</Button></div>
     {auto && <p className="table-meta" role="status">{autopilot.data?.status || 'Starting'} · {autopilot.data?.queued} fixes started{autopilot.data?.awaiting ? ` · ${autopilot.data.awaiting} awaiting a person` : ''}</p>}
     <Dialog open={open} title="Organisation maintenance preview" onClose={() => { if (!busy) setOpen(false) }}><div className="stack">{busy && <p role="status">Checking repository scope…</p>}{preview && <><p>{preview.label}. Affects {preview.impacts.length} repositories. {preview.ceiling}.</p><details><summary>Affected repositories and gates</summary><ul className="compact-list">{preview.impacts.map(item => <li key={item.name}>{item.name}: {item.actions.join(', ') || 'scan only'}{item.blockers.length > 0 && <details><summary>{item.blockers.length} controls or evidence requirements</summary><ul>{item.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></details>}</li>)}</ul></details><Button className="button button-primary" disabled={busy} onClick={() => void apply()}>Apply across organisation</Button></>}{error && <p className="error-text" role="alert">{error}</p>}</div></Dialog>
   </section>

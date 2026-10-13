@@ -2986,6 +2986,7 @@ export interface components {
 
             max_evidence_age_seconds?: number;
             paused?: boolean;
+            repository_setup_required?: boolean;
         };
         PolicyLayer: {
             scope: components["schemas"]["PolicyScope"];
@@ -4885,6 +4886,11 @@ export interface components {
             connection_id?: string;
             route?: string;
             pool_id?: string;
+            budget_period: string;
+
+            organisation_micro_usd?: number;
+            organisation_period?: string;
+            creates_organisation_limit: boolean;
         };
         BugReport: {
             observed: string;

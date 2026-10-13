@@ -40,6 +40,7 @@ const Query = `WITH managed AS (
  LEFT JOIN policy_bindings ob ON ob.org_id=r.org_id AND ob.scope_kind='organisation'
  LEFT JOIN policy_versions op ON op.org_id=ob.org_id AND op.id=ob.policy_version_id
  WHERE r.org_id=$1 AND ($2 OR r.id=ANY($3::uuid[])) AND r.accessible AND NOT r.archived
+ AND (NOT coalesce((op.document->>'repository_setup_required')::boolean,false) OR rb.policy_version_id IS NOT NULL)
  AND NOT coalesce(rp.document->'deny' ? 'repair',false) AND NOT coalesce(op.document->'deny' ? 'repair',false)
  AND (EXISTS(SELECT 1 FROM autopilot_requests q WHERE q.org_id=r.org_id AND q.repository_id=r.id AND (q.continuous OR q.requested_at>now()-interval '1 day')) OR EXISTS(SELECT 1 FROM autopilot_settings s WHERE s.org_id=r.org_id AND s.enabled))
  AND EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=r.org_id AND f.repository_id=r.id AND f.state='open')

@@ -24,22 +24,26 @@ type MaintenanceCommand struct {
 }
 
 type MaintenancePlan struct {
-	RepositoryID string                   `json:"repository_id"`
-	Repository   string                   `json:"repository"`
-	Mode         string                   `json:"mode"`
-	MicroUSD     int64                    `json:"micro_usd"`
-	Continuous   bool                     `json:"continuous"`
-	Actions      []policy.Action          `json:"actions"`
-	Decisions    map[policy.Action]string `json:"decisions"`
-	Blockers     []string                 `json:"blockers"`
-	Model        string                   `json:"model,omitempty"`
-	ConnectionID string                   `json:"connection_id,omitempty"`
-	Route        string                   `json:"route,omitempty"`
-	PoolID       string                   `json:"pool_id,omitempty"`
-	Ready        bool                     `json:"ready"`
-	Proof        string                   `json:"proof"`
-	policy       policy.Policy
-	initialize   bool
+	RepositoryID    string                   `json:"repository_id"`
+	Repository      string                   `json:"repository"`
+	Mode            string                   `json:"mode"`
+	MicroUSD        int64                    `json:"micro_usd"`
+	Continuous      bool                     `json:"continuous"`
+	Actions         []policy.Action          `json:"actions"`
+	Decisions       map[policy.Action]string `json:"decisions"`
+	Blockers        []string                 `json:"blockers"`
+	Model           string                   `json:"model,omitempty"`
+	ConnectionID    string                   `json:"connection_id,omitempty"`
+	Route           string                   `json:"route,omitempty"`
+	PoolID          string                   `json:"pool_id,omitempty"`
+	BudgetPeriod    string                   `json:"budget_period"`
+	OrgMicroUSD     *int64                   `json:"organisation_micro_usd,omitempty"`
+	OrgPeriod       string                   `json:"organisation_period,omitempty"`
+	CreatesOrgLimit bool                     `json:"creates_organisation_limit"`
+	Ready           bool                     `json:"ready"`
+	Proof           string                   `json:"proof"`
+	policy          policy.Policy
+	initialize      bool
 }
 
 func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, org, repo string) (MaintenanceCommand, error) {
@@ -90,7 +94,9 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	if err != nil {
 		return out, err
 	}
-	var connectionVersion, routeVersion, poolVersion int64
+	parent := policy.Resolve(slices.DeleteFunc(slices.Clone(current.Layers), func(layer policy.Layer) bool { return layer.Scope.Kind == "repository" }), repo, current.PrimaryTeamID, current.ScopePaused)
+	var connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion int64
+	out.BudgetPeriod = "monthly"
 	if in.Mode != "observe" {
 		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
 		if err != nil {
@@ -104,7 +110,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			return out, err
 		}
 		for _, m := range models {
-			if current.Policy.Allow.Models != nil && !slices.Contains(current.Policy.Allow.Models, m.Model) || current.Policy.Allow.Routes != nil && !slices.Contains(current.Policy.Allow.Routes, m.Route) {
+			if parent.Policy.Allow.Models != nil && !slices.Contains(parent.Policy.Allow.Models, m.Model) || parent.Policy.Allow.Routes != nil && !slices.Contains(parent.Policy.Allow.Routes, m.Route) {
 				continue
 			}
 			out.ConnectionID, out.Model, out.Route = m.Connection, m.Model, m.Route
@@ -123,11 +129,30 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		if s.repairs == nil || len(s.repairs.Recipes()) == 0 {
 			out.Blockers = append(out.Blockers, "Operator: install maintenance execution images")
 		}
-		if err = s.budgets.HeadroomTx(ctx, tx, a.OrgID); err != nil && !errors.Is(err, budget.ErrUnknown) {
-			if !errors.Is(err, budget.ErrRevoked) && !errors.Is(err, budget.ErrCapacity) {
+		err = tx.QueryRow(ctx, `SELECT (caps->>'micro_usd')::bigint,period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND scope_id=$1`, a.OrgID).Scan(&out.OrgMicroUSD, &out.OrgPeriod, &orgBudgetVersion)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if a.Role == domain.Owner && a.AllRepositories {
+				out.CreatesOrgLimit = true
+				out.OrgMicroUSD = &in.MicroUSD
+				out.OrgPeriod = "monthly"
+			} else {
+				out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
+			}
+		} else if err != nil {
+			return out, err
+		} else {
+			err = s.budgets.HeadroomTx(ctx, tx, a.OrgID)
+			if errors.Is(err, budget.ErrUnknown) {
+				out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
+			} else if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
+				out.Blockers = append(out.Blockers, "Resume or raise organisation spending limit")
+			} else if err != nil {
 				return out, err
 			}
-			out.Blockers = append(out.Blockers, "Resume or raise organisation spending limit")
+		}
+		err = tx.QueryRow(ctx, `SELECT period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2`, a.OrgID, repo).Scan(&out.BudgetPeriod, &repoBudgetVersion)
+		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+			return out, err
 		}
 	}
 	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, in.MicroUSD, out.initialize)
@@ -163,7 +188,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		out.Blockers = append(out.Blockers, "Organisation or team controls prohibit recovery")
 	}
 	out.Ready = len(out.Blockers) == 0
-	body, _ := json.Marshal([]any{out, current.Hash, connectionVersion, routeVersion, poolVersion})
+	body, _ := json.Marshal([]any{out, current.Hash, connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion})
 	sum := sha256.Sum256(body)
 	out.Proof = hex.EncodeToString(sum[:])
 	return out, nil
@@ -203,11 +228,13 @@ func (s *Service) ConfigureMaintenance(ctx context.Context, session auth.Session
 			return err
 		}
 		if in.Mode != "observe" {
-			caps, _ := json.Marshal(budget.Caps{MicroUSD: &in.MicroUSD})
-			if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'organisation',$1,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$2,1) ON CONFLICT DO NOTHING`, org, caps); err != nil {
-				return err
+			caps, _ := json.Marshal(map[string]int64{"micro_usd": in.MicroUSD})
+			if out.CreatesOrgLimit {
+				if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'organisation',$1,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$2,1) ON CONFLICT DO NOTHING`, org, caps); err != nil {
+					return err
+				}
 			}
-			if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'repository',$2,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$3,1) ON CONFLICT(org_id,scope_kind,scope_id) DO UPDATE SET caps=EXCLUDED.caps,version=budget_limits.version+1`, org, repo, caps); err != nil {
+			if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'repository',$2,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$3,1) ON CONFLICT(org_id,scope_kind,scope_id) DO UPDATE SET caps=budget_limits.caps||EXCLUDED.caps,version=budget_limits.version+1`, org, repo, caps); err != nil {
 				return err
 			}
 			if out.PoolID != "" {

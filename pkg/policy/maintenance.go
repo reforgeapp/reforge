@@ -27,7 +27,7 @@ func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode,
 		layers = append(layers, layer)
 	}
 	if !orgExists && initialize {
-		layers = append(layers, Layer{Scope: Scope{Kind: "organisation", ID: org}, Policy: Policy{Schema: "maintenance/v1"}})
+		layers = append(layers, Layer{Scope: Scope{Kind: "organisation", ID: org}, Policy: Policy{Schema: "maintenance/v1", RepositorySetupRequired: true}})
 	}
 	p.Deny = slices.DeleteFunc(p.Deny, func(action Action) bool { return action != Read })
 	switch mode {
@@ -58,7 +58,7 @@ func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode,
 
 func (s *Service) ApplyMaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, actor, request string, p Policy, initialize bool) error {
 	if initialize {
-		if err := bindMaintenanceTx(ctx, tx, org, actor, request, Scope{Kind: "organisation", ID: org}, Policy{Schema: "maintenance/v1"}); err != nil {
+		if err := bindMaintenanceTx(ctx, tx, org, actor, request, Scope{Kind: "organisation", ID: org}, Policy{Schema: "maintenance/v1", RepositorySetupRequired: true}); err != nil {
 			return err
 		}
 	}

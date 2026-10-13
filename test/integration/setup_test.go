@@ -52,6 +52,24 @@ func TestSetupRequiresOneRepositoryExecutionPath(t *testing.T) {
 	if steps["runner"].Done || steps["assignment"].Done || steps["scan"].Done || !steps["policy"].Done || !steps["pricing"].Done || steps["model"].ConnectionID != model {
 		t.Fatalf("unrelated resources satisfy setup: %+v", steps)
 	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO runner_pool_repositories(org_id,pool_id,repository_id) VALUES($1,$2,$3)`, f.org, pool, repo); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE runners SET credential_expires_at=now()-interval '1 second' WHERE org_id=$1`, f.org)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	setup, err = service.Setup(ctx, f.owner, f.org, resolve, true, false, repo)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, step := range setup.Steps {
+		if step.ID == "runner" && step.Done {
+			t.Fatal("expired runner credential marked ready")
+		}
+	}
 	resolve = func(context.Context, pgx.Tx, string, string) (policy.Resolved, error) {
 		return policy.Resolved{Hash: "valid", Policy: policy.Policy{Schema: "maintenance/v1", Deny: []policy.Action{policy.Repair}}}, nil
 	}

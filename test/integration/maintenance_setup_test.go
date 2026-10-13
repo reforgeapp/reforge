@@ -74,12 +74,69 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
+	otherPolicy, err := policies.Resolve(ctx, f.owner, f.org, other)
+	if err != nil || !slices.Contains(otherPolicy.Policy.Deny, policy.Repair) || !slices.Contains(otherPolicy.Policy.Deny, policy.Deploy) {
+		t.Fatalf("first setup widened unconfigured repository permissions: %+v %v", otherPolicy, err)
+	}
 	if _, err := service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "repeat"); !errors.Is(err, auth.ErrConflict) {
 		t.Fatalf("replayed proof accepted: %v", err)
 	}
 	status, err := service.MaintenanceStatus(ctx, f.owner, f.org, repo)
 	if err != nil || status.Mode != "propose" || !status.Continuous || status.MicroUSD != command.MicroUSD {
 		t.Fatalf("status: %+v %v", status, err)
+	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE budget_limits SET caps=caps||'{"concurrency":1,"tokens":6000}',period='daily',version=version+1 WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2`, f.org, repo)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	command.MicroUSD = 7_500_000
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil || plan.BudgetPeriod != "daily" || plan.OrgMicroUSD == nil || *plan.OrgMicroUSD != 10_000_000 || plan.CreatesOrgLimit {
+		t.Fatalf("budget preview: %+v %v", plan, err)
+	}
+	command.Proof = plan.Proof
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE budget_limits SET caps=jsonb_set(caps,'{micro_usd}','5000000'),version=version+1 WHERE org_id=$1 AND scope_kind='organisation'`, f.org)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "changed-org-budget"); !errors.Is(err, auth.ErrConflict) {
+		t.Fatalf("stale budget preview accepted: %v", err)
+	}
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil {
+		t.Fatal(err)
+	}
+	command.Proof = plan.Proof
+	if _, err = service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "preserve-caps"); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		var concurrency, tokens, usd int64
+		var period string
+		if err := tx.QueryRow(ctx, `SELECT (caps->>'concurrency')::bigint,(caps->>'tokens')::bigint,(caps->>'micro_usd')::bigint,period FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2`, f.org, repo).Scan(&concurrency, &tokens, &usd, &period); err != nil {
+			return err
+		}
+		if concurrency != 1 || tokens != 6000 || usd != command.MicroUSD || period != "daily" {
+			t.Fatalf("setup erased existing limits: %d %d %d %s", concurrency, tokens, usd, period)
+		}
+		_, err := tx.Exec(ctx, `UPDATE budget_limits SET caps='{ "concurrency":2 }',version=version+1 WHERE org_id=$1 AND scope_kind='organisation'`, f.org)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil || plan.Ready || plan.CreatesOrgLimit || !slices.Contains(plan.Blockers, "Operator: set an organisation dollar ceiling") {
+		t.Fatalf("missing existing dollar ceiling marked ready: %+v %v", plan, err)
+	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE budget_limits SET caps='{ "micro_usd":5000000 }',version=version+1 WHERE org_id=$1 AND scope_kind='organisation'`, f.org)
+		return err
+	}); err != nil {
+		t.Fatal(err)
 	}
 	resolved, err := policies.Resolve(ctx, f.owner, f.org, repo)
 	if err != nil {

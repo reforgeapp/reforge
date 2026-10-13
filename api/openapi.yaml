@@ -13666,6 +13666,9 @@
           },
           "paused": {
             "type": "boolean"
+          },
+          "repository_setup_required": {
+            "type": "boolean"
           }
         },
         "required": [
@@ -20304,7 +20307,9 @@
           "decisions",
           "blockers",
           "ready",
-          "proof"
+          "proof",
+          "budget_period",
+          "creates_organisation_limit"
         ],
         "properties": {
           "mode": {
@@ -20375,6 +20380,19 @@
           },
           "pool_id": {
             "type": "string"
+          },
+          "budget_period": {
+            "type": "string"
+          },
+          "organisation_micro_usd": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "organisation_period": {
+            "type": "string"
+          },
+          "creates_organisation_limit": {
+            "type": "boolean"
           }
         }
       },
