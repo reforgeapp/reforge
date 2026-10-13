@@ -47,6 +47,10 @@ func (s *Service) MaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, mode,
 		if model != "" && route != "" {
 			p.Defaults.Model, p.Defaults.Route, p.Defaults.ConnectionID = model, route, connection
 			p.Allow.Models, p.Allow.Routes = []string{model}, []string{route}
+			parent := Resolve(layers, repo, r.PrimaryTeamID, r.ScopePaused)
+			if !contains(parent.Policy.Allow.Routes, route) && contains(parent.Policy.Allow.Routes, connection+"/"+route) {
+				p.Allow.Routes = []string{connection + "/" + route}
+			}
 		}
 		p.Limits.Budget = &cap
 	}

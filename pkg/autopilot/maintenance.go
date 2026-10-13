@@ -119,7 +119,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			if selected != "" && selected != m.Connection {
 				continue
 			}
-			if parent.Policy.Allow.Models != nil && !slices.Contains(parent.Policy.Allow.Models, m.Model) || parent.Policy.Allow.Routes != nil && !slices.Contains(parent.Policy.Allow.Routes, m.Route) {
+			if parent.Policy.Allow.Models != nil && !slices.Contains(parent.Policy.Allow.Models, m.Model) || !policy.RouteAllowed(parent.Policy.Allow.Routes, m.Connection, m.Route) {
 				continue
 			}
 			out.ConnectionID, out.Model, out.Route = m.Connection, m.Model, m.Route

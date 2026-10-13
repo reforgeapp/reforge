@@ -407,7 +407,14 @@ func Evaluate(r Resolved, in Input) Result {
 		if needed[i] && values[i] == "" {
 			block("unknown", "allow."+names[i], names[i]+" missing")
 		}
-		if (needed[i] || values[i] != "") && list != nil && !contains(list, values[i]) {
+		allowed := contains(list, values[i])
+		if i == 2 {
+			connection, route, _ := strings.Cut(values[i], "/")
+			if route != "" {
+				allowed = RouteAllowed(list, connection, route)
+			}
+		}
+		if (needed[i] || values[i] != "") && list != nil && !allowed {
 			block("deny", "allow."+names[i], names[i]+" disallowed")
 		}
 	}
@@ -524,6 +531,10 @@ func Evaluate(r Resolved, in Input) Result {
 		}
 	}
 	return out
+}
+
+func RouteAllowed(routes []string, connection, name string) bool {
+	return routes == nil || contains(routes, name) || connection != "" && contains(routes, connection+"/"+name)
 }
 
 func ForbiddenPath(pattern, file string) bool { return forbidden(pattern, file) }

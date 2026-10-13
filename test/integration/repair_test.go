@@ -176,7 +176,7 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	document := policy.Policy{Schema: "maintenance/v1", Allow: policy.Lists{Recipes: []string{"javascript"}, Models: []string{"fixture-model"}, Routes: []string{modelID + "/default"}}}
+	document := policy.Policy{Schema: "maintenance/v1", Allow: policy.Lists{Recipes: []string{"javascript"}, Models: []string{"fixture-model"}, Routes: []string{"default"}}}
 	version, err := policies.CreateVersion(ctx, f.owner, f.org, policy.Scope{Kind: "organisation", ID: f.org}, document, "contract", "test")
 	if err != nil {
 		t.Fatal(err)
@@ -186,6 +186,15 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 		t.Fatal(err)
 	}
 	if _, err = policies.Activate(ctx, f.owner, f.org, version.ID, f.repo, "", 0, sim.Hash, "contract", "test"); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		_, child, err := policies.MaintenanceTx(ctx, tx, f.org, f.repo, "propose", "fixture-model", "default", modelID, 10_000_000, false)
+		if err != nil {
+			return err
+		}
+		return policies.ApplyMaintenanceTx(ctx, tx, f.org, f.repo, f.owner.User.ID, "guided-setup", child, false)
+	}); err != nil {
 		t.Fatal(err)
 	}
 	budgets := budget.New(f.db, f.identity, func(ctx context.Context, tx pgx.Tx, l budget.Lease) error {

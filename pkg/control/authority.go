@@ -62,11 +62,13 @@ func (a *Authority) Check(ctx context.Context, tx pgx.Tx, task workflow.Task, ac
 	}{
 		{r.Policy.Allow.Recipes, task.Recipe},
 		{r.Policy.Allow.Models, settings.Model},
-		{r.Policy.Allow.Routes, task.ModelConnectionID + "/" + task.ModelRoute},
 	} {
 		if item.value == "" || (item.values != nil && !slices.Contains(item.values, item.value)) {
 			return "", workflow.ErrPolicy
 		}
+	}
+	if !policy.RouteAllowed(r.Policy.Allow.Routes, task.ModelConnectionID, task.ModelRoute) {
+		return "", workflow.ErrPolicy
 	}
 	if r.Policy.Limits.Attempts != nil && int64(task.MaxAttempts) > *r.Policy.Limits.Attempts {
 		return "", workflow.ErrPolicy
