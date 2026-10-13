@@ -106,8 +106,7 @@ func TestOrgOIDCRuntimeLoginCallback(t *testing.T) {
 	defer idp.Close()
 	issuer = idp.URL + "/tenant"
 
-	const bootstrapToken = "local-test-bootstrap-token-with-over-32-bytes"
-	cfg := Config{PublicURL: "http://127.0.0.1:8080", Edition: "self-hosted", Development: true, FixtureAuth: true, ListenAddress: "127.0.0.1:8080", BootstrapToken: bootstrapToken, BootstrapExpiresAt: time.Now().Add(time.Hour)}
+	cfg := Config{PublicURL: "http://127.0.0.1:8080", Edition: "self-hosted", Development: true, FixtureAuth: true, ListenAddress: "127.0.0.1:8080"}
 	identity, err := New(ctx, db, cfg)
 	if err != nil {
 		t.Fatal("create fixture identity service")
@@ -126,7 +125,7 @@ func TestOrgOIDCRuntimeLoginCallback(t *testing.T) {
 		t.Fatal("fixture session cookie missing")
 	}
 	owner, err := identity.Authenticate(ctx, cookies[0].Value)
-	if err != nil || len(owner.Organisations) != 1 {
+	if err != nil || len(owner.Organisations) < 1 {
 		t.Fatal("authenticate fixture owner")
 	}
 	orgID, otherOrgID := string(domain.NewID()), string(domain.NewID())

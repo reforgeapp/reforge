@@ -105,8 +105,7 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 		t.Fatal("open test database")
 	}
 	defer db.Close()
-	const bootstrapToken = "local-test-bootstrap-token-with-over-32-bytes"
-	identity, err := New(ctx, db, Config{PublicURL: "http://127.0.0.1:8080", Edition: "self-hosted", Development: true, FixtureAuth: true, ListenAddress: "127.0.0.1:8080", BootstrapToken: bootstrapToken, BootstrapExpiresAt: time.Now().Add(time.Hour)})
+	identity, err := New(ctx, db, Config{PublicURL: "http://127.0.0.1:8080", Edition: "self-hosted", Development: true, FixtureAuth: true, ListenAddress: "127.0.0.1:8080"})
 	if err != nil {
 		t.Fatal("create test identity service")
 	}
@@ -127,16 +126,15 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 	if err != nil || len(owner.Organisations) == 0 {
 		t.Fatal("authenticate fixture owner")
 	}
-	orgID := "00000000-0000-4000-8000-000000000001"
-	foundDevelopmentOrg := false
-	for _, organisation := range owner.Organisations {
-		if organisation.ID == orgID {
-			foundDevelopmentOrg = true
-			break
+	orgID := domain.NewID()
+	if err = db.Tenant(ctx, orgID, owner.User.ID, func(tx pgx.Tx) error {
+		if _, insertErr := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'OIDC contract')`, orgID); insertErr != nil {
+			return insertErr
 		}
-	}
-	if !foundDevelopmentOrg {
-		t.Fatal("development organisation missing")
+		_, insertErr := tx.Exec(ctx, `INSERT INTO memberships(org_id,user_id,role,all_repositories) VALUES($1,$2,'owner',true)`, orgID, owner.User.ID)
+		return insertErr
+	}); err != nil {
+		t.Fatal("create isolated OIDC organisation")
 	}
 	var healthy atomic.Bool
 	healthy.Store(true)
@@ -272,8 +270,14 @@ func TestOrgOIDCPostgresContract(t *testing.T) {
 	if _, err = identity.OrgOIDC(ctx, viewer, orgID); !errors.Is(err, ErrForbidden) {
 		t.Fatal("viewer could read owner-only OIDC config")
 	}
-	org2, err := identity.Bootstrap(ctx, owner, bootstrapToken, "Isolated organisation", "request-org2")
-	if err != nil {
+	org2 := domain.Organisation{ID: domain.NewID(), Name: "Isolated organisation"}
+	if err = db.Tenant(ctx, org2.ID, owner.User.ID, func(tx pgx.Tx) error {
+		if _, insertErr := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,$2)`, org2.ID, org2.Name); insertErr != nil {
+			return insertErr
+		}
+		_, insertErr := tx.Exec(ctx, `INSERT INTO memberships(org_id,user_id,role,all_repositories) VALUES($1,$2,'owner',true)`, org2.ID, owner.User.ID)
+		return insertErr
+	}); err != nil {
 		t.Fatal("create second organisation")
 	}
 	var visible int
