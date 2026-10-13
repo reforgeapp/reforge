@@ -92,7 +92,7 @@ func (r *Runtime) start(ctx context.Context, w *workspaceState) error {
 	w.process.Stderr = w.output
 	if e := w.process.Start(); e != nil {
 		w.processMu.Unlock()
-		return ErrUnavailable
+		return fmt.Errorf("sandbox process start: %w: %v", ErrUnavailable, e)
 	}
 	w.done = make(chan struct{})
 	go func() { _ = w.process.Wait(); close(w.done); w.cancel() }()
@@ -128,15 +128,15 @@ func (r *Runtime) setupCgroup(w *workspaceState) error {
 	}
 	var fs unix.Statfs_t
 	if err := unix.Statfs(r.config.CgroupRoot, &fs); err != nil || fs.Type != unix.CGROUP2_SUPER_MAGIC {
-		return ErrUnavailable
+		return fmt.Errorf("sandbox cgroup filesystem: %w: %v", ErrUnavailable, err)
 	}
 	info, err := os.Lstat(r.config.CgroupRoot)
 	if err != nil || !info.IsDir() {
-		return ErrUnavailable
+		return fmt.Errorf("sandbox cgroup directory: %w: %v", ErrUnavailable, err)
 	}
 	group := filepath.Join(r.config.CgroupRoot, w.workspace.ID)
 	if err = os.Mkdir(group, 0700); err != nil {
-		return ErrUnavailable
+		return fmt.Errorf("sandbox cgroup creation: %w: %v", ErrUnavailable, err)
 	}
 	ok := false
 	defer func() {
@@ -152,16 +152,16 @@ func (r *Runtime) setupCgroup(w *workspaceState) error {
 		{"cpu.max", fmt.Sprintf("%d 100000", r.config.CPUs*100000)},
 	} {
 		if err = os.WriteFile(filepath.Join(group, setting.name), []byte(setting.value), 0600); err != nil {
-			return ErrUnavailable
+			return fmt.Errorf("sandbox cgroup %s: %w: %v", setting.name, ErrUnavailable, err)
 		}
 		observed, err := os.ReadFile(filepath.Join(group, setting.name))
 		if err != nil || strings.TrimSpace(string(observed)) != setting.value {
-			return ErrUnavailable
+			return fmt.Errorf("sandbox cgroup %s verification: %w: %v", setting.name, ErrUnavailable, err)
 		}
 	}
 	file, err := os.Open(group)
 	if err != nil {
-		return ErrUnavailable
+		return fmt.Errorf("sandbox cgroup descriptor: %w: %v", ErrUnavailable, err)
 	}
 	w.cgroup = file
 	w.cgroupPath = group
