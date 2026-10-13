@@ -271,7 +271,7 @@ func runRepair(ctx context.Context, client *runnerclient.Client, endpoint string
 	processor, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	defer closeProcessor()
 	go func() { errs <- client.Run(runctx, processor) }()
-	go func() { errs <- runPrivate(runctx, client, endpoint, ca, development) }()
+	go func() { errs <- runPrivate(runctx, client, endpoint, ca, development, nil) }()
 	first := <-errs
 	cancel()
 	second := <-errs
@@ -287,7 +287,7 @@ func runRepair(ctx context.Context, client *runnerclient.Client, endpoint string
 	return errors.Join(first, second)
 }
 
-func runPrivate(ctx context.Context, client *runnerclient.Client, endpoint string, ca []byte, development bool) error {
+func runPrivate(ctx context.Context, client *runnerclient.Client, endpoint string, ca []byte, development bool, httpClient *http.Client) error {
 	var private *privateconnector.Client
 	var active string
 	defer func() {
@@ -302,7 +302,7 @@ func runPrivate(ctx context.Context, client *runnerclient.Client, endpoint strin
 				private.Close()
 			}
 			var err error
-			private, err = privateconnector.NewClient(privateconnector.ClientConfig{Endpoint: endpoint, Credential: token, Target: privateconnector.Target{OrgID: identity.OrgID, RunnerID: identity.ID}, Development: development, CAPEM: ca})
+			private, err = privateconnector.NewClient(privateconnector.ClientConfig{Endpoint: endpoint, Credential: token, Target: privateconnector.Target{OrgID: identity.OrgID, RunnerID: identity.ID}, Development: development, CAPEM: ca, Client: httpClient})
 			if err != nil {
 				return err
 			}

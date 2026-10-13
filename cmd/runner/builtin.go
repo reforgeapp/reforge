@@ -183,8 +183,9 @@ func (t hostTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 }
 
 type builtinOrg struct {
-	client *runnerclient.Client
-	retry  time.Time
+	client        *runnerclient.Client
+	retry         time.Time
+	privateCancel context.CancelFunc
 }
 
 func runBuiltin(args []string) (retErr error) {
@@ -251,6 +252,7 @@ func runBuiltin(args []string) (retErr error) {
 	defer stopWork()
 	process, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	var mu sync.Mutex
+	var workers sync.WaitGroup
 	orgs := map[string]*builtinOrg{}
 	fresh := func(id string) (*builtinOrg, error) {
 		client, err := newClient(id)
@@ -272,9 +274,23 @@ func runBuiltin(args []string) (retErr error) {
 				return false
 			}
 		}
+		if org.privateCancel == nil {
+			privateCtx, stop := context.WithCancel(ctx)
+			org.privateCancel = stop
+			workers.Add(1)
+			go func() {
+				defer workers.Done()
+				if err := runPrivate(privateCtx, org.client, f.endpoint, nil, true, httpClient); err != nil && privateCtx.Err() == nil {
+					slog.Warn("built-in private connector stopped", "org_id", id, "error", err)
+					mu.Lock()
+					org.privateCancel = nil
+					org.retry = time.Now().Add(10 * time.Second)
+					mu.Unlock()
+				}
+			}()
+		}
 		return true
 	}
-	var workers sync.WaitGroup
 	defer func() {
 		cancel()
 		workers.Wait()
@@ -302,6 +318,9 @@ func runBuiltin(args []string) (retErr error) {
 						mu.Lock()
 						org.retry = time.Now().Add(10 * time.Second)
 						if !done && errors.Is(err, runnerclient.ErrUnauthorized) && orgs[id] == org {
+							if org.privateCancel != nil {
+								org.privateCancel()
+							}
 							_ = os.Remove(filepath.Join(f.state, id+".json"))
 							if next, err := fresh(id); err == nil {
 								next.retry = org.retry
@@ -344,6 +363,9 @@ func runBuiltin(args []string) (retErr error) {
 			mu.Lock()
 			for id := range orgs {
 				if !current[id] {
+					if orgs[id].privateCancel != nil {
+						orgs[id].privateCancel()
+					}
 					delete(orgs, id)
 				}
 			}

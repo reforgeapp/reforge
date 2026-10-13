@@ -20,6 +20,7 @@ type ClientConfig struct {
 	Target      Target
 	Development bool
 	CAPEM       []byte
+	Client      *http.Client `json:"-"`
 }
 
 func (c ClientConfig) String() string       { return "private supervisor client configuration [redacted]" }
@@ -55,7 +56,15 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 	transport.TLSClientConfig = tlsCfg
 	transport.ResponseHeaderTimeout = MaxTTL + 5*time.Second
 	transport.MaxResponseHeaderBytes = 65536
-	return &Client{base: base, credential: cfg.Credential, target: cfg.Target, client: &http.Client{Transport: transport, Timeout: MaxTTL + 5*time.Second, CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}, executor: Executor{Target: cfg.Target, Development: cfg.Development}}, nil
+	httpClient := &http.Client{Transport: transport}
+	if cfg.Client != nil {
+		clone := *cfg.Client
+		httpClient = &clone
+		transport.CloseIdleConnections()
+	}
+	httpClient.Timeout = MaxTTL + 5*time.Second
+	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
+	return &Client{base: base, credential: cfg.Credential, target: cfg.Target, client: httpClient, executor: Executor{Target: cfg.Target, Development: cfg.Development}}, nil
 }
 func (c *Client) String() string       { return "private supervisor client [redacted]" }
 func (c *Client) GoString() string     { return c.String() }
