@@ -34,6 +34,13 @@ func (s Session) AutomationID() string {
 	return s.automation.id
 }
 
+func (s Session) AutomationRepositories() []string {
+	if s.automation == nil {
+		return nil
+	}
+	return append([]string(nil), s.automation.repositories...)
+}
+
 func (g *automationGrant) actor(ctx context.Context, tx pgx.Tx, org, user string) (domain.Actor, error) {
 	a := domain.Actor{OrgID: org, UserID: user, Role: domain.Maintainer, RepositoryIDs: append([]string(nil), g.repositories...)}
 	if org != g.org || user != g.user {

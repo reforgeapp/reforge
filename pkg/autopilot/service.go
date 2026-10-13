@@ -252,8 +252,10 @@ func (s *Service) recordRebase(ctx context.Context, org string, c candidate, out
 }
 
 type scope struct {
-	enabled   bool
-	requested []string
+	enabled      bool
+	portfolio    bool
+	requested    []string
+	repositories []string
 }
 
 func (s *Service) session(ctx context.Context, org string) (auth.Session, scope, error) {
@@ -261,39 +263,45 @@ func (s *Service) session(ctx context.Context, org string) (auth.Session, scope,
 	var sc scope
 	var repos []string
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT enabled,coalesce(enabled_by::text,'') FROM autopilot_settings WHERE org_id=$1`, org).Scan(&sc.enabled, &user)
+		err := tx.QueryRow(ctx, `SELECT enabled,coalesce(enabled_by::text,'') FROM autopilot_settings WHERE org_id=$1`, org).Scan(&sc.portfolio, &user)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return err
 		}
-		if !sc.enabled {
-			if err = tx.QueryRow(ctx, `SELECT requested_by::text FROM autopilot_requests WHERE org_id=$1 AND requested_at>clock_timestamp()-interval '1 day' ORDER BY requested_at DESC LIMIT 1`, org).Scan(&user); err != nil {
+		if !sc.portfolio {
+			if err = tx.QueryRow(ctx, `SELECT requested_by::text FROM autopilot_requests WHERE org_id=$1 AND (continuous OR requested_at>clock_timestamp()-interval '1 day') ORDER BY served_at,requested_at DESC LIMIT 1`, org).Scan(&user); err != nil {
 				return err
 			}
 		}
-		rows, err := tx.Query(ctx, `SELECT repository_id::text FROM autopilot_requests WHERE org_id=$1 AND requested_at>clock_timestamp()-interval '1 day' AND ($2 OR requested_by=$3::uuid) ORDER BY repository_id`, org, sc.enabled, user)
+		rows, err := tx.Query(ctx, `SELECT repository_id::text FROM autopilot_requests WHERE org_id=$1 AND (continuous OR requested_at>clock_timestamp()-interval '1 day') AND ($2 OR requested_by=$3::uuid) ORDER BY repository_id`, org, sc.portfolio, user)
 		if err != nil {
 			return err
 		}
 		if sc.requested, err = pgx.CollectRows(rows, pgx.RowTo[string]); err != nil {
 			return err
 		}
-		if !sc.enabled {
+		if !sc.portfolio {
 			repos = sc.requested
-			return nil
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_requests WHERE org_id=$1 AND requested_by=$2 AND continuous)`, org, user).Scan(&sc.enabled); err != nil {
+				return err
+			}
+			_, err = tx.Exec(ctx, `UPDATE autopilot_requests SET served_at=clock_timestamp() WHERE org_id=$1 AND requested_by=$2`, org, user)
+			return err
 		}
 		rows, err = tx.Query(ctx, `SELECT id::text FROM repositories WHERE org_id=$1 AND accessible AND NOT archived ORDER BY id LIMIT 2000`, org)
 		if err != nil {
 			return err
 		}
 		repos, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		sc.enabled = true
 		return err
 	})
 	if err != nil {
 		return auth.Session{}, sc, err
 	}
+	sc.repositories = repos
 	session, err := auth.NewAutomationSession(org, user, org, repos, func(ctx context.Context, tx pgx.Tx) error {
 		var allowed bool
-		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled AND enabled_by=$2) OR EXISTS(SELECT 1 FROM autopilot_requests WHERE org_id=$1 AND requested_by=$2)`, org, user).Scan(&allowed); err != nil || !allowed {
+		if err := tx.QueryRow(ctx, `SELECT NOT EXISTS(SELECT 1 FROM unnest($3::uuid[]) wanted(id) WHERE NOT (EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled AND enabled_by=$2) OR EXISTS(SELECT 1 FROM autopilot_requests WHERE org_id=$1 AND requested_by=$2 AND repository_id=wanted.id AND (continuous OR requested_at>clock_timestamp()-interval '1 day'))))`, org, user, repos).Scan(&allowed); err != nil || !allowed {
 			return auth.ErrForbidden
 		}
 		return nil
@@ -354,7 +362,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		if err = s.unblock(ctx, session, org); err != nil {
 			slog.WarnContext(ctx, "autopilot unblock failed", "org_id", org, "error", err)
 		}
-		if err = s.rebase(ctx, org); err != nil {
+		if err = s.rebase(ctx, org, session); err != nil {
 			slog.WarnContext(ctx, "autopilot rebase failed", "org_id", org, "error", err)
 		}
 		if err = s.mergeBot(ctx, session, org); err != nil {
@@ -381,10 +389,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	}); err != nil {
 		return err
 	}
-	var filter []string
-	if !sc.enabled {
-		filter = sc.requested
-	}
+	filter := sc.repositories
 	var busy, unhealthy bool
 	var model, route, headroom, blocked string
 	var next *candidate
@@ -464,7 +469,7 @@ func (s *Service) Step(ctx context.Context, org string) error {
 			message = blocked
 		}
 		return errors.Join(s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, `DELETE FROM autopilot_requests q WHERE q.org_id=$1 AND q.repository_id::text=ANY($2) AND EXISTS(SELECT 1 FROM maintenance_scans s WHERE s.org_id=q.org_id AND s.repository_id=q.repository_id AND s.state='complete' AND s.observed_at>q.requested_at) AND NOT EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=q.org_id AND t.repository_id=q.repository_id AND t.state IN `+active+`) AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=q.org_id AND f.repository_id=q.repository_id AND f.state='open' AND (a.outcome='retry' OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$3))`, org, sc.requested, maxRuns)
+			_, err := tx.Exec(ctx, `DELETE FROM autopilot_requests q WHERE q.org_id=$1 AND NOT q.continuous AND q.repository_id::text=ANY($2) AND EXISTS(SELECT 1 FROM maintenance_scans s WHERE s.org_id=q.org_id AND s.repository_id=q.repository_id AND s.state='complete' AND s.observed_at>q.requested_at) AND NOT EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=q.org_id AND t.repository_id=q.repository_id AND t.state IN `+active+`) AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=q.org_id AND f.repository_id=q.repository_id AND f.state='open' AND (a.outcome='retry' OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.runs<$3))`, org, sc.requested, maxRuns)
 			return err
 		}), s.status(ctx, org, message))
 	}
@@ -533,6 +538,17 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
+	}
+	if resolved.Policy.Defaults.Model != "" {
+		err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND r.config->>'mode'='priced' AND NOT coalesce((r.config->>'paused')::boolean,false) ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route).Scan(&model, &route)
+		})
+		if errors.Is(err, pgx.ErrNoRows) {
+			return s.record(ctx, org, c, "", "retry", "Approved model unavailable; reconnect it or choose a new default", 10*time.Minute)
+		}
+		if err != nil {
+			return err
+		}
 	}
 	if change, err := s.mergeWaiting(ctx, org, c.repository); err != nil {
 		return err
@@ -625,7 +641,7 @@ func (s *Service) unblock(ctx context.Context, session auth.Session, org string)
 	}
 	var tasks []blockedTask
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT t.id::text,t.version,(SELECT count(*) FROM workflow_attempts w WHERE w.org_id=t.org_id AND w.task_id=t.id),t.state='reconciling' FROM workflow_tasks t WHERE t.org_id=$1 AND t.state IN ('blocked','reconciling') ORDER BY t.created_at LIMIT 10`, org)
+		rows, err := tx.Query(ctx, `SELECT t.id::text,t.version,(SELECT count(*) FROM workflow_attempts w WHERE w.org_id=t.org_id AND w.task_id=t.id),t.state='reconciling' FROM workflow_tasks t WHERE t.org_id=$1 AND ($2::uuid[] IS NULL OR t.repository_id=ANY($2)) AND t.state IN ('blocked','reconciling') ORDER BY t.created_at LIMIT 10`, org, session.AutomationRepositories())
 		if err != nil {
 			return err
 		}
@@ -685,8 +701,8 @@ type rebaseCandidate struct {
 	runs    int
 }
 
-func loadRebaseCandidates(ctx context.Context, tx pgx.Tx, org string) ([]rebaseCandidate, error) {
-	rows, err := tx.Query(ctx, `SELECT f.id::text,f.version,f.repository_id::text,f.evidence,coalesce(a.runs,0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND f.evidence->>'bot'='dependabot' AND f.evidence->'blockers' ? $2 AND r.accessible AND NOT r.archived AND NOT r.paused AND (a.finding_id IS NULL OR a.outcome IN ('retry','rebase') AND (a.retry_after IS NULL OR a.retry_after<=clock_timestamp()) AND a.reason<>'`+rebaseExhausted+`') AND NOT EXISTS(SELECT 1 FROM autopilot_attempts pending JOIN maintenance_findings active ON active.org_id=pending.org_id AND active.id=pending.finding_id AND active.version=pending.finding_version WHERE pending.org_id=f.org_id AND active.repository_id=f.repository_id AND active.id<>f.id AND active.state='open' AND pending.outcome IN ('retry','rebase') AND pending.retry_after>clock_timestamp()) ORDER BY coalesce(a.retry_after,'-infinity'::timestamptz),f.first_seen,f.id LIMIT 1`, org, discovery.WaitingForRebase)
+func loadRebaseCandidates(ctx context.Context, tx pgx.Tx, org string, repositories ...[]string) ([]rebaseCandidate, error) {
+	rows, err := tx.Query(ctx, `SELECT f.id::text,f.version,f.repository_id::text,f.evidence,coalesce(a.runs,0) FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version WHERE f.org_id=$1 AND ($3::uuid[] IS NULL OR f.repository_id=ANY($3)) AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND f.evidence->>'bot'='dependabot' AND f.evidence->'blockers' ? $2 AND r.accessible AND NOT r.archived AND NOT r.paused AND (a.finding_id IS NULL OR a.outcome IN ('retry','rebase') AND (a.retry_after IS NULL OR a.retry_after<=clock_timestamp()) AND a.reason<>'`+rebaseExhausted+`') AND NOT EXISTS(SELECT 1 FROM autopilot_attempts pending JOIN maintenance_findings active ON active.org_id=pending.org_id AND active.id=pending.finding_id AND active.version=pending.finding_version WHERE pending.org_id=f.org_id AND active.repository_id=f.repository_id AND active.id<>f.id AND active.state='open' AND pending.outcome IN ('retry','rebase') AND pending.retry_after>clock_timestamp()) ORDER BY coalesce(a.retry_after,'-infinity'::timestamptz),f.first_seen,f.id LIMIT 1`, org, discovery.WaitingForRebase, firstScope(repositories))
 	if err != nil {
 		return nil, err
 	}
@@ -706,11 +722,21 @@ func loadRebaseCandidates(ctx context.Context, tx pgx.Tx, org string) ([]rebaseC
 	return waiting, rows.Err()
 }
 
-func (s *Service) rebase(ctx context.Context, org string) error {
+func (s *Service) rebase(ctx context.Context, org string, sessions ...auth.Session) error {
 	var waiting []rebaseCandidate
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		var err error
-		waiting, err = loadRebaseCandidates(ctx, tx, org)
+		var repositories []string
+		if len(sessions) > 0 {
+			a, e := s.auth.ActorTx(ctx, tx, sessions[0], org)
+			if e != nil {
+				return e
+			}
+			if !a.AllRepositories {
+				repositories = a.RepositoryIDs
+			}
+		}
+		waiting, err = loadRebaseCandidates(ctx, tx, org, repositories)
 		return err
 	})
 	if err != nil {
@@ -726,7 +752,25 @@ func (s *Service) rebase(ctx context.Context, org string) error {
 		if f.Evidence.Change == nil {
 			continue
 		}
-		if e := s.repairs.RefreshBotChange(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change); e != nil {
+		refresh := func() error { return s.repairs.RefreshBotChange(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change) }
+		if len(sessions) > 0 {
+			refresh = func() error {
+				return s.auth.WithActor(ctx, sessions[0], org, func(tx pgx.Tx, a domain.Actor) error {
+					if !auth.CanReadRepository(a, f.RepositoryID) {
+						return auth.ErrForbidden
+					}
+					resolved, err := s.policies.ResolveTx(ctx, tx, org, f.RepositoryID)
+					if err != nil {
+						return err
+					}
+					if resolved.Paused || len(resolved.Problems) > 0 || slices.Contains(resolved.Policy.Deny, policy.Repair) {
+						return workflow.ErrPolicy
+					}
+					return s.repairs.RefreshBotChange(ctx, org, f.Evidence.ConnectionID, *f.Evidence.Change)
+				})
+			}
+		}
+		if e := refresh(); e != nil {
 			err = errors.Join(err, e, s.recordRebase(ctx, org, c, "retry", "Branch update: "+e.Error(), 15*time.Minute))
 			continue
 		}
@@ -741,7 +785,7 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 	var version int64
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		candidate, err := selectMergeCandidate(ctx, tx, org)
+		candidate, err := selectMergeCandidate(ctx, tx, org, session.AutomationRepositories())
 		finding, version, repo, change, task, head, adopted, proof = candidate.finding, candidate.version, candidate.repository, candidate.change, candidate.task, candidate.head, candidate.adopted, candidate.proof
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
@@ -835,9 +879,9 @@ type mergeCandidate struct {
 	adopted                                        bool
 }
 
-func selectMergeCandidate(ctx context.Context, tx pgx.Tx, org string) (mergeCandidate, error) {
+func selectMergeCandidate(ctx context.Context, tx pgx.Tx, org string, repositories ...[]string) (mergeCandidate, error) {
 	var candidate mergeCandidate
-	err := tx.QueryRow(ctx, `SELECT rr.finding_id::text,rr.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text,coalesce(rr.native_change->>'head_sha',''),a.task_id IS NULL,coalesce(nullif(rr.context#>>'{plan,recipe,min_proof}',''),'tests') FROM repair_runs rr JOIN repositories r ON r.org_id=rr.org_id AND r.id=rr.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.finding_id=rr.finding_id AND a.finding_version=rr.finding_version AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND r.accessible AND NOT r.archived AND NOT r.paused AND (CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END IS NULL OR CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=rr.org_id AND m.task_id=rr.task_id AND m.supersession IS NOT NULL) ORDER BY coalesce(a.updated_at,d.updated_at,rr.created_at),rr.created_at,rr.task_id LIMIT 1`, org).Scan(&candidate.finding, &candidate.version, &candidate.repository, &candidate.change, &candidate.task, &candidate.head, &candidate.adopted, &candidate.proof)
+	err := tx.QueryRow(ctx, `SELECT rr.finding_id::text,rr.finding_version,rr.repository_id::text,rr.native_change->>'id',rr.task_id::text,coalesce(rr.native_change->>'head_sha',''),a.task_id IS NULL,coalesce(nullif(rr.context#>>'{plan,recipe,min_proof}',''),'tests') FROM repair_runs rr JOIN repositories r ON r.org_id=rr.org_id AND r.id=rr.repository_id LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.finding_id=rr.finding_id AND a.finding_version=rr.finding_version AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND ($2::uuid[] IS NULL OR rr.repository_id=ANY($2)) AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND r.accessible AND NOT r.archived AND NOT r.paused AND (CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END IS NULL OR CASE WHEN a.task_id IS NOT NULL THEN a.merge_after ELSE d.merge_after END<=clock_timestamp()) AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=rr.org_id AND m.task_id=rr.task_id AND m.supersession IS NOT NULL) ORDER BY coalesce(a.updated_at,d.updated_at,rr.created_at),rr.created_at,rr.task_id LIMIT 1`, org, firstScope(repositories)).Scan(&candidate.finding, &candidate.version, &candidate.repository, &candidate.change, &candidate.task, &candidate.head, &candidate.adopted, &candidate.proof)
 	return candidate, err
 }
 
@@ -845,7 +889,7 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 	var repo, change, head, bot string
 	var resolved policy.Resolved
 	err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		err := tx.QueryRow(ctx, `SELECT c.repository_id::text,c.snapshot->>'id',c.snapshot->>'head_sha',b->>'kind' FROM inventory_changes c LEFT JOIN maintenance_configs m ON m.org_id=c.org_id AND m.repository_id=c.repository_id CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN coalesce(jsonb_array_length(m.trusted_bots),0)>0 THEN m.trusted_bots WHEN c.snapshot->>'author_type'='Bot' AND c.snapshot->>'author_login' IN ('dependabot[bot]','renovate[bot]') THEN '[{"kind":"dependabot","actor_id":"49699333"},{"kind":"renovate","actor_id":"29139614"}]'::jsonb ELSE '[]'::jsonb END) b JOIN repositories r ON r.org_id=c.org_id AND r.id=c.repository_id LEFT JOIN autopilot_bot_merges d ON d.org_id=c.org_id AND d.repository_id=c.repository_id AND d.change_id=c.snapshot->>'id' WHERE c.org_id=$1 AND c.snapshot->>'state'='open' AND b->>'actor_id'=c.snapshot->>'author_id' AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT coalesce(d.head_sha=c.snapshot->>'head_sha' AND d.merge_after>clock_timestamp(),false) AND NOT EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=c.org_id AND o.repository_id=c.repository_id AND o.change_id=c.snapshot->>'id' AND o.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=c.org_id AND f.repository_id=c.repository_id AND f.source='forge_change' AND f.source_id=c.snapshot->>'id' AND f.state='open') ORDER BY d.updated_at NULLS FIRST,c.native_id LIMIT 1`, org).Scan(&repo, &change, &head, &bot)
+		err := tx.QueryRow(ctx, `SELECT c.repository_id::text,c.snapshot->>'id',c.snapshot->>'head_sha',b->>'kind' FROM inventory_changes c LEFT JOIN maintenance_configs m ON m.org_id=c.org_id AND m.repository_id=c.repository_id CROSS JOIN LATERAL jsonb_array_elements(CASE WHEN coalesce(jsonb_array_length(m.trusted_bots),0)>0 THEN m.trusted_bots WHEN c.snapshot->>'author_type'='Bot' AND c.snapshot->>'author_login' IN ('dependabot[bot]','renovate[bot]') THEN '[{"kind":"dependabot","actor_id":"49699333"},{"kind":"renovate","actor_id":"29139614"}]'::jsonb ELSE '[]'::jsonb END) b JOIN repositories r ON r.org_id=c.org_id AND r.id=c.repository_id LEFT JOIN autopilot_bot_merges d ON d.org_id=c.org_id AND d.repository_id=c.repository_id AND d.change_id=c.snapshot->>'id' WHERE c.org_id=$1 AND ($2::uuid[] IS NULL OR c.repository_id=ANY($2)) AND c.snapshot->>'state'='open' AND b->>'actor_id'=c.snapshot->>'author_id' AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT coalesce(d.head_sha=c.snapshot->>'head_sha' AND d.merge_after>clock_timestamp(),false) AND NOT EXISTS(SELECT 1 FROM merge_operations o WHERE o.org_id=c.org_id AND o.repository_id=c.repository_id AND o.change_id=c.snapshot->>'id' AND o.state<>'blocked') AND NOT EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=c.org_id AND f.repository_id=c.repository_id AND f.source='forge_change' AND f.source_id=c.snapshot->>'id' AND f.state='open') ORDER BY d.updated_at NULLS FIRST,c.native_id LIMIT 1`, org, session.AutomationRepositories()).Scan(&repo, &change, &head, &bot)
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil
 		}
@@ -906,4 +950,11 @@ func botMergeRetry(gate mergecontrol.Gate) (string, time.Duration) {
 		reason = gate.Decision.Blockers[0]
 	}
 	return reason, 10 * time.Minute
+}
+
+func firstScope(scopes [][]string) []string {
+	if len(scopes) == 0 {
+		return nil
+	}
+	return scopes[0]
 }

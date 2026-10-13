@@ -8463,6 +8463,14 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "repository_id",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid"
+            }
           }
         ],
         "responses": {
@@ -11545,6 +11553,192 @@
           },
           "204": {
             "description": "Run requested"
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/set-up-maintenance/preview": {
+      "post": {
+        "operationId": "previewMaintenance",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenancePlan"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/set-up-maintenance": {
+      "post": {
+        "operationId": "configureMaintenance",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenancePlan"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MaintenanceCommand"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/maintenance-status": {
+      "get": {
+        "operationId": "getMaintenanceStatus",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "repositoryID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          },
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MaintenanceCommand"
+                }
+              }
+            }
           }
         }
       }
@@ -15428,12 +15622,24 @@
           "review": {
             "type": "object",
             "properties": {
-              "path": { "type": "string" },
-              "line": { "type": "integer" },
-              "confidence": { "type": "string" },
-              "objective": { "type": "string" },
-              "detail": { "type": "string" },
-              "needs_recheck": { "type": "boolean" }
+              "path": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "confidence": {
+                "type": "string"
+              },
+              "objective": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              },
+              "needs_recheck": {
+                "type": "boolean"
+              }
             }
           },
           "tracked_files": {
@@ -15441,13 +15647,29 @@
             "items": {
               "type": "object",
               "properties": {
-                "path": { "type": "string" },
-                "sha": { "type": "string" },
-                "mode": { "type": "string" },
-                "type": { "type": "string" },
-                "size": { "type": "integer", "format": "int64" }
+                "path": {
+                  "type": "string"
+                },
+                "sha": {
+                  "type": "string"
+                },
+                "mode": {
+                  "type": "string"
+                },
+                "type": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "integer",
+                  "format": "int64"
+                }
               },
-              "required": ["path", "sha", "mode", "type"]
+              "required": [
+                "path",
+                "sha",
+                "mode",
+                "type"
+              ]
             }
           }
         },
@@ -19719,6 +19941,124 @@
         "properties": {
           "enabled": {
             "type": "boolean"
+          }
+        }
+      },
+      "MaintenanceCommand": {
+        "type": "object",
+        "required": [
+          "mode",
+          "micro_usd",
+          "continuous"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observe",
+              "propose",
+              "merge",
+              "deliver",
+              "recover"
+            ]
+          },
+          "micro_usd": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "continuous": {
+            "type": "boolean"
+          },
+          "proof": {
+            "type": "string"
+          }
+        }
+      },
+      "MaintenancePlan": {
+        "type": "object",
+        "required": [
+          "repository_id",
+          "repository",
+          "mode",
+          "micro_usd",
+          "continuous",
+          "actions",
+          "decisions",
+          "blockers",
+          "ready",
+          "proof"
+        ],
+        "properties": {
+          "mode": {
+            "type": "string",
+            "enum": [
+              "observe",
+              "propose",
+              "merge",
+              "deliver",
+              "recover"
+            ]
+          },
+          "micro_usd": {
+            "type": "integer",
+            "format": "int64",
+            "minimum": 0,
+            "maximum": 1000000000000
+          },
+          "continuous": {
+            "type": "boolean"
+          },
+          "proof": {
+            "type": "string"
+          },
+          "repository_id": {
+            "type": "string"
+          },
+          "repository": {
+            "type": "string"
+          },
+          "actions": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "read",
+                "repair",
+                "publish",
+                "merge",
+                "deploy",
+                "recover"
+              ]
+            }
+          },
+          "decisions": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ready": {
+            "type": "boolean"
+          },
+          "model": {
+            "type": "string"
+          },
+          "connection_id": {
+            "type": "string"
+          },
+          "route": {
+            "type": "string"
+          },
+          "pool_id": {
+            "type": "string"
           }
         }
       }

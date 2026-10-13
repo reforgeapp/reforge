@@ -91,6 +91,8 @@ type AutopilotRequest struct {
 	RepositoryID pgtype.UUID        `json:"repository_id"`
 	RequestedBy  pgtype.UUID        `json:"requested_by"`
 	RequestedAt  pgtype.Timestamptz `json:"requested_at"`
+	Continuous   bool               `json:"continuous"`
+	ServedAt     pgtype.Timestamptz `json:"served_at"`
 }
 
 type AutopilotSetting struct {

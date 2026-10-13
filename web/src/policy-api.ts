@@ -31,8 +31,13 @@ export const policyAPI = {
 
 export type Autopilot = components['schemas']['Autopilot']
 export type AutopilotMetric = components['schemas']['AutopilotMetric']
+export type MaintenanceCommand = { mode: string; micro_usd: number; continuous: boolean; proof?: string }
+export type MaintenancePlan = MaintenanceCommand & { repository_id: string; repository: string; actions: Action[]; decisions: Partial<Record<Action, string>>; blockers: string[]; model?: string; connection_id?: string; route?: string; pool_id?: string; ready: boolean; proof: string }
 export type Need = { kind: 'grant' | 'review'; finding_id: string; repository_id: string; repository: string; title: string; reason: string; url?: string; label?: string }
 export const autopilotAPI = {
+  maintenanceStatus: (orgID: string, repositoryID: string, signal?: AbortSignal) => apiRequest<MaintenanceCommand>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/maintenance-status`), { signal }),
+  previewMaintenance: (orgID: string, repositoryID: string, input: MaintenanceCommand, csrf: string) => apiRequest<MaintenancePlan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/set-up-maintenance/preview`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
+  configureMaintenance: (orgID: string, repositoryID: string, input: MaintenanceCommand, csrf: string) => apiRequest<MaintenancePlan>(path(orgID, `/repositories/${encodeURIComponent(repositoryID)}/set-up-maintenance`), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   get: (orgID: string, signal?: AbortSignal) => apiRequest<Autopilot>(path(orgID, '/autopilot'), { signal }),
   needs: (orgID: string, signal?: AbortSignal) => apiRequest<Need[]>(path(orgID, '/autopilot/needs'), { signal }),
   metrics: (orgID: string, signal?: AbortSignal) => apiRequest<AutopilotMetric[]>(path(orgID, '/autopilot/metrics'), { signal }),

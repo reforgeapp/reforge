@@ -7,6 +7,41 @@ import (
 )
 
 func (s *Server) RegisterAutopilot(service *autopilot.Service) {
+	repositories := s.Router.Group("/api/v1/orgs/:orgID/repositories", s.IdentitySession())
+	repositories.GET("/:repoID/maintenance-status", func(c *gin.Context) {
+		session, _ := SessionFromContext(c)
+		value, err := service.MaintenanceStatus(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"))
+		if err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.JSON(200, value)
+	})
+	for _, preview := range []bool{true, false} {
+		path := "/:repoID/set-up-maintenance"
+		if preview {
+			path += "/preview"
+		}
+		repositories.POST(path, func(c *gin.Context) {
+			var input autopilot.MaintenanceCommand
+			if !identityJSON(c, &input) {
+				return
+			}
+			session, _ := SessionFromContext(c)
+			var value autopilot.MaintenancePlan
+			var err error
+			if preview {
+				value, err = service.PreviewMaintenance(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"), input)
+			} else {
+				value, err = service.ConfigureMaintenance(c.Request.Context(), session, c.Param("orgID"), c.Param("repoID"), input, c.GetString("request_id"))
+			}
+			if err != nil {
+				IdentityFailure(c, err)
+				return
+			}
+			c.JSON(200, value)
+		})
+	}
 	g := s.Router.Group("/api/v1/orgs/:orgID/autopilot", s.IdentitySession())
 	g.GET("", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)

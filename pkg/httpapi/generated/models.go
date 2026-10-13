@@ -2,6 +2,8 @@ package generated
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -569,6 +571,31 @@ func (e MaintenanceBotStatusAutomerge) Valid() bool {
 }
 
 const (
+	MaintenanceCommandModeDeliver MaintenanceCommandMode = "deliver"
+	MaintenanceCommandModeMerge   MaintenanceCommandMode = "merge"
+	MaintenanceCommandModeObserve MaintenanceCommandMode = "observe"
+	MaintenanceCommandModePropose MaintenanceCommandMode = "propose"
+	MaintenanceCommandModeRecover MaintenanceCommandMode = "recover"
+)
+
+func (e MaintenanceCommandMode) Valid() bool {
+	switch e {
+	case MaintenanceCommandModeDeliver:
+		return true
+	case MaintenanceCommandModeMerge:
+		return true
+	case MaintenanceCommandModeObserve:
+		return true
+	case MaintenanceCommandModePropose:
+		return true
+	case MaintenanceCommandModeRecover:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	MaintenanceConfigMergeAuthorityBot     MaintenanceConfigMergeAuthority = "bot"
 	MaintenanceConfigMergeAuthorityObserve MaintenanceConfigMergeAuthority = "observe"
 	MaintenanceConfigMergeAuthorityReforge MaintenanceConfigMergeAuthority = "reforge"
@@ -581,6 +608,59 @@ func (e MaintenanceConfigMergeAuthority) Valid() bool {
 	case MaintenanceConfigMergeAuthorityObserve:
 		return true
 	case MaintenanceConfigMergeAuthorityReforge:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	MaintenancePlanActionsDeploy  MaintenancePlanActions = "deploy"
+	MaintenancePlanActionsMerge   MaintenancePlanActions = "merge"
+	MaintenancePlanActionsPublish MaintenancePlanActions = "publish"
+	MaintenancePlanActionsRead    MaintenancePlanActions = "read"
+	MaintenancePlanActionsRecover MaintenancePlanActions = "recover"
+	MaintenancePlanActionsRepair  MaintenancePlanActions = "repair"
+)
+
+func (e MaintenancePlanActions) Valid() bool {
+	switch e {
+	case MaintenancePlanActionsDeploy:
+		return true
+	case MaintenancePlanActionsMerge:
+		return true
+	case MaintenancePlanActionsPublish:
+		return true
+	case MaintenancePlanActionsRead:
+		return true
+	case MaintenancePlanActionsRecover:
+		return true
+	case MaintenancePlanActionsRepair:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	MaintenancePlanModeDeliver MaintenancePlanMode = "deliver"
+	MaintenancePlanModeMerge   MaintenancePlanMode = "merge"
+	MaintenancePlanModeObserve MaintenancePlanMode = "observe"
+	MaintenancePlanModePropose MaintenancePlanMode = "propose"
+	MaintenancePlanModeRecover MaintenancePlanMode = "recover"
+)
+
+func (e MaintenancePlanMode) Valid() bool {
+	switch e {
+	case MaintenancePlanModeDeliver:
+		return true
+	case MaintenancePlanModeMerge:
+		return true
+	case MaintenancePlanModeObserve:
+		return true
+	case MaintenancePlanModePropose:
+		return true
+	case MaintenancePlanModeRecover:
 		return true
 	default:
 		return false
@@ -2033,6 +2113,13 @@ type MaintenanceBotStatus struct {
 	Present   bool                          `json:"present"`
 }
 type MaintenanceBotStatusAutomerge string
+type MaintenanceCommand struct {
+	Continuous bool                   `json:"continuous"`
+	MicroUsd   int64                  `json:"micro_usd"`
+	Mode       MaintenanceCommandMode `json:"mode"`
+	Proof      *string                `json:"proof,omitempty"`
+}
+type MaintenanceCommandMode string
 type MaintenanceConfig struct {
 	MergeAuthority MaintenanceConfigMergeAuthority `json:"merge_authority"`
 	RepositoryId   string                          `json:"repository_id"`
@@ -2093,6 +2180,24 @@ type MaintenanceEvidence struct {
 		Type string `json:"type"`
 	} `json:"tracked_files,omitempty"`
 }
+type MaintenancePlan struct {
+	Actions      []MaintenancePlanActions `json:"actions"`
+	Blockers     []string                 `json:"blockers"`
+	ConnectionId *string                  `json:"connection_id,omitempty"`
+	Continuous   bool                     `json:"continuous"`
+	Decisions    map[string]string        `json:"decisions"`
+	MicroUsd     int64                    `json:"micro_usd"`
+	Mode         MaintenancePlanMode      `json:"mode"`
+	Model        *string                  `json:"model,omitempty"`
+	PoolId       *string                  `json:"pool_id,omitempty"`
+	Proof        string                   `json:"proof"`
+	Ready        bool                     `json:"ready"`
+	Repository   string                   `json:"repository"`
+	RepositoryId string                   `json:"repository_id"`
+	Route        *string                  `json:"route,omitempty"`
+}
+type MaintenancePlanActions string
+type MaintenancePlanMode string
 type Membership struct {
 	AllRepositories bool     `json:"all_repositories"`
 	OrgId           string   `json:"org_id"`
@@ -3340,6 +3445,12 @@ type PutMergeConfigurationParams struct {
 type RunRepositoryParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
+type ConfigureMaintenanceParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type PreviewMaintenanceParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListRunnerPoolsParams struct {
 	Limit  *int                        `form:"limit,omitempty" json:"limit,omitempty"`
 	Cursor *string                     `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -3364,6 +3475,9 @@ type ListRunnersParams struct {
 type RevokeRunnerParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type GetSetupParams struct {
+	RepositoryId *openapi_types.UUID `form:"repository_id,omitempty" json:"repository_id,omitempty"`
 }
 type ListTasksParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -3533,6 +3647,8 @@ type EnqueueRepairJSONRequestBody = RepairInput
 type PreviewProtectedMergeJSONRequestBody = MergePreviewRequest
 type PutMaintenanceConfigJSONRequestBody = MaintenanceConfig
 type PutMergeConfigurationJSONRequestBody = MergeConfiguration
+type ConfigureMaintenanceJSONRequestBody = MaintenanceCommand
+type PreviewMaintenanceJSONRequestBody = MaintenanceCommand
 type CreateRunnerPoolJSONRequestBody = RunnerPoolInput
 type UpdateRunnerPoolJSONRequestBody = RunnerPoolInput
 type EnqueueTaskJSONRequestBody = TaskCreate

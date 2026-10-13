@@ -485,7 +485,7 @@ func (s *Service) CloseReplaced(ctx context.Context, session auth.Session, org s
 	}
 	var pairs []pair
 	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT o.repository_id::text,coalesce(n.context#>>'{finding,evidence,connection_id}',''),n.native_change->>'id',o.native_change FROM repair_runs n JOIN repair_runs o ON o.org_id=n.org_id AND o.repository_id=n.repository_id AND o.branch=n.context->>'replaces_branch' AND o.state='published' AND o.native_change IS NOT NULL AND coalesce(o.native_change->>'state','open')='open' WHERE n.org_id=$1 AND n.state='published' AND n.native_change->>'id'<>'' ORDER BY n.created_at LIMIT 5`, org)
+		rows, err := tx.Query(ctx, `SELECT o.repository_id::text,coalesce(n.context#>>'{finding,evidence,connection_id}',''),n.native_change->>'id',o.native_change FROM repair_runs n JOIN repair_runs o ON o.org_id=n.org_id AND o.repository_id=n.repository_id AND o.branch=n.context->>'replaces_branch' AND o.state='published' AND o.native_change IS NOT NULL AND coalesce(o.native_change->>'state','open')='open' WHERE n.org_id=$1 AND ($2::uuid[] IS NULL OR n.repository_id=ANY($2)) AND n.state='published' AND n.native_change->>'id'<>'' ORDER BY n.created_at LIMIT 5`, org, session.AutomationRepositories())
 		if err != nil {
 			return err
 		}
@@ -517,7 +517,7 @@ func (s *Service) CloseObsolete(ctx context.Context, session auth.Session, org s
 	}
 	var items []obsolete
 	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT rr.repository_id::text,coalesce(rr.context#>>'{finding,evidence,connection_id}',''),rr.native_change FROM repair_runs rr JOIN maintenance_findings f ON f.org_id=rr.org_id AND f.id=rr.finding_id WHERE rr.org_id=$1 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND f.state='resolved' AND coalesce(f.evidence#>>'{change,head_branch}','') NOT LIKE 'reforge/repair/%'`, org)
+		rows, err := tx.Query(ctx, `SELECT rr.repository_id::text,coalesce(rr.context#>>'{finding,evidence,connection_id}',''),rr.native_change FROM repair_runs rr JOIN maintenance_findings f ON f.org_id=rr.org_id AND f.id=rr.finding_id WHERE rr.org_id=$1 AND ($2::uuid[] IS NULL OR rr.repository_id=ANY($2)) AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND f.state='resolved' AND coalesce(f.evidence#>>'{change,head_branch}','') NOT LIKE 'reforge/repair/%'`, org, session.AutomationRepositories())
 		if err != nil {
 			return err
 		}

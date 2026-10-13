@@ -2443,6 +2443,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/set-up-maintenance/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/set-up-maintenance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["configureMaintenance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repositoryID}/maintenance-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getMaintenanceStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4727,6 +4775,34 @@ export interface components {
         };
         AutopilotUpdate: {
             enabled: boolean;
+        };
+        MaintenanceCommand: {
+
+            mode: "observe" | "propose" | "merge" | "deliver" | "recover";
+
+            micro_usd: number;
+            continuous: boolean;
+            proof?: string;
+        };
+        MaintenancePlan: {
+
+            mode: "observe" | "propose" | "merge" | "deliver" | "recover";
+
+            micro_usd: number;
+            continuous: boolean;
+            proof: string;
+            repository_id: string;
+            repository: string;
+            actions: ("read" | "repair" | "publish" | "merge" | "deploy" | "recover")[];
+            decisions: {
+                [key: string]: string;
+            };
+            blockers: string[];
+            ready: boolean;
+            model?: string;
+            connection_id?: string;
+            route?: string;
+            pool_id?: string;
         };
     };
     responses: never;
@@ -9700,7 +9776,9 @@ export interface operations {
     };
     getSetup: {
         parameters: {
-            query?: never;
+            query?: {
+                repository_id?: string;
+            };
             header?: never;
             path: {
                 orgID: string;
@@ -11536,6 +11614,114 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    previewMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceCommand"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePlan"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    configureMaintenance: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MaintenanceCommand"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenancePlan"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getMaintenanceStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repositoryID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaintenanceCommand"];
+                };
             };
 
             default: {

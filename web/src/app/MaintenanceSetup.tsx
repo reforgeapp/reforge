@@ -1,0 +1,25 @@
+import { useEffect, useState } from 'react'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { Button, Dialog } from '../components/Accessible'
+import { autopilotAPI, type MaintenanceCommand, type MaintenancePlan } from '../policy-api'
+
+const modes = [{ id: 'observe', label: 'Scan only' }, { id: 'propose', label: 'Propose fixes' }, { id: 'merge', label: 'Fix and merge' }, { id: 'deliver', label: 'Fix, merge and deploy' }, { id: 'recover', label: 'Maintain and recover' }]
+const actions: Record<string, string> = { read: 'scan', repair: 'fix', publish: 'open changes', merge: 'merge', deploy: 'deploy', recover: 'restore' }
+
+export function MaintenanceSetup({ orgID, repositoryID, name, csrf }: { orgID: string; repositoryID: string; name: string; csrf: string }) {
+  const client = useQueryClient()
+  const status = useQuery({ queryKey: ['org', orgID, 'maintenance-status', repositoryID], queryFn: ({ signal }) => autopilotAPI.maintenanceStatus(orgID, repositoryID, signal) })
+  const [open, setOpen] = useState(false)
+  const [mode, setMode] = useState('propose')
+  const [dollars, setDollars] = useState('10')
+  const [continuous, setContinuous] = useState(true)
+  const [plan, setPlan] = useState<MaintenancePlan>()
+  const [busy, setBusy] = useState(false)
+  const [message, setMessage] = useState('')
+  useEffect(() => { if (open && status.data) { setMode(status.data.mode === 'observe' ? 'propose' : status.data.mode); setDollars(String(status.data.micro_usd / 1_000_000)); setContinuous(status.data.continuous || status.data.mode === 'observe'); setPlan(undefined); setMessage('') } }, [open])
+  const command = (): MaintenanceCommand => ({ mode, micro_usd: mode === 'observe' ? 0 : Math.round(Number(dollars) * 1_000_000), continuous })
+  const preview = async () => { setBusy(true); setMessage(''); try { setPlan(await autopilotAPI.previewMaintenance(orgID, repositoryID, command(), csrf)) } catch (error) { setMessage(error instanceof Error ? error.message : 'Setup unavailable') } finally { setBusy(false) } }
+  const apply = async () => { if (!plan) return; setBusy(true); setMessage(''); try { const result = await autopilotAPI.configureMaintenance(orgID, repositoryID, { ...command(), proof: plan.proof }, csrf); setPlan(result); setMessage(result.ready ? 'Maintenance configured. First scan started.' : 'Saved. Resolve listed blockers, then check again.'); await client.invalidateQueries({ queryKey: ['org', orgID] }) } catch (error) { setMessage(error instanceof Error ? error.message : 'Setup could not be saved'); setPlan(undefined) } finally { setBusy(false) } }
+  const change = () => { setPlan(undefined); setMessage('') }
+  return <div className="detail-section"><div className="row-actions"><Button className="button button-primary" disabled={!csrf} onClick={() => setOpen(true)}>Set up maintenance</Button>{status.data && <span className="table-meta">{modes.find(item => item.id === status.data.mode)?.label} · {status.data.continuous ? 'Work enabled' : 'On request'}</span>}</div><Dialog open={open} title={`Maintain ${name}`} onClose={() => setOpen(false)}><div className="stack"><label>Permissions<select value={mode} onChange={event => { setMode(event.target.value); change() }}>{modes.map(item => <option key={item.id} value={item.id}>{item.label}</option>)}</select></label>{mode !== 'observe' && <><label>Monthly spending limit ($)<input type="number" min="0.01" step="0.01" max="1000000" value={dollars} onChange={event => { setDollars(event.target.value); change() }} /></label><label className="checkbox-label"><input type="checkbox" checked={continuous} onChange={event => { setContinuous(event.target.checked); change() }} />Keep maintaining this repository</label></>}{plan && <><p>Only {plan.repository}: {plan.actions.map(action => actions[action]).join(', ')}.{mode !== 'observe' && ` Up to $${(plan.micro_usd / 1_000_000).toFixed(2)} per month, within organisation limit.`}</p>{plan.blockers.length > 0 && <div role="status"><ul>{plan.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul><a href={`/org/${encodeURIComponent(orgID)}/connections`}>Reconnect</a> · <a href={`/org/${encodeURIComponent(orgID)}/runners`}>Operator settings</a> · <a href={`/org/${encodeURIComponent(orgID)}/usage`}>Spending limit</a></div>}<details><summary>Execution details</summary><p>{plan.model || 'Model pending'} · {plan.route || 'Pricing pending'}</p><p>Native approvals and deployment qualification still apply.</p></details></>}{message && <p role="status">{message}</p>}<Button className="button button-primary" disabled={!csrf || busy || mode !== 'observe' && (!Number.isFinite(Number(dollars)) || Number(dollars) <= 0)} onClick={() => void (plan && !message ? apply() : preview())}>{busy ? 'Working…' : plan && !message ? 'Set up maintenance' : 'Check setup'}</Button></div></Dialog></div>
+}

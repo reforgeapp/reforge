@@ -236,7 +236,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&enabled); err != nil {
 				return err
 			}
-			if !enabled || spec != nil {
+			if (!enabled && session.AutomationID() == "") || spec != nil {
 				return auth.ErrForbidden
 			}
 		}
