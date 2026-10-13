@@ -191,13 +191,13 @@ func ownerNodeTestCommands(paths, coveredDirs []string) []Command {
 			tests = append(tests, file)
 		}
 	}
-	commands := make([]Command, 0, (len(tests)+124)/125)
+	commands := make([]Command, 0, (len(tests)+123)/124)
 	for start, chunk := 0, 0; start < len(tests); chunk++ {
-		end := start + 125
+		end := start + 124
 		if end > len(tests) {
 			end = len(tests)
 		}
-		args := []string{"node", "--test", "--test-reporter=tap"}
+		args := []string{"node", "--test", "--test-reporter=tap", "--test-isolation=none"}
 		for _, test := range tests[start:end] {
 			args = append(args, "./"+test)
 		}
@@ -262,7 +262,7 @@ func npmTestCommand(script, directory, body string, index int) Command {
 	switch fields[0] {
 	case "node":
 		if strings.HasPrefix(strings.TrimSpace(body), "node --test") {
-			command.Args = append([]string{"env", "NODE_OPTIONS=--test-reporter=tap"}, command.Args...)
+			command.Args = append([]string{"env", "NODE_OPTIONS=--test-reporter=tap --test-isolation=none"}, command.Args...)
 			command.ReportFormat = "tap"
 		}
 	case "vitest":
@@ -331,11 +331,11 @@ func javascriptPreset(paths []string) Recipe {
 		return r
 	}
 	for start, chunk := 0, 0; start < len(tests); chunk++ {
-		end := start + 125
+		end := start + 124
 		if end > len(tests) {
 			end = len(tests)
 		}
-		args := []string{"node", "--test", "--test-reporter=tap"}
+		args := []string{"node", "--test", "--test-reporter=tap", "--test-isolation=none"}
 		for _, test := range tests[start:end] {
 			args = append(args, "./"+test)
 		}

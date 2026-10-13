@@ -5,7 +5,7 @@ import "testing"
 func TestOwnerNodeScriptProducesCountedReceipts(t *testing.T) {
 	files := map[string][]byte{"package.json": []byte(`{"scripts":{"test":"node --test tests/*.test.js"}}`)}
 	r, err := BuildOwner("javascript", files)
-	if err != nil || len(r.Commands) != 1 || r.Commands[0].ReportFormat != "tap" || r.Commands[0].Args[0] != "env" || r.Commands[0].Args[1] != "NODE_OPTIONS=--test-reporter=tap" {
+	if err != nil || len(r.Commands) != 1 || r.Commands[0].ReportFormat != "tap" || r.Commands[0].Args[0] != "env" || r.Commands[0].Args[1] != "NODE_OPTIONS=--test-reporter=tap --test-isolation=none" {
 		t.Fatalf("Node receipts missing: %+v %v", r, err)
 	}
 }
@@ -17,7 +17,7 @@ func TestBuildPresetsCorpus(t *testing.T) {
 		command []string
 	}{
 		{"go", map[string][]byte{"go.mod": []byte("module example.test\n"), "z_test.go": nil, ".github/workflows/test.yml": nil}, []string{"go", "test", "-json", "-count=1", "./..."}},
-		{"javascript", map[string][]byte{"package.json": nil, "tests/z.spec.js": nil, "tests/a.test.js": nil, "package-lock.json": nil}, []string{"node", "--test", "--test-reporter=tap", "./tests/a.test.js", "./tests/z.spec.js"}},
+		{"javascript", map[string][]byte{"package.json": nil, "tests/z.spec.js": nil, "tests/a.test.js": nil, "package-lock.json": nil}, []string{"node", "--test", "--test-reporter=tap", "--test-isolation=none", "./tests/a.test.js", "./tests/z.spec.js"}},
 		{"python", map[string][]byte{"pyproject.toml": nil, "tests/test_z.py": []byte("import unittest\n"), "tests/test_a.py": []byte("from unittest import TestCase\n")}, []string{"python3", "-m", "unittest", "discover", "-v"}},
 	}
 	for _, tc := range tests {
@@ -59,7 +59,7 @@ func TestBuildInventoryBoundAndNodePathSafety(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.MaxFiles != 20 || len(r.Commands) != 1 || r.Commands[0].Args[3] != "./-bad.test.js" {
+	if r.MaxFiles != 20 || len(r.Commands) != 1 || r.Commands[0].Args[4] != "./-bad.test.js" {
 		t.Fatalf("inventory/path handling: %#v", r)
 	}
 }

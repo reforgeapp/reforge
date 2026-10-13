@@ -169,7 +169,7 @@ func RunBootstrap(ctx context.Context, root fs.FS, output io.Writer) bool {
 		cmd.WaitDelay = 2 * time.Second
 		cmd.Dir = command.directory
 		if command.format == "tap" {
-			cmd.Env = append(os.Environ(), "NODE_OPTIONS="+strings.TrimSpace(os.Getenv("NODE_OPTIONS")+" --test-reporter=tap"))
+			cmd.Env = append(os.Environ(), "NODE_OPTIONS="+strings.TrimSpace(os.Getenv("NODE_OPTIONS")+" --test-reporter=tap --test-isolation=none"))
 		}
 		var logs bootstrapOutput
 		cmd.Stdout, cmd.Stderr = &logs, &logs
