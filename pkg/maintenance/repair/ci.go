@@ -379,7 +379,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	system := "Maintain the repository and address the failed CI. Inspect affected workflow steps, run available repository checks, and preserve all tests and security checks. Hosted checks may require unavailable services or tools; report what could not be verified and rely on native PR CI for those results. Prefer the smallest correct change."
 	tools := ciTools()
 	if owner {
-		system = "You own and maintain this repository. Make small, reviewable changes, inspect affected CI workflow steps, and preserve tests and security checks. Run available checks; native PR CI is the final feedback for hosted checks."
+		system = "You own and maintain this repository. Use actual tools to read repository files, apply small changes, run_checks, then finish or skip. Describing tool calls or test results does not execute them. Never invent file contents or results. Preserve tests and security checks; native PR CI is the final feedback for hosted checks."
 		tools = ownerTools()
 		originalChanges := originalFileChanges(e.originalFiles, files)
 		prompt = "You own this repository and decide how to resolve the task below. You may change any file, including tests and CI, when that is the right call; tests you remove or rewrite must be genuinely obsolete or wrong, not inconvenient. Every test that passes on the target must still pass. Never commit secrets.\n" +
@@ -412,6 +412,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		return fail("Repository index exceeds model context limit", ErrHandoff)
 	}
 	messages := []model.Message{{Role: "user", Text: prompt}}
+	noActionTurns := 0
 	var continuation json.RawMessage
 	patches := map[string]sandbox.Patch{}
 	updates := []DependencyUpdate{}
@@ -530,12 +531,17 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			continue
 		}
 		if len(result.ToolCalls) == 0 {
+			noActionTurns++
+			if noActionTurns >= 2 {
+				return fail("Model did not execute tool calls; operator must select a model qualified for repository work", ErrHandoff)
+			}
 			if owner && result.Text != "" {
 				recentToolResults = appendOwnerRecent(recentToolResults, "assistant", result.Text)
 			}
 			messages = append(messages, model.Message{Role: "user", Text: "Use the tools: change something and run_checks, then finish, or skip with a reason."})
 			continue
 		}
+		noActionTurns = 0
 		returned := 0
 		note := wrapUp(ctx, p, turn)
 		for i, call := range result.ToolCalls {

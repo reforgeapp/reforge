@@ -2,6 +2,7 @@ package repair
 
 import (
 	"context"
+	"errors"
 	"strings"
 	"testing"
 
@@ -12,6 +13,23 @@ import (
 type reportedDefectRuntime struct {
 	retryRuntime
 	reproduces bool
+}
+
+func TestNarratedChangesStopWithoutBecomingRepairEvidence(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner = true
+	plan.Recipe.MaxTurns = 8
+	plan.Digest = planDigest(plan)
+	runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: true}
+	calls := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "narrated", AttemptID: "narrated", Trust: "fixture", Progress: func(context.Context, string) error { return nil }, Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+		calls++
+		return model.TurnResult{Text: "I applied the change and all tests pass.", FinishReason: "stop"}, nil
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if !errors.Is(err, ErrHandoff) || calls != 2 || report.State == "validated" || len(report.Patches) != 0 || !strings.Contains(report.Reason, "qualified for repository work") {
+		t.Fatalf("narrated changes became work: calls=%d report=%+v err=%v", calls, report, err)
+	}
 }
 
 func (r *reportedDefectRuntime) ExecuteBoundedCommand(_ context.Context, w sandbox.Workspace, _ sandbox.Command) (sandbox.CommandResult, error) {
