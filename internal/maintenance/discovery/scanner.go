@@ -489,10 +489,15 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	botConfig := detectors.BotConfiguration(base)
 	var cfg Config
 	var cached []forge.Change
+	var provider string
+	var renovateActive bool
 	err = s.db.Tenant(ctx, lease.Org, "", func(tx pgx.Tx) error {
 		var err error
 		cfg, err = configTx(ctx, tx, lease.Org, lease.Repo)
 		if err != nil {
+			return err
+		}
+		if err = tx.QueryRow(ctx, `SELECT coalesce((SELECT provider FROM connections WHERE org_id=$1 AND id=$3),''),EXISTS(SELECT 1 FROM inventory_changes WHERE org_id=$1 AND repository_id=$2 AND snapshot->>'author_login'='renovate[bot]')`, lease.Org, lease.Repo, lease.Connection).Scan(&provider, &renovateActive); err != nil {
 			return err
 		}
 		rows, err := tx.Query(ctx, `SELECT snapshot FROM inventory_changes WHERE org_id=$1 AND repository_id=$2 AND snapshot->>'state' IN ('open','opened') ORDER BY native_id LIMIT 201`, lease.Org, lease.Repo)
@@ -523,6 +528,14 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	out := []Observation{}
 	if title := botConfigGap(base, botConfig); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
+	}
+	if botConfig.Renovate.Present && !botConfig.Dependabot.Present && !renovateActive {
+		e := initial
+		e.Blockers = []string{"Needs a person: Renovate has not opened any pull requests; install the Renovate app for this repository"}
+		if provider == "github" {
+			e.ActionURL, e.ActionLabel = "https://github.com/apps/renovate/installations/new", "Install Renovate on GitHub"
+		}
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "renovate-install", Category: "provider_access", Severity: "low", Title: "Install Renovate", Evidence: e})
 	}
 	if title := validationGap(entries); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "validation-bootstrap", Category: "missing_validation", Severity: "medium", Title: title, Evidence: initial})
