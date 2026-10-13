@@ -15,6 +15,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/control"
 	"github.com/reforgeapp/reforge/pkg/customcmd"
+	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
@@ -31,6 +32,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 	"github.com/reforgeapp/reforge/pkg/providers"
+	"github.com/reforgeapp/reforge/pkg/release"
 	"github.com/reforgeapp/reforge/pkg/runner"
 	"github.com/reforgeapp/reforge/pkg/secrets"
 	"github.com/reforgeapp/reforge/pkg/store"
@@ -223,6 +225,9 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	defer func() { stopGitops(); <-gitopsDone }()
 	deliveries := deployment.New(db, identity, connectionService, policies, providerReads)
 	app.RegisterDeployment(deliveries)
+	releases := &release.Service{DB: db, Auth: identity}
+	deliveryCommands := &delivery.Service{Releases: releases, Native: deliveries, GitOps: promotions, Providers: providerReads}
+	app.RegisterReleases(releases, deliveryCommands)
 	campaigns = campaign.New(db, identity, policies, workflows, cfg.RepairImages, nil)
 	campaigns.ConfigureExecution(repairs, deliveries, promotions, merges)
 	workflows.RegisterScopeCheck(func(ctx context.Context, tx pgx.Tx, org, kind, id string) error {

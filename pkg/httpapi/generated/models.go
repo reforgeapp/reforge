@@ -2,8 +2,6 @@ package generated
 
 import (
 	"time"
-
-	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -1037,6 +1035,22 @@ func (e RepositoryProvider) Valid() bool {
 }
 
 const (
+	RestorePlanKindGitops RestorePlanKind = "gitops"
+	RestorePlanKindNative RestorePlanKind = "native"
+)
+
+func (e RestorePlanKind) Valid() bool {
+	switch e {
+	case RestorePlanKindGitops:
+		return true
+	case RestorePlanKindNative:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	RoleAdmin      Role = "admin"
 	RoleMaintainer Role = "maintainer"
 	RoleOwner      Role = "owner"
@@ -1124,6 +1138,7 @@ func (e RunnerPoolInputState) Valid() bool {
 const (
 	SetupStepIdAssignment SetupStepId = "assignment"
 	SetupStepIdBudget     SetupStepId = "budget"
+	SetupStepIdDelivery   SetupStepId = "delivery"
 	SetupStepIdForge      SetupStepId = "forge"
 	SetupStepIdModel      SetupStepId = "model"
 	SetupStepIdPolicy     SetupStepId = "policy"
@@ -1139,6 +1154,8 @@ func (e SetupStepId) Valid() bool {
 	case SetupStepIdAssignment:
 		return true
 	case SetupStepIdBudget:
+		return true
+	case SetupStepIdDelivery:
 		return true
 	case SetupStepIdForge:
 		return true
@@ -1336,13 +1353,19 @@ type ArtifactMetadata struct {
 	TaskId       string    `json:"task_id"`
 }
 type ArtifactProvenance struct {
-	ArtifactDigest string    `json:"artifact_digest"`
-	BuildId        string    `json:"build_id"`
-	ExpiresAt      time.Time `json:"expires_at"`
-	IssuedAt       time.Time `json:"issued_at"`
-	OrgId          string    `json:"org_id"`
-	RepositoryId   string    `json:"repository_id"`
-	SourceSha      string    `json:"source_sha"`
+	ArtifactDigest       string                 `json:"artifact_digest"`
+	BuildId              string                 `json:"build_id"`
+	ConfigurationVersion *int64                 `json:"configuration_version,omitempty"`
+	Environment          *string                `json:"environment,omitempty"`
+	ExpiresAt            time.Time              `json:"expires_at"`
+	IssuedAt             time.Time              `json:"issued_at"`
+	Kind                 *string                `json:"kind,omitempty"`
+	OrgId                string                 `json:"org_id"`
+	Recovery             *RecoverySafety        `json:"recovery,omitempty"`
+	RepositoryId         string                 `json:"repository_id"`
+	SourceSha            string                 `json:"source_sha"`
+	Validation           *NativeBuildValidation `json:"validation,omitempty"`
+	WorkflowSha256       *string                `json:"workflow_sha256,omitempty"`
 }
 type AuditEvent struct {
 	Action       string                 `json:"action"`
@@ -1517,7 +1540,7 @@ type BugReportInput struct {
 	Expected      string             `json:"expected"`
 	Kind          BugReportInputKind `json:"kind"`
 	Observed      string             `json:"observed"`
-	RepositoryId  openapi_types.UUID `json:"repository_id"`
+	RepositoryId  string             `json:"repository_id"`
 	ScreenshotUrl *string            `json:"screenshot_url,omitempty"`
 	Url           *string            `json:"url,omitempty"`
 }
@@ -1777,6 +1800,11 @@ type DeliveryQualification struct {
 	ServerVersion            string    `json:"server_version"`
 	VerifiedAt               time.Time `json:"verified_at"`
 }
+type DeliveryResult struct {
+	Id    string `json:"id"`
+	Kind  string `json:"kind"`
+	State string `json:"state"`
+}
 type DeliveryWorkflow struct {
 	ConfigSha256 string            `json:"config_sha256"`
 	Id           string            `json:"id"`
@@ -1786,6 +1814,8 @@ type DeliveryWorkflow struct {
 	Sha          string            `json:"sha"`
 }
 type DeploymentConfiguration struct {
+	BuildWorkflowPath     *string                     `json:"build_workflow_path,omitempty"`
+	BuildWorkflowSha256   *string                     `json:"build_workflow_sha256,omitempty"`
 	DeadlineSeconds       int64                       `json:"deadline_seconds"`
 	Enabled               bool                        `json:"enabled"`
 	Environment           string                      `json:"environment"`
@@ -1875,6 +1905,19 @@ type DeploymentPreviewInput struct {
 type DeploymentRequestInput struct {
 	GateId         string `json:"gate_id"`
 	IdempotencyKey string `json:"idempotency_key"`
+}
+type DeploymentSetup struct {
+	Blockers []string `json:"blockers"`
+	Paths    []struct {
+		Blockers    []string `json:"blockers"`
+		Environment string   `json:"environment"`
+		Kind        string   `json:"kind"`
+		Ready       bool     `json:"ready"`
+	} `json:"paths"`
+	Workflows []struct {
+		Path   string `json:"path"`
+		Sha256 string `json:"sha256"`
+	} `json:"workflows"`
 }
 type DeploymentState string
 type DeploymentTrackInput struct {
@@ -2088,6 +2131,8 @@ type GitHubAppStatus struct {
 }
 type GitHubAppStatusMode string
 type GitOpsConfiguration struct {
+	BuildWorkflowPath     *string  `json:"build_workflow_path,omitempty"`
+	BuildWorkflowSha256   *string  `json:"build_workflow_sha256,omitempty"`
 	DeadlineSeconds       int64    `json:"deadline_seconds"`
 	DeliveryRepositoryId  string   `json:"delivery_repository_id"`
 	Enabled               bool     `json:"enabled"`
@@ -2314,6 +2359,7 @@ type MaintenanceEvidence struct {
 	ConfigVersion     int64                   `json:"config_version"`
 	ConnectionId      string                  `json:"connection_id"`
 	ConnectionVersion int64                   `json:"connection_version"`
+	DeliveryOperation *string                 `json:"delivery_operation,omitempty"`
 	Dependencies      []MaintenanceDependency `json:"dependencies"`
 	HeadOwnership     *string                 `json:"head_ownership,omitempty"`
 	HeadSha           string                  `json:"head_sha"`
@@ -2321,6 +2367,7 @@ type MaintenanceEvidence struct {
 	Ownership         string                  `json:"ownership"`
 	Provenance        string                  `json:"provenance"`
 	ReferenceUrl      *string                 `json:"reference_url,omitempty"`
+	ReleaseReceipt    *string                 `json:"release_receipt,omitempty"`
 	Report            *BugReport              `json:"report,omitempty"`
 	Review            *struct {
 		Confidence   *string `json:"confidence,omitempty"`
@@ -2348,6 +2395,8 @@ type MaintenancePlan struct {
 	Continuous               bool                     `json:"continuous"`
 	CreatesOrganisationLimit bool                     `json:"creates_organisation_limit"`
 	Decisions                map[string]string        `json:"decisions"`
+	DeliveryRepositories     *[]string                `json:"delivery_repositories,omitempty"`
+	Environments             *[]string                `json:"environments,omitempty"`
 	MicroUsd                 int64                    `json:"micro_usd"`
 	Mode                     MaintenancePlanMode      `json:"mode"`
 	Model                    *string                  `json:"model,omitempty"`
@@ -2546,6 +2595,13 @@ type ModelUsage struct {
 	Known               bool   `json:"known"`
 	OutputTokens        int64  `json:"output_tokens"`
 	Source              string `json:"source"`
+}
+type NativeBuildValidation struct {
+	Builds    int               `json:"builds"`
+	Cases     map[string]string `json:"cases"`
+	Complete  bool              `json:"complete"`
+	Outputs   []string          `json:"outputs"`
+	TargetSha string            `json:"target_sha"`
 }
 type NativeDeliveryWorkflow struct {
 	Id   string `json:"id"`
@@ -2919,6 +2975,21 @@ type PrivateRoute struct {
 type PrivateRouteChange struct {
 	Route PrivateRoute `json:"route"`
 }
+type RecoverySafety struct {
+	CompatibleArtifacts *[]string `json:"compatible_artifacts,omitempty"`
+	State               string    `json:"state"`
+}
+type ReleaseReceipt struct {
+	Id         string                   `json:"id"`
+	Mode       *string                  `json:"mode,omitempty"`
+	Provenance SignedArtifactProvenance `json:"provenance"`
+	ReceivedAt time.Time                `json:"received_at"`
+}
+type ReleaseReceiptPage struct {
+	Complete   bool             `json:"complete"`
+	Items      []ReleaseReceipt `json:"items"`
+	NextCursor *string          `json:"next_cursor,omitempty"`
+}
 type RepairBehaviourArtifact struct {
 	CheckSha256 string `json:"check_sha256"`
 	Id          string `json:"id"`
@@ -3087,6 +3158,16 @@ type ResolvedPolicy struct {
 	RepositoryId    string         `json:"repository_id"`
 	ScopePaused     bool           `json:"scope_paused"`
 }
+type RestorePlan struct {
+	Blockers    []string        `json:"blockers"`
+	Environment string          `json:"environment"`
+	ExpiresAt   time.Time       `json:"expires_at"`
+	GateId      string          `json:"gate_id"`
+	Kind        RestorePlanKind `json:"kind"`
+	Limits      []string        `json:"limits"`
+	PreviousAt  time.Time       `json:"previous_at"`
+}
+type RestorePlanKind string
 type RetryCommand struct {
 	FindingVersion int64  `json:"finding_version"`
 	Reason         string `json:"reason"`
@@ -3477,6 +3558,24 @@ type ApproveCustomProfileParams struct {
 type RevokeCustomProfileParams struct {
 	IfMatch string `json:"If-Match"`
 }
+type RestoreGitopsReleaseJSONBody struct {
+	GateId string `json:"gate_id"`
+}
+type RestoreGitopsReleaseParams struct {
+	IfMatch string `json:"If-Match"`
+}
+type PreviewGitopsRestoreParams struct {
+	IfMatch string `json:"If-Match"`
+}
+type RestoreNativeReleaseJSONBody struct {
+	GateId string `json:"gate_id"`
+}
+type RestoreNativeReleaseParams struct {
+	IfMatch string `json:"If-Match"`
+}
+type PreviewNativeRestoreParams struct {
+	IfMatch string `json:"If-Match"`
+}
 type PutDeploymentConfigurationParams struct {
 	IfMatch    string `json:"If-Match"`
 	XCSRFToken string `json:"X-CSRF-Token"`
@@ -3685,6 +3784,10 @@ type RepositoriesParams struct {
 	TeamId   *string `form:"team_id,omitempty" json:"team_id,omitempty"`
 	Status   *string `form:"status,omitempty" json:"status,omitempty"`
 }
+type ListReleaseReceiptsParams struct {
+	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
+}
 type ListInventoryChangesParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Limit  *int    `form:"limit,omitempty" json:"limit,omitempty"`
@@ -3737,7 +3840,7 @@ type RevokeRunnerParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type GetSetupParams struct {
-	RepositoryId *openapi_types.UUID `form:"repository_id,omitempty" json:"repository_id,omitempty"`
+	RepositoryId *string `form:"repository_id,omitempty" json:"repository_id,omitempty"`
 }
 type ListTasksParams struct {
 	Cursor *string `form:"cursor,omitempty" json:"cursor,omitempty"`
@@ -3888,6 +3991,8 @@ type SetPrivateRouteJSONRequestBody = PrivateRouteChange
 type RotateCredentialJSONRequestBody = CredentialRotation
 type CreateCustomProfileJSONRequestBody = CustomProfileInput
 type ApproveCustomProfileJSONRequestBody = CustomProfileApproval
+type RestoreGitopsReleaseJSONRequestBody RestoreGitopsReleaseJSONBody
+type RestoreNativeReleaseJSONRequestBody RestoreNativeReleaseJSONBody
 type PutDeploymentConfigurationJSONRequestBody = DeploymentConfiguration
 type PreviewDeploymentJSONRequestBody = DeploymentPreviewInput
 type TrackDeploymentJSONRequestBody = DeploymentTrackInput
@@ -3913,6 +4018,7 @@ type ActivatePolicyJSONRequestBody = PolicyActivateRequest
 type SimulatePolicyJSONRequestBody = PolicySimulateRequest
 type PreviewRepairJSONRequestBody = RepairInput
 type EnqueueRepairJSONRequestBody = RepairInput
+type ReceiveReleaseReportJSONRequestBody = SignedArtifactProvenance
 type PreviewProtectedMergeJSONRequestBody = MergePreviewRequest
 type PutMaintenanceConfigJSONRequestBody = MaintenanceConfig
 type PutMergeConfigurationJSONRequestBody = MergeConfiguration

@@ -2619,6 +2619,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/release-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["receiveReleaseReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/releases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["listReleaseReceipts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/release-receipts/{receiptID}/deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deployReleaseReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/deployment-setup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["discoverDeploymentSetup"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/delivery/native/{operationID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreNativeRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/delivery/gitops/{operationID}/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["restoreGitopsRelease"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/delivery/native/{operationID}/restore/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewNativeRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/delivery/gitops/{operationID}/restore/preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["previewGitopsRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3722,6 +3850,8 @@ export interface components {
                 size?: number;
             }[];
             report?: components["schemas"]["BugReport"];
+            release_receipt?: string;
+            delivery_operation?: string;
         };
         Finding: {
 
@@ -4236,6 +4366,8 @@ export interface components {
             deadline_seconds: number;
             qualification: components["schemas"]["DeliveryQualification"];
             native_environment: string;
+            build_workflow_path?: string;
+            build_workflow_sha256?: string;
         };
         ArtifactProvenance: {
 
@@ -4249,6 +4381,13 @@ export interface components {
             issued_at: string;
 
             expires_at: string;
+            environment?: string;
+            kind?: string;
+            workflow_sha256?: string;
+
+            configuration_version?: number;
+            validation?: components["schemas"]["NativeBuildValidation"];
+            recovery?: components["schemas"]["RecoverySafety"];
         };
         SignedArtifactProvenance: {
             document: components["schemas"]["ArtifactProvenance"];
@@ -4448,6 +4587,8 @@ export interface components {
             recovery_allowed: boolean;
             promote_from?: string;
             health_checks: string[];
+            build_workflow_path?: string;
+            build_workflow_sha256?: string;
         };
         GitOpsPreviewInput: {
             change_id: string;
@@ -4876,7 +5017,7 @@ export interface components {
         };
         SetupStep: {
 
-            id: "forge" | "repository" | "scan" | "model" | "pricing" | "budget" | "runner" | "assignment" | "policy" | "server";
+            id: "forge" | "repository" | "scan" | "model" | "pricing" | "budget" | "runner" | "assignment" | "policy" | "server" | "delivery";
             done: boolean;
             reason?: string;
             repository_id?: string;
@@ -4946,6 +5087,8 @@ export interface components {
             organisation_micro_usd?: number;
             organisation_period?: string;
             creates_organisation_limit: boolean;
+            environments?: string[];
+            delivery_repositories?: string[];
         };
         BugReport: {
             observed: string;
@@ -5070,6 +5213,63 @@ export interface components {
             media_type: string;
             sha256: string;
             check_sha256: string;
+        };
+        NativeBuildValidation: {
+            target_sha: string;
+            builds: number;
+            complete: boolean;
+            cases: {
+                [key: string]: string;
+            };
+            outputs: string[];
+        };
+        RecoverySafety: {
+            state: string;
+            compatible_artifacts?: string[];
+        };
+        ReleaseReceipt: {
+
+            id: string;
+            provenance: components["schemas"]["SignedArtifactProvenance"];
+
+            received_at: string;
+            mode?: string;
+        };
+        ReleaseReceiptPage: {
+            items: components["schemas"]["ReleaseReceipt"][];
+            complete: boolean;
+            next_cursor?: string;
+        };
+        DeliveryResult: {
+            kind: string;
+            id: string;
+            state: string;
+        };
+        DeploymentSetup: {
+            workflows: {
+                path: string;
+                sha256: string;
+            }[];
+            paths: {
+                kind: string;
+                environment: string;
+                ready: boolean;
+                blockers: string[];
+            }[];
+            blockers: string[];
+        };
+        RestorePlan: {
+
+            kind: "native" | "gitops";
+            environment: string;
+
+            previous_at: string;
+
+            gate_id: string;
+
+            expires_at: string;
+            limits: string[];
+            blockers: string[];
         };
     };
     responses: never;
@@ -12273,6 +12473,219 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    receiveReleaseReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignedArtifactProvenance"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseReceipt"];
+                };
+            };
+        };
+    };
+    listReleaseReceipts: {
+        parameters: {
+            query?: {
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReleaseReceiptPage"];
+                };
+            };
+        };
+    };
+    deployReleaseReceipt: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                receiptID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryResult"];
+                };
+            };
+        };
+    };
+    discoverDeploymentSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                repoID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeploymentSetup"];
+                };
+            };
+        };
+    };
+    restoreNativeRelease: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+
+                    gate_id: string;
+                };
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryResult"];
+                };
+            };
+        };
+    };
+    restoreGitopsRelease: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+
+                    gate_id: string;
+                };
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeliveryResult"];
+                };
+            };
+        };
+    };
+    previewNativeRestore: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestorePlan"];
+                };
+            };
+        };
+    };
+    previewGitopsRestore: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": string;
+            };
+            path: {
+                orgID: string;
+                operationID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestorePlan"];
                 };
             };
         };

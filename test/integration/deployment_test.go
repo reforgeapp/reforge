@@ -212,14 +212,43 @@ func TestDeploymentSignedProvenanceAndHealthContract(t *testing.T) {
 	if err != nil || gate.Decision.Outcome != "allow" {
 		t.Fatalf("post-cancel preview: %+v %v", gate, err)
 	}
-	key = "deploy-key-2"
-	op, err = svc.Request(ctx, f.owner, f.org, gate.ID, key, "deploy-contract-2")
-	if err != nil || provider.dispatches != 2 {
-		t.Fatalf("post-cancel request: %+v %v dispatches=%d", op, err, provider.dispatches)
+	mergedChange, _ := json.Marshal(forge.Change{ID: "1", Repository: repo, TargetRepository: repo, HeadRepository: repo, State: "merged", HeadSHA: head, MergeSHA: head, TargetBranch: "main"})
+	if err = f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO inventory_changes(org_id,repository_id,native_id,snapshot,job_id) SELECT $1,$2,'1',$3,id FROM inventory_jobs WHERE org_id=$1 AND repository_id=$2 ORDER BY created_at DESC LIMIT 1`, f.org, f.repo, mergedChange)
+		return err
+	}); err != nil {
+		t.Fatal(err)
 	}
-	replay, err := svc.Request(ctx, f.owner, f.org, gate.ID, key, "replay")
-	if err != nil || replay.ID != op.ID || provider.dispatches != 2 {
-		t.Fatalf("replay: %+v %v dispatches=%d", replay, err, provider.dispatches)
+	releases := &release.Service{DB: f.db, Auth: f.identity}
+	commands := &delivery.Service{Releases: releases, Native: svc}
+	ci := provenance
+	ci.Kind, ci.Environment, ci.ConfigurationVersion = "native", "production", config.Version
+	ciRaw, _ := json.Marshal(ci)
+	receipt, err := releases.Receive(ctx, f.org, f.repo, deployment.SignedProvenance{Document: ci, Signature: base64.StdEncoding.EncodeToString(ed25519.Sign(priv, ciRaw))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	started, err := commands.Deploy(ctx, f.owner, f.org, receipt.ID, "deploy-receipt")
+	if err != nil || provider.dispatches != 2 {
+		t.Fatalf("receipt dispatch: %+v %v dispatches=%d", started, err, provider.dispatches)
+	}
+	startedDetail, err := svc.Get(ctx, f.owner, f.org, started.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	op = startedDetail.Operation
+	ci.BuildID = "build-repeat"
+	ciRaw, _ = json.Marshal(ci)
+	repeated, err := releases.Receive(ctx, f.org, f.repo, deployment.SignedProvenance{Document: ci, Signature: base64.StdEncoding.EncodeToString(ed25519.Sign(priv, ciRaw))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	commands = &delivery.Service{Releases: releases, Native: svc}
+	for _, id := range []string{receipt.ID, repeated.ID} {
+		replay, replayErr := commands.Deploy(ctx, f.owner, f.org, id, "replay")
+		if replayErr != nil || replay.ID != op.ID || provider.dispatches != 2 {
+			t.Fatalf("receipt replay after restart: %+v %v dispatches=%d", replay, replayErr, provider.dispatches)
+		}
 	}
 	observed, err := svc.Observe(ctx, f.org, op.ID)
 	if err != nil || observed.State != "completed_unverified" {
@@ -289,7 +318,7 @@ func TestDeploymentSignedProvenanceAndHealthContract(t *testing.T) {
 	if err != nil || failedOp.State != "failed" {
 		t.Fatalf("failed deployment: %+v %v", failedOp, err)
 	}
-	commands := &delivery.Service{Releases: &release.Service{DB: f.db, Auth: f.identity}, Native: svc}
+	commands = &delivery.Service{Releases: &release.Service{DB: f.db, Auth: f.identity}, Native: svc}
 	plan, err := commands.PreviewRestore(ctx, f.owner, f.org, "native", failedOp.ID, failedOp.Version, "restore-preview")
 	if err != nil || len(plan.Blockers) > 0 || !plan.PreviousAt.Equal(healthy.CreatedAt) || len(plan.Limits) == 0 {
 		t.Fatalf("owner restore preview: %+v %v", plan, err)

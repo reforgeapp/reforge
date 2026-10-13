@@ -8469,7 +8469,8 @@
             "in": "query",
             "schema": {
               "type": "string",
-              "format": "uuid"
+              "format": "uuid",
+              "x-go-type": "string"
             }
           }
         ],
@@ -12210,6 +12211,457 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/release-reports": {
+      "post": {
+        "operationId": "receiveReleaseReport",
+        "security": [],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseReceipt"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SignedArtifactProvenance"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/releases": {
+      "get": {
+        "operationId": "listReleaseReceipts",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 100,
+              "default": 30
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReleaseReceiptPage"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/release-receipts/{receiptID}/deploy": {
+      "post": {
+        "operationId": "deployReleaseReceipt",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "receiptID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/repositories/{repoID}/deployment-setup": {
+      "get": {
+        "operationId": "discoverDeploymentSetup",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "repoID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeploymentSetup"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/delivery/native/{operationID}/restore": {
+      "post": {
+        "operationId": "restoreNativeRelease",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryResult"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "gate_id"
+                ],
+                "properties": {
+                  "gate_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "x-go-type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/delivery/gitops/{operationID}/restore": {
+      "post": {
+        "operationId": "restoreGitopsRelease",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/DeliveryResult"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "gate_id"
+                ],
+                "properties": {
+                  "gate_id": {
+                    "type": "string",
+                    "format": "uuid",
+                    "x-go-type": "string"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/delivery/native/{operationID}/restore/preview": {
+      "post": {
+        "operationId": "previewNativeRestore",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Previous working release and recovery limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestorePlan"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/delivery/gitops/{operationID}/restore/preview": {
+      "post": {
+        "operationId": "previewGitopsRestore",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "operationID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "x-go-type": "string"
+            }
+          },
+          {
+            "name": "If-Match",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Previous working release and recovery limits",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RestorePlan"
                 }
               }
             }
@@ -16166,6 +16618,12 @@
           },
           "report": {
             "$ref": "#/components/schemas/BugReport"
+          },
+          "release_receipt": {
+            "type": "string"
+          },
+          "delivery_operation": {
+            "type": "string"
           }
         },
         "required": [
@@ -18031,6 +18489,12 @@
           },
           "native_environment": {
             "type": "string"
+          },
+          "build_workflow_path": {
+            "type": "string"
+          },
+          "build_workflow_sha256": {
+            "type": "string"
           }
         }
       },
@@ -18072,6 +18536,25 @@
           "expires_at": {
             "type": "string",
             "format": "date-time"
+          },
+          "environment": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "workflow_sha256": {
+            "type": "string"
+          },
+          "configuration_version": {
+            "type": "integer",
+            "format": "int64"
+          },
+          "validation": {
+            "$ref": "#/components/schemas/NativeBuildValidation"
+          },
+          "recovery": {
+            "$ref": "#/components/schemas/RecoverySafety"
           }
         }
       },
@@ -18756,6 +19239,12 @@
             "items": {
               "type": "string"
             }
+          },
+          "build_workflow_path": {
+            "type": "string"
+          },
+          "build_workflow_sha256": {
+            "type": "string"
           }
         }
       },
@@ -20319,7 +20808,8 @@
               "runner",
               "assignment",
               "policy",
-              "server"
+              "server",
+              "delivery"
             ]
           },
           "done": {
@@ -20586,6 +21076,18 @@
           },
           "creates_organisation_limit": {
             "type": "boolean"
+          },
+          "environments": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "delivery_repositories": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
         }
       },
@@ -20653,7 +21155,8 @@
           },
           "repository_id": {
             "type": "string",
-            "format": "uuid"
+            "format": "uuid",
+            "x-go-type": "string"
           },
           "kind": {
             "type": "string",
@@ -21069,6 +21572,234 @@
           "sha256",
           "check_sha256"
         ]
+      },
+      "NativeBuildValidation": {
+        "type": "object",
+        "properties": {
+          "target_sha": {
+            "type": "string"
+          },
+          "builds": {
+            "type": "integer"
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "cases": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "outputs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "target_sha",
+          "builds",
+          "complete",
+          "cases",
+          "outputs"
+        ]
+      },
+      "RecoverySafety": {
+        "type": "object",
+        "properties": {
+          "state": {
+            "type": "string"
+          },
+          "compatible_artifacts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "state"
+        ]
+      },
+      "ReleaseReceipt": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/SignedArtifactProvenance"
+          },
+          "received_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "mode": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "provenance",
+          "received_at"
+        ]
+      },
+      "ReleaseReceiptPage": {
+        "type": "object",
+        "properties": {
+          "items": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ReleaseReceipt"
+            }
+          },
+          "complete": {
+            "type": "boolean"
+          },
+          "next_cursor": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "items",
+          "complete"
+        ]
+      },
+      "DeliveryResult": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "id": {
+            "type": "string"
+          },
+          "state": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "state"
+        ]
+      },
+      "DeploymentSetup": {
+        "type": "object",
+        "properties": {
+          "workflows": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "sha256": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "path",
+                "sha256"
+              ]
+            }
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "environment": {
+                  "type": "string"
+                },
+                "ready": {
+                  "type": "boolean"
+                },
+                "blockers": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              },
+              "required": [
+                "kind",
+                "environment",
+                "ready",
+                "blockers"
+              ]
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "workflows",
+          "paths",
+          "blockers"
+        ]
+      },
+      "RestorePlan": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "environment",
+          "previous_at",
+          "gate_id",
+          "expires_at",
+          "limits",
+          "blockers"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "native",
+              "gitops"
+            ]
+          },
+          "environment": {
+            "type": "string"
+          },
+          "previous_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "gate_id": {
+            "type": "string",
+            "format": "uuid",
+            "x-go-type": "string"
+          },
+          "expires_at": {
+            "type": "string",
+            "format": "date-time"
+          },
+          "limits": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "blockers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
       }
     },
     "securitySchemes": {
