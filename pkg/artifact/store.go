@@ -67,6 +67,12 @@ func NewLocal(db *store.Store, directory string) (*Store, error) {
 }
 func (s *Store) Close() error { return s.blobs.close() }
 func validContent(media string, data []byte) bool {
+	if media == "image/png" || media == "image/jpeg" {
+		return validImage(media, data)
+	}
+	if media == "application/zip" {
+		return validTrace(data)
+	}
 	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 || sensitive.Match(data) {
 		return false
 	}

@@ -2919,6 +2919,14 @@ type PrivateRoute struct {
 type PrivateRouteChange struct {
 	Route PrivateRoute `json:"route"`
 }
+type RepairBehaviourArtifact struct {
+	CheckSha256 string `json:"check_sha256"`
+	Id          string `json:"id"`
+	MediaType   string `json:"media_type"`
+	Name        string `json:"name"`
+	Sha256      string `json:"sha256"`
+	Stage       string `json:"stage"`
+}
 type RepairCheck struct {
 	Cases        map[string]string `json:"cases"`
 	CommandId    string            `json:"command_id"`
@@ -3015,17 +3023,18 @@ type RepairRecipe struct {
 	Version        string           `json:"version"`
 }
 type RepairReport struct {
-	Artifacts    *[]string      `json:"artifacts"`
-	Baseline     *[]RepairCheck `json:"baseline"`
-	Candidate    *[]RepairCheck `json:"candidate"`
-	Diff         *string        `json:"diff,omitempty"`
-	Patches      *[]RepairPatch `json:"patches"`
-	PlanDigest   string         `json:"plan_digest"`
-	Reason       string         `json:"reason"`
-	Reproduction *[]RepairCheck `json:"reproduction,omitempty"`
-	State        string         `json:"state"`
-	Target       *[]RepairCheck `json:"target"`
-	Turns        int64          `json:"turns"`
+	Artifacts          *[]string                  `json:"artifacts"`
+	Baseline           *[]RepairCheck             `json:"baseline"`
+	BehaviourArtifacts *[]RepairBehaviourArtifact `json:"behaviour_artifacts,omitempty"`
+	Candidate          *[]RepairCheck             `json:"candidate"`
+	Diff               *string                    `json:"diff,omitempty"`
+	Patches            *[]RepairPatch             `json:"patches"`
+	PlanDigest         string                     `json:"plan_digest"`
+	Reason             string                     `json:"reason"`
+	Reproduction       *[]RepairCheck             `json:"reproduction,omitempty"`
+	State              string                     `json:"state"`
+	Target             *[]RepairCheck             `json:"target"`
+	Turns              int64                      `json:"turns"`
 }
 type RepairRun struct {
 	Branch             string          `json:"branch"`

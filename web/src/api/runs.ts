@@ -10,7 +10,7 @@ export type CheckResult = { command_id: string; exit_code: number; output_sha256
 export type RepairRun = {
   candidate_artifacts?: string[]; branch: string; candidate_sha: string; candidate_checks?: CheckResult[] | null; change?: { id: string; title: string; url: string; state: string; head_sha: string; target_sha: string; target_branch: string; head_branch: string }
   task: Task; context: { native_head_sha?: string; model?: string; finding?: { title?: string; category?: string; source?: string }; max_output_tokens?: number; turn_timeout_ms?: number; policy_hash?: string; plan?: { digest: string; baseline_sha?: string; target_sha?: string; recipe?: { commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } } }
-  report?: { diff?: string; plan_digest: string; state: string; reason: string; baseline: CheckResult[]; candidate: CheckResult[]; target: CheckResult[]; patches: Array<{ path: string; content: string }>; artifacts: string[]; turns: number }
+  report?: { behaviour_artifacts?: Array<{ id: string; stage: string; name: string; media_type: string; sha256: string; check_sha256: string }>; reproduction?: CheckResult[]; diff?: string; plan_digest: string; state: string; reason: string; baseline: CheckResult[]; candidate: CheckResult[]; target: CheckResult[]; patches: Array<{ path: string; content: string }>; artifacts: string[]; turns: number }
   state: string; version: number; updated_at: string
 }
 export type RunLog = { seq: number; attempt_id: string; kind: 'stage' | 'model' | 'tool' | 'result'; message: string; created_at: string }

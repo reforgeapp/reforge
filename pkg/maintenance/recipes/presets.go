@@ -157,19 +157,17 @@ func ownerJavaScriptCommands(paths []string, files map[string][]byte) ([]Command
 				commands = append(commands, npmCommand(script, directory, nil, len(commands)+1))
 			}
 		}
+		unit := "test"
 		if strings.TrimSpace(pkg.Scripts["test:unit"]) != "" {
-			commands = append(commands, npmTestCommand("test:unit", directory, pkg.Scripts["test:unit"], len(commands)+1))
+			unit = "test:unit"
+		}
+		if strings.TrimSpace(pkg.Scripts[unit]) != "" {
+			commands = append(commands, npmTestCommand(unit, directory, pkg.Scripts[unit], len(commands)+1))
 			coveredDirs = append(coveredDirs, directory)
-			continue
 		}
-		testScript := strings.TrimSpace(pkg.Scripts["test"])
-		if testScript == "" {
-			continue
-		}
-		coveredDirs = append(coveredDirs, directory)
-		supported := supportedTestRunner(testScript)
-		if supported {
-			commands = append(commands, npmTestCommand("test", directory, testScript, len(commands)+1))
+		if strings.TrimSpace(pkg.Scripts["test:e2e"]) != "" {
+			commands = append(commands, npmTestCommand("test:e2e", directory, pkg.Scripts["test:e2e"], len(commands)+1))
+			coveredDirs = append(coveredDirs, directory)
 		}
 	}
 	return commands, coveredDirs
@@ -251,9 +249,34 @@ func npmCommand(script, directory string, extra []string, index int) Command {
 
 func npmTestCommand(script, directory, body string, index int) Command {
 	command := npmCommand(script, directory, testRunnerArgs(body), index)
-	if strings.HasPrefix(strings.TrimSpace(body), "node --test") && !strings.ContainsAny(body, ";&|") {
-		command.Args = append([]string{"env", "NODE_OPTIONS=--test-reporter=tap"}, command.Args...)
-		command.ReportFormat = "tap"
+	fields := strings.Fields(body)
+	if len(fields) > 0 && fields[0] == "npx" {
+		fields = fields[1:]
+		if len(fields) > 0 && fields[0] == "--no-install" {
+			fields = fields[1:]
+		}
+	}
+	if len(fields) == 0 || strings.ContainsAny(body, ";&|<>$`") {
+		return command
+	}
+	switch fields[0] {
+	case "node":
+		if strings.HasPrefix(strings.TrimSpace(body), "node --test") {
+			command.Args = append([]string{"env", "NODE_OPTIONS=--test-reporter=tap"}, command.Args...)
+			command.ReportFormat = "tap"
+		}
+	case "vitest":
+		command = npmCommand(script, directory, append(testRunnerArgs(body), "--reporter=json"), index)
+		command.ReportFormat = "jest"
+	case "jest":
+		command = npmCommand(script, directory, append(testRunnerArgs(body), "--json"), index)
+		command.ReportFormat = "jest"
+	case "playwright":
+		if len(fields) > 1 && fields[1] == "test" {
+			command = npmCommand(script, directory, []string{"--reporter=json", "--workers=1", "--retries=0", "--max-failures=1", "--timeout=30000", "--global-timeout=120000", "--forbid-only", "--trace=on", "--output=.reforge/browser/" + command.ID}, index)
+			command.TimeoutSeconds = 150
+			command.ReportFormat = "playwright"
+		}
 	}
 	return command
 }

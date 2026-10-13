@@ -16755,6 +16755,13 @@
               "$ref": "#/components/schemas/RepairCheck"
             },
             "nullable": true
+          },
+          "behaviour_artifacts": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/RepairBehaviourArtifact"
+            },
+            "nullable": true
           }
         },
         "required": [
@@ -21031,6 +21038,37 @@
           "blockers"
         ],
         "additionalProperties": false
+      },
+      "RepairBehaviourArtifact": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "stage": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "media_type": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "check_sha256": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "stage",
+          "name",
+          "media_type",
+          "sha256",
+          "check_sha256"
+        ]
       }
     },
     "securitySchemes": {

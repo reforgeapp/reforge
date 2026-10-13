@@ -587,6 +587,10 @@ func (s *Service) Snapshot(ctx context.Context, credential, sha string) (sandbox
 func (s *Service) SaveReport(ctx context.Context, credential string, in Report) (Run, error) {
 	var out Run
 	in.Diff = ""
+	in.BehaviourArtifacts = slices.DeleteFunc(in.BehaviourArtifacts, func(e BehaviourArtifact) bool {
+		checks := map[string][]CheckResult{"baseline": in.Baseline, "candidate": in.Candidate, "target": in.Target, "reproduction": in.Reproduction}[e.Stage]
+		return !slices.ContainsFunc(checks, func(check CheckResult) bool { return check.OutputSHA256 == e.CheckSHA256 })
+	})
 	raw, err := json.Marshal(in)
 	if err != nil || len(raw) > 1<<20 {
 		return out, auth.ErrInvalid
@@ -651,7 +655,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			}
 		}
 		p := current.Context.Plan
-		if in.PlanDigest != p.Digest || in.Turns < 0 || in.Turns > p.Recipe.MaxTurns || len(in.Reason) > 2000 || len(in.Artifacts) > 100 {
+		if in.PlanDigest != p.Digest || in.Turns < 0 || in.Turns > p.Recipe.MaxTurns || len(in.Reason) > 2000 || len(in.Artifacts) > 100 || len(in.BehaviourArtifacts) > 32 {
 			return auth.ErrInvalid
 		}
 		superseded, reviewed := in.Disposition == "superseded", in.Disposition == "reviewed"
@@ -684,6 +688,18 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			}
 		}
 
+		for _, evidence := range in.BehaviourArtifacts {
+			if !slices.Contains(in.Artifacts, evidence.ID) || !slices.Contains([]string{"baseline", "candidate", "target", "reproduction"}, evidence.Stage) || !slices.Contains([]string{"image/png", "image/jpeg", "application/zip"}, evidence.MediaType) {
+				return ErrValidation
+			}
+			var bound bool
+			if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND task_id=$2 AND attempt_id=$3 AND id=$4 AND name=$5 AND media_type=$6 AND sha256=$7 AND expires_at>clock_timestamp())`, l.OrgID, l.TaskID, l.AttemptID, evidence.ID, evidence.Name, evidence.MediaType, evidence.SHA256).Scan(&bound); err != nil {
+				return err
+			}
+			if !bound {
+				return ErrValidation
+			}
+		}
 		for _, group := range [][]CheckResult{in.Baseline, in.Candidate, in.Target, in.Reproduction} {
 			for _, check := range group {
 				var bound bool

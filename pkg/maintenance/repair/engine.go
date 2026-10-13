@@ -21,22 +21,23 @@ import (
 )
 
 type Report struct {
-	Diff         string             `json:"diff,omitempty"`
-	PlanDigest   string             `json:"plan_digest"`
-	State        string             `json:"state"`
-	Reason       string             `json:"reason"`
-	Baseline     []CheckResult      `json:"baseline"`
-	Candidate    []CheckResult      `json:"candidate"`
-	Target       []CheckResult      `json:"target"`
-	Patches      []sandbox.Patch    `json:"patches"`
-	Artifacts    []string           `json:"artifacts"`
-	Turns        int                `json:"turns"`
-	Mode         string             `json:"mode,omitempty"`
-	ChangedLines int                `json:"changed_lines,omitempty"`
-	Dependencies []DependencyUpdate `json:"dependencies,omitempty"`
-	Disposition  string             `json:"disposition,omitempty"`
-	Findings     []ReviewFinding    `json:"findings,omitempty"`
-	Reproduction []CheckResult      `json:"reproduction,omitempty"`
+	BehaviourArtifacts []BehaviourArtifact `json:"behaviour_artifacts,omitempty"`
+	Diff               string              `json:"diff,omitempty"`
+	PlanDigest         string              `json:"plan_digest"`
+	State              string              `json:"state"`
+	Reason             string              `json:"reason"`
+	Baseline           []CheckResult       `json:"baseline"`
+	Candidate          []CheckResult       `json:"candidate"`
+	Target             []CheckResult       `json:"target"`
+	Patches            []sandbox.Patch     `json:"patches"`
+	Artifacts          []string            `json:"artifacts"`
+	Turns              int                 `json:"turns"`
+	Mode               string              `json:"mode,omitempty"`
+	ChangedLines       int                 `json:"changed_lines,omitempty"`
+	Dependencies       []DependencyUpdate  `json:"dependencies,omitempty"`
+	Disposition        string              `json:"disposition,omitempty"`
+	Findings           []ReviewFinding     `json:"findings,omitempty"`
+	Reproduction       []CheckResult       `json:"reproduction,omitempty"`
 }
 type Engine struct {
 	Restore             *Checkpoint
@@ -240,7 +241,7 @@ func commandArgs(args []string) []string {
 	return args
 }
 
-func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, command sandbox.Command) (result sandbox.CommandResult, failure error) {
+func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, command sandbox.Command, after ...func(sandbox.Workspace, sandbox.CommandResult) error) (result sandbox.CommandResult, failure error) {
 	command.Args = commandArgs(command.Args)
 	w, err := e.prepare(ctx, sandbox.WorkspaceRequest{JobID: e.JobID, AttemptID: e.AttemptID, CommitSHA: sha, Image: p.Image, Trust: e.Trust, Timeout: command.Timeout, Dependencies: e.Dependencies}, patches, command)
 	if err != nil {
@@ -286,13 +287,33 @@ func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches 
 	if err != nil {
 		return result, err
 	}
-	return result, checkProtected()
+	if err = checkProtected(); err != nil {
+		return result, err
+	}
+	for _, observe := range after {
+		if err = observe(w, result); err != nil {
+			return result, err
+		}
+	}
+	return result, nil
 }
 
 func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sandbox.Patch, label string, report *Report) ([]CheckResult, error) {
+	stale := map[string]bool{}
+	report.BehaviourArtifacts = slices.DeleteFunc(report.BehaviourArtifacts, func(item BehaviourArtifact) bool {
+		if item.Stage == behaviourStage(label) {
+			stale[item.ID] = true
+			return true
+		}
+		return false
+	})
+	report.Artifacts = slices.DeleteFunc(report.Artifacts, func(id string) bool { return stale[id] })
 	results := make([]CheckResult, 0, len(p.Recipe.Commands))
 	for _, command := range p.Recipe.Commands {
-		result, err := e.checkedCommand(ctx, p, sha, patches, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"})
+		firstArtifact := len(report.BehaviourArtifacts)
+		result, err := e.checkedCommand(ctx, p, sha, patches, sandbox.Command{Args: command.Args, Directory: command.Directory, Timeout: time.Duration(command.TimeoutSeconds) * time.Second, MaxOutputBytes: 1 << 20, NetworkProfile: "none"}, func(w sandbox.Workspace, result sandbox.CommandResult) error {
+			return e.browserArtifacts(ctx, w, command, result, label, report)
+		})
 		if err != nil {
 			problem := "execution result could not be verified"
 			if errors.Is(err, sandbox.ErrResourceLimit) {
@@ -316,6 +337,10 @@ func (e Engine) validate(ctx context.Context, p Plan, sha string, patches []sand
 		check := Interpret(command, result)
 		if digest != "" {
 			check.OutputSHA256 = digest
+		}
+		for i := firstArtifact; i < len(report.BehaviourArtifacts); i++ {
+			report.BehaviourArtifacts[i].Stage = behaviourStage(label)
+			report.BehaviourArtifacts[i].CheckSHA256 = check.OutputSHA256
 		}
 		e.log(ctx, "tool", fmt.Sprintf("%s check %s: exit %d, %d cases%s", label, command.ID, check.ExitCode, len(check.Cases), map[bool]string{false: ", incomplete: " + check.Reason, true: ""}[check.Complete]))
 		results = append(results, check)

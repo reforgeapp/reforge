@@ -111,7 +111,7 @@ func TestBuildOwnerAggregatesMixedRepositoryCommands(t *testing.T) {
 	if r.Name != "go" || r.Version != "v4" || len(r.Commands) != 6 {
 		t.Fatalf("recipe: %#v", r)
 	}
-	if r.Commands[0].ID != "go-01" || r.Commands[0].ReportFormat != "json" || r.Commands[1].ID != "baseline" || r.Commands[2].ID != "js-01" || r.Commands[5].Args[len(r.Commands[5].Args)-1] != "--run" {
+	if r.Commands[0].ID != "go-01" || r.Commands[0].ReportFormat != "json" || r.Commands[1].ID != "baseline" || r.Commands[2].ID != "js-01" || r.Commands[5].Args[len(r.Commands[5].Args)-1] != "--reporter=json" || r.Commands[5].ReportFormat != "jest" {
 		t.Fatalf("commands: %#v", r.Commands)
 	}
 	if r.Commands[2].Args[0] != "node" || r.Commands[2].Args[1] != "/usr/local/lib/node_modules/npm/bin/npm-cli.js" || r.Commands[2].ReportFormat != "exit" {

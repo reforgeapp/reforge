@@ -296,6 +296,11 @@ func (s *Server) RegisterBuiltinRunner(service *runner.Service, secret string) {
 func sendArtifact(c *gin.Context, m artifact.Metadata, r io.Reader) {
 	c.Header("Content-Type", "application/octet-stream")
 	c.Header("Content-Disposition", mime.FormatMediaType("attachment", map[string]string{"filename": m.Name}))
+	if m.MediaType == "image/png" || m.MediaType == "image/jpeg" {
+		c.Header("Content-Type", m.MediaType)
+		c.Header("Content-Disposition", mime.FormatMediaType("inline", map[string]string{"filename": m.Name}))
+	}
+	c.Header("X-Content-Type-Options", "nosniff")
 	c.Header("Content-Length", strconv.FormatInt(m.Size, 10))
 	c.Header("Cache-Control", "no-store")
 	c.Status(200)

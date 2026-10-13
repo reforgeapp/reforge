@@ -3884,6 +3884,7 @@ export interface components {
 
             turns: number;
             reproduction?: components["schemas"]["RepairCheck"][] | null;
+            behaviour_artifacts?: components["schemas"]["RepairBehaviourArtifact"][] | null;
         };
         RepairExecution: {
 
@@ -5061,6 +5062,14 @@ export interface components {
 
             micro_usd?: number;
             blockers: string[];
+        };
+        RepairBehaviourArtifact: {
+            id: string;
+            stage: string;
+            name: string;
+            media_type: string;
+            sha256: string;
+            check_sha256: string;
         };
     };
     responses: never;

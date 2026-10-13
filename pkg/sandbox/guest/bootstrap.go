@@ -43,6 +43,9 @@ func bootstrapCases(format, prefix string, body []byte, cases map[string]string)
 		case "tap":
 			match := bootstrapTAP.FindStringSubmatch(line)
 			if match != nil {
+				if NodeFileSuite(match[2]) {
+					continue
+				}
 				state := "pass"
 				if match[1] == "not ok" {
 					state = "fail"

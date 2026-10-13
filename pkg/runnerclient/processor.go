@@ -158,7 +158,11 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			}
 			return err
 		}, PrepareWorkspace: commandPreparer{cfg: cfg, runtime: runtime, org: j.Lease.OrgID, fetch: fetch, image: image}.prepare, Dependencies: dependencies, CILogs: execution.CILogs, Goal: repair.Goal(execution.Finding) + repair.Instructions(execution.Request.Instructions), OpenFixes: execution.OpenFixes, RecentMerges: execution.RecentMerges, OpenFixFiles: execution.OpenFixFiles, UpdateDependency: deps.update, Regenerate: deps.regenerate, Runtime: runtime, JobID: j.Lease.JobID, AttemptID: j.Lease.AttemptID, Trust: trust, Model: execution.Model, MaxOutputTokens: execution.MaxOutputTokens, TurnTimeout: time.Duration(execution.TurnTimeoutMS) * time.Millisecond, Turn: func(ctx context.Context, in model.Turn) (model.TurnResult, error) { return c.ModelTurn(ctx, j, in) }, Artifact: func(ctx context.Context, name string, data []byte) (string, string, error) {
-			m, err := c.Upload(ctx, j, name, "text/plain", artifact.SanitizeTextLog(data))
+			media := artifact.EvidenceMedia(name)
+			if media == "text/plain" {
+				data = artifact.SanitizeTextLog(data)
+			}
+			m, err := c.Upload(ctx, j, name, media, data)
 			return m.ID, m.SHA256, err
 		}, Progress: func(_ context.Context, next string) error { return progress(next) }, Log: func(ctx context.Context, kind, message string) {
 			_ = c.RepairLogs(ctx, j, []repair.LogEntry{{Kind: kind, Message: message}})

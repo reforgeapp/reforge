@@ -211,6 +211,18 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 	if command.ReportFormat == "exit" {
 		return out
 	}
+	if command.ReportFormat == "jest" || command.ReportFormat == "playwright" {
+		report := guest.ParseTestReport(command.ReportFormat, result.Output)
+		out.Complete = out.Complete && report.Complete
+		out.Cases = report.Cases
+		if !out.Complete {
+			out.Reason = "Named behavioural results unavailable or incomplete"
+		}
+		if report.Failed {
+			out.ExitCode = 1
+		}
+		return out
+	}
 	if command.ReportFormat == "bootstrap" {
 		lines := strings.Split(strings.TrimSpace(body), "\n")
 		var report struct {
@@ -241,6 +253,9 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 		case "tap":
 			match := tapCase.FindStringSubmatch(line)
 			if match == nil {
+				continue
+			}
+			if guest.NodeFileSuite(match[2]) {
 				continue
 			}
 			state := "pass"
@@ -404,7 +419,7 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 			passed++
 		}
 	}
-	if p.Recipe.Name == "bootstrap" && passed < p.Recipe.MinimumTests {
+	if p.Recipe.MinProof == recipes.ProofTests && passed < max(1, p.Recipe.MinimumTests) {
 		return false
 	}
 	return true
