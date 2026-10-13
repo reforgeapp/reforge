@@ -156,16 +156,17 @@ func TestDirtyActiveRefreshInvalidatesAfterCompletion(t *testing.T) {
 	}); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := service.Claim(ctx, f.org, "refresh-repository")
-	if err != nil || lease == nil || lease.ID != refreshID {
-		t.Fatalf("claim repository refresh: %v %+v", err, lease)
+	lease := f.claim(t, "refresh-repository")
+	if lease.ID != refreshID {
+		t.Fatalf("claim repository refresh: %+v", lease)
 	}
+	var err error
 	if err = service.Step(ctx, *lease); err != nil {
 		t.Fatalf("refresh repository step: %v", err)
 	}
-	lease, err = service.Claim(ctx, f.org, "refresh-changes")
-	if err != nil || lease == nil || lease.ID != refreshID || lease.Phase != "changes" {
-		t.Fatalf("claim changes refresh: %v %+v", err, lease)
+	lease = f.claim(t, "refresh-changes")
+	if lease.ID != refreshID || lease.Phase != "changes" {
+		t.Fatalf("claim changes refresh: %+v", lease)
 	}
 	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
 		return inventory.RequestRefreshTx(ctx, tx, f.org, f.repo)

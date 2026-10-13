@@ -352,22 +352,10 @@ func TestCustomProfileConcurrentAuthorizeHonorsProfileLimit(t *testing.T) {
 	}
 	discoveryService := discovery.New(base.db, base.identity, nil)
 	base.server.RegisterDiscovery(discoveryService)
-	for attempt := 0; attempt < 8; attempt++ {
-		progressed := false
-		for _, worker := range []string{"discovery-fixture", "discovery-changes"} {
-			lease, claimErr := base.service.Claim(ctx, base.org, worker)
-			if claimErr != nil {
-				t.Fatal(claimErr)
-			}
-			if lease != nil {
-				if err = base.service.Step(ctx, *lease); err != nil {
-					t.Fatal(err)
-				}
-				progressed = true
-			}
-		}
-		if !progressed {
-			break
+	for index := 0; index < 4; index++ {
+		lease := base.claim(t, "custom-profile-refresh")
+		if err = base.service.Step(ctx, *lease); err != nil {
+			t.Fatal(err)
 		}
 	}
 	f := &discoveryFixture{inventoryFixture: base, service: discoveryService, repo: repoIDs[0]}

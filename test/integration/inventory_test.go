@@ -352,9 +352,12 @@ func TestInventoryConcurrentClaimRestartAndConnectionFence(t *testing.T) {
 		t.Fatal(err)
 	}
 	restarted := inventory.New(f.db, f.identity, f.vault, f.reader, providers.DecodeWebhook)
-	replacement, err := restarted.Claim(ctx, f.org, "replacement")
-	if err != nil || replacement == nil || replacement.Fence <= lease.Fence {
-		t.Fatal("restart failed", err)
+	original := f.service
+	f.service = restarted
+	replacement := f.claim(t, "replacement")
+	f.service = original
+	if replacement.Fence <= lease.Fence {
+		t.Fatal("replacement did not advance lease fence")
 	}
 	if err = f.service.Step(ctx, lease); !errors.Is(err, inventory.ErrStale) {
 		t.Fatalf("stale fence accepted: %v", err)
@@ -398,11 +401,8 @@ func TestInventoryPartialScanRenameAndCompleteRemoval(t *testing.T) {
 		return privateconnector.Result{Inventory: &domain.Page[forge.Repository]{Items: []forge.Repository{r}, Complete: false}}, nil
 	}
 	j := f.sync(t)
-	lease, err := f.service.Claim(ctx, f.org, "partial")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err = f.service.Step(ctx, *lease); !errors.Is(err, inventory.ErrIncomplete) {
+	lease := f.claim(t, "partial")
+	if err := f.service.Step(ctx, *lease); !errors.Is(err, inventory.ErrIncomplete) {
 		t.Fatalf("invalid completion accepted: %v", err)
 	}
 	partial, _ := f.service.Job(ctx, f.owner, f.org, j.ID)
@@ -449,10 +449,7 @@ func TestInventoryImportTeamVersionAndOwnerRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lease, err := f.service.Claim(ctx, f.org, "import")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease := f.claim(t, "import")
 	if err = f.service.Step(ctx, *lease); !errors.Is(err, inventory.ErrStale) {
 		t.Fatal("changed team grant accepted", err)
 	}
@@ -471,10 +468,7 @@ func TestInventoryImportTeamVersionAndOwnerRevocation(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	lease, err = f.service.Claim(ctx, f.org, "revoked")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease = f.claim(t, "revoked")
 	if err = f.service.Step(ctx, *lease); !errors.Is(err, auth.ErrForbidden) {
 		t.Fatal("revoked owner import accepted", err)
 	}
@@ -551,14 +545,17 @@ func TestInventorySignedWebhookReplayRotationAndPolling(t *testing.T) {
 	}
 	runRefresh := func() {
 		for i := 0; i < 10; i++ {
-			lease, err := f.service.Claim(ctx, f.org, "refresh")
-			if err != nil {
+			var pending bool
+			if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory_jobs WHERE org_id=$1 AND state IN ('queued','running'))`, f.org).Scan(&pending)
+			}); err != nil {
 				t.Fatal(err)
 			}
-			if lease == nil {
+			if !pending {
 				return
 			}
-			if err = f.service.Step(ctx, *lease); err != nil {
+			lease := f.claim(t, "refresh")
+			if err := f.service.Step(ctx, *lease); err != nil {
 				t.Fatal(err)
 			}
 		}
@@ -742,20 +739,15 @@ func TestInventoryPartialChangeSnapshot(t *testing.T) {
 	if err := f.service.Maintain(ctx, f.org); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := f.service.Claim(ctx, f.org, "repo")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease := f.claim(t, "repo")
+	var err error
 	if err = f.service.Step(ctx, *lease); err != nil {
 		t.Fatal(err)
 	}
 	f.reader.read = func(op privateconnector.Operation) (privateconnector.Result, error) {
 		return privateconnector.Result{Changes: &domain.Page[forge.Change]{Items: []forge.Change{{ID: "1", Repository: forge.RepoRef{NativeID: "1"}, HeadSHA: strings.Repeat("a", 40)}}, Complete: false, NextCursor: "2"}}, nil
 	}
-	lease, err = f.service.Claim(ctx, f.org, "changes")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease = f.claim(t, "changes")
 	if err = f.service.Step(ctx, *lease); err != nil {
 		t.Fatal(err)
 	}
@@ -766,10 +758,7 @@ func TestInventoryPartialChangeSnapshot(t *testing.T) {
 	f.reader.read = func(op privateconnector.Operation) (privateconnector.Result, error) {
 		return privateconnector.Result{}, &domain.ProviderError{Kind: "forbidden", Message: "scope removed"}
 	}
-	lease, err = f.service.Claim(ctx, f.org, "failed")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease = f.claim(t, "failed")
 	if err = f.service.Step(ctx, *lease); err == nil {
 		t.Fatal("failed page accepted")
 	}
@@ -818,10 +807,8 @@ func TestInventoryAccessFailureBlocksPollingUntilExplicitSync(t *testing.T) {
 		return privateconnector.Result{}, &domain.ProviderError{Kind: "auth", Message: "invalid credential"}
 	}
 	job := f.sync(t)
-	lease, err := f.service.Claim(ctx, f.org, "unauthorized")
-	if err != nil {
-		t.Fatal(err)
-	}
+	lease := f.claim(t, "unauthorized")
+	var err error
 	if err = f.service.Step(ctx, *lease); err == nil {
 		t.Fatal("unauthorized inventory accepted")
 	}
@@ -838,9 +825,7 @@ func TestInventoryAccessFailureBlocksPollingUntilExplicitSync(t *testing.T) {
 	if _, err = f.service.StartSync(ctx, f.owner, f.org, inventory.SyncInput{ConnectionID: f.connection.ID}, "explicit-retry"); err != nil {
 		t.Fatal(err)
 	}
-	if lease, err = f.service.Claim(ctx, f.org, "owner-retry"); err != nil || lease == nil {
-		t.Fatal("owner could not retry after correcting access", err)
-	}
+	lease = f.claim(t, "owner-retry")
 	f.reader.read = healthyRead
 	if err = f.service.Step(ctx, *lease); err != nil {
 		t.Fatal(err)
@@ -848,17 +833,14 @@ func TestInventoryAccessFailureBlocksPollingUntilExplicitSync(t *testing.T) {
 	if err = f.service.Maintain(ctx, f.org); err != nil {
 		t.Fatal(err)
 	}
-	refreshed, err := f.service.Claim(ctx, f.org, "resumed-repository")
-	if err != nil || refreshed == nil || refreshed.Kind != "refresh" {
-		t.Fatal("full sync did not reactivate repository polling", err)
+	refreshed := f.claim(t, "resumed-repository")
+	if refreshed.Kind != "refresh" {
+		t.Fatal("full sync did not reactivate repository polling")
 	}
 	if err = f.service.Step(ctx, *refreshed); err != nil {
 		t.Fatal(err)
 	}
-	refreshed, err = f.service.Claim(ctx, f.org, "resumed-changes")
-	if err != nil || refreshed == nil {
-		t.Fatal(err)
-	}
+	refreshed = f.claim(t, "resumed-changes")
 	if err = f.service.Step(ctx, *refreshed); err != nil {
 		t.Fatal(err)
 	}

@@ -69,10 +69,7 @@ func TestInventoryTenThousandRepositoriesAcrossTenOrganisations(t *testing.T) {
 				if job.State == "failed" || job.State == "stale" {
 					t.Fatalf("organisation %d job state %s", i, job.State)
 				}
-				lease, err := f.service.Claim(ctx, f.org, fmt.Sprintf("scale-org-%02d", i))
-				if err != nil || lease == nil {
-					t.Fatalf("organisation %d claim: %v", i, err)
-				}
+				lease := f.claim(t, fmt.Sprintf("scale-org-%02d", i))
 				if err := f.service.Step(ctx, *lease); err != nil {
 					t.Fatalf("organisation %d step: %v", i, err)
 				}
