@@ -30,7 +30,7 @@ func validObservation(in Observation) bool {
 		return false
 	}
 	switch in.Source {
-	case "forge_change", "native_ci", "imported_advisory", "repository", "repository_review", "forge_issue", "forge_advisory", "deployment", "user_report", "environment_health":
+	case "forge_change", "native_ci", "imported_advisory", "repository", "repository_review", "forge_issue", "forge_advisory", "deployment", "user_report", "environment_health", "gitops_deployment", "release_delivery":
 	default:
 		return false
 	}

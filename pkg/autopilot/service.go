@@ -21,6 +21,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
@@ -68,6 +69,7 @@ type Service struct {
 	Tasks       *workflow.Service
 	Deployments *deployment.Service
 	Promotions  *gitops.Service
+	Delivery    *delivery.Service
 	Notify      func(context.Context, string) error
 	Connections *connections.Service
 }
@@ -382,6 +384,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		}
 	}
 	if sc.enabled {
+		if err = s.deliver(ctx, session, org); err != nil {
+			slog.WarnContext(ctx, "autopilot delivery failed", "org_id", org, "error", err)
+		}
 		if err = s.promote(ctx, session, org); err != nil {
 			slog.WarnContext(ctx, "autopilot promotion failed", "org_id", org, "error", err)
 		}

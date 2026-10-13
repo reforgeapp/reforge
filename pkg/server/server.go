@@ -252,6 +252,7 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	autopilots.Connections = connectionService
 	autopilots.Deployments = deliveries
 	autopilots.Promotions = promotions
+	autopilots.Delivery = deliveryCommands
 	discoveries.FixRequested = autopilots.RequestFinding
 	notices := alerts.New(db, identity, vault, alerts.SMTP{Address: cfg.SMTPAddress, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom, Security: cfg.SMTPSecurity, ServerName: cfg.SMTPTLSServerName}, cfg.PublicURL)
 	autopilots.Notify = notices.Notify

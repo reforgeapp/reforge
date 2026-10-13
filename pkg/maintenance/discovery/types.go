@@ -55,6 +55,8 @@ type Evidence struct {
 	TrackedFiles      []forge.SourceEntry    `json:"tracked_files,omitempty"`
 	Review            *ReviewEvidence        `json:"review,omitempty"`
 	Deployment        string                 `json:"deployment,omitempty"`
+	ReleaseReceipt    string                 `json:"release_receipt,omitempty"`
+	DeliveryOperation string                 `json:"delivery_operation,omitempty"`
 	ActionURL         string                 `json:"action_url,omitempty"`
 	ActionLabel       string                 `json:"action_label,omitempty"`
 	Report            *BugReport             `json:"report,omitempty"`
