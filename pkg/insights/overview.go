@@ -85,7 +85,9 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 			(SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND state IN ` + activeTaskStates + ` AND ` + repo + `)
 				+(SELECT count(*) FROM merge_operations WHERE org_id=$1 AND state IN ` + activeOperationStates + ` AND ` + repo + `)
 				+(SELECT count(*) FROM deployments WHERE org_id=$1 AND state IN ` + activeOperationStates + ` AND ` + repo + `),
-			(SELECT count(*) FROM repair_runs WHERE org_id=$1 AND state='published' AND ` + repo + `),
+			(SELECT count(*) FROM repair_runs rr WHERE org_id=$1 AND state='published' AND native_change IS NOT NULL AND coalesce(native_change->>'state','open') IN ('open','opened') AND ` + repo + `
+				AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state='merged')
+				AND NOT EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged'))),
 			(SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND state='blocked' AND ` + repo + `)
 				+(SELECT count(*) FROM merge_operations WHERE org_id=$1 AND state='blocked' AND ` + repo + `)
 				+(SELECT count(*) FROM deployments WHERE org_id=$1 AND state='blocked' AND ` + repo + `),
