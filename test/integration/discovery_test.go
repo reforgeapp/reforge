@@ -33,18 +33,12 @@ func newDiscoveryFixture(t *testing.T) *discoveryFixture {
 	if err := f.service.Maintain(ctx, f.org); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := f.service.Claim(ctx, f.org, "discovery-fixture")
-	if err != nil || lease == nil {
-		t.Fatalf("claim inventory maintenance: %v", err)
-	}
-	if err = f.service.Step(ctx, *lease); err != nil {
+	lease := f.claim(t, "discovery-fixture")
+	if err := f.service.Step(ctx, *lease); err != nil {
 		t.Fatal(err)
 	}
-	lease, err = f.service.Claim(ctx, f.org, "discovery-changes")
-	if err != nil || lease == nil {
-		t.Fatalf("claim changes: %v", err)
-	}
-	if err = f.service.Step(ctx, *lease); err != nil {
+	lease = f.claim(t, "discovery-changes")
+	if err := f.service.Step(ctx, *lease); err != nil {
 		t.Fatal(err)
 	}
 	d := discovery.New(f.db, f.identity, nil)

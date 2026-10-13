@@ -18,7 +18,7 @@ import (
 
 func (s *Service) observeDeployments(ctx context.Context, session auth.Session, org string) error {
 	return s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT DISTINCT ON (d.repository_id,d.environment) d.id::text,d.repository_id::text,d.environment,d.reason,g.document,r.default_branch FROM deployments d JOIN deployment_gates g ON g.org_id=d.org_id AND g.id=d.gate_id JOIN repositories r ON r.org_id=d.org_id AND r.id=d.repository_id WHERE d.org_id=$1 AND d.state IN ('failed','recovery_failed') AND d.finished_at>clock_timestamp()-interval '7 days' AND NOT EXISTS(SELECT 1 FROM deployments later WHERE later.org_id=d.org_id AND later.repository_id=d.repository_id AND later.environment=d.environment AND later.state IN ('healthy','recovered') AND later.created_at>d.created_at) ORDER BY d.repository_id,d.environment,d.created_at DESC`, org)
+		rows, err := tx.Query(ctx, `SELECT DISTINCT ON (d.repository_id,d.environment) d.id::text,d.repository_id::text,d.environment,d.reason,g.document,r.default_branch FROM deployments d JOIN deployment_gates g ON g.org_id=d.org_id AND g.id=d.gate_id JOIN repositories r ON r.org_id=d.org_id AND r.id=d.repository_id WHERE d.org_id=$1 AND d.state IN ('failed','recovery_failed') AND NOT EXISTS(SELECT 1 FROM deployments later WHERE later.org_id=d.org_id AND later.repository_id=d.repository_id AND later.environment=d.environment AND later.state IN ('healthy','recovered') AND later.created_at>d.created_at) ORDER BY d.repository_id,d.environment,d.created_at DESC`, org)
 		if err != nil {
 			return err
 		}
@@ -41,15 +41,18 @@ func (s *Service) observeDeployments(ctx context.Context, session auth.Session, 
 		if err = rows.Err(); err != nil {
 			return err
 		}
-		seen := []string{}
 		for _, o := range observations {
-			f, err := discovery.ObserveTx(ctx, tx, org, o, session.User.ID, "autopilot-deployments")
+			_, err := discovery.ObserveTx(ctx, tx, org, o, session.User.ID, "autopilot-deployments")
 			if err != nil {
 				return err
 			}
-			seen = append(seen, f.ID)
 		}
-		_, err = tx.Exec(ctx, `UPDATE maintenance_findings SET state='resolved',reason='Environment healthy again',version=version+1 WHERE org_id=$1 AND source='deployment' AND state='open' AND NOT(id=ANY($2::uuid[]))`, org, seen)
+		_, err = tx.Exec(ctx, `WITH recovered AS (
+SELECT f.id,recovery.id AS deployment_id FROM maintenance_findings f
+JOIN deployments failed ON failed.org_id=f.org_id AND failed.id::text=f.evidence->>'deployment' AND failed.repository_id=f.repository_id AND f.source_id='deploy:'||failed.environment
+JOIN LATERAL (SELECT d.id FROM deployments d WHERE d.org_id=f.org_id AND d.repository_id=f.repository_id AND d.environment=failed.environment AND d.state IN ('healthy','recovered') AND d.created_at>failed.created_at AND NOT EXISTS(SELECT 1 FROM deployments newer WHERE newer.org_id=d.org_id AND newer.repository_id=d.repository_id AND newer.environment=d.environment AND newer.state IN ('failed','recovery_failed') AND newer.created_at>d.created_at) ORDER BY d.created_at DESC LIMIT 1) recovery ON true
+WHERE f.org_id=$1 AND f.source='deployment' AND f.state='open'
+) UPDATE maintenance_findings f SET state='resolved',reason='Environment healthy again: deployment '||recovered.deployment_id::text,version=f.version+1 FROM recovered WHERE f.org_id=$1 AND f.id=recovered.id`, org)
 		return err
 	})
 }

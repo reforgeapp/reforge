@@ -160,16 +160,33 @@ func (f *inventoryFixture) drain(t *testing.T, id string) inventory.Job {
 		if j.State == "complete" || j.State == "stale" || j.State == "failed" {
 			return j
 		}
-		lease, err := f.service.Claim(ctx, f.org, "fixture")
-		if err != nil || lease == nil {
-			t.Fatalf("claim: %v", err)
-		}
+		lease := f.claim(t, "fixture")
 		if err = f.service.Step(ctx, *lease); err != nil {
 			t.Fatalf("step %s: %v", lease.Kind, err)
 		}
 	}
 	t.Fatal("job did not finish")
 	return inventory.Job{}
+}
+func (f *inventoryFixture) claim(t *testing.T, worker string) *inventory.Job {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	for ctx.Err() == nil {
+		lease, err := f.service.Claim(ctx, f.org, worker)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if lease != nil {
+			return lease
+		}
+		select {
+		case <-ctx.Done():
+		case <-time.After(20 * time.Millisecond):
+		}
+	}
+	t.Fatalf("inventory claim timed out: %v", ctx.Err())
+	return nil
 }
 func (f *inventoryFixture) importAll(t *testing.T) inventory.Job {
 	t.Helper()

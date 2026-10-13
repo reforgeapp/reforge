@@ -840,7 +840,7 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 		if err := refreshReviewFindings(persistCtx, tx, lease, observations); err != nil {
 			return err
 		}
-		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
+		rows, err := tx.Query(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='No longer present in complete canonical discovery',version=version+1 WHERE org_id=$1 AND repository_id=$2 AND source NOT IN ('imported_advisory','repository_review','deployment') AND state='open' AND NOT(id=ANY($3::uuid[])) RETURNING `+columns, lease.Org, lease.Repo, seen)
 		if err != nil {
 			return err
 		}

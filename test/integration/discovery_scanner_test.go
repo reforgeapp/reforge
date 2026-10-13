@@ -11,6 +11,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/inventory"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
@@ -69,6 +70,7 @@ func (r *discoveryScanReader) Read(ctx context.Context, org, id string, op priva
 	case privateconnector.ForgeBehind:
 		behind := 0
 		out.Behind = &behind
+	case privateconnector.ForgeIssues, privateconnector.ForgeAdvisories:
 	default:
 		return out, fmt.Errorf("unexpected discovery operation %s", op.Kind)
 	}
@@ -169,6 +171,26 @@ func TestDiscoveryScannerCanonicalFindingsAndLeaseRecovery(t *testing.T) {
 	}
 	if !dependency {
 		t.Fatal("scanner omitted dependency finding")
+	}
+}
+
+func TestRepositoryScanPreservesDeploymentIncident(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	service, _ := f.scannerFixture(t, false)
+	ctx := context.Background()
+	in := f.observation("deploy:production", "main", strings.Repeat("a", 40), nil)
+	in.Source, in.Category = "deployment", "deploy_failure"
+	in.Evidence.Deployment = domain.NewID()
+	finding := f.observe(t, in)
+	if _, err := service.StartScan(ctx, f.owner, f.org, f.repo, "incident-scan"); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := service.RunOrganisationOnce(ctx, f.org); err != nil || !worked {
+		t.Fatalf("repository scan: %v %v", worked, err)
+	}
+	got, err := service.Get(ctx, f.owner, f.org, finding.ID)
+	if err != nil || got.State != "open" || got.Version != finding.Version || got.Evidence.Deployment != finding.Evidence.Deployment {
+		t.Fatalf("repository scan changed deployment incident: %+v %v", got, err)
 	}
 }
 
