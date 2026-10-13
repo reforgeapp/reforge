@@ -227,8 +227,9 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 		}
 	}
 	var task string
+	var checkedHead string
 	var rawContext, rawReport, rawChecks []byte
-	err = tx.QueryRow(ctx, `SELECT task_id::text,context,report,candidate_checks FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND candidate_sha=$3 AND native_change->>'id'=$4 ORDER BY created_at DESC LIMIT 1`, org, repo, snapshot.Change.HeadSHA, snapshot.Change.ID).Scan(&task, &rawContext, &rawReport, &rawChecks)
+	err = tx.QueryRow(ctx, `SELECT task_id::text,context,report,candidate_checks,candidate_sha FROM repair_runs WHERE org_id=$1 AND repository_id=$2 AND state='published' AND native_change->>'id'=$3 ORDER BY created_at DESC LIMIT 1`, org, repo, snapshot.Change.ID).Scan(&task, &rawContext, &rawReport, &rawChecks, &checkedHead)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return out, nil
 	}
@@ -241,7 +242,8 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	if json.Unmarshal(rawContext, &execution) != nil || json.Unmarshal(rawReport, &report) != nil || json.Unmarshal(rawChecks, &checks) != nil {
 		return out, privateconnector.ErrInvalid
 	}
-	if report.State == "validated" && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && repair.Verified(execution.Plan, report.Baseline, checks) {
+	out.BehaviourRequired = report.State == "unverified" || execution.Plan.Recipe.MinProof == "tests" || execution.Plan.Recipe.MinProof == "provider"
+	if report.State == "validated" && checkedHead == snapshot.Change.HeadSHA && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && repair.Verified(execution.Plan, report.Baseline, checks) {
 		out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, "repair:"+task
 	}
 	for _, patch := range report.Patches {

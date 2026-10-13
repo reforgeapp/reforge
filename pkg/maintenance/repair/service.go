@@ -605,7 +605,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		}
 	}
 	var original map[string][]byte
-	if in.State == "validated" {
+	if in.State == "validated" || in.State == "unverified" {
 		c, err := s.Context(ctx, credential)
 		if err != nil {
 			return out, err
@@ -666,10 +666,14 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
-			if current.Context.Finding.Source == "user_report" && !BehaviourReproduced(p, in.Reproduction) {
+			if current.Context.Finding.Source == "user_report" && (!BehaviourFixed(p, in.Reproduction, in.Candidate) || !BehaviourFixed(p, in.Reproduction, in.Target)) {
 				return ErrValidation
 			}
 			if t.State != domain.TaskValidating || !ci && !owner && !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
+				return ErrValidation
+			}
+		} else if in.State == "unverified" {
+			if !owner || t.State != domain.TaskValidating || len(in.Patches) == 0 || !ProposalReady(p, in.Baseline, in.Candidate) || !ProposalReady(p, in.Baseline, in.Target) {
 				return ErrValidation
 			}
 		} else if in.State != "handoff" {
@@ -711,7 +715,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 				}
 			}
 		}
-		tag, err := tx.Exec(ctx, `UPDATE repair_runs SET state=$3,report=$4,checkpoint=CASE WHEN $3='validated' THEN NULL ELSE checkpoint END,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('queued','handoff')`, l.OrgID, l.TaskID, in.State, raw)
+		tag, err := tx.Exec(ctx, `UPDATE repair_runs SET state=$3,report=$4,checkpoint=CASE WHEN $3 IN ('validated','unverified') THEN NULL ELSE checkpoint END,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('queued','handoff')`, l.OrgID, l.TaskID, in.State, raw)
 		if err != nil {
 			return err
 		}

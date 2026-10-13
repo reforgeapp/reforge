@@ -173,7 +173,7 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 				return failed, err
 			}
 			return workflow.Completion{Outcome: "completed"}, nil
-		} else if run.Report != nil && run.Report.State == "validated" {
+		} else if run.Report != nil && (run.Report.State == "validated" || run.Report.State == "unverified") {
 			report = *run.Report
 			for _, next := range []domain.TaskState{domain.TaskPlanning, domain.TaskRepairing, domain.TaskValidating} {
 				if state == next {

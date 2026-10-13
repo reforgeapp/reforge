@@ -2,7 +2,6 @@ package repair
 
 import (
 	"context"
-	"errors"
 	"strings"
 	"testing"
 
@@ -42,7 +41,7 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 				if err != nil || report.State != "validated" || !BehaviourReproduced(plan, report.Reproduction) || !Verified(plan, report.Baseline, report.Candidate) {
 					t.Fatalf("reproduced repair rejected: %+v %v", report, err)
 				}
-			} else if !errors.Is(err, ErrHandoff) || report.State == "validated" {
+			} else if err != nil || report.State != "unverified" || !strings.Contains(report.Reason, "Independent CI behaviour proof required") {
 				t.Fatalf("unreproduced repair validated: %+v %v", report, err)
 			}
 		})

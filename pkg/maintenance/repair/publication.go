@@ -24,6 +24,16 @@ type writer interface {
 	Write(context.Context, string, string, privateconnector.Operation, func(context.Context, pgx.Tx, connections.Connection) (string, error), func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error)
 }
 
+func publicationReady(r Run, checks []CheckResult) bool {
+	if r.Report == nil {
+		return false
+	}
+	if r.Report.State == "unverified" {
+		return ProposalReady(r.Context.Plan, r.Report.Baseline, checks)
+	}
+	return r.Report.State == "validated" && Verified(r.Context.Plan, r.Report.Baseline, checks)
+}
+
 func (s *Service) CheckStage(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
 	if t.State != domain.TaskValidating {
 		return workflow.ErrPolicy
@@ -37,7 +47,7 @@ func (s *Service) CheckStage(ctx context.Context, tx pgx.Tx, t workflow.Task, p 
 	if err != nil {
 		return err
 	}
-	if r.Report == nil || r.Report.State != "validated" || r.Context.PolicyHash != p.Hash || (r.State != "validated" && r.State != "publishing") {
+	if r.Report == nil || r.Report.State != "validated" && r.Report.State != "unverified" || r.Context.PolicyHash != p.Hash || (r.State != "validated" && r.State != "unverified" && r.State != "publishing") {
 		return workflow.ErrPolicy
 	}
 	return nil
@@ -47,13 +57,17 @@ func (s *Service) CheckPublish(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	if err != nil {
 		return err
 	}
-	if t.State != domain.TaskPublishing || r.CandidateSHA == "" || r.Report == nil || !Verified(r.Context.Plan, r.Report.Baseline, r.CandidateChecks) {
+	if t.State != domain.TaskPublishing || r.CandidateSHA == "" || !publicationReady(r, r.CandidateChecks) {
 		return workflow.ErrPolicy
 	}
 	binding := policy.Binding{Head: r.CandidateSHA, Target: r.Context.Plan.TargetSHA, Tested: r.CandidateSHA, PolicyHash: p.Hash}
 	now := time.Now().UTC()
 	facts := []policy.Evidence{}
-	for _, id := range []string{"execution_authority", "validation", "branch_ownership", "exact_head_guard"} {
+	proof, stage := "validation", ""
+	if r.Report.State == "unverified" {
+		proof, stage = "proposal_bounds", "proposal_publication"
+	}
+	for _, id := range []string{"execution_authority", proof, "branch_ownership", "exact_head_guard"} {
 		facts = append(facts, policy.Evidence{ID: id, State: "satisfied", Binding: binding, ObservedAt: now, Reference: "repair-run:" + t.ID + "/" + id})
 	}
 	var money, concurrency, attempts, open int64
@@ -74,7 +88,7 @@ func (s *Service) CheckPublish(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	for _, patch := range r.Report.Patches {
 		paths = append(paths, patch.Path)
 	}
-	decision := policy.Evaluate(p, policy.Input{Action: policy.Publish, Recipe: t.Recipe, Model: r.Context.Model, Route: t.ModelConnectionID + "/" + t.ModelRoute, Current: binding, StartingPolicyHash: t.StartingPolicyHash, Paths: paths, Now: now, Evidence: facts, Usage: policy.Limits{Budget: &money, Concurrency: &concurrency, Attempts: &attempts, OpenChanges: &open, ChangedFiles: &files, ChangedLines: &lines}})
+	decision := policy.Evaluate(p, policy.Input{Stage: stage, Action: policy.Publish, Recipe: t.Recipe, Model: r.Context.Model, Route: t.ModelConnectionID + "/" + t.ModelRoute, Current: binding, StartingPolicyHash: t.StartingPolicyHash, Paths: paths, Now: now, Evidence: facts, Usage: policy.Limits{Budget: &money, Concurrency: &concurrency, Attempts: &attempts, OpenChanges: &open, ChangedFiles: &files, ChangedLines: &lines}})
 	if decision.Outcome != "allow" {
 		return workflow.ErrPolicy
 	}
@@ -159,7 +173,7 @@ func (s *Service) Stage(ctx context.Context, credential string) (Run, error) {
 		if err != nil {
 			return err
 		}
-		_, err = tx.Exec(ctx, `UPDATE repair_runs SET branch=$3,state='publishing',version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('validated','publishing')`, l.OrgID, l.TaskID, branch)
+		_, err = tx.Exec(ctx, `UPDATE repair_runs SET branch=$3,state='publishing',version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND state IN ('validated','unverified','publishing')`, l.OrgID, l.TaskID, branch)
 		return err
 	})
 	if err != nil {
@@ -292,7 +306,7 @@ func (s *Service) RecordNative(ctx context.Context, credential string, in Public
 		}
 		body, _ := json.Marshal(in.Checks)
 		artifactIDs, _ := json.Marshal(in.ArtifactIDs)
-		if t.State != domain.TaskValidating || (r.State != "validated" && r.State != "publishing") {
+		if t.State != domain.TaskValidating || (r.State != "validated" && r.State != "unverified" && r.State != "publishing") {
 			previous, _ := json.Marshal(r.CandidateChecks)
 			previousIDs, _ := json.Marshal(r.CandidateArtifacts)
 			if string(body) == string(previous) && string(artifactIDs) == string(previousIDs) {
@@ -327,7 +341,7 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 	if err != nil {
 		return r, err
 	}
-	if !Verified(r.Context.Plan, r.Report.Baseline, in.Checks) {
+	if !publicationReady(r, in.Checks) {
 		return r, ErrValidation
 	}
 	var lease workflow.Lease
@@ -359,6 +373,9 @@ func (s *Service) Publish(ctx context.Context, credential string, in Publication
 	body := "Compatibility repair validated against pinned upgrade and target source."
 	if r.Report != nil && r.Report.Mode != "" && r.Report.Reason != "" {
 		body = r.Report.Reason + "\n\nFound on: " + r.Context.Finding.Title
+	}
+	if r.Report.State == "unverified" {
+		body = "UNVERIFIED PROPOSAL. Behaviour has not been verified. Independent CI build and named behavioural tests are required before Reforge can merge this change.\n\n" + body
 	}
 	request := forge.CreateChangeRequest{Repository: r.Context.Repository, Title: changeTitle(r), Body: body + "\n\nBaseline: " + r.Context.Plan.BaselineSHA + "\nTarget: " + r.Context.Plan.TargetSHA + "\nValidation plan: " + r.Context.Plan.Digest, HeadBranch: r.Branch, TargetBranch: r.Context.Finding.Evidence.TargetBranch, ExpectedHeadSHA: r.CandidateSHA, OperationID: intent.OperationID, Draft: false}
 	if len(request.Title) > 250 {

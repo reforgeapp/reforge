@@ -174,7 +174,7 @@ func untestedNote(proof string) string {
 	if proof != recipes.ProofProvider {
 		return ""
 	}
-	return "\nThis repository has no automated tests. Verify your change yourself with run_command (build, vet, run the program) before finish; native CI and post-merge observation are the remaining proof.\n"
+	return "\nThis repository has no counted automated tests. Run available build checks before finish. Result remains an unverified proposal until independent native CI proves behaviour; build success alone cannot verify the fix.\n"
 }
 
 func recentMerges(merges []string) string {
@@ -828,7 +828,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					}
 					return out, nil
 				}
-				if checked != revision || len(current()) == 0 || !Verified(p, out.Baseline, candidate) || e.RequireReproduction && !BehaviourReproduced(p, out.Reproduction) {
+				verified := Verified(p, out.Baseline, candidate) && (!e.RequireReproduction || BehaviourFixed(p, out.Reproduction, candidate))
+				proposal := !verified && ProposalReady(p, out.Baseline, candidate)
+				if checked != revision || len(current()) == 0 || !verified && !proposal {
 					reply = "Not finished: stage a change and pass run_checks on the current changes first"
 					if e.RequireReproduction && !BehaviourReproduced(p, out.Reproduction) {
 						reply = "Not finished: a counted regression test must fail on the original code and pass with the fix. Add the regression test and run_checks; unavailable or unreproduced checks need a handoff."
@@ -846,9 +848,15 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				out.Candidate = candidate
 				out.Target = candidate
 				out.State = "validated"
+				if proposal {
+					out.State = "unverified"
+				}
 				out.Reason = bounded(strings.TrimSpace(in.Summary))
 				if out.Reason == "" {
 					out.Reason = "CI failure addressed; repository checks pass"
+				}
+				if proposal {
+					out.Reason = "Unverified proposal: " + out.Reason + ". Independent CI behaviour proof required before merge."
 				}
 				return out, nil
 			case "skip":

@@ -346,7 +346,7 @@ func Evaluate(r Resolved, in Input) Result {
 		out.Rules = append(out.Rules, rule)
 		out.RequiredActions = append(out.RequiredActions, rule)
 	}
-	if in.Stage != "" && (in.Stage != "deployment_admission" || in.Action != Deploy && in.Action != Recover) {
+	if in.Stage != "" && !(in.Stage == "deployment_admission" && (in.Action == Deploy || in.Action == Recover) || in.Stage == "proposal_publication" && in.Action == Publish) {
 		block("deny", "stage", "unknown policy stage")
 		return out
 	}
@@ -453,6 +453,9 @@ func Evaluate(r Resolved, in Input) Result {
 		}
 	}
 	base := map[Action][]string{Repair: {"execution_authority", "budget_capacity"}, Publish: {"execution_authority", "validation", "branch_ownership", "exact_head_guard"}, Merge: {"execution_authority", "validation", "native_rules", "native_reviews", "native_checks", "exact_head_guard", "target_enforcement", "merge_authority"}, Deploy: {"execution_authority", "native_approvals", "artifact_provenance", "workflow_authority"}, Recover: {"execution_authority", "native_approvals", "artifact_provenance", "recovery_authority", "known_good_artifact"}}
+	if in.Stage == "proposal_publication" && in.Action == Publish {
+		base[Publish] = []string{"execution_authority", "proposal_bounds", "branch_ownership", "exact_head_guard"}
+	}
 	if in.Stage == "deployment_admission" {
 		base[Deploy] = []string{"execution_authority", "native_enforcement", "artifact_provenance", "workflow_authority"}
 		base[Recover] = []string{"execution_authority", "native_enforcement", "artifact_provenance", "recovery_authority", "known_good_artifact"}

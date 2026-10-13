@@ -102,3 +102,19 @@ test('owner sees reproduced checkout result before technical evidence', async ({
   await page.setViewportSize({width: 390, height: 844})
   await testInfo.attach('verified checkout receipt', {body: await page.screenshot(), contentType: 'image/png'})
 })
+
+
+test('unverified proposal remains explicit despite passing build', async ({page}) => {
+  await login(page)
+  const item = task('proposal')
+  const result = run(item)
+  result.candidate_checks = [{command_id: 'build', exit_code: 0, complete: true, output_sha256: 'build-log', reason: '', cases: {}}]
+  Object.assign(result.report, {state: 'unverified', candidate: result.candidate_checks})
+  await page.route(`**/api/v1/orgs/${organisation}/tasks**`, route => route.fulfill({json: {items: [item], complete: true}}))
+  await page.route(`**/api/v1/orgs/${organisation}/repair-runs/proposal`, route => route.fulfill({json: result}))
+  await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({headers: {'content-type': 'text/event-stream'}, body: ': keepalive\n\n'}))
+  await page.goto(`/org/${organisation}/runs?run=proposal`)
+  await expect(page.getByLabel('Verified impact')).toContainText('Unverified proposal. Wait for independent CI behaviour proof before merging.')
+  await expect(page.getByLabel('Verified impact')).toContainText('Behaviour verification unavailable.')
+  await expect(page.getByText(/named checks passed/)).toHaveCount(0)
+})

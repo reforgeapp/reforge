@@ -93,7 +93,7 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	if !local && trustedChecks {
 		validationRef = "native-validation:" + binding.Tested
 	}
-	add("validation", local || trustedChecks, validationRef, 0)
+	add("validation", local || trustedChecks && !authority.BehaviourRequired, validationRef, 0)
 	strict := rules.RequireStrictTarget && rules.StrictTargetEnforced == domain.Supported
 	if rules.RequireQueue {
 		strict = qualified && snapshot.Queue.HeadSHA == change.HeadSHA && snapshot.Queue.TargetSHA == change.TargetSHA && snapshot.Queue.TestedSHA != "" && snapshot.Queue.ID != "" && trustedChecks

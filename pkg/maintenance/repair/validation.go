@@ -191,9 +191,12 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 	out := CheckResult{CommandID: command.ID, ExitCode: result.ExitCode, OutputSHA256: hashBytes(result.Output), Complete: !result.TimedOut && !result.Truncated, Cases: map[string]string{}}
 	if result.ExitCode < 0 || result.ExitCode == 126 || result.ExitCode == 127 {
 		out.Complete = false
+		out.Reason = "Required command unavailable"
 	}
 	if !out.Complete {
-		out.Reason = "Command timed out or output was truncated"
+		if result.TimedOut || result.Truncated {
+			out.Reason = "Command timed out or output was truncated"
+		}
 		return out
 	}
 	excerpt := result.Output
@@ -404,12 +407,15 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 }
 
 func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
-	if !p.Valid() || len(candidate) != len(p.Recipe.Commands) || lostPassingCase(baseline, candidate) {
+	if !p.Valid() || p.Recipe.MinProof == recipes.ProofProvider || len(candidate) != len(p.Recipe.Commands) || lostPassingCase(baseline, candidate) {
 		return false
 	}
 	passed := 0
 	for i, result := range candidate {
 		if !result.Complete || result.ExitCode != 0 || result.CommandID != p.Recipe.Commands[i].ID {
+			return false
+		}
+		if slices.Contains([]string{"json", "text", "tap", "jest", "playwright", "bootstrap"}, p.Recipe.Commands[i].ReportFormat) && guest.NamedPasses(result.Cases) == 0 {
 			return false
 		}
 		for _, state := range result.Cases {
@@ -421,6 +427,42 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 	}
 	if p.Recipe.MinProof == recipes.ProofTests && passed < max(1, p.Recipe.MinimumTests) {
 		return false
+	}
+	return true
+}
+
+func ProposalReady(p Plan, baseline, candidate []CheckResult) bool {
+	if !p.Owner || !p.Valid() || p.Recipe.ReadOnly || p.Recipe.MinProof == recipes.ProofStructural || len(candidate) != len(p.Recipe.Commands) || lostPassingCase(baseline, candidate) {
+		return false
+	}
+	for i, check := range candidate {
+		unavailable := !check.Complete && (check.Reason == "Required command unavailable" || check.Reason == "Execution environment or required dependency unavailable")
+		if check.CommandID != p.Recipe.Commands[i].ID || check.ExitCode < 0 || check.ExitCode != 0 && !unavailable || !check.Complete && !unavailable {
+			return false
+		}
+		for _, state := range check.Cases {
+			if state != "pass" && state != "skip" {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+func BehaviourFixed(p Plan, before, after []CheckResult) bool {
+	if !BehaviourReproduced(p, before) || !Verified(p, nil, after) {
+		return false
+	}
+	for i, result := range before {
+		passes := map[string]bool{}
+		for name, state := range after[i].Cases {
+			passes[caseName(name)] = state == "pass"
+		}
+		for name, state := range result.Cases {
+			if state == "fail" && !passes[caseName(name)] {
+				return false
+			}
+		}
 	}
 	return true
 }
