@@ -29,6 +29,11 @@ func (s *Service) PreviewRestore(ctx context.Context, session auth.Session, org,
 	if !auth.ValidID(id) || expected < 1 {
 		return out, auth.ErrInvalid
 	}
+	var scopeErr error
+	session, scopeErr = s.restoreSession(ctx, session, org, kind, id)
+	if scopeErr != nil {
+		return out, scopeErr
+	}
 	if kind == "native" {
 		if s.Native == nil {
 			return out, &domain.ProviderError{Kind: "unsupported", Message: "Native recovery is unavailable"}
@@ -123,6 +128,11 @@ func (s *Service) ConfirmRestore(ctx context.Context, session auth.Session, org,
 	out := Result{Kind: kind}
 	if !auth.ValidID(id) || !auth.ValidID(gateID) || expected < 1 {
 		return out, auth.ErrInvalid
+	}
+	var scopeErr error
+	session, scopeErr = s.restoreSession(ctx, session, org, kind, id)
+	if scopeErr != nil {
+		return out, scopeErr
 	}
 	var known string
 	if kind == "native" && s.Native != nil {
