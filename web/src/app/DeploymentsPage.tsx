@@ -21,7 +21,9 @@ const outbound = (value?: string) => { try { const url = new URL(value ?? ''); r
 const expired = (gate: Gate) => { const timestamp = Date.parse(gate.expires_at); return !Number.isFinite(timestamp) || timestamp <= Date.now() }
 
 export function DeploymentsPage({ orgID }: { orgID: string }) {
-  const [mode, setMode] = useState<'native' | 'gitops'>('native')
+  const search=useSearch({strict:false}) as {promotion?:string}
+  const [mode, setMode] = useState<'native' | 'gitops'>(search.promotion?'gitops':'native')
+  useEffect(()=>{if(search.promotion) setMode('gitops')},[search.promotion])
   return <div className="stack deployment-page">
     <EnvironmentHealth orgID={orgID} /><Tabs id="delivery" label="Delivery mode" items={[{ id: 'native', label: 'Native pipelines' }, { id: 'gitops', label: 'GitOps promotions' }]} value={mode} onChange={value => setMode(value as 'native' | 'gitops')} />
     {mode === 'native' ? <div id="delivery-panel-native" aria-labelledby="delivery-tab-native" role="tabpanel"><NativeDeploymentsPage key={orgID} orgID={orgID} /></div> : <div id="delivery-panel-gitops" aria-labelledby="delivery-tab-gitops" role="tabpanel"><GitOpsPage key={orgID} orgID={orgID} /></div>}

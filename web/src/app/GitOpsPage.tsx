@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
+import { useNavigate, useSearch } from '@tanstack/react-router'
 import { api } from '../api/client'
 import { Button } from '../components/Accessible'
 import { DataTable, EmptyTable } from '../components/DataTable'
@@ -30,7 +31,10 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
   const [environment, setEnvironment] = useState<string | null>(null)
   const [draftConfig, setDraftConfig] = useState<Configuration>()
   const [newEnvironment, setNewEnvironment] = useState('')
-  const [detailID, setDetailID] = useState('')
+  const search=useSearch({strict:false}) as {promotion?:string}
+  const navigate=useNavigate({from:'/org/$orgID/$section'})
+  const detailID=search.promotion??''
+  const setDetailID=(id:string)=>{void navigate({search:previous=>{const next={...previous};delete next.deployment;if(id)next.promotion=id;else delete next.promotion;return next}})}
   const [view, setView] = useState('history')
   const config = draftConfig ?? (environment === null ? configurations.data?.items?.[0] : configurations.data?.items.find(item => item.environment === environment))
   const detail = useQuery({ queryKey: ['org', orgID, 'gitops-promotion', detailID], queryFn: ({ signal }) => gitopsAPI.promotion(orgID, detailID, signal), enabled: !!detailID, refetchInterval: query => active(query.state.data?.promotion) ? 5000 : false })

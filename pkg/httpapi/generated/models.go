@@ -1208,6 +1208,25 @@ func (e TaskState) Valid() bool {
 }
 
 const (
+	WorkBucketActive  WorkBucket = "active"
+	WorkBucketBlocked WorkBucket = "blocked"
+	WorkBucketReview  WorkBucket = "review"
+)
+
+func (e WorkBucket) Valid() bool {
+	switch e {
+	case WorkBucketActive:
+		return true
+	case WorkBucketBlocked:
+		return true
+	case WorkBucketReview:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
 	ListRunnerPoolsParamsStateActive   ListRunnerPoolsParamsState = "active"
 	ListRunnerPoolsParamsStateDraining ListRunnerPoolsParamsState = "draining"
 	ListRunnerPoolsParamsStateRevoked  ListRunnerPoolsParamsState = "revoked"
@@ -1220,6 +1239,25 @@ func (e ListRunnerPoolsParamsState) Valid() bool {
 	case ListRunnerPoolsParamsStateDraining:
 		return true
 	case ListRunnerPoolsParamsStateRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	GetWorkParamsStateActive  GetWorkParamsState = "active"
+	GetWorkParamsStateBlocked GetWorkParamsState = "blocked"
+	GetWorkParamsStateReview  GetWorkParamsState = "review"
+)
+
+func (e GetWorkParamsState) Valid() bool {
+	switch e {
+	case GetWorkParamsStateActive:
+		return true
+	case GetWorkParamsStateBlocked:
+		return true
+	case GetWorkParamsStateReview:
 		return true
 	default:
 		return false
@@ -3198,6 +3236,24 @@ type UsageSummary struct {
 	Unknown               int64        `json:"unknown"`
 	UnknownMaximum        BudgetAmount `json:"unknown_maximum"`
 }
+type Work struct {
+	Bucket       WorkBucket `json:"bucket"`
+	CreatedAt    time.Time  `json:"created_at"`
+	Id           string     `json:"id"`
+	Kind         string     `json:"kind"`
+	Reason       string     `json:"reason"`
+	Repository   string     `json:"repository"`
+	RepositoryId string     `json:"repository_id"`
+	State        string     `json:"state"`
+	Title        string     `json:"title"`
+	Url          string     `json:"url"`
+}
+type WorkBucket string
+type WorkPage struct {
+	Complete   bool    `json:"complete"`
+	Items      []Work  `json:"items"`
+	NextCursor *string `json:"next_cursor,omitempty"`
+}
 type WorkflowLease struct {
 	AttemptId    string    `json:"attempt_id"`
 	ExpiresAt    time.Time `json:"expires_at"`
@@ -3692,6 +3748,12 @@ type SummarizeUsageParams struct {
 	Since        *time.Time `form:"since,omitempty" json:"since,omitempty"`
 	Until        *time.Time `form:"until,omitempty" json:"until,omitempty"`
 }
+type GetWorkParams struct {
+	State  *GetWorkParamsState `form:"state,omitempty" json:"state,omitempty"`
+	Cursor *string             `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *int                `form:"limit,omitempty" json:"limit,omitempty"`
+}
+type GetWorkParamsState string
 type RevokeSessionsParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 }

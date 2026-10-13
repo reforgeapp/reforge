@@ -2555,6 +2555,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/work": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getWork"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4935,6 +4951,25 @@ export interface components {
 
             finding_version: number;
             reason: string;
+        };
+        Work: {
+            id: string;
+            repository_id: string;
+            repository: string;
+            kind: string;
+            state: string;
+
+            bucket: "active" | "blocked" | "review";
+            title: string;
+            reason: string;
+            url: string;
+
+            created_at: string;
+        };
+        WorkPage: {
+            items: components["schemas"]["Work"][];
+            complete: boolean;
+            next_cursor?: string;
         };
     };
     responses: never;
@@ -11993,6 +12028,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    getWork: {
+        parameters: {
+            query?: {
+                state?: "active" | "blocked" | "review";
+                cursor?: string;
+                limit?: number;
+            };
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorkPage"];
+                };
             };
 
             default: {

@@ -63,7 +63,7 @@ func TestOverviewCountsOnlyOpenReviewCandidates(t *testing.T) {
 	}
 	service := insights.New(f.identity)
 	value, err := service.Overview(ctx, f.owner, f.org)
-	if err != nil || value.Counts.ReadyForReview != 1 {
+	if err != nil || value.Counts.ReadyForReview != 1 || value.Counts.NeedsDecision != 0 {
 		t.Fatalf("finished changes counted as ready for review: %+v %v", value.Counts, err)
 	}
 	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {

@@ -34,6 +34,22 @@ func insightFilter(c *gin.Context) (insights.Filter, bool) {
 
 func (s *Server) RegisterInsights(service *insights.Service) {
 	g := s.Router.Group("/api/v1/orgs/:orgID", s.IdentitySession())
+	g.GET("/work", func(c *gin.Context) {
+		f, ok := insightFilter(c)
+		if !ok {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		if f.State == "" {
+			f.State = "active"
+		}
+		page, err := service.Work(c.Request.Context(), session, c.Param("orgID"), f)
+		if err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.JSON(200, page)
+	})
 	g.GET("/environment-health", func(c *gin.Context) {
 		filter, ok := insightFilter(c)
 		if !ok {
