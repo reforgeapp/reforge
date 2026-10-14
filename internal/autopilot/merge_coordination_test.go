@@ -73,7 +73,7 @@ func TestOwnerRepairTargetCoordinationIsRepositoryAndTargetScoped(t *testing.T) 
 	assert(otherRepo, "main", false)
 	assert(repo, "release", false)
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='queued' WHERE org_id=$1 AND id=$2`, org, task); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='repairing' WHERE org_id=$1 AND id=$2`, org, task); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET state='handoff' WHERE org_id=$1 AND task_id=$2`, org, task); err != nil {

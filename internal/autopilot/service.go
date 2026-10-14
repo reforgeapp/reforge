@@ -495,6 +495,11 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	if pool == "" {
 		return errors.Join(s.record(ctx, org, c, "", "retry", "No active runner pool includes "+c.name, 10*time.Minute), s.status(ctx, org, "No runner for "+c.name))
 	}
+	if change, err := s.mergeWaiting(ctx, org, c.repository); err != nil {
+		return err
+	} else if change != "" {
+		return s.record(ctx, org, c, "", "retry", "Waiting for pull request #"+change+" to merge", 2*time.Minute)
+	}
 	if slices.Equal(recipes.ForFinding(c.category, c.ecosystem), []string{"bootstrap"}) {
 		var open string
 		if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
@@ -763,7 +768,7 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		return err
 	}
 	if waiting {
-		return later("Waiting for active owner repairs pinned to this target", time.Minute)
+		return later(pinnedByOwner, time.Minute)
 	}
 	if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-merge", finding, change, gate.ID), "autopilot"); err != nil {
 		return later(err.Error(), 5*time.Minute)
@@ -836,7 +841,7 @@ func (s *Service) mergeBot(ctx context.Context, session auth.Session, org string
 			return err
 		}
 		if waiting {
-			return later("Waiting for active owner repairs pinned to this target", time.Minute)
+			return later(pinnedByOwner, time.Minute)
 		}
 		if _, err = s.merges.Request(ctx, session, org, gate.ID, domain.StableID("autopilot-bot-merge", repo, change, head, gate.ID), "autopilot"); err != nil {
 			return later(err.Error(), 10*time.Minute)
