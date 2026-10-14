@@ -126,6 +126,12 @@ func CIPath(file string) bool {
 	return workflow || lower == ".gitlab-ci.yml"
 }
 
+func NodeTestPath(file string) bool {
+	name := strings.ToLower(path.Base(file))
+	ext := path.Ext(name)
+	return (ext == ".js" || ext == ".mjs" || ext == ".cjs") && (name == "test"+ext || strings.HasSuffix(name, ".test"+ext) || strings.HasSuffix(name, ".spec"+ext))
+}
+
 func TestPath(file string) bool {
 	lower := strings.ToLower(file)
 	name := path.Base(lower)
@@ -134,7 +140,7 @@ func TestPath(file string) bool {
 			return true
 		}
 	}
-	return strings.HasSuffix(name, "_test.go") || strings.HasPrefix(name, "test_") && strings.HasSuffix(name, ".py") || strings.HasSuffix(name, "_test.py") || strings.Contains(name, ".test.") || strings.Contains(name, ".spec.")
+	return NodeTestPath(file) || strings.HasSuffix(name, "_test.go") || strings.HasPrefix(name, "test_") && strings.HasSuffix(name, ".py") || strings.HasSuffix(name, "_test.py") || strings.Contains(name, ".test.") || strings.Contains(name, ".spec.")
 }
 
 func ValidateBootstrap(root fs.FS) []string {

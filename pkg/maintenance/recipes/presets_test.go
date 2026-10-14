@@ -18,6 +18,7 @@ func TestBuildPresetsCorpus(t *testing.T) {
 	}{
 		{"go", map[string][]byte{"go.mod": []byte("module example.test\n"), "z_test.go": nil, ".github/workflows/test.yml": nil}, []string{"go", "test", "-json", "-count=1", "./..."}},
 		{"javascript", map[string][]byte{"package.json": nil, "tests/z.spec.js": nil, "tests/a.test.js": nil, "package-lock.json": nil}, []string{"node", "--test", "--test-reporter=tap", "--test-isolation=none", "./tests/a.test.js", "./tests/z.spec.js"}},
+		{"javascript", map[string][]byte{"test.js": nil, "test.cjs": nil, "test.mjs": nil}, []string{"node", "--test", "--test-reporter=tap", "--test-isolation=none", "./test.cjs", "./test.js", "./test.mjs"}},
 		{"python", map[string][]byte{"pyproject.toml": nil, "tests/test_z.py": []byte("import unittest\n"), "tests/test_a.py": []byte("from unittest import TestCase\n")}, []string{"python3", "-m", "unittest", "discover", "-v"}},
 	}
 	for _, tc := range tests {
@@ -137,7 +138,7 @@ func TestBuildOwnerJavaScriptOnlyVitestAndUnsupportedEmpty(t *testing.T) {
 
 func TestBuildOwnerBareJavaScriptTests(t *testing.T) {
 	t.Run("javascript only", func(t *testing.T) {
-		r, err := BuildOwner("javascript", map[string][]byte{"tests/app.test.js": nil})
+		r, err := BuildOwner("javascript", map[string][]byte{"test.js": nil})
 		if err != nil || len(r.Commands) != 1 || r.Commands[0].ID != "node-01" || r.Commands[0].ReportFormat != "tap" {
 			t.Fatalf("bare JavaScript recipe: %v %#v", err, r.Commands)
 		}

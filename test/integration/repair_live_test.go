@@ -39,6 +39,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/runner"
 	"github.com/reforgeapp/reforge/pkg/runnerclient"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
+	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
 	"github.com/reforgeapp/reforge/pkg/source"
 	"github.com/reforgeapp/reforge/pkg/workflow"
 )
@@ -423,7 +424,7 @@ func runLiveRepair(t *testing.T, kind string) {
 				t.Fatal("validation bootstrap changed existing application behaviour")
 			}
 			workflow = workflow || strings.HasPrefix(patch.Path, ".gitea/workflows/")
-			tests = tests || strings.Contains(patch.Path, ".test.")
+			tests = tests || guest.TestPath(patch.Path)
 		}
 		if !workflow || !tests || run.Report.State != "validated" {
 			t.Fatal("bootstrap lacks executable tests or Gitea workflow")

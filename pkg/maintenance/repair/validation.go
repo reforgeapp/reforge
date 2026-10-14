@@ -78,7 +78,7 @@ func protectedPath(file string) bool {
 			return true
 		}
 	}
-	return strings.HasSuffix(name, "_test.go") || strings.HasPrefix(name, "test_") || strings.Contains(name, ".test.") || strings.Contains(name, ".spec.") || strings.Contains(name, "config") || name == "setup.py" || strings.HasPrefix(name, "conftest") || strings.Contains(name, "coverage")
+	return guest.TestPath(file) || strings.HasPrefix(name, "test_") || strings.Contains(name, "config") || name == "setup.py" || strings.HasPrefix(name, "conftest") || strings.Contains(name, "coverage")
 }
 
 var bypassCode = regexp.MustCompile(`(?i)(os\.Exit\s*\(|sys\.exit\s*\(|process\.exit\s*\(|os\._exit\s*\(|t\.(Skip|SkipNow|Skipf)\s*\(|(?:test|it|describe)\.(skip|only)\s*\(|unittest\.skip|pytest\.skip|-----BEGIN [A-Z ]*PRIVATE KEY-----)`)

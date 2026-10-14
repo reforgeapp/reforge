@@ -119,8 +119,16 @@ func TestBootstrapRequiresCountedBuildAndPreservesExistingChecks(t *testing.T) {
 			t.Fatalf("bootstrap changed existing behaviour/checks: %s", patch.Path)
 		}
 	}
-	if err := CheckOwnerPatch(p, files, []sandbox.Patch{{Path: "checkout.test.js", Content: []byte("new behaviour test")}}); err != nil {
-		t.Fatal(err)
+	for _, name := range []string{"checkout.test.js", "test.js", "test.mjs", "test.cjs"} {
+		patch := sandbox.Patch{Path: name, Content: []byte("new behaviour test")}
+		if err := CheckOwnerPatch(p, files, []sandbox.Patch{patch}); err != nil {
+			t.Fatalf("new bootstrap test rejected: %s: %v", name, err)
+		}
+		files[name] = []byte("original behaviour test")
+		if CheckOwnerPatch(p, files, []sandbox.Patch{patch}) == nil {
+			t.Fatalf("existing bootstrap test could change: %s", name)
+		}
+		delete(files, name)
 	}
 }
 

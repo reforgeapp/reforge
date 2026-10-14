@@ -50,7 +50,7 @@ func TestBootstrapExecutesBuildAndBehaviour(t *testing.T) {
 		files := map[string]string{
 			"package.json":            `{"type":"module","scripts":{"test":"node --test"}}`,
 			"add.js":                  "export const add = (a,b) => a+b;\n",
-			"add.test.js":             "import test from 'node:test'; import assert from 'node:assert/strict'; import { add } from './add.js'; test('adds inputs',()=>assert.equal(add(2,3),5));\n",
+			"test.js":                 "import test from 'node:test'; import assert from 'node:assert/strict'; import { add } from './add.js'; test('adds inputs',()=>assert.equal(add(2,3),5));\n",
 			".gitea/workflows/ci.yml": "on: [push, pull_request]\njobs: {test: {runs-on: ubuntu-latest, steps: [{run: npm test}]}}\n",
 		}
 		for name, body := range files {

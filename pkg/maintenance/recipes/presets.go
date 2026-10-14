@@ -176,8 +176,7 @@ func ownerJavaScriptCommands(paths []string, files map[string][]byte) ([]Command
 func ownerNodeTestCommands(paths, coveredDirs []string) []Command {
 	tests := make([]string, 0)
 	for _, file := range paths {
-		lower := strings.ToLower(file)
-		if !strings.HasSuffix(lower, ".test.js") && !strings.HasSuffix(lower, ".spec.js") && !strings.HasSuffix(lower, ".test.mjs") && !strings.HasSuffix(lower, ".spec.mjs") && !strings.HasSuffix(lower, ".test.cjs") && !strings.HasSuffix(lower, ".spec.cjs") {
+		if !guest.NodeTestPath(file) {
 			continue
 		}
 		covered := false
@@ -322,8 +321,7 @@ func javascriptPreset(paths []string) Recipe {
 	r := baseRecipe("javascript")
 	tests := make([]string, 0)
 	for _, file := range paths {
-		lower := strings.ToLower(file)
-		if strings.HasSuffix(lower, ".test.js") || strings.HasSuffix(lower, ".spec.js") || strings.HasSuffix(lower, ".test.mjs") || strings.HasSuffix(lower, ".spec.mjs") || strings.HasSuffix(lower, ".test.cjs") || strings.HasSuffix(lower, ".spec.cjs") {
+		if guest.NodeTestPath(file) {
 			tests = append(tests, file)
 		}
 	}
@@ -407,7 +405,7 @@ func protected(paths []string) []string {
 		base := path.Base(file)
 		lower := strings.ToLower(file)
 		name := strings.ToLower(base)
-		protect := strings.HasSuffix(name, "_test.go") || strings.HasSuffix(name, ".test.js") || strings.HasSuffix(name, ".spec.js") || strings.HasSuffix(name, ".test.mjs") || strings.HasSuffix(name, ".spec.mjs") || strings.HasSuffix(name, ".test.cjs") || strings.HasSuffix(name, ".spec.cjs") || strings.HasSuffix(name, ".test.ts") || strings.HasSuffix(name, ".spec.ts") || strings.HasSuffix(name, ".test.tsx") || strings.HasSuffix(name, ".spec.tsx") || (strings.HasPrefix(name, "test_") && strings.HasSuffix(name, ".py"))
+		protect := guest.TestPath(file)
 		protect = protect || strings.HasPrefix(lower, "tests/") || strings.Contains(lower, "/tests/") || strings.HasPrefix(lower, "testdata/") || strings.Contains(lower, "/testdata/") || strings.Contains(lower, "/__tests__/") || strings.HasPrefix(lower, "__tests__/")
 		protect = protect || strings.Contains(lower, "/.github/workflows/") || strings.HasPrefix(lower, ".github/workflows/") || strings.HasPrefix(name, "package") || strings.HasSuffix(name, ".lock") || name == "go.mod" || name == "go.sum" || name == "pyproject.toml" || name == "poetry.lock" || strings.HasPrefix(name, "requirements") || name == "pytest.ini" || name == "tox.ini" || name == "setup.cfg" || name == "makefile"
 		protect = protect || strings.HasPrefix(lower, "scripts/") || strings.Contains(lower, "/scripts/")
