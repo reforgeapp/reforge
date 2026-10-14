@@ -6,8 +6,10 @@ import (
 	"errors"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/workflow"
 	"log/slog"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
@@ -36,6 +38,21 @@ ELSE EXISTS(SELECT 1 FROM gitops_configurations cfg WHERE cfg.org_id=l.org_id AN
 		return err
 	}
 	for _, id := range ids {
+		receipt, err := s.Delivery.Releases.Get(ctx, session, org, id)
+		if err != nil {
+			return err
+		}
+		delegated := false
+		if err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+			resolved, err := s.policies.ResolveTx(ctx, tx, org, receipt.Provenance.Document.RepositoryID)
+			delegated = err == nil && !resolved.Paused && len(resolved.Problems) == 0 && !slices.Contains(resolved.Policy.Deny, policy.Deploy)
+			return err
+		}); err != nil {
+			return err
+		}
+		if !delegated {
+			continue
+		}
 		result, err := s.Delivery.Deploy(ctx, session, org, id, "autopilot-release")
 		var provider *domain.ProviderError
 		if errors.As(err, &provider) && provider.Kind == "release_superseded" {
