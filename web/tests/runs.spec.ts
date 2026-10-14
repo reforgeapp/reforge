@@ -101,6 +101,8 @@ test('owner sees reproduced checkout result before technical evidence', async ({
   await page.goto(`/org/${organisation}/runs?run=checkout-fix`)
   await expect(page.getByLabel('Verified impact')).toContainText('Checkout at mobile width — failed before fix; passes with fix')
   await expect(page.getByRole('link', {name: 'Review fix'})).toBeVisible()
+  await expect(page.getByRole('button', {name: 'Cancel run'})).toHaveCount(0)
+  await expect(page.getByText(/Cancel unavailable: Run is already terminal/)).toHaveCount(0)
   await page.getByRole('tab', {name: 'Evidence'}).click()
   await expect(page.getByText('Native head evidence')).not.toBeVisible()
   await page.setViewportSize({width: 390, height: 844})
