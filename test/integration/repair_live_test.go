@@ -60,9 +60,9 @@ func runLiveRepair(t *testing.T, kind string) {
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
 	t.Setenv("REFORGE_TEST_ROOT", root)
-	timeout, milliseconds := 6*time.Minute, int64(900000)
+	timeout, milliseconds, requests := 6*time.Minute, int64(900000), int64(16)
 	if bootstrap {
-		timeout, milliseconds = 12*time.Minute, 1800000
+		timeout, milliseconds, requests = 12*time.Minute, 1800000, 32
 	}
 	recipe := "javascript"
 	if bootstrap {
@@ -348,7 +348,7 @@ func runLiveRepair(t *testing.T, kind string) {
 	if _, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: modelName, Name: "default", Mode: "priced", PricingVersion: "local-zero-cost", MaxInputTokens: 100000, MaxOutputTokens: 1024, MaxMilliseconds: 600000, MaxRequests: 1}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: &milliseconds, Requests: ptr(16), Concurrency: ptr(1)}}, 0, "live"); err != nil {
+	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: &milliseconds, Requests: &requests, Concurrency: ptr(1)}}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
 	input := repair.Input{FindingID: findings.Items[0].ID, FindingVersion: findings.Items[0].Version, Recipe: recipe, ModelConnectionID: modelConnection.ID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID(), Owner: bootstrap}
