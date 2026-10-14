@@ -18,6 +18,8 @@ const safeURL = (value?: string) => { try { const url = new URL(value ?? ''); re
 const expired = (value: string) => !Number.isFinite(Date.parse(value)) || Date.parse(value) <= Date.now()
 const active = (p?: Promotion) => !!p && !p.finished_at && !['blocked', 'cancelled', 'healthy', 'recovered', 'failed', 'recovery_failed'].includes(p.state)
 const repoName = (repo: { id?: string; name?: string; full_name?: string }) => repo.full_name ?? repo.name ?? repo.id ?? ''
+const deliveryLabel = (p: Promotion) => `${p.environment} · ${new Date(p.created_at).toLocaleString()}`
+const stateLabel = (state: string) => ({ healthy: 'Rollout verified', recovered: 'Previous version restored', awaiting_merge: 'Waiting for protected merge', completed_unverified: 'Delivery awaiting verification', recovery_failed: 'Restore failed' }[state] ?? state.replaceAll('_', ' '))
 
 export function GitOpsPage({ orgID }: { orgID: string }) {
   const session = useSession()
@@ -147,8 +149,8 @@ function PromotionList({ rows, complete, loading, onMore, onSelect }: { rows: Pr
   return <section className="state-card">
     <DataTable caption="GitOps promotions">
       <table>
-        <thead><tr><th>Promotion</th><th>Delivery candidate</th><th>Delivery revision</th><th>State</th></tr></thead>
-        <tbody>{rows.map(row => <tr key={row.id}><td><button className="link-button" onClick={() => onSelect(row.id)}>{row.id}</button>{safeURL(row.change?.url) && <a href={safeURL(row.change?.url)} target="_blank" rel="noreferrer">PR</a>}</td><td><code>{row.candidate_sha || 'Pending'}</code></td><td><code>{row.merge_sha || 'Pending'}</code></td><td><StatusBadge label={row.state} tone={tone(row.state)} /></td></tr>)}</tbody>
+        <thead><tr><th>Delivery</th><th>Result</th></tr></thead>
+        <tbody>{rows.map(row => <tr key={row.id}><td><button className="link-button" onClick={() => onSelect(row.id)}>{deliveryLabel(row)}</button>{safeURL(row.change?.url) && <a href={safeURL(row.change?.url)} target="_blank" rel="noreferrer">Review change</a>}</td><td><StatusBadge label={stateLabel(row.state)} tone={tone(row.state)} /></td></tr>)}</tbody>
       </table>
       {!rows.length && <EmptyTable label="No GitOps promotions recorded." />}
     </DataTable>
@@ -184,23 +186,24 @@ function PromotionDetail({ orgID, detail, loading, error, csrf, canWrite, onChan
   }
   const mergeBlockers = mergeGate?.decision.blockers ?? []
   return <section className="state-card" aria-label={`Promotion ${p.id}`}>
-    <h2>Promotion {p.id}</h2>{(['failed', 'recovery_failed'].includes(p.state) || detail.health && (!detail.health.healthy || Object.values(detail.health.checks).some(value => !value))) && <RestoreRelease orgID={orgID} kind="gitops" id={p.id} version={p.version} csrf={csrf} allowed={canWrite} />}
-    <p><StatusBadge label={p.state} tone={tone(p.state)} /> {p.reason}</p>
-    <dl className="detail-list">
+    <h2>{deliveryLabel(p)}</h2>{(['failed', 'recovery_failed'].includes(p.state) || detail.health && (!detail.health.healthy || Object.values(detail.health.checks).some(value => !value))) && <RestoreRelease orgID={orgID} kind="gitops" id={p.id} version={p.version} csrf={csrf} allowed={canWrite} />}
+    <p><StatusBadge label={stateLabel(p.state)} tone={tone(p.state)} /> {p.reason}</p>
+    <p>{detail.health ? `${detail.health.healthy ? 'Healthy observation' : 'Unhealthy observation'} · ${new Date(detail.health.observed_at).toLocaleString()}` : 'Waiting for authenticated health checks.'}</p>
+    <details><summary>Delivery evidence</summary><dl className="detail-list">
+      <div><dt>Operation</dt><dd><code>{p.id}</code></dd></div>
       <div><dt>Source revision</dt><dd><code>{detail.gate.request.source_sha}</code></dd></div>
       <div><dt>Artifact</dt><dd><code>{detail.gate.request.artifact_digest}</code></dd></div>
       <div><dt>Delivery candidate</dt><dd><code>{p.candidate_sha || 'Pending'}</code></dd></div>
       <div><dt>Delivery revision</dt><dd><code>{p.merge_sha || 'Pending'}</code></dd></div>
-      <div><dt>Health</dt><dd>{detail.health ? `${detail.health.healthy ? 'Healthy observation' : 'Unhealthy observation'} · ${detail.health.observed_at}` : 'No authenticated health report'}</dd></div>
-    </dl>
+    </dl></details>
     {safeURL(p.change?.url) && <a href={safeURL(p.change?.url)} target="_blank" rel="noreferrer">Open native delivery change</a>}
     <div className="row-actions">
       <Button disabled={disabled || !['requested', 'staged'].includes(p.state) || p.cancel_requested} onClick={() => void act(() => gitopsAPI.continue(orgID, p.id, csrf))}>Continue</Button>
       <Button disabled={disabled || !live} onClick={() => void act(() => gitopsAPI.observe(orgID, p.id, csrf))}>Observe</Button>
       <Button disabled={disabled || !live || p.cancel_requested} onClick={() => void act(() => gitopsAPI.cancel(orgID, p.id, p.version, csrf))}>Cancel</Button>
-      <label>Merge method<select value={method} disabled={disabled || !canMerge} onChange={event => { setMethod(event.target.value); setMergeGate(undefined) }}>
+      <details><summary>Merge options</summary><label>Merge method<select value={method} disabled={disabled || !canMerge} onChange={event => { setMethod(event.target.value); setMergeGate(undefined) }}>
         {['fast-forward-only', 'merge', 'squash', 'rebase'].map(value => <option key={value} value={value}>{value}</option>)}
-      </select></label>
+      </select></label></details>
       <Button disabled={disabled || !canMerge} onClick={() => void previewMerge()}>Protected merge preview</Button>
     </div>
     {mergeGate && <div className="detail-section">

@@ -75,7 +75,9 @@ test('shows source and delivery revisions and blocks expired or unsafe merge', a
   await fixture(page, 'owner', [configuration()], [promotion()])
   await page.route(`**${base}/gitops-promotions/${promotionID}`, route => route.fulfill({ json: { promotion: promotion(), gate: gate(), health: { source_sha: source, delivery_revision: delivery, healthy: true, checks: { rollout: true }, observed_at: '2026-09-21T00:01:00Z' } } }))
   await page.route(`**${base}/gitops-promotions/${promotionID}/merge-preview`, route => route.fulfill({ json: { id: 'merge-gate', decision: { outcome: 'deny', blockers: ['protected branch'] }, blockers: ['protected branch'], expires_at: new Date(Date.now() - 1000).toISOString() } }))
-  await page.getByRole('button', { name: promotionID }).click()
+  await page.getByRole('button', { name: /^production ·/ }).click()
+  await expect(page.getByText(source).first()).toBeHidden(); await expect(page.getByText(delivery).first()).toBeHidden()
+  await page.getByText('Delivery evidence', { exact: true }).click()
   await expect(page.getByText(source).first()).toBeVisible(); await expect(page.getByText(delivery).first()).toBeVisible(); await page.getByRole('button', { name: 'Protected merge preview' }).click(); await expect(page.getByText('protected branch')).toBeVisible(); await expect(page.getByRole('button', { name: 'Request protected merge' })).toBeDisabled()
 })
 
@@ -84,7 +86,7 @@ test('detail switching and narrow keyboard layout remain usable', async ({ page 
   await page.route(`**${base}/gitops-promotions/${promotionID}`, route => route.fulfill({ json: { promotion: promotion(), gate: gate() } }))
   const secondID = '00000000-0000-4000-8000-000000000032'
   await page.route(`**${base}/gitops-promotions/${secondID}`, route => route.fulfill({ json: { promotion: promotion('awaiting_merge', secondID), gate: gate(new Date(Date.now() + 60_000).toISOString(), '00000000-0000-4000-8000-000000000022', secondID) } }))
-  const row = page.getByRole('button', { name: promotionID }); await row.focus(); await expect(row).toBeFocused(); await page.keyboard.press('Enter'); await expect(page.getByRole('heading', { name: `Promotion ${promotionID}` })).toBeVisible(); await page.getByRole('button', { name: secondID }).click(); await expect(page.getByRole('heading', { name: `Promotion ${secondID}` })).toBeVisible(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
+  const row = page.getByRole('button', { name: /^production ·/ }).first(); await row.focus(); await expect(row).toBeFocused(); await page.keyboard.press('Enter'); await expect(page).toHaveURL(new RegExp(`promotion=${promotionID}`)); await expect(page.getByRole('heading', { name: /^production ·/ })).toBeVisible(); await page.getByRole('button', { name: /^production ·/ }).nth(1).click(); await expect(page).toHaveURL(new RegExp(`promotion=${secondID}`)); await expect(page.getByRole('heading', { name: /^production ·/ })).toBeVisible(); expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true)
 })
 
 test('real local GitOps page renders its unmocked empty state', async ({ page }) => {
