@@ -93,6 +93,22 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	if err != nil || status.Mode != "propose" || !status.Continuous || status.MicroUSD != command.MicroUSD {
 		t.Fatalf("status: %+v %v", status, err)
 	}
+	for _, scope := range []budget.Scope{{Kind: "organisation", ID: f.org}, {Kind: "repository", ID: repo}} {
+		limit, err := budgets.GetLimit(ctx, f.owner, f.org, scope)
+		if err != nil || !limit.Start.IsZero() || !limit.End.IsZero() {
+			t.Fatalf("setup budget dates: %+v %v", limit, err)
+		}
+		limit.Paused = true
+		limit, err = budgets.PutLimit(ctx, f.owner, f.org, limit, limit.Version, "pause-setup-budget")
+		if err != nil || !limit.Paused {
+			t.Fatalf("setup budget cannot pause: %+v %v", limit, err)
+		}
+		limit.Paused = false
+		limit, err = budgets.PutLimit(ctx, f.owner, f.org, limit, limit.Version, "resume-setup-budget")
+		if err != nil || limit.Paused || limit.Caps.MicroUSD == nil || *limit.Caps.MicroUSD != command.MicroUSD {
+			t.Fatalf("setup budget cannot resume with its ceiling: %+v %v", limit, err)
+		}
+	}
 	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE budget_limits SET caps=caps||'{"concurrency":1,"tokens":6000}',period='daily',version=version+1 WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2`, f.org, repo)
 		return err

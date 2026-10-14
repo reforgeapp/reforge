@@ -180,6 +180,9 @@ func loadLimit(ctx context.Context, tx pgx.Tx, org string, scope Scope) (Limit, 
 	if err != nil {
 		return l, err
 	}
+	if l.Period == "daily" || l.Period == "monthly" {
+		l.Start, l.End = time.Time{}, time.Time{}
+	}
 	if err = json.Unmarshal(caps, &l.Caps); err != nil {
 		return l, err
 	}
