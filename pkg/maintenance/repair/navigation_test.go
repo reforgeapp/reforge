@@ -166,6 +166,7 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 				{ID: "paths", Name: "list_files", Arguments: []byte(`{"glob":"src/*.go","limit":10}`)},
 				{ID: "search", Name: "search_files", Arguments: []byte(`{"query":"needle-old","glob":"src/*.go","limit":10}`)},
 				{ID: "large-read", Name: "read_file", Arguments: []byte(`{"path":"src/large.go","offset":65530,"limit":4096}`)},
+				{ID: "unchanged-edit", Name: "edit_file", Arguments: []byte(`{"path":"src/large.go","old":"needle-old","new":"needle-old"}`)},
 				{ID: "edit", Name: "edit_file", Arguments: []byte(`{"path":"src/large.go","old":"needle-old","new":"needle-new"}`)},
 				{ID: "staged-read", Name: "read_file", Arguments: []byte(`{"path":"src/large.go","offset":65530,"limit":4096}`)},
 				{ID: "stale-edit", Name: "edit_file", Arguments: []byte(`{"path":"src/large.go","old":"needle-old","new":"needle-new"}`)},
@@ -190,6 +191,10 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 			case "edit":
 				if !strings.Contains(message.Text, "staged") {
 					t.Fatalf("edit was rejected: %s", message.Text)
+				}
+			case "unchanged-edit":
+				if !strings.Contains(message.Text, "No source change was staged") {
+					t.Fatal("identical snippets reported a staged edit")
 				}
 			case "staged-read":
 				if !strings.Contains(message.Text, "needle-new") {
