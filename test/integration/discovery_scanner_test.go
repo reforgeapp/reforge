@@ -15,6 +15,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/inventory"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 	"github.com/reforgeapp/reforge/pkg/source"
 )
@@ -166,6 +167,11 @@ func TestDiscoveryScannerCanonicalFindingsAndLeaseRecovery(t *testing.T) {
 	}
 	var dependency bool
 	for _, finding := range page.Items {
+		if finding.Category == "dependency_bots" || finding.Category == "missing_validation" {
+			if !strings.Contains(repair.Goal(finding), "canonical github provider reads") {
+				t.Fatal("maintenance goal omitted observed code host")
+			}
+		}
 		if finding.Category == "dependency_update" {
 			dependency = true
 			if finding.Evidence.Bot != "renovate" || len(finding.Evidence.Dependencies) != 2 || len(finding.Evidence.MergeBlockers) != 1 || !finding.Evidence.Complete {

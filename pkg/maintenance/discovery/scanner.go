@@ -543,7 +543,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 	if len(cached) > 200 {
 		return nil, errors.New("open changes exceed discovery bound")
 	}
-	initial := Evidence{ConnectionID: lease.Connection, ConnectionVersion: lease.Version, ConfigVersion: lease.ConfigVersion, HeadSHA: resolved.SHA, TargetSHA: resolved.SHA, TargetBranch: lease.Branch, BotConfig: botConfig, Ownership: "unknown", Complete: true, Provenance: "canonical provider reads at pinned commits"}
+	initial := Evidence{ConnectionID: lease.Connection, ConnectionVersion: lease.Version, ConfigVersion: lease.ConfigVersion, HeadSHA: resolved.SHA, TargetSHA: resolved.SHA, TargetBranch: lease.Branch, BotConfig: botConfig, Ownership: "unknown", Complete: true, Provenance: "canonical " + provider + " provider reads at pinned commits"}
 	out := []Observation{}
 	if title := botConfigGap(base, botConfig); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
