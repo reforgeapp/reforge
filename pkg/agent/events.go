@@ -95,11 +95,10 @@ func (c *Codex) handleRequest(ctx context.Context, p packet) error {
 	default:
 		return ErrDenied
 	}
-	if err := c.reply(ctx, p.ID, response); err != nil {
-		return err
+	if !c.emit(Event{Type: "approval_denied", ID: params.ItemID, ApprovalID: string(p.ID)}) {
+		return ErrUncertain
 	}
-	c.emit(Event{Type: "approval_denied", ID: params.ItemID, ApprovalID: string(p.ID)})
-	return nil
+	return c.reply(ctx, p.ID, response)
 }
 func (c *Codex) notification(p packet) error {
 	var params struct {
