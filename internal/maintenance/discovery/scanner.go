@@ -530,12 +530,13 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: title, Evidence: initial})
 	}
 	if botConfig.Renovate.Present && !botConfig.Dependabot.Present && !renovateActive {
-		e := initial
-		e.Blockers = []string{"Needs a person: Renovate has not opened any pull requests; install the Renovate app for this repository"}
 		if provider == "github" {
-			e.ActionURL, e.ActionLabel = "https://github.com/apps/renovate/installations/new", "Install Renovate on GitHub"
+			out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependency-bot-configuration", Category: "dependency_bots", Severity: "low", Title: "Renovate is configured but has never opened a pull request", Evidence: initial})
+		} else {
+			e := initial
+			e.Blockers = []string{"Needs a person: Renovate has not opened any pull requests; install the Renovate app for this repository"}
+			out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "renovate-install", Category: "provider_access", Severity: "low", Title: "Install Renovate", Evidence: e})
 		}
-		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "renovate-install", Category: "provider_access", Severity: "low", Title: "Install Renovate", Evidence: e})
 	}
 	if title := validationGap(entries); title != "" {
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "validation-bootstrap", Category: "missing_validation", Severity: "medium", Title: title, Evidence: initial})
