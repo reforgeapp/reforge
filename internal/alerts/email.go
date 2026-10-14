@@ -3,6 +3,8 @@ package alerts
 import (
 	"bytes"
 	"crypto/rand"
+	_ "embed"
+	"encoding/base64"
 	"encoding/hex"
 	"fmt"
 	"html/template"
@@ -13,6 +15,9 @@ import (
 	"time"
 )
 
+//go:embed brand-mark.png
+var logo []byte
+
 type item struct{ Key, Kind, Repository, Title, Detail, URL, Action string }
 
 type group struct {
@@ -21,8 +26,8 @@ type group struct {
 }
 
 type email struct {
-	Subject, Heading, Intro, Org, Base, CTA, CTAURL, Manage string
-	Groups                                                  []group
+	Subject, Heading, Intro, Org, CTA, CTAURL, Manage string
+	Groups                                            []group
 }
 
 var groupOrder = []struct{ Kind, Label, Colour string }{
@@ -33,7 +38,7 @@ var groupOrder = []struct{ Kind, Label, Colour string }{
 }
 
 func digest(base, org, name string, items []item) email {
-	e := email{Org: name, Base: base, CTA: "Open Reforge", CTAURL: base + "/org/" + org, Manage: base + "/org/" + org + "/organisation"}
+	e := email{Org: name, CTA: "Open Reforge", CTAURL: base + "/org/" + org, Manage: base + "/org/" + org + "/organisation"}
 	e.Heading = fmt.Sprintf("%d items need attention", len(items))
 	if len(items) == 1 {
 		e.Heading = "1 item needs attention"
@@ -89,7 +94,7 @@ var page = template.Must(template.New("email").Parse(`<!doctype html>
 <table role="presentation" width="600" cellspacing="0" cellpadding="0" style="width:100%;max-width:600px;">
 <tr><td style="padding:0 4px 16px;">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr>
-<td style="vertical-align:middle;"><img src="{{.Base}}/brand-mark.png" width="28" height="28" alt="" style="display:inline-block;vertical-align:middle;border:0;"><span style="display:inline-block;vertical-align:middle;margin-left:10px;font-size:18px;font-weight:700;letter-spacing:-0.2px;color:#111827;">Reforge</span></td>
+<td style="vertical-align:middle;"><img src="cid:logo@reforge" width="28" height="28" alt="" style="display:inline-block;vertical-align:middle;border:0;"><span style="display:inline-block;vertical-align:middle;margin-left:10px;font-size:18px;font-weight:700;letter-spacing:-0.2px;color:#111827;">Reforge</span></td>
 {{if .Org}}<td align="right" style="vertical-align:middle;font-size:13px;color:#6b7280;">{{.Org}}</td>{{end}}
 </tr></table></td></tr>
 <tr><td style="background:#ffffff;border:1px solid #e2e5eb;border-top:3px solid #2458d8;border-radius:8px;padding:28px 32px;">
@@ -126,12 +131,24 @@ func compose(from string, to []string, subject, text, html string) []byte {
 		}
 	}
 	fmt.Fprintf(&b, "From: %s\r\nTo: %s\r\nSubject: %s\r\nDate: %s\r\nMIME-Version: 1.0\r\nContent-Type: multipart/alternative; boundary=%q\r\n", sender.String(), strings.Join(to, ", "), mime.QEncoding.Encode("utf-8", subject), time.Now().UTC().Format(time.RFC1123Z), boundary)
-	for _, part := range []struct{ kind, body string }{{"text/plain", text}, {"text/html", html}} {
-		fmt.Fprintf(&b, "\r\n--%s\r\nContent-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", boundary, part.kind)
-		w := quotedprintable.NewWriter(&b)
-		_, _ = w.Write([]byte(strings.ReplaceAll(part.body, "\n", "\r\n")))
-		_ = w.Close()
+	fmt.Fprintf(&b, "\r\n--%s\r\n", boundary)
+	part(&b, "text/plain", text)
+	related := boundary + "-related"
+	fmt.Fprintf(&b, "\r\n--%s\r\nContent-Type: multipart/related; boundary=%q\r\n\r\n--%s\r\n", boundary, related, related)
+	part(&b, "text/html", html)
+	fmt.Fprintf(&b, "\r\n--%s\r\nContent-Type: image/png\r\nContent-Transfer-Encoding: base64\r\nContent-ID: <logo@reforge>\r\nContent-Disposition: inline; filename=\"reforge.png\"\r\n\r\n", related)
+	encoded := base64.StdEncoding.EncodeToString(logo)
+	for len(encoded) > 76 {
+		b.WriteString(encoded[:76] + "\r\n")
+		encoded = encoded[76:]
 	}
-	fmt.Fprintf(&b, "\r\n--%s--\r\n", boundary)
+	fmt.Fprintf(&b, "%s\r\n--%s--\r\n\r\n--%s--\r\n", encoded, related, boundary)
 	return b.Bytes()
+}
+
+func part(b *bytes.Buffer, kind, body string) {
+	fmt.Fprintf(b, "Content-Type: %s; charset=utf-8\r\nContent-Transfer-Encoding: quoted-printable\r\n\r\n", kind)
+	w := quotedprintable.NewWriter(b)
+	_, _ = w.Write([]byte(strings.ReplaceAll(body, "\n", "\r\n")))
+	_ = w.Close()
 }
