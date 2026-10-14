@@ -312,9 +312,13 @@ func (s *Service) ConnectionHeadroomTx(ctx context.Context, tx pgx.Tx, org, conn
 	return headroomTx(ctx, tx, org, Scope{Kind: "connection", ID: connection}, false)
 }
 
+func (s *Service) RepositoryHeadroomTx(ctx context.Context, tx pgx.Tx, org, repository string) error {
+	return headroomTx(ctx, tx, org, Scope{Kind: "repository", ID: repository}, false)
+}
+
 func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, required bool) error {
 	limit, err := loadLimit(ctx, tx, org, scope)
-	if errors.Is(err, pgx.ErrNoRows) || err == nil && limit.Caps.MicroUSD == nil {
+	if errors.Is(err, pgx.ErrNoRows) {
 		if !required {
 			return nil
 		}
@@ -325,6 +329,12 @@ func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, require
 	}
 	if limit.Paused {
 		return ErrRevoked
+	}
+	if limit.Caps.MicroUSD == nil {
+		if required {
+			return ErrUnknown
+		}
+		return nil
 	}
 	var now time.Time
 	if err = tx.QueryRow(ctx, `SELECT clock_timestamp()`).Scan(&now); err != nil {

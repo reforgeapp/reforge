@@ -166,6 +166,12 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return out, err
 		}
+		err = s.budgets.RepositoryHeadroomTx(ctx, tx, a.OrgID, repo)
+		if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
+			out.Blockers = append(out.Blockers, "Resume or raise repository spending limit")
+		} else if err != nil {
+			return out, err
+		}
 	}
 	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, out.ConnectionID, in.MicroUSD, out.initialize)
 	if err != nil {

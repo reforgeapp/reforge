@@ -36,6 +36,25 @@ func (s *Service) Defaults(ctx context.Context, session auth.Session, org, repo 
 		if err != nil {
 			return err
 		}
+		if s.budgets == nil {
+			out.Blockers = append(out.Blockers, "Set a maintenance spending ceiling")
+			return nil
+		}
+		for _, scope := range []string{"organisation", "repository"} {
+			var err error
+			if scope == "organisation" {
+				err = s.budgets.HeadroomTx(ctx, tx, org)
+			} else {
+				err = s.budgets.RepositoryHeadroomTx(ctx, tx, org, repo)
+			}
+			if errors.Is(err, budget.ErrUnknown) {
+				out.Blockers = append(out.Blockers, "Set a maintenance spending ceiling")
+			} else if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
+				out.Blockers = append(out.Blockers, "Resume or raise "+scope+" spending limit")
+			} else if err != nil {
+				return err
+			}
+		}
 		if len(resolved.Problems) > 0 || resolved.Paused || slices.Contains(resolved.Policy.Deny, policy.Repair) {
 			out.Blockers = append(out.Blockers, "Set up maintenance to propose fixes")
 			return nil

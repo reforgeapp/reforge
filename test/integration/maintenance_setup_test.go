@@ -103,6 +103,15 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 		if err != nil || !limit.Paused {
 			t.Fatalf("setup budget cannot pause: %+v %v", limit, err)
 		}
+		blocked := "Resume or raise " + scope.Kind + " spending limit"
+		plan, err := service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+		if err != nil || plan.Ready || !slices.Contains(plan.Blockers, blocked) {
+			t.Fatalf("paused setup budget marked ready: %+v %v", plan, err)
+		}
+		defaults, err := repairs.Defaults(ctx, f.owner, f.org, repo)
+		if err != nil || !slices.Contains(defaults.Blockers, blocked) {
+			t.Fatalf("paused repair defaults marked ready: %+v %v", defaults, err)
+		}
 		limit.Paused = false
 		limit, err = budgets.PutLimit(ctx, f.owner, f.org, limit, limit.Version, "resume-setup-budget")
 		if err != nil || limit.Paused || limit.Caps.MicroUSD == nil || *limit.Caps.MicroUSD != command.MicroUSD {
