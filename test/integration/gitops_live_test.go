@@ -4,22 +4,28 @@ import (
 	"bytes"
 	"context"
 	"crypto/ed25519"
+	"crypto/sha256"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/config"
+	deliverycmd "github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/deployment"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/environmenthealth"
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/httpapi"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/release"
 	"github.com/reforgeapp/reforge/pkg/runner"
 	"github.com/reforgeapp/reforge/pkg/workflow"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -40,7 +46,7 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	if os.Getenv("REFORGE_LIVE_GITOPS_TEST") != "1" {
 		t.Skip("requires disposable PostgreSQL and Gitea")
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	root := os.Getenv("REFORGE_TEST_ROOT")
 	if root == "" {
@@ -53,17 +59,29 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	native := func(repo forge.RepoRef, actor, method, suffix string, in, out any) {
 		t.Helper()
 		body, _ := json.Marshal(in)
-		req, _ := http.NewRequestWithContext(ctx, method, "http://127.0.0.1:53000/api/v1/repos/"+repo.FullName+suffix, bytes.NewReader(body))
-		req.Header.Set("Authorization", "token "+readGiteaToken(t, root, actor))
-		req.Header.Set("Content-Type", "application/json")
-		res, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-		if err != nil {
-			t.Fatal("local native request failed")
+		var res *http.Response
+		for attempt := 0; attempt < 50; attempt++ {
+			req, _ := http.NewRequestWithContext(ctx, method, "http://127.0.0.1:53000/api/v1/repos/"+repo.FullName+suffix, bytes.NewReader(body))
+			req.Header.Set("Authorization", "token "+readGiteaToken(t, root, actor))
+			req.Header.Set("Content-Type", "application/json")
+			var err error
+			res, err = (&http.Client{Timeout: 10 * time.Second}).Do(req)
+			if err != nil {
+				t.Fatal("local native request failed")
+			}
+			if res.StatusCode >= 200 && res.StatusCode < 300 {
+				break
+			}
+			var failure struct{ Message string }
+			_ = json.NewDecoder(io.LimitReader(res.Body, 4096)).Decode(&failure)
+			_ = res.Body.Close()
+			if attempt < 49 && method == "POST" && strings.HasSuffix(suffix, "/merge") && res.StatusCode == 405 && failure.Message == "Please try again later" {
+				time.Sleep(200 * time.Millisecond)
+				continue
+			}
+			t.Fatalf("native %s %s HTTP%d: %s", method, suffix, res.StatusCode, failure.Message)
 		}
 		defer res.Body.Close()
-		if res.StatusCode < 200 || res.StatusCode >= 300 {
-			t.Fatalf("native %s %s HTTP%d", method, suffix, res.StatusCode)
-		}
 		if out != nil && json.NewDecoder(res.Body).Decode(out) != nil {
 			t.Fatal("native response invalid")
 		}
@@ -72,7 +90,9 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		native(repo, "bot", "PUT", "/collaborators/reforge-reviewer", map[string]string{"permission": "write"}, nil)
 	}
 	native(source, "bot", "POST", "/branches", map[string]string{"new_branch_name": "release", "old_ref_name": "main"}, nil)
-	native(source, "bot", "POST", "/contents/app.txt", map[string]string{"branch": "release", "message": "Release fixture", "content": base64.StdEncoding.EncodeToString([]byte("release one\n"))}, nil)
+	for path, content := range map[string]string{"app.cjs": liveCheckoutApplication, "app.test.cjs": liveCheckoutTest, ".gitea/workflows/checks.yml": liveCheckoutWorkflow} {
+		native(source, "bot", "POST", "/contents/"+path, map[string]string{"branch": "release", "message": "Add qualified checkout checks", "content": base64.StdEncoding.EncodeToString([]byte(content))}, nil)
+	}
 	var sourcePR struct {
 		Number   int64  `json:"number"`
 		MergeSHA string `json:"merge_commit_sha"`
@@ -81,7 +101,7 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		} `json:"head"`
 	}
 	native(source, "bot", "POST", "/pulls", map[string]string{"head": "release", "base": "main", "title": "Release fixture"}, &sourcePR)
-	for i := 0; i < 30; i++ {
+	for i := 0; i < 60; i++ {
 		var state struct {
 			Mergeable bool `json:"mergeable"`
 		}
@@ -89,8 +109,9 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		if state.Mergeable {
 			break
 		}
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(250 * time.Millisecond)
 	}
+	time.Sleep(500 * time.Millisecond)
 	native(source, "bot", "POST", fmt.Sprintf("/pulls/%d/merge", sourcePR.Number), map[string]any{"Do": "merge", "head_commit_id": sourcePR.Head.SHA}, nil)
 	native(source, "bot", "GET", fmt.Sprintf("/pulls/%d", sourcePR.Number), nil, &sourcePR)
 	native(delivery, "bot", "POST", "/contents/deploy.yaml", map[string]string{"branch": "main", "message": "Initial delivery manifest", "content": base64.StdEncoding.EncodeToString([]byte("image: registry.example/app@sha256:" + strings.Repeat("0", 64) + "\n"))}, nil)
@@ -224,9 +245,15 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	if _, err = merges.PutConfig(ctx, f.owner, f.org, deliveryID, mergecontrol.Configuration{Enabled: true, InspectorConnectionID: inspector.ID, CheckPublishers: map[string]string{}, CooperationReference: "Disposable GitOps fixture has no other automerge actor", Qualification: qualification}, 0, "gitops-live"); err != nil {
 		t.Fatal(err)
 	}
+	native(source, "bot", "PATCH", "", map[string]any{"allow_fast_forward_only_merge": true}, nil)
+	native(source, "bot", "POST", "/branch_protections", map[string]any{"rule_name": "main", "enable_push": false, "required_approvals": 1, "dismiss_stale_approvals": true, "block_on_outdated_branch": true, "block_on_rejected_reviews": true, "block_on_official_review_requests": true, "block_admin_merge_override": true, "enable_status_check": false}, nil)
+	if _, err = merges.PutConfig(ctx, f.owner, f.org, sourceID, mergecontrol.Configuration{Enabled: true, InspectorConnectionID: inspector.ID, CheckPublishers: map[string]string{}, CooperationReference: "Disposable source fixture has no other automerge actor", Qualification: qualification}, 0, "gitops-live"); err != nil {
+		t.Fatal(err)
+	}
+	workflowDigest := sha256.Sum256([]byte(liveCheckoutWorkflow))
 	faults := &gitopsLostResponses{Client: reader, stage: true, publish: true, stageEntered: make(chan struct{}), stageRelease: make(chan struct{}), firstClaimed: make(chan struct{}), duplicateFinished: make(chan struct{})}
 	service := gitops.New(f.db, f.identity, f.connections, policies, faults, merges)
-	config := gitops.Configuration{Environment: "production", SourceRepositoryID: sourceID, DeliveryRepositoryID: deliveryID, Enabled: true, TargetBranch: "main", ManifestPath: "deploy.yaml", Pointer: "/image", ImageRepository: "registry.example/app", ProvenancePublicKey: base64.StdEncoding.EncodeToString(provenance), HealthPublicKey: base64.StdEncoding.EncodeToString(health), HealthChecks: []string{"smoke"}, ObservationSeconds: 1, MaxEvidenceAgeSeconds: 300, DeadlineSeconds: 600, RecoveryAllowed: true}
+	config := gitops.Configuration{BuildWorkflowPath: ".gitea/workflows/checks.yml", BuildWorkflowSHA256: hex.EncodeToString(workflowDigest[:]), Environment: "production", SourceRepositoryID: sourceID, DeliveryRepositoryID: deliveryID, Enabled: true, TargetBranch: "main", ManifestPath: "deploy.yaml", Pointer: "/image", ImageRepository: "registry.example/app", ProvenancePublicKey: base64.StdEncoding.EncodeToString(provenance), HealthPublicKey: base64.StdEncoding.EncodeToString(health), HealthChecks: []string{"smoke"}, ObservationSeconds: 1, MaxEvidenceAgeSeconds: 300, DeadlineSeconds: 600, RecoveryAllowed: true}
 	stored, err := service.PutConfiguration(ctx, f.owner, f.org, config, 0, "gitops-live")
 	if err != nil {
 		t.Fatal(err)
@@ -239,9 +266,48 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		raw, _ := json.Marshal(value)
 		return base64.StdEncoding.EncodeToString(ed25519.Sign(key, raw))
 	}
-	digest := "sha256:" + strings.Repeat("a", 64)
-	proof := deployment.Provenance{OrgID: f.org, RepositoryID: sourceID, SourceSHA: sourcePR.MergeSHA, ArtifactDigest: digest, BuildID: "disposable-build", IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour)}
+	digest, validation := buildLiveCheckout(t, []byte(liveCheckoutApplication), sourcePR.MergeSHA)
+	artifacts := map[string][]byte{digest: []byte(liveCheckoutApplication)}
+	var application *liveCheckoutProcess
+	reconcile := func(p gitops.Promotion) bool {
+		t.Helper()
+		var file struct{ Content string }
+		native(delivery, "bot", "GET", "/contents/deploy.yaml?ref="+p.MergeSHA, nil, &file)
+		manifest, err := base64.StdEncoding.DecodeString(file.Content)
+		if err != nil {
+			t.Fatal("read actual merged delivery manifest", err)
+		}
+		image, err := gitops.ReadManifestField(manifest, "/image")
+		if err != nil {
+			t.Fatal("read merged image reference", err)
+		}
+		artifact := strings.TrimPrefix(image, "registry.example/app@")
+		content, exists := artifacts[artifact]
+		if !exists {
+			t.Fatal("reconciler cannot find immutable application artifact")
+		}
+		sum := sha256.Sum256(content)
+		if artifact != "sha256:"+hex.EncodeToString(sum[:]) {
+			t.Fatal("reconciler artifact digest mismatch")
+		}
+		if application != nil {
+			application.stop()
+		}
+		application = startLiveCheckout(t, content)
+		return application.smoke()
+	}
+	proof := deployment.Provenance{Kind: "gitops", Environment: "production", ConfigurationVersion: stored.Version, WorkflowSHA256: stored.BuildWorkflowSHA256, Recovery: &deployment.RecoverySafety{State: "stateless"}, OrgID: f.org, RepositoryID: sourceID, SourceSHA: sourcePR.MergeSHA, ArtifactDigest: digest, Validation: validation, BuildID: "disposable-build", IssuedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour)}
 	input := gitops.PreviewRequest{ChangeID: fmt.Sprint(sourcePR.Number), SourceSHA: sourcePR.MergeSHA, ArtifactDigest: digest, Provenance: deployment.SignedProvenance{Document: proof, Signature: sign(proof, provenanceKey)}}
+	releases := &release.Service{DB: f.db, Auth: f.identity}
+	if _, err = releases.Receive(ctx, f.org, sourceID, input.Provenance); err != nil {
+		t.Fatal("actual signed CI reporter rejected", err)
+	}
+	deliveryCommands := &deliverycmd.Service{Releases: releases, GitOps: service, Providers: reader}
+	connected, err := deliveryCommands.Discover(ctx, f.owner, f.org, sourceID)
+	if err != nil || len(connected.Paths) != 1 || !connected.Paths[0].Ready {
+		t.Fatalf("actual CI and protected delivery setup not connected: %+v %v", connected, err)
+	}
+
 	gate, err := service.Preview(ctx, f.owner, f.org, "production", input, "gitops-live")
 	if err != nil || gate.Decision.Outcome != "allow" {
 		t.Fatalf("preview: %v %+v", err, gate.Decision)
@@ -357,6 +423,9 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	if err != nil || promotion.State != "completed_unverified" {
 		t.Fatalf("restart observation: %v %+v", err, promotion)
 	}
+	if !reconcile(promotion) {
+		t.Fatal("actual checkout application is unhealthy after protected rollout")
+	}
 	h := gitops.HealthReport{OrgID: f.org, PromotionID: promotion.ID, Environment: "production", ConfigurationVersion: stored.Version, SourceSHA: input.SourceSHA, ArtifactDigest: digest, DeliveryRevision: promotion.MergeSHA, Healthy: true, Checks: map[string]bool{"smoke": true}, ObservedAt: time.Now(), Nonce: domain.NewID()}
 	bad := h
 	bad.DeliveryRevision = strings.Repeat("f", 40)
@@ -382,16 +451,9 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	}
 
 	known := promotion
-	promote := func(in gitops.PreviewRequest, healthy bool) gitops.Promotion {
+	completePromotion := func(in gitops.PreviewRequest, p gitops.Promotion, healthy bool) gitops.Promotion {
 		t.Helper()
-		gate, e := service.Preview(ctx, f.owner, f.org, "production", in, "gitops-recovery")
-		if e != nil || gate.Decision.Outcome != "allow" {
-			t.Fatalf("recovery preview: %v %+v", e, gate.Decision)
-		}
-		p, e := service.Request(ctx, f.owner, f.org, gate.ID, domain.NewID(), "gitops-recovery")
-		if e != nil || p.Change == nil {
-			t.Fatalf("recovery publication: %v %+v", e, p)
-		}
+		var e error
 		native(delivery, "bot", "POST", "/pulls/"+p.Change.ID+"/reviews", map[string]string{"commit_id": p.CandidateSHA, "event": "APPROVED", "body": "Disposable recovery approval"}, nil)
 		mg, e := service.MergePreview(ctx, f.owner, f.org, p.ID, "fast-forward-only", "gitops-recovery")
 		if e != nil || mg.Decision.Outcome != "allow" {
@@ -415,7 +477,19 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		if e != nil || p.State != "completed_unverified" {
 			t.Fatalf("recovery observe: %v %+v", e, p)
 		}
-		h := gitops.HealthReport{OrgID: f.org, PromotionID: p.ID, Environment: "production", ConfigurationVersion: stored.Version, SourceSHA: in.SourceSHA, ArtifactDigest: in.ArtifactDigest, DeliveryRevision: p.MergeSHA, Healthy: healthy, Checks: map[string]bool{"smoke": healthy}, ObservedAt: time.Now(), Nonce: domain.NewID()}
+		if !reconcile(p) {
+			t.Fatal("actual application failed before runtime fault injection")
+		}
+		if !healthy {
+			if e = os.WriteFile(filepath.Join(application.root, "outage"), []byte("runtime outage"), 0600); e != nil {
+				t.Fatal(e)
+			}
+		}
+		observed := application.smoke()
+		if observed != healthy {
+			t.Fatal("actual checkout outcome disagrees with expected fault or recovery")
+		}
+		h := gitops.HealthReport{OrgID: f.org, PromotionID: p.ID, Environment: "production", ConfigurationVersion: stored.Version, SourceSHA: in.SourceSHA, ArtifactDigest: in.ArtifactDigest, DeliveryRevision: p.MergeSHA, Healthy: observed, Checks: map[string]bool{"smoke": observed}, ObservedAt: time.Now(), Nonce: domain.NewID()}
 		if e = service.ReceiveHealth(ctx, f.org, p.ID, h, sign(h, healthKey)); e != nil {
 			t.Fatal(e)
 		}
@@ -433,22 +507,105 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		}
 		return p
 	}
+	promote := func(in gitops.PreviewRequest, healthy bool) gitops.Promotion {
+		t.Helper()
+		gate, e := service.Preview(ctx, f.owner, f.org, "production", in, "gitops-recovery")
+		if e != nil || gate.Decision.Outcome != "allow" {
+			t.Fatalf("recovery preview: %v %+v", e, gate.Decision)
+		}
+		p, e := service.Request(ctx, f.owner, f.org, gate.ID, domain.NewID(), "gitops-recovery")
+		if e != nil || p.Change == nil {
+			t.Fatalf("recovery publication: %v %+v", e, p)
+		}
+		return completePromotion(in, p, healthy)
+	}
+
 	next := input
-	next.ArtifactDigest = "sha256:" + strings.Repeat("b", 64)
+	native(source, "bot", "POST", "/branches", map[string]string{"new_branch_name": "release-two", "old_ref_name": "main"}, nil)
+	var currentFile struct{ SHA string }
+	native(source, "bot", "GET", "/contents/app.cjs?ref=main", nil, &currentFile)
+	nextApp := []byte(strings.Replace(liveCheckoutApplication, "const version = 'one'", "const version = 'two'", 1))
+	native(source, "bot", "PUT", "/contents/app.cjs", map[string]string{"branch": "release-two", "sha": currentFile.SHA, "message": "Release second checkout version", "content": base64.StdEncoding.EncodeToString(nextApp)}, nil)
+	var nextPR struct {
+		Number   int64
+		Head     struct{ SHA string }
+		MergeSHA string `json:"merge_commit_sha"`
+	}
+	native(source, "reviewer", "POST", "/pulls", map[string]string{"head": "release-two", "base": "main", "title": "Second checkout release"}, &nextPR)
+	for i := 0; i < 60; i++ {
+		var state struct{ Mergeable bool }
+		native(source, "bot", "GET", fmt.Sprintf("/pulls/%d", nextPR.Number), nil, &state)
+		if state.Mergeable {
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	var releaseBranch struct{ Commit struct{ ID string } }
+	native(source, "bot", "GET", "/branches/release-two", nil, &releaseBranch)
+	nextPR.Head.SHA = releaseBranch.Commit.ID
+	var approval struct {
+		State    string
+		CommitID string `json:"commit_id"`
+	}
+	native(source, "bot", "POST", fmt.Sprintf("/pulls/%d/reviews", nextPR.Number), map[string]string{"commit_id": nextPR.Head.SHA, "event": "APPROVED", "body": "Approve disposable checkout release"}, &approval)
+	if approval.State != "APPROVED" || approval.CommitID != nextPR.Head.SHA {
+		t.Fatalf("exact source review not recorded: %+v head=%s", approval, nextPR.Head.SHA)
+	}
+	time.Sleep(500 * time.Millisecond)
+	native(source, "bot", "POST", fmt.Sprintf("/pulls/%d/merge", nextPR.Number), map[string]any{"Do": "merge", "head_commit_id": nextPR.Head.SHA}, nil)
+	native(source, "bot", "GET", fmt.Sprintf("/pulls/%d", nextPR.Number), nil, &nextPR)
+	nextDigest, nextValidation := buildLiveCheckout(t, nextApp, nextPR.MergeSHA)
+	artifacts[nextDigest] = nextApp
+	next.ChangeID, next.SourceSHA, next.ArtifactDigest = fmt.Sprint(nextPR.Number), nextPR.MergeSHA, nextDigest
+	next.Provenance.Document.SourceSHA = next.SourceSHA
+	next.Provenance.Document.Validation = nextValidation
 	next.Provenance.Document.ArtifactDigest = next.ArtifactDigest
 	next.Provenance.Signature = sign(next.Provenance.Document, provenanceKey)
-	failed := promote(next, false)
-	if failed.State != "failed" {
-		t.Fatalf("failed rollout not recorded: %+v", failed)
+	failed := promote(next, true)
+	if err = os.WriteFile(filepath.Join(application.root, "outage"), []byte("post-rollout checkout outage"), 0600); err != nil {
+		t.Fatal(err)
 	}
+	late := gitops.HealthReport{OrgID: f.org, PromotionID: failed.ID, Environment: "production", ConfigurationVersion: stored.Version, SourceSHA: next.SourceSHA, ArtifactDigest: next.ArtifactDigest, DeliveryRevision: failed.MergeSHA, Healthy: application.smoke(), Checks: map[string]bool{"smoke": application.smoke()}, ObservedAt: time.Now(), Nonce: domain.NewID()}
+	if late.Healthy || err != nil {
+		t.Fatal("runtime fault did not break actual checkout")
+	}
+	if err = service.ReceiveHealth(ctx, f.org, failed.ID, late, sign(late, healthKey)); err != nil {
+		t.Fatal(err)
+	}
+	lateDetail, err := service.Get(ctx, f.owner, f.org, failed.ID)
+	if err != nil || lateDetail.Promotion.State != "healthy" || lateDetail.Health == nil || lateDetail.Health.Healthy {
+		t.Fatalf("late runtime incident lost historical rollout or current failure: %+v %v", lateDetail, err)
+	}
+	var unhealthy bool
+	if err = f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		var e error
+		unhealthy, e = environmenthealth.UnhealthyTx(ctx, tx, f.org, "gitops", failed.ID)
+		return e
+	}); err != nil || !unhealthy {
+		t.Fatal("current environment lost real unhealthy observation", err)
+	}
+	failed = lateDetail.Promotion
 	restore := input
 	restore.RecoveryOf, restore.RestorePromotionID = failed.ID, known.ID
-	recovered := promote(restore, true)
+	commands := &deliverycmd.Service{Releases: &release.Service{DB: f.db, Auth: f.identity}, GitOps: service}
+	plan, err := commands.PreviewRestore(ctx, f.owner, f.org, "gitops", failed.ID, failed.Version, "owner-restore")
+	if err != nil || plan.PreviousAt.IsZero() || len(plan.Limits) == 0 || len(plan.Blockers) != 0 {
+		t.Fatalf("owner recovery plan: %+v %v", plan, err)
+	}
+	restoredRelease, err := commands.ConfirmRestore(ctx, f.owner, f.org, "gitops", failed.ID, plan.GateID, failed.Version, "owner-restore")
+	if err != nil {
+		t.Fatal(err)
+	}
+	pendingRestore, err := service.Get(ctx, f.owner, f.org, restoredRelease.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	recovered := completePromotion(restore, pendingRestore.Promotion, true)
 	if recovered.ID == known.ID || recovered.ID == failed.ID || recovered.RecoveryOf != failed.ID || recovered.State != "recovered" {
 		t.Fatalf("separate known-good revert missing: %+v", recovered)
 	}
 	retained, e := service.Get(ctx, f.owner, f.org, failed.ID)
-	if e != nil || retained.Promotion.State != "failed" {
+	if e != nil || retained.Promotion.State != "healthy" {
 		t.Fatal("recovery erased failed history")
 	}
 	t.Logf("real protected GitOps promotion=%s source=%s delivery=%s", promotion.ID, input.SourceSHA, promotion.MergeSHA)
@@ -465,9 +622,21 @@ func drainLiveInventory(t *testing.T, ctx context.Context, service *inventory.Se
 		if job.State == "complete" {
 			return job
 		}
-		lease, err := service.Claim(ctx, f.org, "gitops-live")
-		if err != nil || lease == nil {
-			t.Fatalf("inventory claim: %v", err)
+		var lease *inventory.Job
+		claimContext, cancel := context.WithTimeout(ctx, 5*time.Second)
+		for lease == nil && claimContext.Err() == nil {
+			lease, err = service.Claim(claimContext, f.org, "gitops-live")
+			if err != nil {
+				cancel()
+				t.Fatal(err)
+			}
+			if lease == nil {
+				time.Sleep(20 * time.Millisecond)
+			}
+		}
+		cancel()
+		if lease == nil {
+			t.Fatal("live inventory claim timed out")
 		}
 		if err = service.Step(ctx, *lease); err != nil {
 			t.Fatal(err)
