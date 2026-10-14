@@ -380,6 +380,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	tools := ciTools()
 	if owner {
 		system = "You own and maintain this repository. Use actual tools to read repository files, apply small changes, run_checks, then finish or skip. Describing tool calls or test results does not execute them. Never invent file contents or results. Preserve tests and security checks; native PR CI is the final feedback for hosted checks."
+		if p.Recipe.Name == "bootstrap" {
+			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Stage meaningful tests exercising the existing application and a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. Execute actual tools; describing changes does not stage them."
+		}
 		tools = ownerTools()
 		originalChanges := originalFileChanges(e.originalFiles, files)
 		prompt = "You own this repository and decide how to resolve the task below. You may change any file, including tests and CI, when that is the right call; tests you remove or rewrite must be genuinely obsolete or wrong, not inconvenient. Every test that passes on the target must still pass. Never commit secrets.\n" +

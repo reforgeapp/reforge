@@ -236,9 +236,17 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 		var report struct {
 			Bootstrap *guest.BootstrapReport `json:"bootstrap"`
 		}
-		if len(lines) == 0 || json.Unmarshal([]byte(lines[len(lines)-1]), &report) != nil || report.Bootstrap == nil || !report.Bootstrap.Complete {
+		if len(lines) == 0 || json.Unmarshal([]byte(lines[len(lines)-1]), &report) != nil || report.Bootstrap == nil {
 			out.Complete = false
 			out.Reason = "Bootstrap build and behavioural execution evidence unavailable"
+			return out
+		}
+		if !report.Bootstrap.Complete {
+			out.Complete = false
+			out.Reason = clip(strings.Join(report.Bootstrap.Problems, "; "), 2000)
+			if out.Reason == "" {
+				out.Reason = "Bootstrap build and behavioural execution evidence unavailable"
+			}
 			return out
 		}
 		out.Cases = report.Bootstrap.Cases

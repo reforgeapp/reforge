@@ -94,8 +94,13 @@ func TestBootstrapRequiresCountedBuildAndPreservesExistingChecks(t *testing.T) {
 		`{"bootstrap":{"complete":true,"builds":0,"cases":{"checkout":"pass"},"problems":[]}}`,
 		`{"bootstrap":{"complete":true,"builds":1,"cases":{"checkout":"skip"},"problems":[]}}`,
 		`{"bootstrap":{"complete":false,"builds":1,"cases":{"checkout":"pass"},"problems":[]}}`,
+		`{"bootstrap":{"complete":false,"builds":1,"cases":{"checkout":"pass"},"problems":["no CI workflow"]}}`,
 	} {
-		if Verified(p, nil, []CheckResult{Interpret(command, sandbox.CommandResult{Output: []byte(body)})}) {
+		result := Interpret(command, sandbox.CommandResult{Output: []byte(body)})
+		if strings.Contains(body, "no CI workflow") && result.Reason != "no CI workflow" {
+			t.Fatalf("bootstrap discarded actionable validation failure: %s", result.Reason)
+		}
+		if Verified(p, nil, []CheckResult{result}) {
 			t.Fatalf("unproven bootstrap accepted: %s", body)
 		}
 	}
