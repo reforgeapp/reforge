@@ -52,7 +52,7 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 			plan.Digest = planDigest(plan)
 			runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: reproduces}
 			engine := Engine{Runtime: runtime, RequireReproduction: true, Model: "fixture", JobID: "reported", AttemptID: "reported", Trust: "fixture", Progress: func(context.Context, string) error { return nil }, Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
-				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "fix", Name: "write_file", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}, {ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Adds inputs correctly"}`)}}}, nil
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "fix", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}, {ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Adds inputs correctly"}`)}}}, nil
 			}}
 			report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
 			if reproduces {
@@ -63,6 +63,25 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 				t.Fatalf("unreproduced repair validated: %+v %v", report, err)
 			}
 		})
+	}
+}
+
+func TestReproducedOwnerDefectKeepsExistingChecksFrozen(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner = true
+	plan.Digest = planDigest(plan)
+	runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: true}
+	engine := Engine{Runtime: runtime, RequireReproduction: true, Model: "fixture", JobID: "source-defect", AttemptID: "reported", Trust: "fixture", Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+		for _, tool := range in.Tools {
+			if tool.Name == "write_file" || tool.Name == "delete_file" || tool.Name == "update_dependency" || tool.Name == "run_command" {
+				t.Fatal("reproduced defect retained broad maintenance tools")
+			}
+		}
+		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "weaken", Name: "apply_patch", Arguments: []byte(`{"path":"value.test.js","content":""}`)}, {ID: "fix", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}, {ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Adds inputs correctly"}`)}}}, nil
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || len(report.Patches) != 1 || report.Patches[0].Path != "value.js" || !BehaviourFixed(plan, report.Reproduction, report.Candidate) {
+		t.Fatalf("reported defect changed checks or lost proof: %+v %v", report, err)
 	}
 }
 
