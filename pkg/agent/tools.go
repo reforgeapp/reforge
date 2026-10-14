@@ -76,7 +76,7 @@ func (c *Codex) tool(ctx context.Context, p packet) error {
 		}
 		_ = json.Unmarshal(params.Arguments, &input)
 		perform = func() error {
-			body, err := skills.Read(input.Path)
+			body, err := skills.ReadTool(input.Path)
 			if err != nil {
 				return err
 			}

@@ -471,7 +471,7 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 			reply := ""
 			switch call.Name {
 			case skills.ToolName:
-				body, err := skills.Read(input.Path)
+				body, err := skills.ReadTool(input.Path)
 				if err != nil {
 					reply = "Bundled skill resource unavailable; use an exact catalog path"
 				} else {

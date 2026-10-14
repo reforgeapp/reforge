@@ -143,6 +143,14 @@ func Read(path string) (string, error) {
 	return body, nil
 }
 
+func ReadTool(path string) (string, error) {
+	body, err := Read(path)
+	if err == nil && path == CavemanPath {
+		return "Mandatory Caveman full is already loaded in system instructions. Apply it; do not reread it. Continue the task with available tools. Load a different skill only when relevant.", nil
+	}
+	return body, err
+}
+
 func Context() (Bundle, error) {
 	c, err := bundled()
 	if err != nil {

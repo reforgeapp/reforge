@@ -575,7 +575,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				if json.Unmarshal(call.Arguments, &input) != nil {
 					return fail("Malformed model tool call", ErrHandoff)
 				}
-				body, err := skills.Read(input.Path)
+				body, err := skills.ReadTool(input.Path)
 				if err != nil {
 					reply = "Bundled skill resource unavailable; use an exact catalog path"
 				} else {

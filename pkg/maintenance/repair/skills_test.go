@@ -48,9 +48,10 @@ func TestRepairAndCILoadTrustedSkillsAcrossTurns(t *testing.T) {
 					return model.TurnResult{Continuation: continuation, ToolCalls: []model.ToolCall{
 						{ID: "skill", Name: skills.ToolName, Arguments: args},
 						{ID: "escape", Name: skills.ToolName, Arguments: json.RawMessage(`{"path":"../outside.md"}`)},
+						{ID: "mandatory", Name: skills.ToolName, Arguments: json.RawMessage(`{"path":"bundled/caveman/skills/caveman/SKILL.md"}`)},
 					}}, nil
 				}
-				if string(in.Continuation) != string(continuation) || len(in.Messages) != 2 || in.Messages[0].ToolCallID != "skill" || in.Messages[0].Text != resource || in.Messages[1].ToolCallID != "escape" || !strings.Contains(in.Messages[1].Text, "unavailable") {
+				if string(in.Continuation) != string(continuation) || len(in.Messages) != 3 || in.Messages[0].ToolCallID != "skill" || in.Messages[0].Text != resource || in.Messages[1].ToolCallID != "escape" || !strings.Contains(in.Messages[1].Text, "unavailable") || in.Messages[2].ToolCallID != "mandatory" || !strings.Contains(in.Messages[2].Text, "already loaded") {
 					t.Fatal("trusted skill result, denied path or continuation lost")
 				}
 				calls := []model.ToolCall{{ID: "patch", Name: "apply_patch", Arguments: json.RawMessage(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}}
