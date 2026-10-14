@@ -39,28 +39,35 @@ import (
 	"github.com/reforgeapp/reforge/pkg/runner"
 	"github.com/reforgeapp/reforge/pkg/runnerclient"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
+	"github.com/reforgeapp/reforge/pkg/source"
 	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
-func TestRepairLiveControllerRunnerAndGitea(t *testing.T) { runLiveRepair(t, false) }
-func TestRepairLiveDependencyUpgrade(t *testing.T)        { runLiveRepair(t, true) }
+func TestRepairLiveControllerRunnerAndGitea(t *testing.T) { runLiveRepair(t, "repair") }
+func TestRepairLiveDependencyUpgrade(t *testing.T)        { runLiveRepair(t, "dependency") }
+func TestRepairLiveBootstrap(t *testing.T)                { runLiveRepair(t, "bootstrap") }
 func TestRepairLiveProtectedMerge(t *testing.T) {
 	t.Setenv("REFORGE_LIVE_REPAIR_MERGE", "1")
-	runLiveRepair(t, false)
+	runLiveRepair(t, "repair")
 }
 
-func runLiveRepair(t *testing.T, upgrade bool) {
+func runLiveRepair(t *testing.T, kind string) {
+	upgrade, bootstrap := kind == "dependency", kind == "bootstrap"
 	if os.Getenv("REFORGE_LIVE_REPAIR_TEST") != "1" {
 		t.Skip("requires disposable PostgreSQL, Gitea, Ollama and gVisor")
 	}
 	_, file, _, _ := runtime.Caller(0)
 	root := filepath.Clean(filepath.Join(filepath.Dir(file), "../.."))
 	t.Setenv("REFORGE_TEST_ROOT", root)
-	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+	timeout, milliseconds := 6*time.Minute, int64(900000)
+	if bootstrap {
+		timeout, milliseconds = 12*time.Minute, 1800000
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	f := newInventoryFixture(t, 0)
 	repo := localPrivateRepository(t)
-	seed := seedRepairFixture(t, ctx, repo, root, upgrade)
+	seed := seedRepairFixture(t, ctx, repo, root, kind)
 	native, token := seed.Native, seed.Token
 	modelName := os.Getenv("REFORGE_REPAIR_TEST_MODEL")
 	if modelName == "" {
@@ -311,6 +318,8 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	category := "ci_failure"
 	if upgrade {
 		category = "dependency_update"
+	} else if bootstrap {
+		category = "missing_validation"
 	}
 	findings, err := discoveries.List(ctx, f.owner, f.org, 20, "", discovery.Filter{RepositoryID: repositoryID, Category: category})
 	if err != nil || len(findings.Items) != 1 {
@@ -334,10 +343,10 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	if _, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: modelName, Name: "default", Mode: "priced", PricingVersion: "local-zero-cost", MaxInputTokens: 100000, MaxOutputTokens: 1024, MaxMilliseconds: 600000, MaxRequests: 1}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: ptr(900000), Requests: ptr(16), Concurrency: ptr(1)}}, 0, "live"); err != nil {
+	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: &milliseconds, Requests: ptr(16), Concurrency: ptr(1)}}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
-	input := repair.Input{FindingID: findings.Items[0].ID, FindingVersion: findings.Items[0].Version, Recipe: "javascript", ModelConnectionID: modelConnection.ID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID()}
+	input := repair.Input{FindingID: findings.Items[0].ID, FindingVersion: findings.Items[0].Version, Recipe: "javascript", ModelConnectionID: modelConnection.ID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID(), Owner: bootstrap}
 	preview, err := repairs.Preview(ctx, f.owner, f.org, input)
 	if err != nil || len(preview.Blockers) > 0 {
 		t.Fatalf("preview: %v %v", err, preview.Blockers)
@@ -378,7 +387,7 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 		case <-time.After(100 * time.Millisecond):
 		}
 	}
-	if run.Change == nil || run.Report == nil || !repair.Reproduced(run.Report.Baseline) || !repair.Verified(run.Context.Plan, run.Report.Baseline, run.CandidateChecks) || run.Report.Diff == "" || len(run.CandidateArtifacts) == 0 {
+	if run.Change == nil || run.Report == nil || (!bootstrap && !repair.Reproduced(run.Report.Baseline)) || !repair.Verified(run.Context.Plan, run.Report.Baseline, run.CandidateChecks) || run.Report.Diff == "" || len(run.CandidateArtifacts) == 0 {
 		t.Fatal("completed run lacks native validation evidence")
 	}
 	var pulls []struct {
@@ -395,6 +404,48 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	for _, pull := range pulls {
 		if pull.Head.SHA == run.CandidateSHA {
 			candidateCount++
+		}
+	}
+	if bootstrap {
+		var workflow, tests bool
+		for _, patch := range run.Report.Patches {
+			if patch.Path == "value.js" {
+				t.Fatal("validation bootstrap changed existing application behaviour")
+			}
+			workflow = workflow || strings.HasPrefix(patch.Path, ".gitea/workflows/")
+			tests = tests || strings.Contains(patch.Path, ".test.")
+		}
+		if !workflow || !tests || run.Report.State != "validated" {
+			t.Fatal("bootstrap lacks executable tests or Gitea workflow")
+		}
+		candidate, err := source.Fetch(ctx, reader.SourceReader(f.org, forgeConnection.ID, func(context.Context, pgx.Tx, connections.Connection) error { return nil }), repo, run.CandidateSHA)
+		if err != nil {
+			t.Fatal(err)
+		}
+		mutation := t.TempDir()
+		for _, file := range candidate.Files {
+			name := filepath.Join(mutation, file.Path)
+			if err := os.MkdirAll(filepath.Dir(name), 0700); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(name, file.Content, 0600); err != nil {
+				t.Fatal(err)
+			}
+		}
+		checkCtx, stopCheck := context.WithTimeout(ctx, time.Minute)
+		defer stopCheck()
+		command := exec.CommandContext(checkCtx, "node", "--test", "--test-isolation=none", "--test-reporter=tap")
+		command.Dir = mutation
+		if output, err := command.CombinedOutput(); err != nil || !strings.Contains(string(output), "ok 1") || strings.Contains(string(output), "not ok") {
+			t.Fatal("generated bootstrap tests do not independently pass on published candidate")
+		}
+		if err := os.WriteFile(filepath.Join(mutation, "value.js"), []byte("export function value(a, b) { return a - b; }\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		command = exec.CommandContext(checkCtx, "node", "--test", "--test-isolation=none", "--test-reporter=tap")
+		command.Dir = mutation
+		if output, err := command.CombinedOutput(); err == nil || checkCtx.Err() != nil || !strings.Contains(string(output), "not ok") || !strings.Contains(string(output), "ERR_ASSERTION") {
+			t.Fatal("generated bootstrap tests cannot detect broken application behaviour")
 		}
 	}
 	if len(pulls) != expectedPulls || candidateCount != 1 {
@@ -420,8 +471,9 @@ type repairFixtureSeed struct {
 	AuthorID string
 }
 
-func seedRepairFixture(t *testing.T, ctx context.Context, repo forge.RepoRef, root string, upgrade bool) repairFixtureSeed {
+func seedRepairFixture(t *testing.T, ctx context.Context, repo forge.RepoRef, root string, kind string) repairFixtureSeed {
 	t.Helper()
+	upgrade, bootstrap := kind == "dependency", kind == "bootstrap"
 	secret, err := os.ReadFile(filepath.Join(root, ".local/gitea/reforge-bot.token"))
 	if err != nil {
 		t.Fatal("local bot fixture credential missing")
@@ -447,6 +499,9 @@ func seedRepairFixture(t *testing.T, ctx context.Context, repo forge.RepoRef, ro
 		}
 	}
 	files := map[string]string{"value.js": "export function value(a, b) { return a - b; }\n", "value.test.js": "import { strict as assert } from 'node:assert';\nimport { value } from './value.js';\nimport test from 'node:test';\ntest('value', () => { assert.equal(value(2, 3), 5); assert.equal(value(-4, 2), -2); });\n"}
+	if bootstrap {
+		files = map[string]string{"value.js": "export function value(a, b) { return a + b; }\n", "package.json": "{\"type\":\"module\",\"scripts\":{\"build\":\"node --check value.js\",\"test\":\"node --test --test-isolation=none\"}}\n"}
+	}
 	if upgrade {
 		files = map[string]string{
 			"package.json":           "{\n  \"type\": \"module\",\n  \"imports\": {\"#dependency\": \"./vendor/v1.js\"},\n  \"dependencies\": {\"fixture-value\": \"file:vendor/v1\"}\n}\n",
@@ -473,6 +528,9 @@ func seedRepairFixture(t *testing.T, ctx context.Context, repo forge.RepoRef, ro
 		} `json:"commit"`
 	}
 	native("GET", "/branches/main", nil, &branch)
+	if bootstrap {
+		return repairFixtureSeed{Native: native, Token: token, Head: branch.Commit.ID}
+	}
 	if upgrade {
 		var packageFile struct {
 			SHA string `json:"sha"`
