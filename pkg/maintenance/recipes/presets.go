@@ -273,7 +273,7 @@ func npmTestCommand(script, directory, body string, index int) Command {
 		command.ReportFormat = "jest"
 	case "playwright":
 		if len(fields) > 1 && fields[1] == "test" {
-			command = npmCommand(script, directory, []string{"--reporter=json", "--workers=1", "--retries=0", "--max-failures=1", "--timeout=30000", "--global-timeout=120000", "--forbid-only", "--trace=on", "--output=.reforge/browser/" + command.ID}, index)
+			command = npmCommand(script, directory, []string{"--reporter=json", "--workers=1", "--retries=0", "--max-failures=0", "--timeout=30000", "--global-timeout=120000", "--forbid-only", "--trace=on", "--output=.reforge/browser/" + command.ID}, index)
 			command.TimeoutSeconds = 150
 			command.ReportFormat = "playwright"
 		}

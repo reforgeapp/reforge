@@ -22,7 +22,7 @@ func TestOwnerRunsIndependentUnitAndBrowserChecks(t *testing.T) {
 		if command.ReportFormat == "playwright" {
 			browser = true
 			joined := strings.Join(command.Args, " ")
-			for _, arg := range []string{"test:e2e", "--workers=1", "--retries=0", "--forbid-only", "--trace=on", "--global-timeout=120000"} {
+			for _, arg := range []string{"test:e2e", "--workers=1", "--retries=0", "--max-failures=0", "--forbid-only", "--trace=on", "--global-timeout=120000"} {
 				if !strings.Contains(joined, arg) {
 					t.Fatalf("browser bound missing %s: %v", arg, command.Args)
 				}
