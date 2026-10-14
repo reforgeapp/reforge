@@ -23,12 +23,13 @@ type discoveryScanReader struct {
 	db interface {
 		Tenant(context.Context, string, string, func(pgx.Tx) error) error
 	}
-	connections *connections.Service
-	ref         forge.RepoRef
-	change      forge.Change
-	commits     map[string][]byte
-	stale       bool
-	passChecks  bool
+	connections         *connections.Service
+	ref                 forge.RepoRef
+	change              forge.Change
+	commits             map[string][]byte
+	stale               bool
+	passChecks          bool
+	optionalUnsupported bool
 }
 
 func (r *discoveryScanReader) authorize(ctx context.Context, org, id string, fn func(context.Context, pgx.Tx, connections.Connection) error) error {
@@ -71,6 +72,9 @@ func (r *discoveryScanReader) Read(ctx context.Context, org, id string, op priva
 		behind := 0
 		out.Behind = &behind
 	case privateconnector.ForgeIssues, privateconnector.ForgeAdvisories:
+		if r.optionalUnsupported {
+			return out, &domain.ProviderError{Kind: "unsupported"}
+		}
 	default:
 		return out, fmt.Errorf("unexpected discovery operation %s", op.Kind)
 	}
@@ -253,6 +257,32 @@ func TestDiscoveryScannerStaleConnectionFailsSafe(t *testing.T) {
 }
 
 var _ inventory.Reader = (*discoveryScanReader)(nil)
+
+func TestDiscoveryScanRetiresUnsupportedProviderAccessPrompt(t *testing.T) {
+	f := newDiscoveryFixture(t)
+	service, reader := f.scannerFixture(t, false)
+	reader.optionalUnsupported = true
+	ctx := context.Background()
+	in := f.observation("provider-access", "main", strings.Repeat("a", 40), nil)
+	in.Source, in.Category, in.Severity = "repository", "provider_access", "low"
+	in.Title = "Grant read access to issues and Dependabot alerts"
+	in.Evidence.Blockers = []string{"Needs a person: grant read permission for issues and Dependabot alerts"}
+	finding := f.observe(t, in)
+	if _, err := service.StartScan(ctx, f.owner, f.org, f.repo, "unsupported-access"); err != nil {
+		t.Fatal(err)
+	}
+	if worked, err := service.RunOrganisationOnce(ctx, f.org); err != nil || !worked {
+		t.Fatalf("provider scan: %v %v", worked, err)
+	}
+	got, err := service.Get(ctx, f.owner, f.org, finding.ID)
+	if err != nil || got.State != "resolved" {
+		t.Fatalf("unsupported provider access remains actionable: %+v %v", got, err)
+	}
+	page, err := service.List(ctx, f.owner, f.org, 20, "", discovery.Filter{RepositoryID: f.repo, State: "open", Category: "provider_access"})
+	if err != nil || len(page.Items) != 0 {
+		t.Fatalf("unsupported provider access recreated: %+v %v", page, err)
+	}
+}
 
 func TestDiscoveryScannerSurfacesConflictDespitePassingCI(t *testing.T) {
 	f := newDiscoveryFixture(t)

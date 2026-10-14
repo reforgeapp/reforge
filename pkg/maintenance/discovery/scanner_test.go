@@ -1,13 +1,52 @@
 package discovery
 
 import (
+	"errors"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
 )
+
+func TestOptionalProviderReadsDistinguishUnsupportedFromAccess(t *testing.T) {
+	for _, test := range []struct {
+		name, title        string
+		issues, advisories error
+	}{
+		{name: "Gitea optional features", issues: privateconnector.ErrUnsupported, advisories: &domain.ProviderError{Kind: "unsupported"}},
+		{name: "Gitea issue permission", issues: &domain.ProviderError{Kind: "forbidden"}, advisories: privateconnector.ErrUnsupported, title: "Grant read access to issues"},
+		{name: "GitHub alert permission", advisories: &domain.ProviderError{Kind: "scope"}, title: "Grant read access to Dependabot alerts"},
+		{name: "GitHub alerts disabled", advisories: &domain.ProviderError{Kind: "configuration"}, title: "Turn on Dependabot alerts"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			read := func(op privateconnector.Operation) (privateconnector.Result, error) {
+				switch op.Kind {
+				case privateconnector.ForgeIssues:
+					return privateconnector.Result{}, test.issues
+				case privateconnector.ForgeAdvisories:
+					return privateconnector.Result{}, test.advisories
+				case privateconnector.ForgePermissionsURL:
+					return privateconnector.Result{}, privateconnector.ErrUnsupported
+				}
+				return privateconnector.Result{}, errors.New("unexpected operation")
+			}
+			got, err := providerObservations(read, scanLease{Repo: "repo", Ref: forge.RepoRef{FullName: "owner/app"}}, Evidence{})
+			if err != nil {
+				t.Fatal(err)
+			}
+			if test.title == "" {
+				if len(got) != 0 {
+					t.Fatalf("unsupported features requested access: %+v", got)
+				}
+			} else if len(got) != 1 || got[0].Title != test.title || len(got[0].Evidence.Blockers) != 1 {
+				t.Fatalf("provider access finding: %+v", got)
+			}
+		})
+	}
+}
 
 func TestRateLimitRetryDelayIsBoundedAndScheduled(t *testing.T) {
 	for _, testCase := range []struct {

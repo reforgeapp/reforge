@@ -12,6 +12,11 @@ import (
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 )
 
+func unsupportedRead(err error) bool {
+	var providerError *domain.ProviderError
+	return errors.Is(err, privateconnector.ErrUnsupported) || errors.As(err, &providerError) && providerError.Kind == "unsupported"
+}
+
 func (s *Service) recheckAllAccess(ctx context.Context) error {
 	var orgs []string
 	if err := pgx.BeginFunc(ctx, s.db.Pool, func(tx pgx.Tx) error {
@@ -68,12 +73,17 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 			return nil
 		}
 		granted := true
+		reason := "Access granted"
 		kinds := []privateconnector.Kind{privateconnector.ForgeIssues, privateconnector.ForgeAdvisories}
 		if p.Source == "dependabot-alerts" {
 			kinds = kinds[1:]
 		}
 		for _, kind := range kinds {
 			_, err := s.reader.Read(ctx, org, p.Connection, privateconnector.Operation{ID: domain.NewID(), Kind: kind, Repository: &privateconnector.RepositoryArgs{Repository: p.Ref}}, authorize)
+			if unsupportedRead(err) {
+				reason = "Unsupported optional features require no access"
+				continue
+			}
 			var providerError *domain.ProviderError
 			if errors.As(err, &providerError) && providerError.Kind == "configuration" {
 				granted = p.Source != "dependabot-alerts"
@@ -82,7 +92,7 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 				}
 				continue
 			}
-			if errors.Is(err, privateconnector.ErrUnsupported) || errors.As(err, &providerError) && (providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "scope" || providerError.Kind == "not_found") {
+			if errors.As(err, &providerError) && (providerError.Kind == "forbidden" || providerError.Kind == "scope" || providerError.Kind == "not_found") {
 				granted = false
 				break
 			}
@@ -94,7 +104,7 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 			continue
 		}
 		if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			_, err := tx.Exec(ctx, `UPDATE maintenance_findings SET state='resolved',reason='Access granted',version=version+1 WHERE org_id=$1 AND id=$2 AND state='open'`, org, p.ID)
+			_, err := tx.Exec(ctx, `UPDATE maintenance_findings SET state='resolved',reason=$3,version=version+1 WHERE org_id=$1 AND id=$2 AND state='open'`, org, p.ID, reason)
 			return err
 		}); err != nil {
 			return err
