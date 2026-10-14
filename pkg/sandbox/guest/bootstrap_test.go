@@ -72,5 +72,12 @@ func TestBootstrapExecutesBuildAndBehaviour(t *testing.T) {
 		if RunBootstrap(context.Background(), os.DirFS("."), &logs) || !strings.Contains(logs.String(), "not ok") {
 			t.Fatal("throwing behavioural test failed to detect broken application")
 		}
+		if err := os.WriteFile("test.js", []byte("import test from 'node:test'; import { add } from './add.js'; test('adds inputs',()=>console.assert(add(2,3) === 5));\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		logs.Reset()
+		if RunBootstrap(context.Background(), os.DirFS("."), &logs) {
+			t.Fatal("non-failing console assertion verified broken application")
+		}
 	})
 }

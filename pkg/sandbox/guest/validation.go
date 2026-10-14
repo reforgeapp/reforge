@@ -17,7 +17,7 @@ var skipDirs = map[string]bool{".git": true, "node_modules": true, "vendor": tru
 
 var behaviourCheck = regexp.MustCompile(`(?m)(?:^|\n|&&|;)\s*(?:go\s+test\b|node\s+--test\b|(?:npm|pnpm|yarn)\s+(?:run\s+)?test(?:[:\s]|$)|python(?:3)?\s+-m\s+(?:unittest|pytest)\b|pytest\b)`)
 var explicitTestFailure = regexp.MustCompile(`\bthrow\s+(?:new\s+)?(?:Error|AssertionError)\s*\(`)
-var trivialAssertion = regexp.MustCompile(`(?i)(?:assert\s+(?:true|1\s*==\s*1)|assert\.(?:ok|equal|strictEqual)\(\s*(?:true|1\s*,\s*1)\s*\)|expect\(\s*(?:true|1)\s*\)\.(?:toBe|toEqual)\(\s*(?:true|1)\s*\))`)
+var trivialAssertion = regexp.MustCompile(`(?i)(?:assert\s+(?:true|1\s*==\s*1)|assert\.(?:ok|equal|strictEqual)\(\s*(?:true|1\s*,\s*1)\s*\)|expect\(\s*(?:true|1)\s*\)\.(?:toBe|toEqual)\(\s*(?:true|1)\s*\)|console\.assert\s*\()`)
 
 func behaviouralTest(name string, body []byte) bool {
 	text := string(body)
