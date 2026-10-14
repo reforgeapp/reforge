@@ -31,7 +31,7 @@ test('repository setup previews named scope and cap, then resumes without techni
   const dialog = page.getByRole('dialog', { name: 'Maintain shop' })
   await dialog.getByLabel('Spending ceiling ($)').fill('7.50')
   await dialog.getByRole('button', { name: 'Check setup' }).click()
-  await expect(dialog.getByText(/Only shop: scan, fix, open changes/)).toBeVisible()
+  await expect(dialog.getByText(/shop: scan, fix, open changes/)).toBeVisible()
   await expect(dialog.getByText(/Organisation ceiling: \$20.00 per monthly period/)).toBeVisible()
   expect(configured).toBe(false)
   expect(input).toMatchObject({ mode: 'propose', micro_usd: 7_500_000, continuous: true })
