@@ -65,3 +65,26 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 		})
 	}
 }
+
+func TestFrozenDefectRetainsOriginalBehaviourProof(t *testing.T) {
+	plan, files := testPlan(t)
+	runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: true}
+	engine := Engine{Runtime: runtime, RequireReproduction: true, Model: "fixture", JobID: "frozen-defect", AttemptID: "reported", Trust: "fixture", Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "fix", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+	}}
+	baseline := snapshotForEngine(t, plan.BaselineSHA, files)
+	target := snapshotForEngine(t, plan.TargetSHA, files)
+	verify := func(report Report, err error) {
+		t.Helper()
+		if err != nil || report.State != "validated" || !BehaviourFixed(plan, report.Reproduction, report.Candidate) || !BehaviourFixed(plan, report.Reproduction, report.Target) {
+			t.Fatalf("frozen defect lost publication proof: %+v %v", report, err)
+		}
+		changedCase := append([]CheckResult(nil), report.Candidate...)
+		changedCase[0].Cases = map[string]string{"1:unrelated": "pass"}
+		if BehaviourFixed(plan, report.Reproduction, changedCase) {
+			t.Fatal("unrelated passing check replaced reproduced case")
+		}
+	}
+	verify(engine.Run(context.Background(), plan, baseline, target))
+	verify(engine.ValidateCustom(context.Background(), plan, baseline, target, []sandbox.Patch{{Path: "value.js", Content: []byte("exports.add = (a,b) => a+b")}}))
+}

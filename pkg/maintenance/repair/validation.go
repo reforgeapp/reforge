@@ -450,7 +450,7 @@ func ProposalReady(p Plan, baseline, candidate []CheckResult) bool {
 }
 
 func BehaviourFixed(p Plan, before, after []CheckResult) bool {
-	if !BehaviourReproduced(p, before) || !Verified(p, nil, after) {
+	if !BehaviourReproduced(p, before) || !Verified(p, before, after) {
 		return false
 	}
 	for i, result := range before {

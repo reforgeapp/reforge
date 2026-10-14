@@ -394,6 +394,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		}
 		return fail("Original failure was not reproduced by complete frozen checks", ErrHandoff)
 	}
+	if e.RequireReproduction {
+		out.Reproduction = out.Baseline
+	}
 	if err = e.stage(ctx, "planning"); err != nil {
 		return fail("Run authorization changed", err)
 	}
@@ -642,6 +645,9 @@ func (e Engine) ValidateCustom(ctx context.Context, p Plan, baseline, target san
 			return e.runCI(ctx, p, out, targetFiles)
 		}
 		return fail("Original failure was not reproduced by complete frozen checks", ErrHandoff)
+	}
+	if e.RequireReproduction {
+		out.Reproduction = out.Baseline
 	}
 	if err = e.stage(ctx, "validating"); err != nil {
 		return fail("Run authorization changed", err)
