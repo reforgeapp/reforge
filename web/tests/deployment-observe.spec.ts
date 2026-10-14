@@ -10,10 +10,12 @@ const gate = { id: '00000000-0000-4000-8000-000000000004', environment: 'staging
 
 async function fixture(page: Page, configuration = config) {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'maintainer', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
+  await page.route(`**${base}/autopilot/needs**`, route => route.fulfill({json: {items: [], total: 0, complete: true}}))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { development: true, fixture_auth: true } }))
   await page.route(`**${base}/deployment-configurations`, route => route.fulfill({ json: { items: [configuration] } }))
   await page.route(`**${base}/deployments?**`, route => route.fulfill({ json: { items: [], complete: true } }))
   await page.goto(`/org/${org}/deployments`)
+  await page.getByText('Operator deployment tools', { exact: true }).click()
 }
 
 test('tracks native run without dispatch and keeps readonly authority', async ({ page }) => {

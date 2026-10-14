@@ -15,10 +15,12 @@ const gate = (expiresAt = new Date(Date.now() + 60_000).toISOString()) => ({ id:
 
 async function fixture(page: Page, operations: unknown[] = [], config = configuration) {
   await page.route('**/api/v1/session', route => route.fulfill({ json: { user: { id: 'user-1', name: 'Fixture', email: 'fixture@example.test' }, organisations: [{ id: org, name: 'Fixture', version: 1, paused: false }], memberships: [{ org_id: org, role: 'owner', team_ids: [], repository_ids: [], all_repositories: true }], csrf_token: 'csrf-1' } }))
+  await page.route(`**${base}/autopilot/needs**`, route => route.fulfill({json: {items: [], total: 0, complete: true}}))
   await page.route('**/api/v1/meta', route => route.fulfill({ json: { development: true, fixture_auth: true } }))
   await page.route(`**${base}/deployment-configurations`, route => route.fulfill({ json: { items: [config] } }))
   await page.route(`**${base}/deployments?**`, route => route.fulfill({ json: { items: operations, complete: true } }))
   await page.goto(`/org/${org}/deployments`)
+  await page.getByText('Operator deployment tools', { exact: true }).click()
 }
 
 test('previews, requests, and observes native pending then signed health', async ({ page }) => {
@@ -35,7 +37,7 @@ test('previews, requests, and observes native pending then signed health', async
   await expect(page.getByRole('link', { name: 'Open native approval' })).toHaveAttribute('href', gate().native.approval_url)
   await page.getByRole('button', { name: 'Request deployment' }).click()
   await expect(page.getByRole('heading', { name: 'Deployment deployment-1' })).toBeVisible()
-  await expect(page.getByText('Healthy')).toBeVisible()
+  await expect(page.getByText(/Reported healthy · observed/)).toBeVisible()
   await expect(page.getByText(/rollout: pass/)).toBeVisible()
   await expect(page.getByText(/Workflow SHA/)).toBeVisible()
 })
@@ -66,6 +68,31 @@ test('cancelled operation remains visible with its reason', async ({ page }) => 
   await expect(page.getByText('cancelled')).toBeVisible()
   await page.getByRole('button', { name: 'deployment-1' }).click()
   await expect(page.getByText('Cancelled by operator')).toBeVisible()
+})
+
+test('owner previews release time and limits before restoring frozen release', async ({ page }) => {
+  await fixture(page, [operation('failed')])
+  await page.route(`**${base}/deployments/deployment-1`, route => route.fulfill({ json: { operation: operation('failed'), gate: gate() } }))
+  let previews = 0; let restores = 0
+  await page.route(`**${base}/delivery/native/deployment-1/restore/preview`, async route => {
+    previews++
+    expect(route.request().headers()['if-match']).toBe('"2"')
+    await route.fulfill({ json: {kind: 'native', environment: 'production', previous_at: '2026-10-13T09:00:00Z', gate_id: 'previous-release-preview', expires_at: new Date(Date.now() + 60000).toISOString(), limits: ['Application release only; database contents remain unchanged.'], blockers: []} })
+  })
+  await page.route(`**${base}/delivery/native/deployment-1/restore`, async route => {
+    restores++
+    expect(route.request().postDataJSON()).toEqual({gate_id: 'previous-release-preview'})
+    expect(route.request().headers()['if-match']).toBe('"2"')
+    await route.fulfill({json: {kind: 'native', id: 'restored-release', state: 'recovery_requested'}})
+  })
+  await page.getByRole('button', {name: 'deployment-1', exact: true}).click()
+  await page.getByRole('button', {name: 'Restore previous working version'}).click()
+  await expect(page.getByRole('region', {name: 'Restore preview'})).toContainText('Restore production release from')
+  await expect(page.getByRole('region', {name: 'Restore preview'})).toContainText('database contents remain unchanged')
+  expect(previews).toBe(1); expect(restores).toBe(0)
+  await page.getByRole('button', {name: 'Restore this release'}).click()
+  await expect(page).toHaveURL(/deployment=restored-release/)
+  expect(restores).toBe(1)
 })
 
 test('deployment detail stays usable at narrow width and supports keyboard focus', async ({ page }) => {

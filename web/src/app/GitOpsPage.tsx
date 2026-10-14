@@ -1,3 +1,4 @@
+import { RestoreRelease } from './RestoreRelease'
 import { useEffect, useState } from 'react'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { useNavigate, useSearch } from '@tanstack/react-router'
@@ -37,7 +38,7 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
   const setDetailID=(id:string)=>{void navigate({search:previous=>{const next={...previous};delete next.deployment;if(id)next.promotion=id;else delete next.promotion;return next}})}
   const [view, setView] = useState('history')
   const config = draftConfig ?? (environment === null ? configurations.data?.items?.[0] : configurations.data?.items.find(item => item.environment === environment))
-  const detail = useQuery({ queryKey: ['org', orgID, 'gitops-promotion', detailID], queryFn: ({ signal }) => gitopsAPI.promotion(orgID, detailID, signal), enabled: !!detailID, refetchInterval: query => active(query.state.data?.promotion) ? 5000 : false })
+  const detail = useQuery({ queryKey: ['org', orgID, 'gitops-promotion', detailID], queryFn: ({ signal }) => gitopsAPI.promotion(orgID, detailID, signal), enabled: !!detailID, refetchInterval: query => active(query.state.data?.promotion) ? 5000 : 30000 })
   const repos = repositories.data?.pages.flatMap(page => page.items) ?? []
   const requested = (p: Promotion) => { setView('history'); setDetailID(p.id); void promotions.refetch() }
   const saved = (c: Configuration) => { setDraftConfig(undefined); setEnvironment(c.environment); setNewEnvironment(''); void configurations.refetch() }
@@ -45,7 +46,7 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
   if (configurations.isLoading) return <StatePanel kind="loading" title="Loading GitOps controls" detail="Fetching promotion configuration and history." />
   if (configurations.error || repositories.error) return <StatePanel kind="error" title="GitOps controls unavailable" detail={text(configurations.error ?? repositories.error)} action={<Button onClick={() => { void configurations.refetch(); void repositories.refetch() }}>Retry</Button>} />
   return <div className="stack gitops-page">
-    <Tabs id="gitops" label="GitOps workspace" items={[{ id: 'configuration', label: 'Configuration' }, { id: 'history', label: 'Promotion history' }]} value={view} onChange={setView} />
+    <Tabs id="gitops" label="GitOps workspace" items={[{ id: 'configuration', label: 'Operator settings' }, { id: 'history', label: 'Promotion history' }]} value={view} onChange={setView} />
     {view === 'configuration' && <section className="state-card" aria-label="GitOps configuration">
       <Toolbar label="GitOps environment">
         <label>Environment<select value={config?.environment ?? ""} onChange={event => { setDraftConfig(undefined); setEnvironment(event.target.value) }}>{draftConfig && <option value={draftConfig.environment}>{draftConfig.environment} (new)</option>}{(configurations.data?.items ?? []).map(item => <option key={item.environment} value={item.environment}>{item.environment}</option>)}</select></label>
@@ -102,7 +103,7 @@ function ConfigurationEditor({ orgID, config, repos, csrf, canWrite, canPreview,
       <label className="checkbox-label"><input type="checkbox" disabled={!canWrite || busy} checked={draft.enabled} onChange={event => update('enabled', event.target.checked)} /> Enabled</label>
     </div>
     <div className="row-actions"><Button className="button button-primary" disabled={!canWrite || !csrf || busy} onClick={() => void save()}>{busy ? 'Saving…' : 'Save configuration'}</Button></div>
-    <fieldset>
+    <details><summary>Operator promotion tools</summary><fieldset>
       <legend>Promotion</legend>
       {(dirty || config.version < 1) && <p>Save configuration before previewing.</p>}
       <div className="form-grid">
@@ -114,7 +115,7 @@ function ConfigurationEditor({ orgID, config, repos, csrf, canWrite, canPreview,
         <label className="wide">Signed provenance JSON<textarea value={provenance} disabled={!canPreview || busy} onChange={event => { setProvenance(event.target.value); setGate(undefined); setKey(crypto.randomUUID()) }} /></label>
       </div>
       <Button className="button button-primary" disabled={!canPreview || !csrf || busy || dirty || config.version < 1 || !changeID || !sourceSHA || !artifact} onClick={() => void preview()}>{busy ? 'Checking…' : 'Preview promotion'}</Button>
-    </fieldset>
+    </fieldset></details>
     {error && <p className="error-text" role="alert">{error}</p>}
     {gate && <GateCard orgID={orgID} gate={gate} csrf={csrf} canWrite={canPreview} idempotencyKey={key} onRequested={onRequested} />}
   </div>
@@ -183,7 +184,7 @@ function PromotionDetail({ orgID, detail, loading, error, csrf, canWrite, onChan
   }
   const mergeBlockers = mergeGate?.decision.blockers ?? []
   return <section className="state-card" aria-label={`Promotion ${p.id}`}>
-    <h2>Promotion {p.id}</h2>
+    <h2>Promotion {p.id}</h2>{(['failed', 'recovery_failed'].includes(p.state) || detail.health && (!detail.health.healthy || Object.values(detail.health.checks).some(value => !value))) && <RestoreRelease orgID={orgID} kind="gitops" id={p.id} version={p.version} csrf={csrf} allowed={canWrite} />}
     <p><StatusBadge label={p.state} tone={tone(p.state)} /> {p.reason}</p>
     <dl className="detail-list">
       <div><dt>Source revision</dt><dd><code>{detail.gate.request.source_sha}</code></dd></div>

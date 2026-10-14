@@ -5,6 +5,7 @@ import '../styles/setup.css'
 type Step = Setup['steps'][number]
 
 const steps: Record<Step['id'], { label: string; action?: string; href?: (org: string, step: Step) => string; note?: string }> = {
+  delivery: { label: 'Qualify merge and delivery', action: 'Connect deployment', href: (org, step) => `/org/${org}/repositories?repository=${step.repository_id ?? ''}` },
   forge: { label: 'Connect your code host', action: 'Connect', href: org => `/org/${org}/connections` },
   repository: { label: 'Import a repository', action: 'Import', href: (org, step) => `/org/${org}/connections${step.connection_id ? `?connection=${step.connection_id}` : ''}` },
   scan: { label: 'Scan a repository', action: 'Scan', href: (org, step) => `/org/${org}/repositories${step.repository_id ? `?repository=${step.repository_id}` : ''}` },
