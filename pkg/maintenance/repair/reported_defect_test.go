@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
@@ -44,6 +45,12 @@ func (r *reportedDefectRuntime) ExecuteBoundedCommand(_ context.Context, w sandb
 }
 
 func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
+	for _, source := range []string{"user_report", "forge_issue", "repository_review"} {
+		t.Run(source, func(t *testing.T) { reportedDefectNeedsOriginalFailureAndFixedPass(t, source) })
+	}
+}
+
+func reportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T, source string) {
 	for _, reproduces := range []bool{false, true} {
 		t.Run(map[bool]string{false: "unreproduced", true: "reproduced"}[reproduces], func(t *testing.T) {
 			plan, files := testPlan(t)
@@ -51,7 +58,8 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 			plan.Recipe.MaxTurns = 2
 			plan.Digest = planDigest(plan)
 			runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: reproduces}
-			engine := Engine{Runtime: runtime, RequireReproduction: true, Model: "fixture", JobID: "reported", AttemptID: "reported", Trust: "fixture", Progress: func(context.Context, string) error { return nil }, Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+			finding := discovery.Finding{Observation: discovery.Observation{Source: source, Category: "code_defect"}}
+			engine := Engine{Runtime: runtime, RequireReproduction: RequiresReproduction(finding), Model: "fixture", JobID: "reported", AttemptID: "reported", Trust: "fixture", Progress: func(context.Context, string) error { return nil }, Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
 				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "fix", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}, {ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Adds inputs correctly"}`)}}}, nil
 			}}
 			report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))

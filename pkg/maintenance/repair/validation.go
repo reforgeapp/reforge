@@ -13,6 +13,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
@@ -22,6 +23,10 @@ import (
 
 var ErrValidation = errors.New("frozen validation plan or evidence is incomplete")
 var ErrPatch = errors.New("patch changes protected validation, sensitive paths or exceeds recipe limits")
+
+func RequiresReproduction(f discovery.Finding) bool {
+	return f.Source == "user_report" || f.Source == "forge_issue" || f.Source == "repository_review" && f.Category == "code_defect"
+}
 
 type Plan struct {
 	AuthorityHash   string            `json:"authority_hash,omitempty"`

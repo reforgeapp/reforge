@@ -666,7 +666,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return auth.ErrInvalid
 		}
 		if in.State == "validated" {
-			if current.Context.Finding.Source == "user_report" && (!BehaviourFixed(p, in.Reproduction, in.Candidate) || !BehaviourFixed(p, in.Reproduction, in.Target)) {
+			if RequiresReproduction(current.Context.Finding) && (!BehaviourFixed(p, in.Reproduction, in.Candidate) || !BehaviourFixed(p, in.Reproduction, in.Target)) {
 				return ErrValidation
 			}
 			if t.State != domain.TaskValidating || !ci && !owner && !Reproduced(in.Baseline) || !Verified(p, in.Baseline, in.Candidate) || !Verified(p, in.Baseline, in.Target) || len(in.Patches) == 0 {
