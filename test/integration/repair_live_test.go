@@ -63,6 +63,10 @@ func runLiveRepair(t *testing.T, kind string) {
 	if bootstrap {
 		timeout, milliseconds = 12*time.Minute, 1800000
 	}
+	recipe := "javascript"
+	if bootstrap {
+		recipe = "bootstrap"
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 	f := newInventoryFixture(t, 0)
@@ -328,7 +332,7 @@ func runLiveRepair(t *testing.T, kind string) {
 	if upgrade && (findings.Items[0].Evidence.Ownership != "bot" || findings.Items[0].Evidence.Bot != "renovate" || findings.Items[0].Evidence.HeadSHA == findings.Items[0].Evidence.TargetSHA) {
 		t.Fatal("upgrade not identified from immutable native bot/head evidence")
 	}
-	document := policy.Policy{Schema: "maintenance/v1", ForbiddenPaths: []string{"vendor/**"}, Allow: policy.Lists{Recipes: []string{"javascript"}, Models: []string{modelName}, Routes: []string{modelConnection.ID + "/default"}}}
+	document := policy.Policy{Schema: "maintenance/v1", ForbiddenPaths: []string{"vendor/**"}, Allow: policy.Lists{Recipes: []string{recipe}, Models: []string{modelName}, Routes: []string{modelConnection.ID + "/default"}}}
 	version, err := policies.CreateVersion(ctx, f.owner, f.org, policy.Scope{Kind: "organisation", ID: f.org}, document, "live", "live")
 	if err != nil {
 		t.Fatal(err)
@@ -346,7 +350,7 @@ func runLiveRepair(t *testing.T, kind string) {
 	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: &milliseconds, Requests: ptr(16), Concurrency: ptr(1)}}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
-	input := repair.Input{FindingID: findings.Items[0].ID, FindingVersion: findings.Items[0].Version, Recipe: "javascript", ModelConnectionID: modelConnection.ID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID(), Owner: bootstrap}
+	input := repair.Input{FindingID: findings.Items[0].ID, FindingVersion: findings.Items[0].Version, Recipe: recipe, ModelConnectionID: modelConnection.ID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID(), Owner: bootstrap}
 	preview, err := repairs.Preview(ctx, f.owner, f.org, input)
 	if err != nil || len(preview.Blockers) > 0 {
 		t.Fatalf("preview: %v %v", err, preview.Blockers)
@@ -363,8 +367,12 @@ func runLiveRepair(t *testing.T, kind string) {
 	stateRoot := filepath.Join(t.TempDir(), "runtime")
 	cfg := sandbox.RuntimeConfig{Runsc: runsc, RunscSHA256: fileDigest(t, runsc), Tool: tool, ToolSHA256: fileDigest(t, tool), StateRoot: stateRoot, Images: map[string]string{digest: imageRoot}, CgroupRoot: os.Getenv("REFORGE_TEST_CGROUP_ROOT"), Development: true, Rootless: true, MemoryBytes: 2 << 30, DiskBytes: 512 << 20, CPUs: 1, MaxProcesses: 128}
 	workerCtx, stopWorker := context.WithCancel(ctx)
-	workerDone := make(chan error, 1)
-	go func() { workerDone <- client.Run(workerCtx, runnerclient.RepairProcessor(cfg)) }()
+	workerDone := make(chan struct{})
+	var workerErr error
+	go func() {
+		workerErr = client.Run(workerCtx, runnerclient.RepairProcessor(cfg))
+		close(workerDone)
+	}()
 	defer func() { stopWorker(); <-workerDone }()
 	for {
 		run, err = repairs.Get(ctx, f.owner, f.org, run.Task.ID)
@@ -382,6 +390,8 @@ func runLiveRepair(t *testing.T, kind string) {
 			t.Fatalf("live repair stopped: task=%s run=%s reason=%s report=%s", run.Task.State, run.State, run.Task.Reason, reason)
 		}
 		select {
+		case <-workerDone:
+			t.Fatalf("live runner stopped before completion: %v", workerErr)
 		case <-ctx.Done():
 			t.Fatal("live repair deadline")
 		case <-time.After(100 * time.Millisecond):
