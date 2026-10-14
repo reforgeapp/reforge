@@ -22,6 +22,8 @@ test('runs detail exposes frozen evidence and supports keyboard deep links', asy
   await page.goto(`/org/${organisation}/runs?run=task-1`)
   await expect(page.getByRole('heading', { name: /go · task-1/ })).toBeVisible()
   await expect(page.getByRole('region', { name: 'Run task-1' })).toContainText('Repair failing Go tests')
+  await expect(page.getByText('claude-sonnet-4-5')).not.toBeVisible()
+  await page.getByText('Execution details', {exact: true}).click()
   await expect(page.getByText('claude-sonnet-4-5')).toBeVisible()
   await page.getByRole('tab', { name: 'Evidence' }).click()
   await page.getByText('Technical evidence', { exact: true }).click()
@@ -89,6 +91,7 @@ test('owner sees reproduced checkout result before technical evidence', async ({
   await login(page)
   const item = task('checkout-fix')
   const result = run(item)
+  Object.assign(result, {change: {id: '2', state: 'open', title: 'Fix checkout', url: 'https://forge.example/owner/shop/pulls/2'}})
   const check = {command_id: 'browser', exit_code: 0, complete: true, output_sha256: 'browser-log', reason: '', cases: {'shop/checkout.spec.ts/mobile:Checkout at mobile width': 'pass'}}
   result.candidate_checks = [check]
   Object.assign(result.report, {state: 'validated', candidate: [check], reproduction: [{...check, exit_code: 1, cases: {'shop/checkout.spec.ts/mobile:Checkout at mobile width': 'fail'}}]})
@@ -97,6 +100,7 @@ test('owner sees reproduced checkout result before technical evidence', async ({
   await page.route(`**/api/v1/orgs/${organisation}/events**`, route => route.fulfill({headers: {'content-type': 'text/event-stream'}, body: ': keepalive\n\n'}))
   await page.goto(`/org/${organisation}/runs?run=checkout-fix`)
   await expect(page.getByLabel('Verified impact')).toContainText('Checkout at mobile width — failed before fix; passes with fix')
+  await expect(page.getByRole('link', {name: 'Review fix'})).toBeVisible()
   await page.getByRole('tab', {name: 'Evidence'}).click()
   await expect(page.getByText('Native head evidence')).not.toBeVisible()
   await page.setViewportSize({width: 390, height: 844})
