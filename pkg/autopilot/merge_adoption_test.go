@@ -121,6 +121,39 @@ func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) 
 	}); err != nil {
 		t.Fatal(err)
 	}
+	for _, test := range []struct {
+		name, report, digest, postMerge, want string
+	}{
+		{"unverified proposal", "unverified", "c", "pending", "open"},
+		{"changed evidence", "validated", "d", "pending", "open"},
+		{"regressed fix", "validated", "c", "regressed", "open"},
+		{"verified fix", "validated", "c", "pending", "resolved"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+				if _, err := tx.Exec(ctx, `UPDATE maintenance_findings SET source='user_report',state='open',evidence_digest=$3 WHERE org_id=$1 AND id=$2`, org, findings[0], strings.Repeat(test.digest, 64)); err != nil {
+					return err
+				}
+				report, _ := json.Marshal(map[string]string{"state": test.report})
+				if _, err := tx.Exec(ctx, `UPDATE repair_runs SET native_change=jsonb_set(native_change,'{state}','"merged"'::jsonb),report=$3,post_merge_state=$4 WHERE org_id=$1 AND task_id=$2`, org, tasks[0], report, test.postMerge); err != nil {
+					return err
+				}
+				if err := releaseTerminalRepairsTx(ctx, tx, org); err != nil {
+					return err
+				}
+				var state string
+				if err := tx.QueryRow(ctx, `SELECT state FROM maintenance_findings WHERE org_id=$1 AND id=$2`, org, findings[0]).Scan(&state); err != nil {
+					return err
+				}
+				if state != test.want {
+					t.Fatalf("merged finding state=%s want=%s", state, test.want)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestRepairIdempotencyKeyScopesManualRequests(t *testing.T) {
