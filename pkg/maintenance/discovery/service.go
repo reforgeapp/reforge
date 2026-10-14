@@ -302,7 +302,20 @@ func PrepareRepairTx(ctx context.Context, tx pgx.Tx, org, id string, expected in
 	return f, nil
 }
 
+func ReleaseTerminalRepairsTx(ctx context.Context, tx pgx.Tx, org, repo string) error {
+	_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM workflow_tasks t WHERE m.org_id=$1 AND m.repository_id=$2 AND m.active AND t.org_id=m.org_id AND t.id=m.task_id AND t.state IN ('failed','cancelled')
+AND NOT EXISTS(SELECT 1 FROM workflow_jobs j WHERE j.org_id=m.org_id AND j.task_id=m.task_id AND j.state='running')
+AND NOT EXISTS(SELECT 1 FROM workflow_outbox o WHERE o.org_id=m.org_id AND o.task_id=m.task_id AND o.state IN ('dispatching','unknown'))
+AND NOT EXISTS(SELECT 1 FROM model_turns mt WHERE mt.org_id=m.org_id AND mt.task_id=m.task_id AND mt.state IN ('dispatched','unknown'))
+AND NOT EXISTS(SELECT 1 FROM budget_reservations b WHERE b.org_id=m.org_id AND b.task_id=m.task_id AND b.state IN ('reserved','dispatched','unknown'))
+AND NOT EXISTS(SELECT 1 FROM repair_runs r WHERE r.org_id=m.org_id AND r.task_id=m.task_id AND r.native_change IS NOT NULL AND r.native_change<>'null'::jsonb)`, org, repo)
+	return err
+}
+
 func CheckRepairOverlapTx(ctx context.Context, tx pgx.Tx, f Finding) error {
+	if err := ReleaseTerminalRepairsTx(ctx, tx, f.OrgID, f.RepositoryID); err != nil {
+		return err
+	}
 	head := ""
 	if f.Evidence.Change != nil {
 		head = f.Evidence.Change.HeadBranch

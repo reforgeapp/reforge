@@ -13,6 +13,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
@@ -111,8 +112,7 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 				return err
 			}
 		}
-		_, err = tx.Exec(ctx, `UPDATE maintenance_repairs SET active=false WHERE org_id=$1 AND task_id=$2 AND EXISTS(SELECT 1 FROM workflow_tasks WHERE org_id=$1 AND id=$2 AND state IN ('failed','cancelled')) AND NOT EXISTS(SELECT 1 FROM workflow_outbox WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatching','unknown')) AND NOT EXISTS(SELECT 1 FROM model_turns WHERE org_id=$1 AND task_id=$2 AND state IN ('dispatched','unknown'))`, org, id)
-		return err
+		return discovery.ReleaseTerminalRepairsTx(ctx, tx, org, r.Task.RepositoryID)
 	}); err != nil {
 		return out, err
 	}

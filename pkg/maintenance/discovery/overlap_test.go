@@ -95,11 +95,46 @@ func TestPublishedRepairOverlapAllowsOnlyOwnedFollowUp(t *testing.T) {
 				return fmt.Errorf("unverified work should remain blocked, got %v", err)
 			}
 		}
-		if err := insertRepair(domain.NewID(), domain.NewID(), "", "queued", "typescript"); err != nil {
+		terminalTask := domain.NewID()
+		if err := insertRepair(domain.NewID(), terminalTask, "", "queued", "typescript"); err != nil {
 			return err
 		}
 		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != ErrDuplicate {
 			return fmt.Errorf("active queued repair should block follow-up, got %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='cancelled' WHERE org_id=$1 AND id=$2`, org, terminalTask); err != nil {
+			return err
+		}
+		job, intent := domain.NewID(), domain.NewID()
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_jobs(org_id,id,task_id,operation_id,state) VALUES($1,$2,$3,$4,'running')`, org, job, terminalTask, domain.NewID()); err != nil {
+			return err
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != ErrDuplicate {
+			return fmt.Errorf("running cancelled repair released: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE workflow_jobs SET state='cancelled' WHERE org_id=$1 AND id=$2`, org, job); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_outbox(org_id,id,task_id,repository_id,operation_id,kind,idempotency_key,payload,payload_hash,state) VALUES($1,$2,$3,$4,$5,'publish','uncertain','{}',$6,'unknown')`, org, intent, terminalTask, repo, domain.NewID(), strings.Repeat("e", 64)); err != nil {
+			return err
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != ErrDuplicate {
+			return fmt.Errorf("unknown publication released: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE workflow_outbox SET state='absent' WHERE org_id=$1 AND id=$2`, org, intent); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET native_change='{"id":"open-change","state":"open"}' WHERE org_id=$1 AND task_id=$2`, org, terminalTask); err != nil {
+			return err
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != ErrDuplicate {
+			return fmt.Errorf("published change lock released: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET native_change=NULL WHERE org_id=$1 AND task_id=$2`, org, terminalTask); err != nil {
+			return err
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != nil {
+			return fmt.Errorf("confirmed terminal repair still blocks work: %v", err)
 		}
 		return nil
 	}); err != nil {
