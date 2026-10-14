@@ -381,7 +381,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if owner {
 		system = "You own and maintain this repository. Use actual tools to read repository files, apply small changes, run_checks, then finish or skip. Describing tool calls or test results does not execute them. Never invent file contents or results. Preserve tests and security checks; native PR CI is the final feedback for hosted checks."
 		if p.Recipe.Name == "bootstrap" {
-			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Stage meaningful tests exercising the existing application and a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. Execute actual tools; describing changes does not stage them."
+			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Stage meaningful tests exercising the existing application and a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. GitHub/Gitea Actions require on: [push, pull_request] and unconditional build/test steps. Execute actual tools; describing changes does not stage them."
 		}
 		tools = ownerTools()
 		originalChanges := originalFileChanges(e.originalFiles, files)
@@ -865,6 +865,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				proposal := !verified && ProposalReady(p, out.Baseline, candidate)
 				if checked != revision || len(current()) == 0 || !verified && !proposal {
 					reply = "Not finished: stage a change and pass run_checks on the current changes first"
+					if checked == revision && len(candidate) > 0 {
+						reply += "\nCurrent checks: " + clip(string(summarizeChecks(candidate)), 4096)
+					}
 					if e.RequireReproduction && !BehaviourReproduced(p, out.Reproduction) {
 						reply = "Not finished: a counted regression test must fail on the original code and pass with the fix. Add the regression test and run_checks; unavailable or unreproduced checks need a handoff."
 					}

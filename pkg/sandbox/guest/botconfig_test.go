@@ -1,6 +1,7 @@
 package guest
 
 import (
+	"strings"
 	"testing"
 	"testing/fstest"
 )
@@ -29,16 +30,21 @@ func TestValidateBootstrap(t *testing.T) {
 		files fstest.MapFS
 		valid bool
 	}{
-		"empty":      {fstest.MapFS{"main.go": {Data: []byte("package main")}}, false},
-		"no-tests":   {fstest.MapFS{".github/workflows/ci.yml": workflow}, false},
-		"broken":     {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: [")}, "main_test.go": {}}, false},
-		"complete":   {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, true},
-		"empty-test": {fstest.MapFS{".github/workflows/ci.yml": workflow, "main_test.go": {}}, false},
-		"echo-only":  {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: push\njobs: {test: {steps: [{run: echo ok}]}}\n")}, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, false},
-		"trivial":    {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("def test_true():\n    assert True\n")}}, false},
-		"vendored":   {fstest.MapFS{".github/workflows/ci.yml": workflow, "node_modules/x/a.test.js": {}}, false},
+		"empty":       {fstest.MapFS{"main.go": {Data: []byte("package main")}}, false},
+		"no-tests":    {fstest.MapFS{".github/workflows/ci.yml": workflow}, false},
+		"broken":      {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: [")}, "main_test.go": {}}, false},
+		"complete":    {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, true},
+		"empty-test":  {fstest.MapFS{".github/workflows/ci.yml": workflow, "main_test.go": {}}, false},
+		"echo-only":   {fstest.MapFS{".github/workflows/ci.yml": {Data: []byte("on: push\njobs: {test: {steps: [{run: echo ok}]}}\n")}, "tests/test_app.py": {Data: []byte("from app import add\ndef test_add():\n    assert add(2, 3) == 5\n")}}, false},
+		"untriggered": {fstest.MapFS{".gitea/workflows/ci.yml": {Data: []byte("jobs: {test: {steps: [{run: node --test}]}}\n")}, "test.js": {Data: []byte("import assert from 'node:assert/strict'; import { add } from './app.js'; assert.equal(add(2,3),5);\n")}}, false},
+		"trivial":     {fstest.MapFS{".github/workflows/ci.yml": workflow, "tests/test_app.py": {Data: []byte("def test_true():\n    assert True\n")}}, false},
+		"vendored":    {fstest.MapFS{".github/workflows/ci.yml": workflow, "node_modules/x/a.test.js": {}}, false},
 	} {
-		if problems := ValidateBootstrap(tc.files); (len(problems) == 0) != tc.valid {
+		problems := ValidateBootstrap(tc.files)
+		if name == "untriggered" && !strings.Contains(strings.Join(problems, "; "), "add on: [push, pull_request]") {
+			t.Fatalf("missing trigger diagnostic lost: %v", problems)
+		}
+		if (len(problems) == 0) != tc.valid {
 			t.Errorf("%s: %v", name, problems)
 		}
 	}

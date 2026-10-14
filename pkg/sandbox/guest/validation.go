@@ -63,9 +63,8 @@ func behaviouralTest(name string, body []byte) bool {
 	return (strings.Contains(text, "assert") || strings.Contains(text, "expect(") || explicitTestFailure.MatchString(text)) && (strings.Contains(text, "'./") || strings.Contains(text, "\"./") || strings.Contains(text, "'../") || strings.Contains(text, "\"../") || strings.Contains(text, "page.goto("))
 }
 
-func workflowRunsTests(doc map[string]any) bool {
-	jobs, ok := doc["jobs"].(map[string]any)
-	if ok {
+func workflowTriggered(doc map[string]any) bool {
+	if _, ok := doc["jobs"].(map[string]any); ok {
 		triggered := false
 		switch on := doc["on"].(type) {
 		case string:
@@ -86,10 +85,16 @@ func workflowRunsTests(doc map[string]any) bool {
 				triggered = true
 			}
 		}
-		if !triggered {
-			return false
-		}
+		return triggered
 	}
+	return true
+}
+
+func workflowRunsTests(doc map[string]any) bool {
+	if !workflowTriggered(doc) {
+		return false
+	}
+	jobs, ok := doc["jobs"].(map[string]any)
 	if !ok {
 		jobs = doc
 	}
@@ -180,6 +185,8 @@ func ValidateBootstrap(root fs.FS) []string {
 		var doc map[string]any
 		if err := yaml.Unmarshal(body, &doc); err != nil || len(doc) == 0 {
 			problems = append(problems, name+": not a YAML mapping")
+		} else if !workflowTriggered(doc) {
+			problems = append(problems, name+": CI must run on push or pull_request without path filters; add on: [push, pull_request]")
 		} else if workflowRunsTests(doc) {
 			functionalCI = true
 		}
