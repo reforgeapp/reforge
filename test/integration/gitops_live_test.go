@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/autopilot"
+	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/config"
 	deliverycmd "github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/deployment"
@@ -20,6 +22,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/httpapi"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
 	"github.com/reforgeapp/reforge/pkg/release"
@@ -237,8 +240,10 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		t.Fatalf("inspector: %v", err)
 	}
 	discoveries := discovery.New(f.db, f.identity, reader)
-	if _, err = discoveries.PutConfig(ctx, f.owner, f.org, deliveryID, discovery.Config{MergeAuthority: "reforge"}, 0, "gitops-live"); err != nil {
-		t.Fatal(err)
+	for _, repo := range []string{sourceID, deliveryID} {
+		if _, err = discoveries.PutConfig(ctx, f.owner, f.org, repo, discovery.Config{MergeAuthority: "reforge"}, 0, "gitops-live"); err != nil {
+			t.Fatal(err)
+		}
 	}
 	merges := mergecontrol.New(f.db, f.identity, f.connections, policies, reader)
 	qualification := mergecontrol.Qualification{Provider: "gitea", ServerVersion: realConnection.ServerVersion, ConnectionVersion: realConnection.Version, InspectorVersion: inspector.Version, EvidenceReference: "local-gitea-protected-gitops", EvidenceSHA256: fileDigest(t, filepath.Join(root, "test/forge/gitea/contract_test.go")), VerifiedAt: time.Now().Add(-time.Minute), ExpiresAt: time.Now().Add(time.Hour), ExactHead: true, StrictTarget: true}
@@ -507,31 +512,27 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		}
 		return p
 	}
-	promote := func(in gitops.PreviewRequest, healthy bool) gitops.Promotion {
-		t.Helper()
-		gate, e := service.Preview(ctx, f.owner, f.org, "production", in, "gitops-recovery")
-		if e != nil || gate.Decision.Outcome != "allow" {
-			t.Fatalf("recovery preview: %v %+v", e, gate.Decision)
-		}
-		p, e := service.Request(ctx, f.owner, f.org, gate.ID, domain.NewID(), "gitops-recovery")
-		if e != nil || p.Change == nil {
-			t.Fatalf("recovery publication: %v %+v", e, p)
-		}
-		return completePromotion(in, p, healthy)
-	}
-
 	next := input
-	native(source, "bot", "POST", "/branches", map[string]string{"new_branch_name": "release-two", "old_ref_name": "main"}, nil)
+	native(source, "reviewer", "POST", "/branches", map[string]string{"new_branch_name": "release-two", "old_ref_name": "main"}, nil)
 	var currentFile struct{ SHA string }
 	native(source, "bot", "GET", "/contents/app.cjs?ref=main", nil, &currentFile)
 	nextApp := []byte(strings.Replace(liveCheckoutApplication, "const version = 'one'", "const version = 'two'", 1))
-	native(source, "bot", "PUT", "/contents/app.cjs", map[string]string{"branch": "release-two", "sha": currentFile.SHA, "message": "Release second checkout version", "content": base64.StdEncoding.EncodeToString(nextApp)}, nil)
+	native(source, "reviewer", "PUT", "/contents/app.cjs", map[string]string{"branch": "release-two", "sha": currentFile.SHA, "message": "Release second checkout version", "content": base64.StdEncoding.EncodeToString(nextApp)}, nil)
 	var nextPR struct {
 		Number   int64
 		Head     struct{ SHA string }
 		MergeSHA string `json:"merge_commit_sha"`
 	}
 	native(source, "reviewer", "POST", "/pulls", map[string]string{"head": "release-two", "base": "main", "title": "Second checkout release"}, &nextPR)
+	var releaseBranch struct{ Commit struct{ ID string } }
+	native(source, "bot", "GET", "/branches/release-two", nil, &releaseBranch)
+	nextPR.Head.SHA = releaseBranch.Commit.ID
+	_, sourceValidation := buildLiveCheckout(t, nextApp, nextPR.Head.SHA)
+	var status struct{ Creator struct{ ID int64 } }
+	native(source, "admin", "POST", "/statuses/"+nextPR.Head.SHA, map[string]string{"state": "success", "context": "ci/checkout", "description": "Actual build and three named checkout cases passed"}, &status)
+	if status.Creator.ID < 1 {
+		t.Fatal("actual CI publisher identity missing")
+	}
 	for i := 0; i < 60; i++ {
 		var state struct{ Mergeable bool }
 		native(source, "bot", "GET", fmt.Sprintf("/pulls/%d", nextPR.Number), nil, &state)
@@ -540,9 +541,6 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	var releaseBranch struct{ Commit struct{ ID string } }
-	native(source, "bot", "GET", "/branches/release-two", nil, &releaseBranch)
-	nextPR.Head.SHA = releaseBranch.Commit.ID
 	var approval struct {
 		State    string
 		CommitID string `json:"commit_id"`
@@ -551,17 +549,109 @@ func TestGitOpsLiveProtectedPromotion(t *testing.T) {
 	if approval.State != "APPROVED" || approval.CommitID != nextPR.Head.SHA {
 		t.Fatalf("exact source review not recorded: %+v head=%s", approval, nextPR.Head.SHA)
 	}
+	merges.RegisterChangeAuthority(func(ctx context.Context, tx pgx.Tx, org, repo string, snapshot forge.MergeEvidence, actor domain.Actor) (string, error) {
+		if org == f.org && repo == sourceID && snapshot.Change.HeadSHA == nextPR.Head.SHA && snapshot.Change.TargetSHA == input.SourceSHA && sourceValidation != nil {
+			return "actual-checkout-ci:" + nextPR.Head.SHA, nil
+		}
+		return service.CheckMergeTx(ctx, tx, org, repo, snapshot, actor)
+	})
 	time.Sleep(500 * time.Millisecond)
-	native(source, "bot", "POST", fmt.Sprintf("/pulls/%d/merge", nextPR.Number), map[string]any{"Do": "merge", "head_commit_id": nextPR.Head.SHA}, nil)
+	sourceGate, err := merges.Inspect(ctx, f.owner, f.org, sourceID, fmt.Sprint(nextPR.Number), "fast-forward-only", "source-release")
+	for i := 0; i < 40 && err == nil && sourceGate.Decision.Outcome != "allow" && len(sourceGate.Snapshot.Native.Blockers) == 1 && sourceGate.Snapshot.Native.Blockers[0] == "Pull request is not open, ready and mergeable" && sourceGate.Snapshot.Change.State == "open" && sourceGate.Snapshot.Change.HeadSHA == nextPR.Head.SHA && sourceGate.Snapshot.Change.TargetSHA == input.SourceSHA; i++ {
+		time.Sleep(200 * time.Millisecond)
+		sourceGate, err = merges.Inspect(ctx, f.owner, f.org, sourceID, fmt.Sprint(nextPR.Number), "fast-forward-only", "source-release")
+	}
+	if err != nil || sourceGate.Decision.Outcome != "allow" {
+		var reviews []struct {
+			ID                         int64
+			Official, Stale, Dismissed bool
+			CommitID                   string `json:"commit_id"`
+		}
+		native(source, "bot", "GET", fmt.Sprintf("/pulls/%d/reviews", nextPR.Number), nil, &reviews)
+		t.Logf("source native review flags: %+v", reviews)
+		t.Fatalf("protected source preview: blockers=%v native=%+v reviews=%+v err=%v", sourceGate.Decision.Blockers, sourceGate.Snapshot.Native, sourceGate.Snapshot.Approvals, err)
+	}
+	sourceMerge, err := merges.Request(ctx, f.owner, f.org, sourceGate.ID, domain.NewID(), "source-release")
+	if err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 20 && sourceMerge.State != "merged"; i++ {
+		time.Sleep(100 * time.Millisecond)
+		sourceMerge, err = merges.Observe(ctx, f.org, sourceMerge.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	if sourceMerge.State != "merged" {
+		t.Fatalf("protected source merge incomplete: %+v", sourceMerge)
+	}
 	native(source, "bot", "GET", fmt.Sprintf("/pulls/%d", nextPR.Number), nil, &nextPR)
+	var refreshID string
+	if err = f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		if err := inventory.RequestRefreshTx(ctx, tx, f.org, sourceID); err != nil {
+			return err
+		}
+		return tx.QueryRow(ctx, `SELECT id::text FROM inventory_jobs WHERE org_id=$1 AND repository_id=$2 AND kind='refresh' AND state='queued'`, f.org, sourceID).Scan(&refreshID)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	drainLiveInventory(t, ctx, portfolio, f, refreshID)
 	nextDigest, nextValidation := buildLiveCheckout(t, nextApp, nextPR.MergeSHA)
 	artifacts[nextDigest] = nextApp
 	next.ChangeID, next.SourceSHA, next.ArtifactDigest = fmt.Sprint(nextPR.Number), nextPR.MergeSHA, nextDigest
 	next.Provenance.Document.SourceSHA = next.SourceSHA
+	next.Provenance.Document.BuildID = "disposable-build-two"
+	next.Provenance.Document.IssuedAt = time.Now()
 	next.Provenance.Document.Validation = nextValidation
 	next.Provenance.Document.ArtifactDigest = next.ArtifactDigest
 	next.Provenance.Signature = sign(next.Provenance.Document, provenanceKey)
-	failed := promote(next, true)
+	if _, err = releases.Receive(ctx, f.org, sourceID, next.Provenance); err != nil {
+		t.Fatal(err)
+	}
+	budgets := budget.New(f.db, f.identity, nil, nil)
+	repairs := repair.New(f.db, f.identity, discoveries, jobs, runners, policies, budgets, f.connections, nil, reader, nil)
+	newAutopilot := func() *autopilot.Service {
+		auto := autopilot.New(f.db, f.identity, repairs, merges, budgets, policies)
+		auto.Delivery = &deliverycmd.Service{Releases: releases, GitOps: service, Providers: reader}
+		auto.Promotions = service
+		return auto
+	}
+	auto := newAutopilot()
+	if _, err = auto.Put(ctx, f.owner, f.org, true, 0, "autopilot-release"); err != nil {
+		t.Fatal(err)
+	}
+	if err = auto.Step(ctx, f.org); err != nil {
+		t.Fatal(err)
+	}
+	promotions, err := service.List(ctx, f.owner, f.org, "production", "", 100)
+	if err != nil || len(promotions.Items) != 2 {
+		t.Fatalf("merged receipt did not create one delivery: %+v %v", promotions, err)
+	}
+	var dispatched gitops.Promotion
+	for _, item := range promotions.Items {
+		if item.ID != known.ID {
+			dispatched = item
+		}
+	}
+	dispatchDetails, err := service.Get(ctx, f.owner, f.org, dispatched.ID)
+	if err != nil || dispatched.Change == nil || dispatchDetails.Gate.Request.SourceSHA != next.SourceSHA || dispatchDetails.Gate.Request.ArtifactDigest != next.ArtifactDigest {
+		t.Fatal("automatic delivery lost merged source or artifact attribution", err)
+	}
+	var beforeRestart []json.RawMessage
+	native(delivery, "bot", "GET", "/pulls?state=all", nil, &beforeRestart)
+	if err = newAutopilot().Step(ctx, f.org); err != nil {
+		t.Fatal(err)
+	}
+	promotions, err = service.List(ctx, f.owner, f.org, "production", "", 100)
+	var afterRestart []json.RawMessage
+	native(delivery, "bot", "GET", "/pulls?state=all", nil, &afterRestart)
+	if err != nil || len(promotions.Items) != 2 || len(beforeRestart) != len(afterRestart) {
+		t.Fatal("controller restart repeated delivery operation or protected pull request", err)
+	}
+	if restarted, err := service.Get(ctx, f.owner, f.org, dispatched.ID); err != nil || restarted.Promotion.Change == nil || restarted.Promotion.Change.ID != dispatched.Change.ID {
+		t.Fatal("controller restart lost protected delivery attribution", err)
+	}
+	failed := completePromotion(next, dispatched, true)
 	if err = os.WriteFile(filepath.Join(application.root, "outage"), []byte("post-rollout checkout outage"), 0600); err != nil {
 		t.Fatal(err)
 	}
