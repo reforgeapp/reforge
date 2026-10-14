@@ -131,12 +131,13 @@ func (r *repairContractReader) Write(ctx context.Context, org, id string, op pri
 }
 func TestRepairFrozenPreviewArtifactBindingAndLostPublication(t *testing.T) {
 	for _, cancel := range []bool{false, true} {
-		t.Run(fmt.Sprintf("cancel=%v", cancel), func(t *testing.T) { repairFrozenPreviewAndPublication(t, cancel, false) })
+		t.Run(fmt.Sprintf("cancel=%v", cancel), func(t *testing.T) { repairFrozenPreviewAndPublication(t, cancel, false, false) })
 	}
-	t.Run("cancel before publication", func(t *testing.T) { repairFrozenPreviewAndPublication(t, true, true) })
+	t.Run("cancel before publication", func(t *testing.T) { repairFrozenPreviewAndPublication(t, true, true, false) })
+	t.Run("unverified proposal", func(t *testing.T) { repairFrozenPreviewAndPublication(t, false, false, true) })
 }
 
-func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication bool) {
+func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication, proposal bool) {
 	f := newDiscoveryFixture(t)
 	ctx := context.Background()
 	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
@@ -222,7 +223,7 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication b
 	}
 	runners.CompletionCheck = service.CheckCompletion
 	finding := f.observe(t, f.observation("repair-contract", "main", strings.Repeat("a", 40), nil))
-	input := repair.Input{FindingID: finding.ID, FindingVersion: finding.Version, Recipe: "javascript", ModelConnectionID: modelID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID()}
+	input := repair.Input{FindingID: finding.ID, FindingVersion: finding.Version, Recipe: "javascript", ModelConnectionID: modelID, ModelRoute: "default", RunnerPoolID: pool.ID, IdempotencyKey: domain.NewID(), Owner: proposal}
 	preview, err := service.Preview(ctx, f.owner, f.org, input)
 	if err != nil || len(preview.Blockers) > 0 {
 		t.Fatalf("preview: %v %+v", err, preview.Blockers)
@@ -336,6 +337,9 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication b
 	command := run.Context.Plan.Recipe.Commands[0]
 	failure := []byte("not ok 1 - value\n")
 	success := []byte("ok 1 - value\n")
+	if proposal {
+		success = []byte("TAP version 13\n1..0\n# tests 0\n")
+	}
 	baseline := repair.Interpret(command, sandbox.CommandResult{ExitCode: 1, Output: failure})
 	passed := repair.Interpret(command, sandbox.CommandResult{Output: success})
 	upload := func(name string, raw []byte) string {
@@ -349,6 +353,9 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication b
 	failedID := upload("baseline.log", failure)
 	passedID := upload("candidate.log", success)
 	report := repair.Report{PlanDigest: run.Context.Plan.Digest, State: "validated", Baseline: []repair.CheckResult{baseline}, Candidate: []repair.CheckResult{passed}, Target: []repair.CheckResult{passed}, Patches: []sandbox.Patch{{Path: "value.js", Content: []byte("exports.value = () => 2")}}, Artifacts: []string{passedID}}
+	if proposal {
+		report.State, report.Mode = "unverified", "owner"
+	}
 	if _, err = service.SaveReport(ctx, credential, report); !errors.Is(err, repair.ErrValidation) {
 		t.Fatalf("unbound baseline evidence accepted: %v", err)
 	}
@@ -365,6 +372,20 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication b
 	staged, err := service.Stage(ctx, credential)
 	if err != nil || staged.CandidateSHA == "" {
 		t.Fatalf("stage: %v", err)
+	}
+	if proposal {
+		publication := repair.Publication{HeadSHA: staged.CandidateSHA, PlanDigest: report.PlanDigest, Checks: []repair.CheckResult{passed}, ArtifactIDs: []string{passedID}}
+		if _, err = service.Publish(ctx, credential, publication); err != nil {
+			t.Fatalf("publish unverified proposal: %v", err)
+		}
+		if _, err = runners.Complete(ctx, credential, workflow.Completion{Outcome: "completed"}); err != nil {
+			t.Fatalf("complete published unverified proposal: %v", err)
+		}
+		completed, err := service.Get(ctx, f.owner, f.org, run.Task.ID)
+		if err != nil || completed.Task.State != domain.TaskCompleted || completed.Report == nil || completed.Report.State != "unverified" || repair.Verified(completed.Context.Plan, completed.Report.Baseline, completed.CandidateChecks) {
+			t.Fatalf("proposal completion changed validation truth: %v", err)
+		}
+		return
 	}
 	failedNative := repair.Publication{HeadSHA: staged.CandidateSHA, PlanDigest: report.PlanDigest, Checks: []repair.CheckResult{baseline}, ArtifactIDs: []string{failedID}}
 	if _, err = service.Publish(ctx, credential, failedNative); !errors.Is(err, repair.ErrValidation) {

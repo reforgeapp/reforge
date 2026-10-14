@@ -439,7 +439,7 @@ func (s *Service) CheckCompletion(ctx context.Context, tx pgx.Tx, l workflow.Lea
 	if r.State == "handoff" && r.Report != nil && (r.Report.Disposition == "superseded" || r.Report.Disposition == "reviewed") {
 		return nil
 	}
-	if r.State != "published" || r.Change == nil || r.Change.HeadSHA != r.CandidateSHA || r.Report == nil || !Verified(r.Context.Plan, r.Report.Baseline, r.CandidateChecks) || !strings.HasPrefix(r.Branch, "reforge/repair/") {
+	if r.State != "published" || r.Change == nil || r.Change.HeadSHA != r.CandidateSHA || !publicationReady(r, r.CandidateChecks) || !strings.HasPrefix(r.Branch, "reforge/repair/") {
 		return ErrValidation
 	}
 	return nil
