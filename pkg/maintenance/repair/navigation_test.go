@@ -155,6 +155,7 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 		targetFiles[name] = body
 	}
 	targetFiles["src/large.go"] = []byte(strings.Repeat("x", 65530) + "\nneedle-old\n" + strings.Repeat("z", 2048))
+	targetFiles[".env.local"] = []byte("TOKEN=private-navigation-fixture")
 	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: targetFiles}, target: targetFiles, targetSHA: plan.TargetSHA}
 	turn := 0
 	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "navigation", AttemptID: "navigation", Trust: "fixture", MaxOutputTokens: 256, TurnTimeout: time.Second, Progress: func(context.Context, string) error { return nil }}
@@ -167,6 +168,8 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 				{ID: "large-read", Name: "read_file", Arguments: []byte(`{"path":"src/large.go","offset":65530,"limit":4096}`)},
 				{ID: "edit", Name: "edit_file", Arguments: []byte(`{"path":"src/large.go","old":"needle-old","new":"needle-new"}`)},
 				{ID: "staged-read", Name: "read_file", Arguments: []byte(`{"path":"src/large.go","offset":65530,"limit":4096}`)},
+				{ID: "stale-edit", Name: "edit_file", Arguments: []byte(`{"path":"src/large.go","old":"needle-old","new":"needle-new"}`)},
+				{ID: "secret-edit", Name: "edit_file", Arguments: []byte(`{"path":".env.local","old":"missing","new":"changed"}`)},
 				{ID: "checks", Name: "run_checks", Arguments: []byte(`{}`)},
 			}}, nil
 		}
@@ -191,6 +194,14 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 			case "staged-read":
 				if !strings.Contains(message.Text, "needle-new") {
 					t.Fatalf("read_file did not show staged content: %s", message.Text)
+				}
+			case "stale-edit":
+				if !strings.Contains(message.Text, "Current staged file:") || !strings.Contains(message.Text, `"next_offset":4096`) || len(message.Text) > 8192 {
+					t.Fatal("stale edit omitted bounded current source")
+				}
+			case "secret-edit":
+				if strings.Contains(message.Text, "private-navigation-fixture") || strings.Contains(message.Text, "Current staged file:") {
+					t.Fatal("edit feedback disclosed a secret file")
 				}
 			case "checks":
 				if !strings.Contains(message.Text, `"complete":true`) {

@@ -754,6 +754,11 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				body, ok := updated()[in.Path]
 				if !ok || in.Old == "" || strings.Count(string(body), in.Old) != 1 {
 					reply = "Edit rejected: the file must exist and contain the old snippet exactly once. Read its current staged contents with read_file before editing again; preserve exact quotes and spacing. For a small file, apply_patch replaces complete contents."
+					if owner || len(body) <= 64<<10 && !sensitiveSource(in.Path, body) {
+						if chunk, err := readSnapshotChunk(updated(), in.Path, 0, 4096); err == nil {
+							reply += "\nCurrent staged file:\n" + string(chunk)
+						}
+					}
 					break
 				}
 				patch := sandbox.Patch{Path: in.Path, Content: []byte(strings.Replace(string(body), in.Old, in.New, 1))}
