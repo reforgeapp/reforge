@@ -96,7 +96,7 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 		if err := recoveryReady(ctx, tx, org, id); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns m WHERE org_id=$1 AND task_id=$2 AND (state='unknown' OR state='dispatched' AND EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=m.org_id AND t.id=m.task_id AND t.state IN ('failed','cancelled')))`, org, id)
+		rows, err := tx.Query(ctx, `SELECT id::text,reservation_id::text FROM model_turns m WHERE org_id=$1 AND task_id=$2 AND (state='unknown' OR state='dispatched' AND EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=m.org_id AND t.id=m.task_id AND (t.state IN ('failed','cancelled') OR t.state='reconciling' AND t.cancellation_requested)))`, org, id)
 		if err != nil {
 			return err
 		}
@@ -257,6 +257,21 @@ func (s *Service) Reconcile(ctx context.Context, session auth.Session, org, id s
 		if err != nil {
 			return out, err
 		}
+	}
+	if r.Task.CancellationRequested && r.Task.State == domain.TaskReconciling {
+		err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+			if !manage(a, r.Task.RepositoryID) {
+				return auth.ErrForbidden
+			}
+			if err := s.workflow.ConcludeReconciledTx(ctx, tx, org, id, a.UserID, request); err != nil {
+				return err
+			}
+			return discovery.ReleaseTerminalRepairsTx(ctx, tx, org, r.Task.RepositoryID)
+		})
+		if err != nil {
+			return out, err
+		}
+		return s.Get(ctx, session, org, id)
 	}
 	return r, nil
 }

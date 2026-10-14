@@ -151,6 +151,9 @@ func (s *Service) ReconcileIntentTx(ctx context.Context, tx pgx.Tx, orgID, taskI
 	return result, emitTask(ctx, tx, task, "operation.reconciled", "")
 }
 func (s *Service) ConcludeReconciledTx(ctx context.Context, tx pgx.Tx, orgID, taskID, actor, request string) error {
+	if err := lockOrg(ctx, tx, orgID); err != nil {
+		return err
+	}
 	t, err := loadTask(ctx, tx, orgID, taskID)
 	if err != nil {
 		return err
@@ -176,7 +179,7 @@ func (s *Service) ConcludeReconciledTx(ctx context.Context, tx pgx.Tx, orgID, ta
 		return err
 	}
 	if t.CancellationRequested {
-		return userTransition(ctx, tx, &t, actor, domain.TaskCancelled, "Cancellation reconciled; native publication already occurred", request)
+		return userTransition(ctx, tx, &t, actor, domain.TaskCancelled, "Cancellation reconciled; external outcomes checked", request)
 	}
 	return userTransition(ctx, tx, &t, actor, domain.TaskCompleted, "Native publication authoritatively reconciled", request)
 }

@@ -131,11 +131,12 @@ func (r *repairContractReader) Write(ctx context.Context, org, id string, op pri
 }
 func TestRepairFrozenPreviewArtifactBindingAndLostPublication(t *testing.T) {
 	for _, cancel := range []bool{false, true} {
-		t.Run(fmt.Sprintf("cancel=%v", cancel), func(t *testing.T) { repairFrozenPreviewAndPublication(t, cancel) })
+		t.Run(fmt.Sprintf("cancel=%v", cancel), func(t *testing.T) { repairFrozenPreviewAndPublication(t, cancel, false) })
 	}
+	t.Run("cancel before publication", func(t *testing.T) { repairFrozenPreviewAndPublication(t, true, true) })
 }
 
-func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
+func repairFrozenPreviewAndPublication(t *testing.T, cancel, beforePublication bool) {
 	f := newDiscoveryFixture(t)
 	ctx := context.Background()
 	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
@@ -258,6 +259,30 @@ func repairFrozenPreviewAndPublication(t *testing.T, cancel bool) {
 		t.Fatal(err)
 	}
 	credential := job.Credential.Token
+	if beforePublication {
+		current, err := service.Get(ctx, f.owner, f.org, run.Task.ID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err = jobs.Cancel(ctx, f.owner, f.org, run.Task.ID, current.Task.Version, "cancel-before-publication"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err = service.Reconcile(ctx, f.owner, f.org, run.Task.ID, current.Version, "still-running"); !errors.Is(err, workflow.ErrReconciliation) {
+			t.Fatalf("active cancelled runner reconciled: %v", err)
+		}
+		if _, err = runners.Complete(ctx, credential, workflow.Completion{Outcome: "uncertain"}); err != nil {
+			t.Fatal(err)
+		}
+		reconciled, err := service.Reconcile(ctx, f.owner, f.org, run.Task.ID, current.Version, "stopped-before-publication")
+		if err != nil || reconciled.Task.State != domain.TaskCancelled || reconciled.Change != nil || reader.writes != 0 || strings.Contains(reconciled.Task.Reason, "publication") {
+			t.Fatalf("model-only cancellation: %+v writes=%d err=%v", reconciled.Task, reader.writes, err)
+		}
+		preview, err := service.Preview(ctx, f.owner, f.org, input)
+		if err != nil || len(preview.Blockers) != 0 {
+			t.Fatalf("settled cancellation retained repair lock: %v %+v", err, preview.Blockers)
+		}
+		return
+	}
 	handoff := repair.Report{PlanDigest: run.Context.Plan.Digest, State: "handoff", Reason: "previous runner stopped", Baseline: []repair.CheckResult{}, Candidate: []repair.CheckResult{}, Target: []repair.CheckResult{}, Patches: []sandbox.Patch{}, Artifacts: []string{}}
 	if _, err = service.SaveReport(ctx, credential, handoff); err != nil {
 		t.Fatalf("save handoff: %v", err)
