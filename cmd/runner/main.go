@@ -288,6 +288,19 @@ func runRepair(ctx context.Context, client *runnerclient.Client, endpoint string
 }
 
 func runPrivate(ctx context.Context, client *runnerclient.Client, endpoint string, ca []byte, development bool, httpClient *http.Client) error {
+	workers, cancel := context.WithCancel(ctx)
+	defer cancel()
+	done := make(chan error, 2)
+	for range 2 {
+		go func() { done <- runPrivateWorker(workers, client, endpoint, ca, development, httpClient) }()
+	}
+	err := <-done
+	cancel()
+	<-done
+	return err
+}
+
+func runPrivateWorker(ctx context.Context, client *runnerclient.Client, endpoint string, ca []byte, development bool, httpClient *http.Client) error {
 	var private *privateconnector.Client
 	var active string
 	defer func() {

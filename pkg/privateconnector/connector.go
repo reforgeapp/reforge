@@ -110,7 +110,7 @@ func (c *Connector) Notify(route string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	for key, ch := range c.watch {
-		if route == "" || route == key {
+		if route == "" || route == key || strings.HasPrefix(key, route+"/") {
 			close(ch)
 			delete(c.watch, key)
 		}
@@ -157,12 +157,13 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 	ctx, cancel := context.WithTimeout(ctx, c.ttl)
 	defer cancel()
 	ready := &readiness{identity: identity, credential: credential, grants: make(chan Grant), ctx: ctx}
-	key := targetKey(Target{OrgID: identity.OrgID, RunnerID: identity.ID})
+	base := targetKey(Target{OrgID: identity.OrgID, RunnerID: identity.ID})
+	key := base + "/0"
 	route := "wait:" + identity.ID
 	routed := c.routes != nil && !forwarded(ctx)
 	elsewhere := func() string {
 		c.mu.Lock()
-		local := c.waiting[key] > 0
+		local := c.waiting[base] > 0
 		c.mu.Unlock()
 		if !routed || local {
 			return ""
@@ -182,18 +183,22 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 		return Grant{}, ErrUnavailable
 	}
 	if c.ready[key] != nil || c.active[key] {
-		c.mu.Unlock()
-		return Grant{}, ErrConflict
+		key = base + "/1"
+		if c.ready[key] != nil || c.active[key] {
+			c.mu.Unlock()
+			return Grant{}, ErrConflict
+		}
 	}
 	if len(c.ready)+len(c.active) >= c.limit || c.orgSlots(identity.OrgID) >= perOrgLimit {
 		c.mu.Unlock()
 		return Grant{}, ErrUnavailable
 	}
 	c.ready[key] = ready
+	watchKey := route + key[len(base):]
 	var remote chan struct{}
 	if routed {
 		remote = make(chan struct{})
-		c.watch[route] = remote
+		c.watch[watchKey] = remote
 	}
 	c.signal()
 	c.mu.Unlock()
@@ -203,8 +208,8 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 			delete(c.ready, key)
 			c.signal()
 		}
-		if c.watch[route] == remote {
-			delete(c.watch, route)
+		if c.watch[watchKey] == remote {
+			delete(c.watch, watchKey)
 		}
 		c.mu.Unlock()
 	}()
@@ -231,7 +236,7 @@ func (c *Connector) Poll(ctx context.Context, credential string) (Grant, error) 
 				return Grant{}, Elsewhere{Address: address}
 			}
 			remote = make(chan struct{})
-			c.watch[route] = remote
+			c.watch[watchKey] = remote
 			c.mu.Unlock()
 		}
 	}
@@ -273,6 +278,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 	}
 	defer stopWaiting()
 	var ready *readiness
+	var activeKey string
 	for ready == nil {
 		c.mu.Lock()
 		if c.stopped {
@@ -284,11 +290,15 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 			c.mu.Unlock()
 			return Result{}, ErrConflict
 		}
-		if r := c.ready[key]; r != nil && !c.active[key] {
-			ready = r
-			delete(c.ready, key)
-			c.active[key] = true
-			c.signal()
+		for _, suffix := range []string{"/0", "/1"} {
+			candidate := key + suffix
+			if r := c.ready[candidate]; r != nil && !c.active[candidate] {
+				ready, activeKey = r, candidate
+				delete(c.ready, candidate)
+				c.active[candidate] = true
+				c.signal()
+				break
+			}
 		}
 		changed := c.changed
 		c.mu.Unlock()
@@ -309,7 +319,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 		}
 	}
 	stopWaiting()
-	defer func() { c.mu.Lock(); delete(c.active, key); c.signal(); c.mu.Unlock() }()
+	defer func() { c.mu.Lock(); delete(c.active, activeKey); c.signal(); c.mu.Unlock() }()
 	operationTTL := operation.ttl(c.ttl)
 	authctx, cancel := context.WithTimeout(ctx, operationTTL)
 	defer cancel()

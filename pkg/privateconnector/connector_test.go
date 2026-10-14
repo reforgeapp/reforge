@@ -465,3 +465,53 @@ func TestGrantLivenessEndsOnCancellationAndRejectsOtherCapability(t *testing.T) 
 		t.Fatal("cancelled grant still active")
 	}
 }
+
+func TestSecondPrivateOperationRunsWhileFirstHeldWithBoundedSlots(t *testing.T) {
+	f := fixture(t)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	start := func() (Operation, <-chan error) {
+		op := Operation{ID: domain.NewID(), Kind: GiteaProbe}
+		done := make(chan error, 1)
+		go func() {
+			_, err := f.connector.Dispatch(ctx, f.target, op, func(_ context.Context, _ Ready, deliver Deliver) error {
+				_, err := deliver(f.spec(op.ID))
+				return err
+			})
+			done <- err
+		}()
+		return op, done
+	}
+	first, firstDone := start()
+	firstGrant, err := f.connector.Poll(ctx, f.credential)
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, secondDone := start()
+	secondGrant, err := f.connector.Poll(ctx, f.credential)
+	if err != nil {
+		t.Fatal("second request blocked by long-running first operation", err)
+	}
+	if _, err = f.connector.Poll(ctx, f.credential); !errors.Is(err, ErrConflict) {
+		t.Fatalf("runner private operation limit bypassed: %v", err)
+	}
+	complete := func(op Operation, grant Grant) {
+		t.Helper()
+		if err := f.connector.Complete(ctx, f.credential, grant.ID, grant.ResultCapability, Result{OperationID: op.ID, Capabilities: &forge.Capabilities{Provider: "gitea"}}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	complete(second, secondGrant)
+	if err = <-secondDone; err != nil {
+		t.Fatal(err)
+	}
+	select {
+	case err := <-firstDone:
+		t.Fatalf("first operation completed without evidence: %v", err)
+	default:
+	}
+	complete(first, firstGrant)
+	if err = <-firstDone; err != nil {
+		t.Fatal(err)
+	}
+}
