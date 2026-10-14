@@ -179,11 +179,17 @@ func TestDiscoveryScannerCanonicalFindingsAndLeaseRecovery(t *testing.T) {
 }
 
 func TestRepositoryScanPreservesDeploymentIncident(t *testing.T) {
+	for _, source := range []string{"deployment", "gitops_deployment", "release_delivery"} {
+		t.Run(source, func(t *testing.T) { repositoryScanPreservesDeploymentIncident(t, source) })
+	}
+}
+
+func repositoryScanPreservesDeploymentIncident(t *testing.T, source string) {
 	f := newDiscoveryFixture(t)
 	service, _ := f.scannerFixture(t, false)
 	ctx := context.Background()
 	in := f.observation("deploy:production", "main", strings.Repeat("a", 40), nil)
-	in.Source, in.Category = "deployment", "deploy_failure"
+	in.Source, in.Category = source, "deploy_failure"
 	in.Evidence.Deployment = domain.NewID()
 	finding := f.observe(t, in)
 	if _, err := service.StartScan(ctx, f.owner, f.org, f.repo, "incident-scan"); err != nil {
