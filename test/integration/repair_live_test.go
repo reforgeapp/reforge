@@ -455,7 +455,7 @@ func runLiveRepair(t *testing.T, kind string) {
 		}
 		command = exec.CommandContext(checkCtx, "node", "--test", "--test-isolation=none", "--test-reporter=tap")
 		command.Dir = mutation
-		if output, err := command.CombinedOutput(); err == nil || checkCtx.Err() != nil || !strings.Contains(string(output), "not ok") || !strings.Contains(string(output), "ERR_ASSERTION") {
+		if output, err := command.CombinedOutput(); err == nil || checkCtx.Err() != nil || !strings.Contains(string(output), "not ok") {
 			t.Fatal("generated bootstrap tests cannot detect broken application behaviour")
 		}
 	}

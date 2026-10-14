@@ -16,6 +16,7 @@ import (
 var skipDirs = map[string]bool{".git": true, "node_modules": true, "vendor": true, ".venv": true, "dist": true, "build": true}
 
 var behaviourCheck = regexp.MustCompile(`(?m)(?:^|\n|&&|;)\s*(?:go\s+test\b|node\s+--test\b|(?:npm|pnpm|yarn)\s+(?:run\s+)?test(?:[:\s]|$)|python(?:3)?\s+-m\s+(?:unittest|pytest)\b|pytest\b)`)
+var explicitTestFailure = regexp.MustCompile(`\bthrow\s+(?:new\s+)?(?:Error|AssertionError)\s*\(`)
 var trivialAssertion = regexp.MustCompile(`(?i)(?:assert\s+(?:true|1\s*==\s*1)|assert\.(?:ok|equal|strictEqual)\(\s*(?:true|1\s*,\s*1)\s*\)|expect\(\s*(?:true|1)\s*\)\.(?:toBe|toEqual)\(\s*(?:true|1)\s*\))`)
 
 func behaviouralTest(name string, body []byte) bool {
@@ -59,7 +60,7 @@ func behaviouralTest(name string, body []byte) bool {
 	if strings.HasSuffix(name, ".py") {
 		return (strings.Contains(text, "assert ") || strings.Contains(text, "self.assert")) && (strings.Contains(text, "from ") || strings.Contains(text, "import "))
 	}
-	return (strings.Contains(text, "assert") || strings.Contains(text, "expect(")) && (strings.Contains(text, "'./") || strings.Contains(text, "\"./") || strings.Contains(text, "'../") || strings.Contains(text, "\"../") || strings.Contains(text, "page.goto("))
+	return (strings.Contains(text, "assert") || strings.Contains(text, "expect(") || explicitTestFailure.MatchString(text)) && (strings.Contains(text, "'./") || strings.Contains(text, "\"./") || strings.Contains(text, "'../") || strings.Contains(text, "\"../") || strings.Contains(text, "page.goto("))
 }
 
 func workflowRunsTests(doc map[string]any) bool {

@@ -50,7 +50,7 @@ func TestBootstrapExecutesBuildAndBehaviour(t *testing.T) {
 		files := map[string]string{
 			"package.json":            `{"type":"module","scripts":{"test":"node --test"}}`,
 			"add.js":                  "export const add = (a,b) => a+b;\n",
-			"test.js":                 "import test from 'node:test'; import assert from 'node:assert/strict'; import { add } from './add.js'; test('adds inputs',()=>assert.equal(add(2,3),5));\n",
+			"test.js":                 "import test from 'node:test'; import { add } from './add.js'; test('adds inputs',()=>{ if (add(2,3) !== 5) throw new Error('wrong sum'); });\n",
 			".gitea/workflows/ci.yml": "on: [push, pull_request]\njobs: {test: {runs-on: ubuntu-latest, steps: [{run: npm test}]}}\n",
 		}
 		for name, body := range files {
@@ -64,6 +64,13 @@ func TestBootstrapExecutesBuildAndBehaviour(t *testing.T) {
 		var logs bytes.Buffer
 		if !RunBootstrap(context.Background(), os.DirFS("."), &logs) || !strings.Contains(logs.String(), "adds inputs") {
 			t.Fatalf("Node bootstrap failed: %s", logs.String())
+		}
+		if err := os.WriteFile("add.js", []byte("export const add = (a,b) => a-b;\n"), 0600); err != nil {
+			t.Fatal(err)
+		}
+		logs.Reset()
+		if RunBootstrap(context.Background(), os.DirFS("."), &logs) || !strings.Contains(logs.String(), "not ok") {
+			t.Fatal("throwing behavioural test failed to detect broken application")
 		}
 	})
 }
