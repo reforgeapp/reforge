@@ -100,8 +100,12 @@ func (w *modelCaptureWriter) finish() {
 
 func captureLocalModel(t *testing.T, root string) string {
 	t.Helper()
+	endpoint := os.Getenv("REFORGE_TEST_MODEL_ENDPOINT")
+	if endpoint == "" {
+		endpoint = "http://127.0.0.1:55435"
+	}
 	if os.Getenv("REFORGE_CAPTURE_MODEL") != "1" {
-		return "http://127.0.0.1:55435"
+		return endpoint
 	}
 	parent := filepath.Join(root, ".local", "model-capture")
 	if err := os.MkdirAll(parent, 0700); err != nil {
@@ -115,7 +119,7 @@ func captureLocalModel(t *testing.T, root string) string {
 		t.Fatal(err)
 	}
 	state := &modelCaptureState{}
-	target, err := url.Parse("http://127.0.0.1:55435")
+	target, err := url.Parse(endpoint)
 	if err != nil {
 		t.Fatal(err)
 	}

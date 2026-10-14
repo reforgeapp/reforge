@@ -163,9 +163,8 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 			names := []string{}
 			for _, call := range turn.ToolCalls {
 				names = append(names, call.Name)
-				t.Logf("local fixture tool=%s arguments=%s", call.Name, call.Arguments[:min(len(call.Arguments), 1800)])
 			}
-			t.Logf("local fixture model tools=%v text=%q", names, turn.Text[:min(len(turn.Text), 1800)])
+			t.Logf("local fixture model tools=%v text_bytes=%d", names, len(turn.Text))
 		}
 		for name, values := range response.Header() {
 			for _, value := range values {
@@ -235,6 +234,26 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	if err != nil || modelConnection.State != "healthy" {
 		t.Fatalf("model connection: %v %s", err, modelConnection.State)
 	}
+	claim := func() *inventory.Job {
+		deadline := time.NewTimer(30 * time.Second)
+		defer deadline.Stop()
+		for {
+			lease, err := portfolio.Claim(ctx, f.org, "live")
+			if err != nil {
+				t.Fatal(err)
+			}
+			if lease != nil {
+				return lease
+			}
+			select {
+			case <-ctx.Done():
+				t.Fatal(ctx.Err())
+			case <-deadline.C:
+				t.Fatal("inventory lease unavailable within fixture deadline")
+			case <-time.After(100 * time.Millisecond):
+			}
+		}
+	}
 	drain := func(id string) inventory.Job {
 		for i := 0; i < 30; i++ {
 			job, err := portfolio.Job(ctx, f.owner, f.org, id)
@@ -244,10 +263,7 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 			if job.State == "complete" {
 				return job
 			}
-			lease, err := portfolio.Claim(ctx, f.org, "live")
-			if err != nil || lease == nil {
-				t.Fatalf("inventory claim: %v", err)
-			}
+			lease := claim()
 			if err = portfolio.Step(ctx, *lease); err != nil {
 				t.Fatalf("inventory step: %v", err)
 			}
@@ -268,8 +284,8 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	if err = portfolio.Maintain(ctx, f.org); err != nil {
 		t.Fatal(err)
 	}
-	lease, err := portfolio.Claim(ctx, f.org, "live")
-	if err != nil || lease == nil || lease.Kind != "refresh" {
+	lease := claim()
+	if lease.Kind != "refresh" {
 		t.Fatalf("refresh claim: %v", err)
 	}
 	if err = portfolio.Step(ctx, *lease); err != nil {
@@ -315,7 +331,7 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 	if _, err = policies.Activate(ctx, f.owner, f.org, version.ID, repositoryID, "", 0, simulation.Hash, "live", "live"); err != nil {
 		t.Fatal(err)
 	}
-	if _, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: modelName, Name: "default", Mode: "priced", PricingVersion: "local-zero-cost", MaxInputTokens: 100000, MaxOutputTokens: 1024, MaxMilliseconds: 180000, MaxRequests: 1}, 0, "live"); err != nil {
+	if _, err = budgets.PutRoute(ctx, f.owner, f.org, budget.Route{ConnectionID: modelConnection.ID, Model: modelName, Name: "default", Mode: "priced", PricingVersion: "local-zero-cost", MaxInputTokens: 100000, MaxOutputTokens: 1024, MaxMilliseconds: 600000, MaxRequests: 1}, 0, "live"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err = budgets.PutLimit(ctx, f.owner, f.org, budget.Limit{Scope: budget.Scope{Kind: "organisation", ID: f.org}, Period: "daily", Caps: budget.Caps{MicroUSD: ptr(0), Tokens: ptr(1000000), Milliseconds: ptr(900000), Requests: ptr(16), Concurrency: ptr(1)}}, 0, "live"); err != nil {
@@ -332,8 +348,11 @@ func runLiveRepair(t *testing.T, upgrade bool) {
 		t.Fatal(err)
 	}
 	runsc, tool := "/tmp/reforge-gvisor/bin/runsc", filepath.Join(root, "bin/reforge-sandbox-tool")
+	if selected := os.Getenv("REFORGE_TEST_SANDBOX_TOOL"); selected != "" {
+		tool = selected
+	}
 	stateRoot := filepath.Join(t.TempDir(), "runtime")
-	cfg := sandbox.RuntimeConfig{Runsc: runsc, RunscSHA256: fileDigest(t, runsc), Tool: tool, ToolSHA256: fileDigest(t, tool), StateRoot: stateRoot, Images: map[string]string{digest: imageRoot}, Development: true, Rootless: true, MemoryBytes: 2 << 30, DiskBytes: 512 << 20, CPUs: 1, MaxProcesses: 128}
+	cfg := sandbox.RuntimeConfig{Runsc: runsc, RunscSHA256: fileDigest(t, runsc), Tool: tool, ToolSHA256: fileDigest(t, tool), StateRoot: stateRoot, Images: map[string]string{digest: imageRoot}, CgroupRoot: os.Getenv("REFORGE_TEST_CGROUP_ROOT"), Development: true, Rootless: true, MemoryBytes: 2 << 30, DiskBytes: 512 << 20, CPUs: 1, MaxProcesses: 128}
 	workerCtx, stopWorker := context.WithCancel(ctx)
 	workerDone := make(chan error, 1)
 	go func() { workerDone <- client.Run(workerCtx, runnerclient.RepairProcessor(cfg)) }()
