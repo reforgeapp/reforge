@@ -69,7 +69,10 @@ func TestReportedDefectNeedsOriginalFailureAndFixedPass(t *testing.T) {
 func TestFrozenDefectRetainsOriginalBehaviourProof(t *testing.T) {
 	plan, files := testPlan(t)
 	runtime := &reportedDefectRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, reproduces: true}
-	engine := Engine{Runtime: runtime, RequireReproduction: true, Model: "fixture", JobID: "frozen-defect", AttemptID: "reported", Trust: "fixture", Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+	engine := Engine{Runtime: runtime, RequireReproduction: true, Goal: "Adding inputs returns their sum", Model: "fixture", JobID: "frozen-defect", AttemptID: "reported", Trust: "fixture", Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+		if !strings.Contains(in.Messages[0].Text, "Adding inputs returns their sum") {
+			t.Fatal("reported behaviour omitted from frozen repair")
+		}
 		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "fix", Name: "apply_patch", Arguments: []byte(`{"path":"value.js","content":"exports.add = (a,b) => a+b"}`)}, {ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
 	}}
 	baseline := snapshotForEngine(t, plan.BaselineSHA, files)
