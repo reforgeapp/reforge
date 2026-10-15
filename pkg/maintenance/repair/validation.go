@@ -81,7 +81,7 @@ func protectedPath(file string) bool {
 	lower := strings.ToLower(file)
 	name := path.Base(lower)
 	for _, part := range strings.Split(lower, "/") {
-		if strings.HasPrefix(part, ".") || slices.Contains([]string{"test", "tests", "__tests__", "testdata", "fixtures", "scripts", "auth", "authentication", "identity", "secrets", "security", "infra", "deploy", "k8s", "kubernetes"}, part) {
+		if strings.HasPrefix(part, ".") || slices.Contains([]string{"test", "tests", "__tests__", "testdata", "fixtures", "vendor", "node_modules", "scripts", "auth", "authentication", "identity", "secrets", "security", "infra", "deploy", "k8s", "kubernetes"}, part) {
 			return true
 		}
 	}

@@ -24,7 +24,7 @@ func testPlan(t *testing.T) (Plan, map[string][]byte) {
 func TestPatchCannotChangeValidationOrSensitivePaths(t *testing.T) {
 	p, files := testPlan(t)
 	for _, patch := range []sandbox.Patch{
-		{Path: "value.test.js", Content: []byte("pass")}, {Path: "package.json", Content: []byte("{}")}, {Path: "value.js", Delete: true}, {Path: "scripts/check.js", Content: []byte("pass")}, {Path: "private/source.js", Content: []byte("pass")}, {Path: "value.js", Content: []byte("process.exit(0)")}, {Path: ".git/config", Content: []byte("x")}, {Path: "value.js", Content: []byte(strings.Repeat("x", p.Recipe.MaxPatchBytes+1))},
+		{Path: "value.test.js", Content: []byte("pass")}, {Path: "package.json", Content: []byte("{}")}, {Path: "value.js", Delete: true}, {Path: "scripts/check.js", Content: []byte("pass")}, {Path: "private/source.js", Content: []byte("pass")}, {Path: "value.js", Content: []byte("process.exit(0)")}, {Path: ".git/config", Content: []byte("x")}, {Path: "vendor/value.js", Content: []byte("return oldVersion")}, {Path: "web/node_modules/value/index.js", Content: []byte("return oldVersion")}, {Path: "value.js", Content: []byte(strings.Repeat("x", p.Recipe.MaxPatchBytes+1))},
 	} {
 		if CheckPatch(p, files, []sandbox.Patch{patch}) == nil {
 			t.Fatalf("unsafe patch accepted: %s", patch.Path)
