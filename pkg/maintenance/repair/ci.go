@@ -381,11 +381,15 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if owner {
 		system = "You own and maintain this repository. Use actual tools to read repository files, apply small changes, run_checks, then finish or skip. Describing tool calls or test results does not execute them. Never invent file contents or results. Preserve tests and security checks; native PR CI is the final feedback for hosted checks."
 		if p.Recipe.Name == "bootstrap" {
-			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Stage meaningful tests exercising the existing application and a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. GitHub/Gitea Actions require on: [push, pull_request] and unconditional build/test steps. Execute actual tools; describing changes does not stage them."
+			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Reuse existing meaningful tests; add new test files only where validation is missing. Stage a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. GitHub/Gitea Actions require on: [push, pull_request] and unconditional build/test steps. Execute actual tools; describing changes does not stage them."
 		}
 		tools = ownerTools()
 		originalChanges := originalFileChanges(e.originalFiles, files)
-		prompt = "You own this repository and decide how to resolve the task below. You may change any file, including tests and CI, when that is the right call; tests you remove or rewrite must be genuinely obsolete or wrong, not inconvenient. Every test that passes on the target must still pass. Never commit secrets.\n" +
+		ownerInstructions := "You own this repository and decide how to resolve the task below. You may change any file, including tests and CI, when that is the right call; tests you remove or rewrite must be genuinely obsolete or wrong, not inconvenient. Every test that passes on the target must still pass. Never commit secrets.\n"
+		if p.Recipe.Name == "bootstrap" {
+			ownerInstructions = "Add only missing validation. Existing application source, tests and build commands are protected. Reuse meaningful existing tests, add new tests only where missing, and create the code host's CI workflow. Never commit secrets.\n"
+		}
+		prompt = ownerInstructions +
 			fmt.Sprintf("Original pinned source SHA: %s. Current target source SHA: %s. Original snapshot is immutable; use read_original_file to inspect original content when revisions differ. Edits apply to current target.\nChanged paths (bounded):\n%s\n", p.BaselineSHA, p.TargetSHA, originalChanges) +
 			"Turns are limited but tool calls within a turn are not: put every independent read, search and listing in the same turn, for example all candidate files at once, and act as soon as the cause is clear.\n" +
 			"Use list_files and search_files to explore the repository and read_ci_log for omitted CI log sections; read_file returns bounded chunks with next_offset for large files. Use edit_file, write_file and delete_file to change files, update_dependency for dependency versions (lockfiles are regenerated for you), and run_command for checks in the offline sandbox. run_command lasts at most 5 minutes and discards every filesystem mutation when it ends; persist changes with edit_file, write_file, delete_file or update_dependency. Every staged file ships in the pull request: pass investigation scripts to run_command as files, never stage them. The sandbox has basic utilities and one selected language toolchain, not every CI scanner or hosted service. Put go, node/npm/npx, or python/python3 directly first in run_command args to select its toolchain; shell wrappers do not switch images. If a command reports an unavailable binary, service or network, do not repeat it to prove the same CI step. Inspect affected workflow steps, preserve their checks, report what was unavailable, and rely on native PR CI for hosted results.\n" +
@@ -745,7 +749,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				_ = json.Unmarshal(call.Arguments, &in)
 				patch := sandbox.Patch{Path: in.Path, Content: []byte(in.Content)}
 				if call.Name == "write_file" && !owner || admissible([]sandbox.Patch{patch}, nil) != nil {
-					reply = "Patch rejected: tests and dependency files cannot be edited directly; use update_dependency for dependencies"
+					reply = "Patch rejected: protected or out-of-scope file. Preserve existing tests; reuse them or add new test files for missing validation. Use update_dependency for dependency manifests."
 					break
 				}
 				patches[in.Path] = patch
@@ -770,7 +774,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				}
 				patch := sandbox.Patch{Path: in.Path, Content: []byte(strings.Replace(string(body), in.Old, in.New, 1))}
 				if admissible([]sandbox.Patch{patch}, nil) != nil {
-					reply = "Edit rejected: tests and dependency files cannot be edited directly; use update_dependency for dependencies"
+					reply = "Edit rejected: protected or out-of-scope file. Preserve existing tests; reuse them or add new test files for missing validation. Use update_dependency for dependency manifests."
 					break
 				}
 				patches[in.Path] = patch
