@@ -1,3 +1,5 @@
 .repositories-page { min-width: 0; }
+.repositories-page .detail-heading { padding-right: 44px; flex-wrap: wrap; }
+.repositories-page .detail-heading h2 { min-width: 0; overflow-wrap: anywhere; }
 .candidate-list { display: grid; gap: 6px; max-height: 240px; overflow: auto; padding: 8px 0; }
 .candidate-list .checkbox-label { font-weight: 500; }
