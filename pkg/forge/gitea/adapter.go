@@ -125,6 +125,10 @@ func (p *Provider) request(ctx context.Context, method, route string, input, out
 		return &domain.ProviderError{Kind: kind, Message: "Gitea rejected request (HTTP " + strconv.Itoa(resp.StatusCode) + ")", Uncertain: method != "GET" && resp.StatusCode >= 500}
 	}
 	if output != nil {
+		if raw, ok := output.(*[]byte); ok {
+			*raw = b
+			return nil
+		}
 		if len(bytes.TrimSpace(b)) == 0 {
 			return &domain.ProviderError{Kind: "response", Message: "Gitea omitted the required response body", Uncertain: method != "GET"}
 		}

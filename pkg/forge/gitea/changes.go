@@ -243,7 +243,8 @@ func (p *Provider) ListChecks(ctx context.Context, r forge.RepoRef, head string)
 	}
 	route, _ := repoPath(r)
 	var out []forge.Check
-	seen := map[string]bool{}
+	seen := map[string]int{}
+	latest := map[string]int64{}
 	for n := 1; n <= maxPages; n++ {
 		var rows []status
 		if e := p.request(ctx, "GET", route+"/statuses/"+head+"?sort=highestindex&limit=100&page="+strconv.Itoa(n), nil, &rows); e != nil {
@@ -251,19 +252,35 @@ func (p *Provider) ListChecks(ctx context.Context, r forge.RepoRef, head string)
 		}
 		for _, v := range rows {
 			publisher := strconv.FormatInt(v.Creator.ID, 10)
-			if v.ID <= 0 || v.Creator.ID <= 0 {
+			if v.ID <= 0 {
 				return nil, failure("identity", "Status publisher identity missing")
 			}
+			if v.Creator.ID <= 0 {
+				publisher = "gitea-actions"
+			}
 			key := v.Context + "\x00" + publisher
-			if seen[key] {
+			if latest[key] >= v.ID {
 				continue
 			}
-			seen[key] = true
 			state := "completed"
 			if v.State == "pending" {
 				state = "pending"
 			}
-			out = append(out, forge.Check{ID: strconv.FormatInt(v.ID, 10), Name: v.Context, PublisherID: publisher, HeadSHA: head, Status: state, Conclusion: v.State, URL: v.URL})
+			check := forge.Check{ID: strconv.FormatInt(v.ID, 10), Name: v.Context, PublisherID: publisher, HeadSHA: head, Status: state, Conclusion: v.State, URL: v.URL}
+			if v.Creator.ID <= 0 {
+				var err error
+				check, err = p.actionsCheck(ctx, r, head, v)
+				if err != nil {
+					return nil, err
+				}
+			}
+			if index, ok := seen[key]; ok {
+				out[index] = check
+			} else {
+				seen[key] = len(out)
+				out = append(out, check)
+			}
+			latest[key] = v.ID
 		}
 		if len(rows) < 100 {
 			return out, nil
