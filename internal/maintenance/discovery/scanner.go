@@ -665,7 +665,7 @@ func (s *Service) collect(ctx context.Context, lease scanLease) ([]Observation, 
 		}
 		category, severity, title := "ci_failure", "medium", change.Title
 		if conflict {
-			category, severity, title = "branch_conflict", "high", "Reforge repair branch conflicts with target"
+			category, severity, title = "branch_conflict", "medium", "Reforge repair branch conflicts with target"
 		} else if len(deps.Changes) > 0 {
 			category = "dependency_update"
 		}
