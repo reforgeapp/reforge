@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/pkg/autopilot"
 	"github.com/reforgeapp/reforge/pkg/inventory"
 )
 
@@ -129,8 +130,12 @@ func TestPeriodicRefreshKeepsRecentSnapshotUsable(t *testing.T) {
 		if _, err := tx.Exec(ctx, `UPDATE inventory_repository_state SET changes_observed_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2`, f.org, f.repo); err != nil {
 			return err
 		}
-		return inventory.RequestRefreshTx(ctx, tx, f.org, f.repo)
+		return nil
 	}); err != nil {
+		t.Fatal(err)
+	}
+	pilot := autopilot.New(f.db, f.identity, nil, nil, nil, nil)
+	if err := pilot.Request(ctx, f.owner, f.org, f.repo, "owner-check-now"); err != nil {
 		t.Fatal(err)
 	}
 	freshnessErr = nil

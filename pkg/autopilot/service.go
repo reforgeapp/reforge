@@ -139,6 +139,14 @@ func (s *Service) Request(ctx context.Context, session auth.Session, org, repo, 
 		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repositories WHERE org_id=$1 AND id=$2 AND accessible AND NOT archived)`, org, repo).Scan(&exists); err != nil || !exists {
 			return errors.Join(err, auth.ErrForbidden)
 		}
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM inventory_repository_state WHERE org_id=$1 AND repository_id=$2)`, org, repo).Scan(&exists); err != nil {
+			return err
+		}
+		if exists {
+			if err := inventory.RequestRefreshTx(ctx, tx, org, repo); err != nil {
+				return err
+			}
+		}
 		if _, err := tx.Exec(ctx, `INSERT INTO autopilot_requests(org_id,repository_id,requested_by) VALUES($1,$2,$3) ON CONFLICT(org_id,repository_id) DO UPDATE SET requested_by=EXCLUDED.requested_by,requested_at=clock_timestamp()`, org, repo, a.UserID); err != nil {
 			return err
 		}
