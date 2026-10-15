@@ -307,7 +307,6 @@ func (p *Provider) requestBody(request model.TurnRequest, modelID string) ([]byt
 		bodyValue["parallel_tool_calls"] = true
 		if p.config.Profile == "ollama" {
 			bodyValue["reasoning_effort"] = "none"
-			bodyValue["temperature"] = 0
 		}
 	}
 	body, err := json.Marshal(bodyValue)
