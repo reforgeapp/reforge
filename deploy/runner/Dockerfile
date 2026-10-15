@@ -21,6 +21,8 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/*
 COPY --from=node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 /usr/local/bin/node /usr/local/bin/node
 COPY --from=npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+RUN ln -s ../lib/node_modules/npm/bin/npm-cli.js /usr/local/bin/npm \
+ && ln -s ../lib/node_modules/npm/bin/npx-cli.js /usr/local/bin/npx
 COPY scripts/build-runner-images.py /src/build-runner-images.py
 RUN mkdir -p /out/toolchain-licenses \
  && cp /usr/share/doc/coreutils/copyright /out/toolchain-licenses/coreutils.copyright \
