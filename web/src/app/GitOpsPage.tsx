@@ -61,7 +61,7 @@ export function GitOpsPage({ orgID }: { orgID: string }) {
     {view === 'history' && promotions.isLoading && <p role="status">Loading promotions…</p>}
     {view === 'history' && promotions.error && <p className="error-text" role="alert">{text(promotions.error)} <Button onClick={() => void promotions.refetch()}>Retry history</Button></p>}
     {view === 'history' && <PromotionList rows={rows} complete={promotions.data?.pages.at(-1)?.complete ?? true} loading={promotions.isFetchingNextPage} onMore={() => void promotions.fetchNextPage()} onSelect={setDetailID} />}
-    {view === 'history' && detailID && <PromotionDetail key={`${orgID}:${detailID}`} orgID={orgID} detail={detail.data} loading={detail.isLoading} error={detail.error} csrf={csrf} canWrite={canPromote} onChanged={() => { void detail.refetch(); void promotions.refetch() }} />}
+    {view === 'history' && detailID && <PromotionDetail key={`${orgID}:${detailID}`} orgID={orgID} detail={detail.data} recovery={rows.find(row => row.recovery_of === detailID && active(row))} loading={detail.isLoading} error={detail.error} csrf={csrf} canWrite={canPromote} onChanged={() => { void detail.refetch(); void promotions.refetch() }} />}
   </div>
 }
 
@@ -158,7 +158,7 @@ function PromotionList({ rows, complete, loading, onMore, onSelect }: { rows: Pr
   </section>
 }
 
-function PromotionDetail({ orgID, detail, loading, error, csrf, canWrite, onChanged }: { orgID: string; detail?: Detail; loading: boolean; error: unknown; csrf: string; canWrite: boolean; onChanged: () => void }) {
+function PromotionDetail({ orgID, detail, recovery, loading, error, csrf, canWrite, onChanged }: { orgID: string; detail?: Detail; recovery?: Promotion; loading: boolean; error: unknown; csrf: string; canWrite: boolean; onChanged: () => void }) {
   const [busy, setBusy] = useState(false)
   const [message, setMessage] = useState('')
   const [method, setMethod] = useState('fast-forward-only')
@@ -186,7 +186,7 @@ function PromotionDetail({ orgID, detail, loading, error, csrf, canWrite, onChan
   }
   const mergeBlockers = mergeGate?.decision.blockers ?? []
   return <section className="state-card" aria-label={`Promotion ${p.id}`}>
-    <h2>{deliveryLabel(p)}</h2>{(['failed', 'recovery_failed'].includes(p.state) || detail.health && (!detail.health.healthy || Object.values(detail.health.checks).some(value => !value))) && <RestoreRelease orgID={orgID} kind="gitops" id={p.id} version={p.version} csrf={csrf} allowed={canWrite} />}
+    <h2>{deliveryLabel(p)}</h2>{(['failed', 'recovery_failed'].includes(p.state) || detail.health && (!detail.health.healthy || Object.values(detail.health.checks).some(value => !value))) && (recovery ? <a href={`/org/${encodeURIComponent(orgID)}/deployments?promotion=${encodeURIComponent(recovery.id)}`}>Continue restore</a> : <RestoreRelease orgID={orgID} kind="gitops" id={p.id} version={p.version} csrf={csrf} allowed={canWrite} />)}
     <p><StatusBadge label={stateLabel(p.state)} tone={tone(p.state)} /> {p.reason}</p>
     <p>{detail.health ? `${detail.health.healthy ? 'Healthy observation' : 'Unhealthy observation'} · ${new Date(detail.health.observed_at).toLocaleString()}` : 'Waiting for authenticated health checks.'}</p>
     <details><summary>Delivery evidence</summary><dl className="detail-list">
