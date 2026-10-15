@@ -136,6 +136,39 @@ func TestPublishedRepairOverlapAllowsOnlyOwnedFollowUp(t *testing.T) {
 		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != nil {
 			return fmt.Errorf("confirmed terminal repair still blocks work: %v", err)
 		}
+		findingID, previousTask, nextTask := domain.NewID(), domain.NewID(), domain.NewID()
+		if err := insertRepair(findingID, previousTask, "reforge/repair/published-a", "published", "typescript"); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET context='{"follow_up_branch":"reforge/repair/published-a"}' WHERE org_id=$1 AND task_id=$2`, org, previousTask); err != nil {
+			return err
+		}
+		if err := insertRepair(domain.NewID(), nextTask, "", "queued", "typescript"); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM maintenance_repairs WHERE org_id=$1 AND task_id=$2`, org, nextTask); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE repair_runs SET finding_id=$3 WHERE org_id=$1 AND task_id=$2`, org, nextTask, findingID); err != nil {
+			return err
+		}
+		followUp.ID, followUp.EvidenceDigest = findingID, strings.Repeat("e", 64)
+		if err := BindRepairTx(ctx, tx, followUp, nextTask); err != nil {
+			return fmt.Errorf("next native CI follow-up could not bind: %v", err)
+		}
+		var active int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM maintenance_repairs WHERE org_id=$1 AND finding_id=$2 AND active`, org, findingID).Scan(&active); err != nil || active != 1 {
+			return fmt.Errorf("follow-up locks=%d error=%v", active, err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='cancelled' WHERE org_id=$1 AND id=$2`, org, nextTask); err != nil {
+			return err
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, incoming("renovate/other", "bot", "typescript")); err != ErrDuplicate {
+			return fmt.Errorf("original open change lock lost after cancelled follow-up: %v", err)
+		}
+		if err := CheckRepairOverlapTx(ctx, tx, followUp); err != nil {
+			return fmt.Errorf("cancelled follow-up blocks owned retry: %v", err)
+		}
 		return nil
 	}); err != nil {
 		t.Fatal(err)

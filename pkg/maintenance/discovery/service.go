@@ -350,6 +350,14 @@ func CheckRepairOverlapTx(ctx context.Context, tx pgx.Tx, f Finding) error {
 	return rows.Err()
 }
 func BindRepairTx(ctx context.Context, tx pgx.Tx, f Finding, taskID string) error {
+	if f.Evidence.Ownership == "reforge" && f.Evidence.Change != nil && strings.HasPrefix(f.Evidence.Change.HeadBranch, "reforge/repair/") {
+		_, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs r
+WHERE m.org_id=$1 AND m.finding_id=$2 AND m.active AND r.org_id=m.org_id AND r.task_id=m.task_id
+AND r.state='published' AND r.branch=$3 AND r.context->>'follow_up_branch'=$3`, f.OrgID, f.ID, f.Evidence.Change.HeadBranch)
+		if err != nil {
+			return err
+		}
+	}
 	_, err := tx.Exec(ctx, `INSERT INTO maintenance_repairs(org_id,finding_id,repository_id,task_id,evidence_digest) VALUES($1,$2,$3,$4,$5)`, f.OrgID, f.ID, f.RepositoryID, taskID, f.EvidenceDigest)
 	return err
 }
