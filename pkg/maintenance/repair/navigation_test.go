@@ -223,50 +223,54 @@ func TestOwnerNavigationReadsLargeFileThenStagesAndValidatesEdit(t *testing.T) {
 }
 
 func TestOwnerPromptBoundsLargeInventoryAndReadsOmittedCILogSections(t *testing.T) {
-	plan, baseFiles := testPlan(t)
-	plan.Owner = true
-	plan.Recipe.MaxTurns = 2
-	plan.Digest = planDigest(plan)
-	targetFiles := make(map[string][]byte, len(baseFiles)+12000)
-	for name, body := range baseFiles {
-		targetFiles[name] = body
-	}
-	for i := 0; i < 12000; i++ {
-		name := fmt.Sprintf("src/%05d_%s/file.go", i, strings.Repeat("x", 28))
-		targetFiles[name] = []byte("package fixture\n")
-	}
-	log := strings.Repeat("a", 40<<10) + "MIDDLE-ONLY-CI-EVIDENCE" + strings.Repeat("b", 40<<10) + "\n::error:: Native setup failed"
-	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: targetFiles}, target: targetFiles, targetSHA: plan.TargetSHA}
-	turns := 0
-	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "navigation-budget", AttemptID: "navigation-budget", Trust: "fixture", MaxOutputTokens: 256, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: log}}, Progress: func(context.Context, string) error { return nil }}
-	engine.Turn = func(_ context.Context, in model.Turn) (model.TurnResult, error) {
-		turns++
-		if !ownerTurnWithinBudget(in) {
-			t.Fatalf("owner turn exceeded request budget on turn %d", turns)
-		}
-		if turns == 1 {
-			if len(in.Messages) != 1 {
-				t.Fatalf("initial owner messages=%d", len(in.Messages))
+	for _, failure := range []string{"::error:: Native setup failed", "node: bad option: --unsupported"} {
+		t.Run(failure, func(t *testing.T) {
+			plan, baseFiles := testPlan(t)
+			plan.Owner = true
+			plan.Recipe.MaxTurns = 2
+			plan.Digest = planDigest(plan)
+			targetFiles := make(map[string][]byte, len(baseFiles)+12000)
+			for name, body := range baseFiles {
+				targetFiles[name] = body
 			}
-			prompt := in.Messages[0].Text
-			if !strings.Contains(prompt, "[CI log excerpt from byte ") || !strings.Contains(prompt, "::error:: Native setup failed") || !strings.Contains(prompt, "[Initial index truncated; use list_files and search_files]") || strings.Contains(prompt, "MIDDLE-ONLY-CI-EVIDENCE") || strings.Contains(prompt, strings.Repeat("b", 1024)) {
-				t.Fatal("large CI log or path index was not safely summarized")
+			for i := 0; i < 12000; i++ {
+				name := fmt.Sprintf("src/%05d_%s/file.go", i, strings.Repeat("x", 28))
+				targetFiles[name] = []byte("package fixture\n")
 			}
-			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "log-middle", Name: "read_ci_log", Arguments: []byte(`{"index":0,"offset":40960,"limit":1024}`)}}}, nil
-		}
-		found := false
-		for _, message := range in.Messages {
-			if message.ToolCallID == "log-middle" && strings.Contains(message.Text, "MIDDLE-ONLY-CI-EVIDENCE") {
-				found = true
+			log := strings.Repeat("a", 40<<10) + "MIDDLE-ONLY-CI-EVIDENCE" + strings.Repeat("b", 40<<10) + "\n" + failure
+			runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: targetFiles}, target: targetFiles, targetSHA: plan.TargetSHA}
+			turns := 0
+			engine := Engine{Runtime: runtime, Model: "fixture", JobID: "navigation-budget", AttemptID: "navigation-budget", Trust: "fixture", MaxOutputTokens: 256, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: log}}, Progress: func(context.Context, string) error { return nil }}
+			engine.Turn = func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+				turns++
+				if !ownerTurnWithinBudget(in) {
+					t.Fatalf("owner turn exceeded request budget on turn %d", turns)
+				}
+				if turns == 1 {
+					if len(in.Messages) != 1 {
+						t.Fatalf("initial owner messages=%d", len(in.Messages))
+					}
+					prompt := in.Messages[0].Text
+					if !strings.Contains(prompt, "[CI log excerpt from byte ") || !strings.Contains(prompt, failure) || !strings.Contains(prompt, "[Initial index truncated; use list_files and search_files]") || strings.Contains(prompt, "MIDDLE-ONLY-CI-EVIDENCE") || strings.Contains(prompt, strings.Repeat("b", 1024)) {
+						t.Fatal("large CI log or path index was not safely summarized")
+					}
+					return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "log-middle", Name: "read_ci_log", Arguments: []byte(`{"index":0,"offset":40960,"limit":1024}`)}}}, nil
+				}
+				found := false
+				for _, message := range in.Messages {
+					if message.ToolCallID == "log-middle" && strings.Contains(message.Text, "MIDDLE-ONLY-CI-EVIDENCE") {
+						found = true
+					}
+				}
+				if !found {
+					t.Fatal("read_ci_log could not retrieve omitted evidence")
+				}
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "skip", Name: "skip", Arguments: []byte(`{"reason":"fixture complete"}`)}}}, nil
 			}
-		}
-		if !found {
-			t.Fatal("read_ci_log could not retrieve omitted evidence")
-		}
-		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "skip", Name: "skip", Arguments: []byte(`{"reason":"fixture complete"}`)}}}, nil
-	}
-	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, baseFiles), snapshotForEngine(t, plan.TargetSHA, targetFiles))
-	if !errors.Is(err, ErrHandoff) || report.State != "handoff" || turns != 2 {
-		t.Fatalf("report=%+v turns=%d error=%v", report, turns, err)
+			report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, baseFiles), snapshotForEngine(t, plan.TargetSHA, targetFiles))
+			if !errors.Is(err, ErrHandoff) || report.State != "handoff" || turns != 2 {
+				t.Fatalf("report=%+v turns=%d error=%v", report, turns, err)
+			}
+		})
 	}
 }

@@ -317,7 +317,7 @@ func initialCILog(body string) string {
 		return body
 	}
 	start := len(body) - 1024
-	for _, marker := range []string{"::error::", "npm ERR!", "npm error", "Traceback", "error:", "Error:"} {
+	for _, marker := range []string{"::error::", "npm ERR!", "npm error", "Traceback", "bad option:", "flag provided but not defined:", "error:", "Error:"} {
 		if at := strings.Index(body, marker); at >= 0 {
 			start = max(0, at-256)
 			break
