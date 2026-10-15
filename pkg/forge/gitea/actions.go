@@ -9,7 +9,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/forge"
 )
 
-func (p *Provider) actionsCheck(ctx context.Context, repository forge.RepoRef, head string, status status) (forge.Check, error) {
+func (p *Provider) actionsCheck(ctx context.Context, repository forge.RepoRef, status status) (forge.Check, error) {
 	u, err := url.Parse(status.URL)
 	base, _ := url.Parse(p.base)
 	if err != nil || u.User != nil || u.RawQuery != "" || u.Fragment != "" || (u.IsAbs() || u.Host != "") && (u.Host != base.Host || u.Scheme != base.Scheme) {
@@ -31,11 +31,11 @@ func (p *Provider) actionsCheck(ctx context.Context, repository forge.RepoRef, h
 	if err := p.request(ctx, "GET", route+"/actions/jobs/"+parts[2], nil, &job); err != nil {
 		return forge.Check{}, err
 	}
-	if strconv.FormatInt(job.ID, 10) != parts[2] || strconv.FormatInt(job.RunID, 10) != parts[0] || job.HeadSHA != head || job.Status == "" {
+	if strconv.FormatInt(job.ID, 10) != parts[2] || strconv.FormatInt(job.RunID, 10) != parts[0] || !sha(job.HeadSHA) || job.Status == "" {
 		return forge.Check{}, failure("identity", "Native Actions job does not match the pinned status")
 	}
 	u.Scheme, u.Host = base.Scheme, base.Host
-	return forge.Check{ID: "actions:" + parts[2], Name: status.Context, PublisherID: "gitea-actions", HeadSHA: head, Status: job.Status, Conclusion: job.Conclusion, URL: u.String()}, nil
+	return forge.Check{ID: "actions:" + parts[2], Name: status.Context, PublisherID: "gitea-actions", HeadSHA: job.HeadSHA, Status: job.Status, Conclusion: job.Conclusion, URL: u.String()}, nil
 }
 
 func (p *Provider) ReadCheckLog(ctx context.Context, repository forge.RepoRef, checkID string) (string, error) {

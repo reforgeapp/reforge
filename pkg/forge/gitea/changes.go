@@ -269,9 +269,12 @@ func (p *Provider) ListChecks(ctx context.Context, r forge.RepoRef, head string)
 			check := forge.Check{ID: strconv.FormatInt(v.ID, 10), Name: v.Context, PublisherID: publisher, HeadSHA: head, Status: state, Conclusion: v.State, URL: v.URL}
 			if v.Creator.ID <= 0 {
 				var err error
-				check, err = p.actionsCheck(ctx, r, head, v)
+				check, err = p.actionsCheck(ctx, r, v)
 				if err != nil {
 					return nil, err
+				}
+				if check.HeadSHA != head {
+					continue
 				}
 			}
 			if index, ok := seen[key]; ok {

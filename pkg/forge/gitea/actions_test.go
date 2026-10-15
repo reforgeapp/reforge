@@ -54,6 +54,12 @@ func TestNativeActionsChecksBindJobIdentityAndExposeRedactedLogs(t *testing.T) {
 			}
 			ref := forge.RepoRef{NativeID: "31", FullName: "org/project"}
 			checks, err := p.ListChecks(context.Background(), ref, head)
+			if tc.name == "wrong head" {
+				if err != nil || len(checks) != 0 {
+					t.Fatalf("different revision attributed to requested head: %+v %v", checks, err)
+				}
+				return
+			}
 			if !tc.valid {
 				if err == nil {
 					t.Fatal("unbound native job accepted")
