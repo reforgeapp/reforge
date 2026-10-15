@@ -312,6 +312,23 @@ func clip(text string, n int) string {
 	return text[:n] + "…"
 }
 
+func initialCILog(body string) string {
+	if len(body) <= 1024 {
+		return body
+	}
+	start := len(body) - 1024
+	for _, marker := range []string{"::error::", "npm ERR!", "npm error", "Traceback", "error:", "Error:"} {
+		if at := strings.Index(body, marker); at >= 0 {
+			start = max(0, at-256)
+			break
+		}
+	}
+	for start > 0 && !utf8.RuneStart(body[start]) {
+		start--
+	}
+	return fmt.Sprintf("[CI log excerpt from byte %d; use read_ci_log for other sections]\n%s", start, clip(body[start:], 1024))
+}
+
 func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string][]byte) (report Report, _ error) {
 	var transcript strings.Builder
 	defer func() {
@@ -351,8 +368,8 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	var logs strings.Builder
 	for i, log := range e.CILogs {
 		body := log.Log
-		if owner && len(body) > 32<<10 {
-			body = body[:16<<10] + "\n[CI log middle omitted]\n" + body[len(body)-(16<<10):]
+		if owner {
+			body = initialCILog(body)
 		}
 		fmt.Fprintf(&logs, "\n--- Failed CI job %d: %q (%s) ---\n%s\n", i, log.Name, log.URL, body)
 	}
@@ -633,6 +650,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				if !owner || json.Unmarshal(call.Arguments, &in) != nil || in.Index < 0 || in.Index >= len(e.CILogs) {
 					reply = "CI log unavailable"
 					break
+				}
+				if in.Limit == 0 {
+					in.Limit = 1024
 				}
 				body, err := readSnapshotChunk(map[string][]byte{"ci-log.txt": []byte(e.CILogs[in.Index].Log)}, "ci-log.txt", in.Offset, in.Limit)
 				if err != nil {

@@ -235,7 +235,7 @@ func TestOwnerPromptBoundsLargeInventoryAndReadsOmittedCILogSections(t *testing.
 		name := fmt.Sprintf("src/%05d_%s/file.go", i, strings.Repeat("x", 28))
 		targetFiles[name] = []byte("package fixture\n")
 	}
-	log := strings.Repeat("a", 40<<10) + "MIDDLE-ONLY-CI-EVIDENCE" + strings.Repeat("b", 40<<10)
+	log := strings.Repeat("a", 40<<10) + "MIDDLE-ONLY-CI-EVIDENCE" + strings.Repeat("b", 40<<10) + "\n::error:: Native setup failed"
 	runtime := &passRuntime{retryRuntime: retryRuntime{patches: map[string][]sandbox.Patch{}, files: targetFiles}, target: targetFiles, targetSHA: plan.TargetSHA}
 	turns := 0
 	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "navigation-budget", AttemptID: "navigation-budget", Trust: "fixture", MaxOutputTokens: 256, TurnTimeout: time.Second, CILogs: []CILog{{Name: "Validate", Log: log}}, Progress: func(context.Context, string) error { return nil }}
@@ -249,7 +249,7 @@ func TestOwnerPromptBoundsLargeInventoryAndReadsOmittedCILogSections(t *testing.
 				t.Fatalf("initial owner messages=%d", len(in.Messages))
 			}
 			prompt := in.Messages[0].Text
-			if !strings.Contains(prompt, "[CI log middle omitted]") || !strings.Contains(prompt, "[Initial index truncated; use list_files and search_files]") || strings.Contains(prompt, "MIDDLE-ONLY-CI-EVIDENCE") {
+			if !strings.Contains(prompt, "[CI log excerpt from byte ") || !strings.Contains(prompt, "::error:: Native setup failed") || !strings.Contains(prompt, "[Initial index truncated; use list_files and search_files]") || strings.Contains(prompt, "MIDDLE-ONLY-CI-EVIDENCE") || strings.Contains(prompt, strings.Repeat("b", 1024)) {
 				t.Fatal("large CI log or path index was not safely summarized")
 			}
 			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "log-middle", Name: "read_ci_log", Arguments: []byte(`{"index":0,"offset":40960,"limit":1024}`)}}}, nil
