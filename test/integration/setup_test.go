@@ -49,6 +49,9 @@ func TestSetupRequiresOneRepositoryExecutionPath(t *testing.T) {
 	for _, step := range setup.Steps {
 		steps[step.ID] = step
 	}
+	if _, exists := steps["delivery"]; exists {
+		t.Fatal("optional deployment blocks maintenance onboarding")
+	}
 	if steps["runner"].Done || steps["assignment"].Done || steps["scan"].Done || !steps["policy"].Done || !steps["pricing"].Done || steps["model"].ConnectionID != model {
 		t.Fatalf("unrelated resources satisfy setup: %+v", steps)
 	}
