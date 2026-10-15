@@ -314,6 +314,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		return s.status(ctx, org, "Import a repository to start")
 	}
 	if sc.enabled {
+		if err = s.closeReplaced(ctx, session, org); err != nil {
+			slog.WarnContext(ctx, "autopilot could not close replaced fixes", "org_id", org, "error", err)
+		}
 		if err = s.merge(ctx, session, org); err != nil {
 			return err
 		}

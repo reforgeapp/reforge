@@ -449,9 +449,13 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 	if duplicate {
 		comment = "Reforge is closing this pull request because an older open Reforge pull request makes the same change."
 	}
+	return s.closeChange(ctx, session, w, org, f.RepositoryID, f.Evidence.ConnectionID, *change, comment)
+}
+
+func (s *Service) closeChange(ctx context.Context, session auth.Session, w writer, org, repo, connection string, change forge.Change, comment string) error {
 	op := privateconnector.Operation{ID: domain.NewID(), Kind: privateconnector.ForgeCloseChange, Close: &forge.CloseChangeRequest{Repository: change.Repository, ChangeID: change.ID, HeadBranch: change.HeadBranch, Comment: comment}}
-	if _, err := w.Write(ctx, org, f.Evidence.ConnectionID, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
-		if c.ID != f.Evidence.ConnectionID {
+	if _, err := w.Write(ctx, org, connection, op, func(ctx context.Context, tx pgx.Tx, c connections.Connection) (string, error) {
+		if c.ID != connection {
 			return "", auth.ErrConflict
 		}
 		return op.ID, nil
@@ -459,15 +463,47 @@ func (s *Service) CloseFix(ctx context.Context, session auth.Session, org string
 		return err
 	}
 	return s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
-		if !manage(a, f.RepositoryID) {
+		if !manage(a, repo) {
 			return auth.ErrForbidden
 		}
-		if _, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs r WHERE r.org_id=m.org_id AND r.task_id=m.task_id AND r.org_id=$1 AND r.repository_id=$2 AND r.branch=$3`, org, f.RepositoryID, change.HeadBranch); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_repairs m SET active=false FROM repair_runs r WHERE r.org_id=m.org_id AND r.task_id=m.task_id AND r.org_id=$1 AND r.repository_id=$2 AND r.branch=$3`, org, repo, change.HeadBranch); err != nil {
 			return err
 		}
-		_, err := tx.Exec(ctx, `UPDATE repair_runs SET bot_revalidation_state='closed',bot_revalidation_reason=$4,native_change=jsonb_set(native_change,'{state}','"closed"'),version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published' AND native_change IS NOT NULL`, org, f.RepositoryID, change.HeadBranch, comment)
+		_, err := tx.Exec(ctx, `UPDATE repair_runs SET bot_revalidation_state='closed',bot_revalidation_reason=$4,native_change=jsonb_set(native_change,'{state}','"closed"'),version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2 AND branch=$3 AND state='published' AND native_change IS NOT NULL`, org, repo, change.HeadBranch, comment)
 		return err
 	})
+}
+
+func (s *Service) CloseReplaced(ctx context.Context, session auth.Session, org string) error {
+	w, ok := s.reader.(writer)
+	if !ok {
+		return nil
+	}
+	type pair struct {
+		Repository, Connection, Replacement string
+		Original                            []byte
+	}
+	var pairs []pair
+	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT o.repository_id::text,coalesce(n.context#>>'{finding,evidence,connection_id}',''),n.native_change->>'id',o.native_change FROM repair_runs n JOIN repair_runs o ON o.org_id=n.org_id AND o.repository_id=n.repository_id AND o.branch=n.context->>'replaces_branch' AND o.state='published' AND o.native_change IS NOT NULL AND coalesce(o.native_change->>'state','open')='open' WHERE n.org_id=$1 AND n.state='published' AND n.native_change->>'id'<>'' ORDER BY n.created_at LIMIT 5`, org)
+		if err != nil {
+			return err
+		}
+		pairs, err = pgx.CollectRows(rows, pgx.RowToStructByPos[pair])
+		return err
+	}); err != nil {
+		return err
+	}
+	for _, p := range pairs {
+		var change forge.Change
+		if json.Unmarshal(p.Original, &change) != nil || !strings.HasPrefix(change.HeadBranch, "reforge/repair/") {
+			continue
+		}
+		if err := s.closeChange(ctx, session, w, org, p.Repository, p.Connection, change, "Reforge is closing this pull request: it conflicted with the target branch and #"+p.Replacement+" carries its still-needed changes."); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Service) CommandBot(ctx context.Context, org, connection string, change forge.Change, command string) error {

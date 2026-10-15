@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
+
+	"reforge/internal/auth"
 )
 
 func (s *Service) ownerRepairPinsTarget(ctx context.Context, org, repository, target string) (bool, error) {
@@ -22,4 +24,14 @@ func (s *Service) mergeWaiting(ctx context.Context, org, repository string) (str
 		return tx.QueryRow(ctx, `SELECT coalesce(min(rr.native_change->>'id'),'') FROM repair_runs rr LEFT JOIN autopilot_attempts a ON a.org_id=rr.org_id AND a.task_id=rr.task_id LEFT JOIN autopilot_bot_merges d ON d.org_id=rr.org_id AND d.repository_id=rr.repository_id AND d.change_id=rr.native_change->>'id' WHERE rr.org_id=$1 AND rr.repository_id=$2 AND rr.state='published' AND coalesce(rr.native_change->>'state','open')='open' AND (a.merge_reason=$3 OR d.reason LIKE '%'||$3)`, org, repository, pinnedByOwner).Scan(&change)
 	})
 	return change, err
+}
+
+func (s *Service) closeReplaced(ctx context.Context, session auth.Session, org string) error {
+	var pending bool
+	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM repair_runs WHERE org_id=$1 AND state='published' AND coalesce(context->>'replaces_branch','')<>'')`, org).Scan(&pending)
+	}); err != nil || !pending {
+		return err
+	}
+	return s.repairs.CloseReplaced(ctx, session, org)
 }
