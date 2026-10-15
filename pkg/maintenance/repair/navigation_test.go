@@ -47,6 +47,12 @@ func TestReadSnapshotChunkCoversMaximumTextFile(t *testing.T) {
 
 func TestReadSnapshotChunkPreservesUnicodeAndBoundsEscapedOutput(t *testing.T) {
 	files := map[string][]byte{"unicode.txt": []byte("aébc")}
+	source := "const value = () => 2 < 3 && true;"
+	files["value.js"] = []byte(source)
+	operators, err := readSnapshotChunk(files, "value.js", 0, 1024)
+	if err != nil || !strings.Contains(string(operators), source) {
+		t.Fatalf("source operators obscured in model tool response: %s %v", operators, err)
+	}
 	first, err := readSnapshotChunk(files, "unicode.txt", 0, 2)
 	if err != nil {
 		t.Fatal(err)

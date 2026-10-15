@@ -70,7 +70,11 @@ func readSnapshotChunk(files map[string][]byte, name string, offset, limit int) 
 		end = offset + size
 	}
 	encode := func(next int) ([]byte, error) {
-		return json.Marshal(navigationFileChunk{Path: name, Offset: offset, NextOffset: next, TotalBytes: len(body), Done: next == len(body), Content: string(body[offset:next])})
+		var buffer bytes.Buffer
+		encoder := json.NewEncoder(&buffer)
+		encoder.SetEscapeHTML(false)
+		err := encoder.Encode(navigationFileChunk{Path: name, Offset: offset, NextOffset: next, TotalBytes: len(body), Done: next == len(body), Content: string(body[offset:next])})
+		return buffer.Bytes(), err
 	}
 	encoded, err := encode(end)
 	if err != nil {
