@@ -252,7 +252,7 @@ func runBuiltin(args []string) (retErr error) {
 	defer stopWork()
 	process, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	var mu sync.Mutex
-	var workers sync.WaitGroup
+	var workers, privateWorkers sync.WaitGroup
 	orgs := map[string]*builtinOrg{}
 	fresh := func(id string) (*builtinOrg, error) {
 		client, err := newClient(id)
@@ -275,11 +275,11 @@ func runBuiltin(args []string) (retErr error) {
 			}
 		}
 		if org.privateCancel == nil {
-			privateCtx, stop := context.WithCancel(ctx)
+			privateCtx, stop := context.WithCancel(work)
 			org.privateCancel = stop
-			workers.Add(1)
+			privateWorkers.Add(1)
 			go func() {
-				defer workers.Done()
+				defer privateWorkers.Done()
 				if err := runPrivate(privateCtx, org.client, f.endpoint, nil, true, httpClient); err != nil && privateCtx.Err() == nil {
 					slog.Warn("built-in private connector stopped", "org_id", id, "error", err)
 					mu.Lock()
@@ -294,6 +294,8 @@ func runBuiltin(args []string) (retErr error) {
 	defer func() {
 		cancel()
 		workers.Wait()
+		stopWork()
+		privateWorkers.Wait()
 		retErr = errors.Join(retErr, closeProcessor())
 	}()
 	for n := 0; n < f.slots; n++ {
