@@ -266,11 +266,12 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if followUp != "" && !replacement {
 		targetSHA = f.Evidence.HeadSHA
 	}
-	plan, err := freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths, in.Owner)
+	owner := in.Owner && !(f.Source == "forge_change" && f.Evidence.Change != nil && f.Evidence.Ownership == "bot" && slices.Contains([]string{"renovate", "dependabot"}, f.Evidence.Bot))
+	plan, err := freeze(in.Recipe, image, f.Evidence.HeadSHA, targetSHA, files, resolved.Policy.ForbiddenPaths, owner)
 	if err != nil {
 		return out, err
 	}
-	if in.Owner {
+	if owner {
 		a, _ := recipes.Lookup(plan.Recipe.Name)
 		b := a.Budget.Clamp()
 		plan.Owner, plan.MaxChangedLines, plan.Recipe.MaxFiles, plan.Recipe.MaxPatchBytes, plan.Recipe.MaxGenerated, plan.Recipe.MaxTurns = true, b.Lines, b.Files, b.Bytes, b.GeneratedBytes, b.Turns

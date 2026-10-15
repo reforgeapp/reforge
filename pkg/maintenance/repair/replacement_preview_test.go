@@ -20,6 +20,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 	"github.com/reforgeapp/reforge/pkg/source"
 	"github.com/reforgeapp/reforge/pkg/store"
 	"github.com/reforgeapp/reforge/pkg/workflow"
@@ -207,6 +208,27 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	}
 	if ordinaryPreview.Context.ReplacesBranch != "" || ordinaryPreview.Context.FollowUpBranch != branch || ordinaryPreview.Context.Plan.BaselineSHA != headSHA || ordinaryPreview.Context.Plan.TargetSHA != headSHA {
 		t.Fatalf("ordinary follow-up preview=%+v", ordinaryPreview)
+	}
+	botEvidence := normalEvidence
+	botChange := normalChange
+	botChange.HeadBranch = "renovate/example"
+	botEvidence.Change, botEvidence.Bot, botEvidence.Ownership = &botChange, "renovate", "bot"
+	botBody, _ := json.Marshal(botEvidence)
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE maintenance_findings SET evidence=$3 WHERE org_id=$1 AND id=$2`, org, findingID, botBody)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	botPreview, err := service.Preview(ctx, session, org, in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if botPreview.Context.Plan.Owner || botPreview.Context.Plan.BaselineSHA != headSHA || botPreview.Context.Plan.TargetSHA != targetSHA || len(botPreview.Context.Plan.ProtectedHashes) == 0 {
+		t.Fatalf("trusted bot repair lost frozen update checks: %+v", botPreview.Context.Plan)
+	}
+	if CheckPatch(botPreview.Context.Plan, map[string][]byte{"go.mod": []byte("module example.test/repo\n\ngo 1.22\n")}, []sandbox.Patch{{Path: "go.mod", Content: []byte("module example.test/repo\n\ngo 1.21\n")}}) == nil {
+		t.Fatal("trusted bot repair could revert dependency metadata")
 	}
 	foreignEvidence := evidence
 	foreignChange := change
