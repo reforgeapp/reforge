@@ -19,7 +19,7 @@ export function ReleasePanel({ orgID, repositoryID, csrf }: { orgID: string; rep
     setBusy(id); setError('')
     try {
       const result = await apiRequest<components['schemas']['DeliveryResult']>(`${root}/release-receipts/${encodeURIComponent(id)}/deploy`, {method: 'POST'}, csrf)
-      window.location.assign(`/org/${encodeURIComponent(orgID)}/${result.kind === 'gitops' ? 'gitops?promotion=' : 'deployments?deployment='}${encodeURIComponent(result.id)}`)
+      window.location.assign(`/org/${encodeURIComponent(orgID)}/deployments?${result.kind === 'gitops' ? 'promotion=' : 'deployment='}${encodeURIComponent(result.id)}`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Delivery unavailable.') }
     finally { setBusy('') }
   }

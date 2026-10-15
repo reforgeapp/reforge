@@ -18,7 +18,7 @@ export function RestoreRelease({ orgID, kind, id, version, csrf, allowed }: { or
     setBusy(true); setError('')
     try {
       const result = await apiRequest<components['schemas']['DeliveryResult']>(path, {method: 'POST', headers: {'If-Match': '"' + version + '"'}, body: JSON.stringify({gate_id: plan?.gate_id})}, csrf)
-      window.location.assign(`/org/${encodeURIComponent(orgID)}/${kind === 'gitops' ? 'gitops?promotion=' : 'deployments?deployment='}${encodeURIComponent(result.id)}`)
+      window.location.assign(`/org/${encodeURIComponent(orgID)}/deployments?${kind === 'gitops' ? 'promotion=' : 'deployment='}${encodeURIComponent(result.id)}`)
     } catch (reason) { setError(reason instanceof Error ? reason.message : 'Recovery unavailable.') }
     finally { setBusy(false) }
   }
