@@ -70,6 +70,13 @@ func freeze(name, image, baseline, target string, files map[string][]byte, forbi
 func (p Plan) Valid() bool {
 	return p.Version == 1 && p.Digest != "" && p.Digest == planDigest(p) && p.MaxChangedLines > 0 && p.Recipe.MaxFiles > 0 && p.Recipe.MaxPatchBytes > 0 && len(p.Recipe.Commands) > 0
 }
+
+func botConfigPaths(provider string) []string {
+	return slices.DeleteFunc(slices.Clone(guest.BotConfigPaths), func(name string) bool {
+		return provider != "github" && strings.Contains(name, "dependabot")
+	})
+}
+
 func protectedPath(file string) bool {
 	lower := strings.ToLower(file)
 	name := path.Base(lower)

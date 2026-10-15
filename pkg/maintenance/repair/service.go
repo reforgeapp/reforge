@@ -115,6 +115,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	var ref forge.RepoRef
 	var spec *customcmd.ProfileSpec
 	var poolVersion int64
+	var forgeProvider string
 	attempts := 3
 	check := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
 		actor, err := s.auth.ActorTx(ctx, tx, session, org)
@@ -140,6 +141,11 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		if !manage(a, f.RepositoryID) {
 			return auth.ErrForbidden
 		}
+		forgeConnection, err := s.connections.MetadataTx(ctx, tx, org, f.Evidence.ConnectionID)
+		if err != nil {
+			return err
+		}
+		forgeProvider = forgeConnection.Provider
 		if _, err := discovery.PrepareRepairTx(ctx, tx, org, f.ID, in.FindingVersion); err != nil {
 			return err
 		}
@@ -183,7 +189,6 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 				}
 			}
 		}
-		var err error
 		resolved, err = s.policies.ResolveTx(ctx, tx, org, f.RepositoryID)
 		if err != nil {
 			return err
@@ -269,6 +274,9 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 		a, _ := recipes.Lookup(plan.Recipe.Name)
 		b := a.Budget.Clamp()
 		plan.Owner, plan.MaxChangedLines, plan.Recipe.MaxFiles, plan.Recipe.MaxPatchBytes, plan.Recipe.MaxGenerated, plan.Recipe.MaxTurns = true, b.Lines, b.Files, b.Bytes, b.GeneratedBytes, b.Turns
+	}
+	if plan.Recipe.Name == "config" {
+		plan.Recipe.AllowedPaths = botConfigPaths(forgeProvider)
 	}
 	if resolved.Policy.Limits.ChangedFiles != nil {
 		plan.Recipe.MaxFiles = min(plan.Recipe.MaxFiles, int(min(int64(plan.Recipe.MaxFiles), *resolved.Policy.Limits.ChangedFiles)))

@@ -42,6 +42,31 @@ func TestPatchCannotChangeValidationOrSensitivePaths(t *testing.T) {
 		t.Fatal("altered plan accepted")
 	}
 }
+
+func TestBotConfigurationPreservesProviderScope(t *testing.T) {
+	files := map[string][]byte{"package.json": []byte(`{"dependencies":{"example":"1.0.0"}}`)}
+	for _, provider := range []string{"github", "gitea", "forgejo", "gitlab", ""} {
+		t.Run(provider, func(t *testing.T) {
+			p, err := freeze("config", "sha256:"+strings.Repeat("a", 64), strings.Repeat("b", 40), strings.Repeat("c", 40), files, nil, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			p.Owner = true
+			p.Recipe.AllowedPaths = botConfigPaths(provider)
+			p.Digest = planDigest(p)
+			if err := CheckOwnerPatch(p, files, []sandbox.Patch{{Path: "renovate.json", Content: []byte(`{"extends":["config:recommended"]}`)}}); err != nil {
+				t.Fatalf("supported Renovate configuration rejected: %v", err)
+			}
+			for _, name := range []string{".github/dependabot.yml", ".github/dependabot.yaml"} {
+				err := CheckOwnerPatch(p, files, []sandbox.Patch{{Path: name, Content: []byte("version: 2\n")}})
+				if (err == nil) != (provider == "github") {
+					t.Fatalf("Dependabot configuration eligibility for %s: %v", provider, err)
+				}
+			}
+		})
+	}
+}
+
 func TestValidationRejectsNoopSkippedLostAndUnreproducedChecks(t *testing.T) {
 	p, _ := testPlan(t)
 	command := p.Recipe.Commands[0]

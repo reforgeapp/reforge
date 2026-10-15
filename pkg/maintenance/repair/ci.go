@@ -403,6 +403,10 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			"\nRepository checks on the target branch:\n" + string(checks) +
 			"\nFiles:\n" + index
 	}
+	if p.Recipe.Name == "config" && !slices.Contains(p.Recipe.AllowedPaths, ".github/dependabot.yml") {
+		system += " This code host does not support Dependabot. Configure Renovate; use renovate.json and preserve application files."
+		prompt = "Code-host constraint: Dependabot is unsupported here. Configure Renovate using the allowed configuration paths.\n" + prompt
+	}
 	review := p.Recipe.ReadOnly
 	if review {
 		system = "You review a repository you own and report real problems with evidence. You never change files."
