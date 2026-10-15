@@ -368,6 +368,8 @@ func TestEngineOwnerChangesAnyFileWithinPolicy(t *testing.T) {
 					{ID: "w", Name: "write_file", Arguments: []byte(`{"path":".github/dependabot.yml","content":"version: 2\n"}`)},
 					{ID: "t", Name: "edit_file", Arguments: []byte(`{"path":"value.test.js","old":"'adds'","new":"'sums'"}`)},
 					{ID: "d", Name: "delete_file", Arguments: []byte(`{"path":"old.js"}`)},
+					{ID: "scratch", Name: "write_file", Arguments: []byte(`{"path":"scratch.js","content":"temporary investigation"}`)},
+					{ID: "discard", Name: "delete_file", Arguments: []byte(`{"path":"scratch.js"}`)},
 					{ID: "s", Name: "write_file", Arguments: []byte(`{"path":"private/x.js","content":"x"}`)},
 					{ID: "k", Name: "write_file", Arguments: []byte(`{"path":".env","content":"TOKEN=x"}`)},
 				}}, nil

@@ -665,13 +665,17 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				var in struct{ Path string }
 				_ = json.Unmarshal(call.Arguments, &in)
 				patch := sandbox.Patch{Path: in.Path, Delete: true}
-				if _, ok := updated()[in.Path]; !owner || !ok || admissible([]sandbox.Patch{patch}, nil) != nil {
+				if _, ok := updated()[in.Path]; !owner || !ok {
 					reply = "Delete rejected: the file must exist and be deletable"
 					break
 				}
 				if _, ok := files[in.Path]; !ok {
 					delete(patches, in.Path)
 				} else {
+					if admissible([]sandbox.Patch{patch}, nil) != nil {
+						reply = "Delete rejected: the file must exist and be deletable"
+						break
+					}
 					patches[in.Path] = patch
 				}
 				revision++
