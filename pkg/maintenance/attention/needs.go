@@ -61,6 +61,15 @@ var query = `WITH managed AS (
  FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id
  WHERE a.org_id=$1 AND ($2 OR f.repository_id=ANY($3::uuid[])) AND f.state='open' AND a.blocker_kind<>'' AND a.outcome IN ('blocked','retry')
  AND NOT EXISTS(SELECT 1 FROM workflow_tasks t WHERE t.org_id=a.org_id AND t.id=a.task_id AND t.state IN ('queued','reproducing','planning','repairing','validating','publishing','reconciling'))
+ AND (a.blocker_kind<>'exhausted' OR NOT EXISTS(
+  SELECT 1 FROM repair_runs rr JOIN workflow_tasks t ON t.org_id=rr.org_id AND t.id=rr.task_id
+  WHERE rr.org_id=f.org_id AND rr.finding_id=f.id AND rr.finding_version=f.version AND rr.finding_digest=f.evidence_digest
+  AND t.state='completed' AND rr.state='published' AND rr.report->>'state'='validated' AND rr.candidate_sha<>''
+  AND (jsonb_path_exists(coalesce(rr.report->'baseline','[]'), '$[*].cases.* ? (@ == "fail")')
+       OR jsonb_path_exists(coalesce(rr.report->'reproduction','[]'), '$[*].cases.* ? (@ == "fail")'))
+  AND rr.native_change->>'head_sha'=rr.candidate_sha AND rr.native_change->>'state' IN ('open','opened')
+  AND NOT EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged'))
+ ))
  AND (a.blocker_kind NOT IN ('restore_runner','reconnect','raise_limit') OR a.retry_after>now())
  UNION ALL
  SELECT 'review:'||f.id,'review',f.id::text,f.version,f.repository_id::text,r.name,f.title,a.merge_reason,coalesce(rr.native_change->>'url',''),'Review pull request','reviewer',a.merge_after

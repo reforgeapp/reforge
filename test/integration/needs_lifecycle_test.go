@@ -87,6 +87,48 @@ func TestNeedsKeepExhaustionAndBoundExplicitRetry(t *testing.T) {
 	if runs != 6 || max != 6 || kind != "exhausted" {
 		t.Fatalf("Check again erased exhaustion: %d %d %s", runs, max, kind)
 	}
+	manual := domain.NewID()
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_tasks(org_id,id,repository_id,operation_id,idempotency_key,request_hash,recipe,recipe_version,target_branch,policy_hash,starting_policy_hash,state,max_attempts,created_by) VALUES($1,$2,$3,$4,$6,repeat('a',64),'javascript','1','main',repeat('b',64),repeat('b',64),'completed',1,$5)`, f.org, manual, repo, domain.NewID(), f.owner.User.ID, "manual-needs-"+manual); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,report,native_change) SELECT org_id,$3,repository_id,id,$4,version,evidence_digest,'{}','published',repeat('c',40),'{"state":"validated"}',jsonb_build_object('id','manual-fix','head_sha',repeat('c',40),'state','open') FROM maintenance_findings WHERE org_id=$1 AND id=$2`, f.org, finding, manual, f.owner.User.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	for _, sample := range []struct {
+		state, head, native   string
+		reproduced, exhausted bool
+	}{
+		{"validated", "cccccccccccccccccccccccccccccccccccccccc", "open", true, false},
+		{"validated", "cccccccccccccccccccccccccccccccccccccccc", "open", false, true},
+		{"unverified", "cccccccccccccccccccccccccccccccccccccccc", "open", true, true},
+		{"validated", "dddddddddddddddddddddddddddddddddddddddd", "open", true, true},
+		{"validated", "cccccccccccccccccccccccccccccccccccccccc", "closed", true, true},
+	} {
+		if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `UPDATE repair_runs SET report=jsonb_build_object('state',$3::text,'baseline',CASE WHEN $6::boolean THEN '[{"cases":{"behaviour":"fail"}}]'::jsonb ELSE '[]'::jsonb END),native_change=jsonb_build_object('id','manual-fix','head_sha',$4::text,'state',$5::text) WHERE org_id=$1 AND task_id=$2`, f.org, manual, sample.state, sample.head, sample.native, sample.reproduced)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		page, err := service.NeedsPage(ctx, f.owner, f.org, 50, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		found := false
+		for _, item := range page.Items {
+			found = found || item.FindingID == finding && item.Kind == "exhausted"
+		}
+		if found != sample.exhausted {
+			t.Fatalf("exhaustion after manual proposal %+v: %v", sample, found)
+		}
+	}
+	state()
+	if runs != 6 || max != 6 || kind != "exhausted" {
+		t.Fatal("verified proposal changed attempt history or allowance")
+	}
 	command := autopilot.RetryCommand{FindingVersion: 1, Reason: "Reviewed prior failures; runner now supports checks"}
 	if err = service.RetryFinding(ctx, f.owner, f.org, finding, command, "retry"); err != nil {
 		t.Fatal(err)
