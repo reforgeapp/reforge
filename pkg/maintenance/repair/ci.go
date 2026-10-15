@@ -404,7 +404,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			"\nFiles:\n" + index
 	}
 	if p.Recipe.Name == "config" && !slices.Contains(p.Recipe.AllowedPaths, ".github/dependabot.yml") {
-		system += " This code host does not support Dependabot. Configure Renovate; use renovate.json and preserve application files."
+		system += " This code host does not support Dependabot. Configure Renovate using renovate.json. Use extends: [config:recommended], a string-array cron schedule, prConcurrentLimit, and packageRules with matchUpdateTypes and groupName for grouped minor/patch updates. Disable automerge; keep security updates outside routine schedules. Preserve application files."
 		prompt = "Code-host constraint: Dependabot is unsupported here. Configure Renovate using the allowed configuration paths.\n" + prompt
 	}
 	review := p.Recipe.ReadOnly

@@ -1,12 +1,19 @@
 package guest
 
 import (
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"io/fs"
 	"strings"
+	"sync"
 
 	"github.com/goccy/go-yaml"
+	"github.com/santhosh-tekuri/jsonschema/v6"
 )
 
 var BotConfigPaths = []string{
@@ -31,11 +38,14 @@ func ValidateBotConfig(root fs.FS) []string {
 		switch {
 		case strings.Contains(name, "dependabot"):
 			problems = append(problems, dependabotProblems(name, body)...)
-		case strings.HasSuffix(name, ".json5"):
 		default:
 			var object map[string]any
 			if err := json.Unmarshal(body, &object); err != nil || object == nil {
-				problems = append(problems, name+": not a JSON object")
+				problems = append(problems, name+": cannot validate this syntax; use a JSON object in renovate.json")
+			} else if schema, err := renovateConfigSchema(); err != nil {
+				problems = append(problems, name+": Renovate schema validation unavailable")
+			} else if err := schema.Validate(object); err != nil {
+				problems = append(problems, fmt.Sprintf("%s: Renovate %s configuration invalid: %.2000s", name, renovateSchemaVersion, err))
 			}
 		}
 	}
@@ -44,6 +54,38 @@ func ValidateBotConfig(root fs.FS) []string {
 	}
 	return problems
 }
+
+var renovateConfigSchema = sync.OnceValues(func() (*jsonschema.Schema, error) {
+	compressed, err := base64.StdEncoding.DecodeString(renovateSchemaGzip)
+	if err != nil {
+		return nil, err
+	}
+	r, err := gzip.NewReader(bytes.NewReader(compressed))
+	if err != nil {
+		return nil, err
+	}
+	defer r.Close()
+	body, err := io.ReadAll(io.LimitReader(r, 4<<20))
+	if err != nil {
+		return nil, err
+	}
+	var document map[string]any
+	if err := json.Unmarshal(body, &document); err != nil {
+		return nil, err
+	}
+	properties, ok := document["properties"].(map[string]any)
+	if !ok {
+		return nil, errors.New("Renovate schema properties unavailable")
+	}
+	properties["$schema"] = map[string]any{"type": "string"}
+	document["additionalProperties"] = false
+	compiler := jsonschema.NewCompiler()
+	const uri = "https://docs.renovatebot.com/renovate-schema.json"
+	if err := compiler.AddResource(uri, document); err != nil {
+		return nil, err
+	}
+	return compiler.Compile(uri)
+})
 
 func dependabotProblems(name string, body []byte) []string {
 	var config struct {

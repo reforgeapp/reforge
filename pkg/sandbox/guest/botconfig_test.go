@@ -12,11 +12,17 @@ func TestValidateBotConfig(t *testing.T) {
 		files fstest.MapFS
 		valid bool
 	}{
-		"missing":   {fstest.MapFS{}, false},
-		"ungrouped": {fstest.MapFS{".github/dependabot.yml": {Data: []byte("version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule: {interval: weekly}\n")}}, false},
-		"grouped":   {fstest.MapFS{".github/dependabot.yml": {Data: []byte(grouped)}}, true},
-		"renovate":  {fstest.MapFS{"renovate.json": {Data: []byte(`{"extends":["config:recommended"]}`)}}, true},
-		"broken":    {fstest.MapFS{"renovate.json": {Data: []byte(`{"extends":`)}}, false},
+		"missing":                 {fstest.MapFS{}, false},
+		"ungrouped":               {fstest.MapFS{".github/dependabot.yml": {Data: []byte("version: 2\nupdates:\n  - package-ecosystem: gomod\n    directory: /\n    schedule: {interval: weekly}\n")}}, false},
+		"grouped":                 {fstest.MapFS{".github/dependabot.yml": {Data: []byte(grouped)}}, true},
+		"renovate":                {fstest.MapFS{"renovate.json": {Data: []byte(`{"$schema":"https://docs.renovatebot.com/renovate-schema.json","extends":["config:recommended"]}`)}}, true},
+		"broken":                  {fstest.MapFS{"renovate.json": {Data: []byte(`{"extends":`)}}, false},
+		"wrong schedule type":     {fstest.MapFS{"renovate.json": {Data: []byte(`{"schedule":[{"interval":"weekly"}]}`)}}, false},
+		"unknown options":         {fstest.MapFS{"renovate.json": {Data: []byte(`{"ignoreProvenance":true,"semver":"patch"}`)}}, false},
+		"wrong registries type":   {fstest.MapFS{"renovate.json": {Data: []byte(`{"registryUrls":{"npm":"https://registry.npmjs.org/"}}`)}}, false},
+		"nested wrong schedule":   {fstest.MapFS{"renovate.json": {Data: []byte(`{"packageRules":[{"matchUpdateTypes":["minor","patch"],"schedule":[{"interval":"weekly"}]}]}`)}}, false},
+		"grouped weekly renovate": {fstest.MapFS{"renovate.json": {Data: []byte(`{"extends":["config:recommended"],"automerge":false,"schedule":["* * * * 0"],"prConcurrentLimit":3,"packageRules":[{"matchUpdateTypes":["minor","patch"],"groupName":"routine updates"}]}`)}}, true},
+		"unverified json5":        {fstest.MapFS{"renovate.json5": {Data: []byte(`{invalid}`)}}, false},
 	} {
 		if problems := ValidateBotConfig(tc.files); (len(problems) == 0) != tc.valid {
 			t.Errorf("%s: %v", name, problems)
