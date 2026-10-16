@@ -88,6 +88,7 @@ pre { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
 .need-title:hover { color: var(--primary); text-decoration: underline; }
 .need-meta { color: var(--text-subtle); font-size: 12px; }
 .need-reason { margin: 4px 0 0; color: var(--text-muted); font-size: 13px; line-height: 1.4; }
+.need-reason::first-letter { text-transform: uppercase; }
 .need-actions { display: flex; flex-shrink: 0; align-items: center; gap: 6px; }
 .need-actions .button { gap: 5px; white-space: nowrap; }
 .need-check.is-busy svg { animation: spin 1s linear infinite; }
