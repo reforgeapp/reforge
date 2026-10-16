@@ -64,6 +64,7 @@ type Service struct {
 	Deployments *deployment.Service
 	Promotions  *gitops.Service
 	Notify      func(context.Context, string) error
+	Access      func(context.Context, string) error
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -308,6 +309,11 @@ func (s *Service) Step(ctx context.Context, org string) error {
 				slog.WarnContext(ctx, "alert delivery failed", "org_id", org, "error", e)
 			}
 		}()
+	}
+	if s.Access != nil {
+		if e := s.Access(ctx, org); e != nil {
+			slog.WarnContext(ctx, "access recheck failed", "org_id", org, "error", e)
+		}
 	}
 	session, sc, err := s.session(ctx, org)
 	if err != nil {
