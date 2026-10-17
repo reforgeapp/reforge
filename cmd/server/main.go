@@ -229,7 +229,6 @@ func run() error {
 	autopilots.Promotions = promotions
 	notices := alerts.New(db, identity, vault, alerts.SMTP{Address: cfg.SMTPAddress, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom, Security: cfg.SMTPSecurity}, cfg.PublicURL)
 	autopilots.Notify = notices.Notify
-	autopilots.Access = discoveries.RecheckAccess
 	autopilots.Scan = func(ctx context.Context, session auth.Session, org, repo, request string) error {
 		_, err := discoveries.StartScan(ctx, session, org, repo, request)
 		return err

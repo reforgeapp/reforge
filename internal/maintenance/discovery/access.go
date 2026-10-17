@@ -12,7 +12,29 @@ import (
 	"reforge/internal/privateconnector"
 )
 
-func (s *Service) RecheckAccess(ctx context.Context, org string) error {
+func (s *Service) recheckAllAccess(ctx context.Context) error {
+	var orgs []string
+	if err := pgx.BeginFunc(ctx, s.db.Pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT set_config('reforge.maintenance_scheduler','true',true)`); err != nil {
+			return err
+		}
+		rows, err := tx.Query(ctx, `SELECT org_id::text FROM inventory_tenants ORDER BY org_id`)
+		if err != nil {
+			return err
+		}
+		orgs, err = pgx.CollectRows(rows, pgx.RowTo[string])
+		return err
+	}); err != nil {
+		return err
+	}
+	var errs []error
+	for _, org := range orgs {
+		errs = append(errs, s.recheckAccess(ctx, org))
+	}
+	return errors.Join(errs...)
+}
+
+func (s *Service) recheckAccess(ctx context.Context, org string) error {
 	if s.reader == nil {
 		return nil
 	}

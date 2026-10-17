@@ -929,7 +929,14 @@ func (s *Service) RunOrganisationOnce(ctx context.Context, org string) (bool, er
 	return true, s.step(ctx, *lease)
 }
 func (s *Service) Run(ctx context.Context) error {
+	var checked time.Time
 	for ctx.Err() == nil {
+		if time.Since(checked) >= 30*time.Second {
+			checked = time.Now()
+			if err := s.recheckAllAccess(ctx); err != nil && ctx.Err() == nil {
+				slog.WarnContext(ctx, "access recheck failed", "error", err)
+			}
+		}
 		worked, err := s.RunOnce(ctx)
 		heartbeat.Beat("discovery", 3*time.Minute, err)
 		if worked && err == nil {
