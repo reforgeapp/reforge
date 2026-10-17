@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"strings"
 
+	"reforge/internal/domain"
 	"reforge/internal/forge"
 )
 
@@ -57,6 +58,9 @@ func (p *Provider) ListAdvisories(ctx context.Context, reference forge.RepoRef) 
 	status, headers, body, err := p.request(ctx, http.MethodGet, append(segments, "dependabot", "alerts"), url.Values{"state": {"open"}, "per_page": {"100"}}, nil)
 	if err != nil {
 		return nil, err
+	}
+	if status == http.StatusForbidden && strings.Contains(string(body), "Dependabot alerts are disabled") {
+		return nil, &domain.ProviderError{Kind: "configuration", Message: "Dependabot alerts are disabled for this repository"}
 	}
 	if status < 200 || status >= 300 {
 		return nil, responseError(status, headers)

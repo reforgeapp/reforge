@@ -239,9 +239,14 @@ func botConfigGap(files map[string][]byte, cfg detectors.BotConfig) string {
 func providerObservations(read func(privateconnector.Operation) (privateconnector.Result, error), lease scanLease, initial Evidence) ([]Observation, error) {
 	out := []Observation{}
 	missing := []string{}
+	alertsOff := false
 	optional := func(kind privateconnector.Kind, access string) (privateconnector.Result, error) {
 		result, err := read(privateconnector.Operation{Kind: kind, Repository: &privateconnector.RepositoryArgs{Repository: lease.Ref}})
 		var providerError *domain.ProviderError
+		if kind == privateconnector.ForgeAdvisories && errors.As(err, &providerError) && providerError.Kind == "configuration" {
+			alertsOff = true
+			return result, nil
+		}
 		if errors.Is(err, privateconnector.ErrUnsupported) || errors.As(err, &providerError) && (providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "scope" || providerError.Kind == "not_found") {
 			missing = append(missing, access)
 			return result, nil
@@ -275,6 +280,12 @@ func providerObservations(read func(privateconnector.Operation) (privateconnecto
 			severity = "medium"
 		}
 		out = append(out, Observation{RepositoryID: lease.Repo, Source: "forge_advisory", SourceID: "advisory:" + advisory.ID + ":" + advisory.Manifest, Category: "security_advisory", Severity: severity, Title: bounded(advisory.ID+" in "+advisory.Package+": "+advisory.Summary, 512), Evidence: e})
+	}
+	if alertsOff {
+		e := initial
+		e.Blockers = []string{"Needs a person: Dependabot alerts are turned off for this repository"}
+		e.ActionURL, e.ActionLabel = "https://github.com/"+lease.Ref.FullName+"/settings/security_analysis", "Turn on in GitHub"
+		out = append(out, Observation{RepositoryID: lease.Repo, Source: "repository", SourceID: "dependabot-alerts", Category: "provider_access", Severity: "low", Title: "Turn on Dependabot alerts", Evidence: e})
 	}
 	if len(missing) > 0 {
 		e := initial

@@ -39,19 +39,19 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 		return nil
 	}
 	type pending struct {
-		ID, Connection string
-		Ref            forge.RepoRef
+		ID, Source, Connection string
+		Ref                    forge.RepoRef
 	}
 	var items []pending
 	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT f.id::text,coalesce(f.evidence->>'connection_id',''),r.native_id,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.source_id='provider-access' ORDER BY f.last_seen LIMIT 10`, org)
+		rows, err := tx.Query(ctx, `SELECT f.id::text,f.source_id,coalesce(f.evidence->>'connection_id',''),r.native_id,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.source_id IN ('provider-access','dependabot-alerts') ORDER BY f.last_seen LIMIT 10`, org)
 		if err != nil {
 			return err
 		}
 		defer rows.Close()
 		for rows.Next() {
 			var p pending
-			if err := rows.Scan(&p.ID, &p.Connection, &p.Ref.NativeID, &p.Ref.FullName); err != nil {
+			if err := rows.Scan(&p.ID, &p.Source, &p.Connection, &p.Ref.NativeID, &p.Ref.FullName); err != nil {
 				return err
 			}
 			items = append(items, p)
@@ -68,9 +68,20 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 			return nil
 		}
 		granted := true
-		for _, kind := range []privateconnector.Kind{privateconnector.ForgeIssues, privateconnector.ForgeAdvisories} {
+		kinds := []privateconnector.Kind{privateconnector.ForgeIssues, privateconnector.ForgeAdvisories}
+		if p.Source == "dependabot-alerts" {
+			kinds = kinds[1:]
+		}
+		for _, kind := range kinds {
 			_, err := s.reader.Read(ctx, org, p.Connection, privateconnector.Operation{ID: domain.NewID(), Kind: kind, Repository: &privateconnector.RepositoryArgs{Repository: p.Ref}}, authorize)
 			var providerError *domain.ProviderError
+			if errors.As(err, &providerError) && providerError.Kind == "configuration" {
+				granted = p.Source != "dependabot-alerts"
+				if !granted {
+					break
+				}
+				continue
+			}
 			if errors.Is(err, privateconnector.ErrUnsupported) || errors.As(err, &providerError) && (providerError.Kind == "forbidden" || providerError.Kind == "unsupported" || providerError.Kind == "scope" || providerError.Kind == "not_found") {
 				granted = false
 				break
