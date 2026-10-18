@@ -15,6 +15,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/chatgpt"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge/github"
 	"github.com/reforgeapp/reforge/pkg/model/compatible"
@@ -72,6 +73,7 @@ type Service struct {
 	privateProbe PrivateProber
 	catalog      Cataloger
 	platform     *PlatformApp
+	chatGPT      chatgpt.Config
 }
 
 func New(db *store.Store, identity *auth.Service, vault *secrets.Vault, development bool) *Service {
@@ -115,6 +117,9 @@ func validBounds(r CreateRequest) bool {
 }
 
 func validModel(r CreateRequest, requireModel bool) bool {
+	if r.Settings.Profile == chatgpt.Profile || r.Settings.AuthKind == "chatgpt_oauth" {
+		return false
+	}
 	if r.Provider != "openai" && r.Provider != "anthropic" && r.Provider != "google" && r.Provider != "compatible" {
 		return false
 	}
@@ -424,6 +429,9 @@ func (s *Service) change(ctx context.Context, session auth.Session, orgID, id st
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
+		if _, err := tx.Exec(ctx, `SELECT id FROM connections WHERE org_id=$1 AND id=$2 FOR UPDATE`, orgID, id); err != nil {
+			return err
+		}
 		var err error
 		c, err = load(ctx, tx, orgID, id)
 		if err != nil {
@@ -456,6 +464,9 @@ func invalidate(c *Connection) {
 }
 func (s *Service) Rotate(ctx context.Context, session auth.Session, orgID, id string, expected int64, value, requestID string) (Connection, error) {
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.credential_rotated", func(tx pgx.Tx, c *Connection) error {
+		if c.Settings.ChatGPT() {
+			return auth.ErrInvalid
+		}
 		settings := c.Settings
 		settings.Managed = ""
 		if value == "" || c.Settings.AuthKind == PlatformAuthKind || !validSetup(CreateRequest{Kind: c.Kind, Provider: c.Provider, Name: c.Name, Endpoint: c.Endpoint, Settings: settings, Secret: value}) || c.Kind == "agent" {
@@ -467,10 +478,39 @@ func (s *Service) Rotate(ctx context.Context, session auth.Session, orgID, id st
 	})
 }
 func (s *Service) Revoke(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Connection, error) {
+	observed, err := s.Get(ctx, session, orgID, id)
+	if err != nil {
+		return Connection{}, err
+	}
+	if observed.Version != expected {
+		return Connection{}, auth.ErrConflict
+	}
+	var client *chatgpt.Client
+	if observed.Settings.ChatGPT() {
+		client, _ = s.chatGPTClient(ctx)
+		if client != nil {
+			defer client.Close()
+		}
+	}
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.revoked", func(tx pgx.Tx, c *Connection) error {
+		remoteConfirmed := true
+		if c.Settings.ChatGPT() {
+			var credentials chatgpt.Credentials
+			if err := s.chatGPTCredentialsTx(ctx, tx, *c, &credentials); err != nil {
+				return err
+			}
+			if client != nil {
+				remoteConfirmed = client.Revoke(ctx, credentials) == nil
+			} else {
+				remoteConfirmed = false
+			}
+		}
 		invalidate(c)
 		c.State = "revoked"
 		c.Reason = "Connection revoked; create a new connection to restore access"
+		if !remoteConfirmed {
+			c.Reason = "Disconnected locally. Remote revocation was not confirmed; disconnect Reforge in ChatGPT Settings"
+		}
 		c.SecretID = nil
 		c.CredentialVersion++
 		if _, err := tx.Exec(ctx, `UPDATE connections SET secret_id=NULL WHERE org_id=$1 AND id=$2`, orgID, id); err != nil {
@@ -516,6 +556,9 @@ func (s *Service) Delete(ctx context.Context, session auth.Session, orgID, id st
 		}
 		if c.Version != expected {
 			return auth.ErrConflict
+		}
+		if c.Settings.ChatGPT() && c.State != "revoked" {
+			return auth.ErrInvalid
 		}
 		var use InUseError
 		var history bool
@@ -568,6 +611,9 @@ func (s *Service) Rewrap(ctx context.Context, session auth.Session, orgID, id st
 }
 func (s *Service) SetRoute(ctx context.Context, session auth.Session, orgID, id string, expected int64, route *Route, requestID string) (Connection, error) {
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.route_changed", func(tx pgx.Tx, c *Connection) error {
+		if c.Settings.ChatGPT() {
+			return auth.ErrInvalid
+		}
 		if route == nil {
 			if _, err := tx.Exec(ctx, `DELETE FROM connection_routes WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
 				return err
@@ -654,6 +700,9 @@ func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID 
 		r.Secret = string(plain)
 		clear(plain)
 	}
+	if r.Connection.Settings.ChatGPT() {
+		return s.resolveChatGPTTx(ctx, tx, r)
+	}
 	return r, nil
 }
 func (s *Service) Test(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Connection, error) {
@@ -666,6 +715,11 @@ func (s *Service) Test(ctx context.Context, session auth.Session, orgID, id stri
 	}
 	if observed.Version != expected {
 		return Connection{}, auth.ErrConflict
+	}
+	if observed.Settings.ChatGPT() {
+		if err := s.RefreshChatGPT(ctx, orgID, id); err != nil {
+			return Connection{}, err
+		}
 	}
 	s.mu.RLock()
 	privateProbe := s.privateProbe

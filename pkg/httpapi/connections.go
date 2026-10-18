@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/reforgeapp/reforge/pkg/chatgpt"
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/network"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
@@ -211,6 +212,10 @@ func connectionResponse(c *gin.Context, status int, value connections.Connection
 func connectionFailure(c *gin.Context, err error) {
 	var inUse *connections.InUseError
 	switch {
+	case errors.Is(err, chatgpt.ErrUnavailable):
+		Fail(c, 503, "chatgpt_unavailable", "ChatGPT plan connection is not configured or temporarily unavailable", true)
+	case errors.Is(err, chatgpt.ErrAuthorization), errors.Is(err, chatgpt.ErrPermission), errors.Is(err, chatgpt.ErrRefresh):
+		Fail(c, 409, "chatgpt_reconnect", err.Error(), false)
 	case errors.Is(err, privateconnector.ErrUnavailable):
 		Fail(c, 503, "private_unavailable", "Start the enrolled connector and route its polling and this request to the same controller instance", true)
 	case errors.Is(err, privateconnector.ErrUncertain):

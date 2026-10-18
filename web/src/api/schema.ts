@@ -2747,6 +2747,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/chatgpt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getChatGPTStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/chatgpt/setups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["startChatGPTSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/chatgpt/setups/{setupID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getChatGPTSetup"];
+        put?: never;
+        post: operations["completeChatGPTSetup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -5062,6 +5110,8 @@ export interface components {
             continuous: boolean;
             proof?: string;
             connection_id?: string;
+
+            requests?: number;
         };
         MaintenancePlan: {
 
@@ -5089,6 +5139,12 @@ export interface components {
             creates_organisation_limit: boolean;
             environments?: string[];
             delivery_repositories?: string[];
+
+            requests?: number;
+            subscription?: boolean;
+
+            organisation_requests?: number;
+            creates_organisation_quota?: boolean;
         };
         BugReport: {
             observed: string;
@@ -5205,6 +5261,9 @@ export interface components {
 
             micro_usd?: number;
             blockers: string[];
+
+            requests?: number;
+            subscription?: boolean;
         };
         RepairBehaviourArtifact: {
             id: string;
@@ -5270,6 +5329,30 @@ export interface components {
             expires_at: string;
             limits: string[];
             blockers: string[];
+        };
+        ChatGPTStatus: {
+            available: boolean;
+            reason?: string;
+        };
+        ChatGPTSetupInput: {
+            name: string;
+            connection_id?: string;
+
+            version?: number;
+        };
+        ChatGPTAuthorization: {
+
+            url: string;
+        };
+        ChatGPTSetup: {
+            id: string;
+            name: string;
+            account: string;
+            model?: string;
+            models: components["schemas"]["ModelCatalogItem"][];
+        };
+        ChatGPTModelInput: {
+            model: string;
         };
     };
     responses: never;
@@ -12686,6 +12769,108 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RestorePlan"];
+                };
+            };
+        };
+    };
+    getChatGPTStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatGPTStatus"];
+                };
+            };
+        };
+    };
+    startChatGPTSetup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatGPTSetupInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatGPTAuthorization"];
+                };
+            };
+        };
+    };
+    getChatGPTSetup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                setupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ChatGPTSetup"];
+                };
+            };
+        };
+    };
+    completeChatGPTSetup: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                setupID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChatGPTModelInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
                 };
             };
         };

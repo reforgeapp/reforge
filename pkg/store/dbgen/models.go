@@ -216,6 +216,18 @@ type CampaignRepositoryScope struct {
 	RepositoryID pgtype.UUID `json:"repository_id"`
 }
 
+type ChatgptSetup struct {
+	OrgID       pgtype.UUID        `json:"org_id"`
+	ID          pgtype.UUID        `json:"id"`
+	UserID      pgtype.UUID        `json:"user_id"`
+	SessionHash string             `json:"session_hash"`
+	BrowserHash string             `json:"browser_hash"`
+	StateHash   string             `json:"state_hash"`
+	Envelope    []byte             `json:"envelope"`
+	Phase       string             `json:"phase"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+}
+
 type Connection struct {
 	OrgID             pgtype.UUID        `json:"org_id"`
 	ID                pgtype.UUID        `json:"id"`

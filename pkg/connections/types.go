@@ -29,6 +29,14 @@ func (s Settings) GitHubApp() bool {
 	return s.AuthKind == "github_app" || s.AuthKind == PlatformAuthKind
 }
 
+func (s Settings) ChatGPT() bool {
+	return s.AuthKind == "chatgpt_oauth" && s.BillingRoute == "subscription" && s.Profile == "chatgpt_plan"
+}
+
+func (c Connection) ModelReady() bool {
+	return c.Kind == "model" && (c.Settings.BillingRoute == "direct_api" && c.Settings.Profile != "chatgpt_plan" || c.Provider == "openai" && c.Settings.ChatGPT() && c.Endpoint == "https://api.openai.com/v1" && c.Route == nil)
+}
+
 type Route struct {
 	RunnerID   string     `json:"runner_id"`
 	Host       string     `json:"host"`
