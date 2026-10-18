@@ -70,7 +70,7 @@ func TestLocalHelperRejectsUnboundCallbacksAndExits(t *testing.T) {
 		connection.Close()
 		t.Fatal("callback listener remained running")
 	}
-	for _, callback := range []string{"http://app.example/auth/openai/callback", "https://app.example/redirect", "https://user:secret@app.example/auth/openai/callback"} {
+	for _, callback := range []string{"http://app.example/auth/openai/callback", "https://app.example/redirect", "https://owner@app.example/auth/openai/callback"} {
 		if _, err := LocalHelper(authorization, callback); err == nil {
 			t.Fatal("unsafe callback target accepted")
 		}
