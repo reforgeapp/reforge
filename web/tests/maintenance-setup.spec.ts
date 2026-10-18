@@ -82,21 +82,3 @@ test('owner reports existing defect without hashes, package metadata or model ch
   expect(submitted).not.toHaveProperty('head_sha')
   expect(submitted).not.toHaveProperty('model_connection_id')
 })
-
-test('ChatGPT maintenance uses a request ceiling without API dollar pricing', async ({ page }) => {
-  await fixture(page)
-  const connectionID = '00000000-0000-4000-8000-000000000031'
-  await page.route(`**${base}/connections?**`, route => route.fulfill({ json: { items: [{ id: connectionID, kind: 'model', provider: 'openai', name: 'ChatGPT', state: 'healthy', settings: { model: 'eligible-model', billing_route: 'subscription', auth_kind: 'chatgpt_oauth', profile: 'chatgpt_plan' } }], complete: true } }))
-  await page.route(`**${base}/repositories/${repo}/maintenance-status`, route => route.fulfill({ json: { mode: 'observe', connection_id: connectionID, micro_usd: 0, requests: 100, continuous: false } }))
-  let input: Record<string, unknown> | undefined
-  const plan = { repository_id: repo, repository: 'shop', mode: 'propose', micro_usd: 0, requests: 7, subscription: true, continuous: true, actions: ['read', 'repair', 'publish'], decisions: {}, blockers: [], ready: true, proof: 'quota-approved', model: 'eligible-model', route: 'default', budget_period: 'monthly', organisation_requests: 100, organisation_period: 'monthly', creates_organisation_limit: false }
-  await page.route(`**${base}/repositories/${repo}/set-up-maintenance/preview`, route => { input = route.request().postDataJSON(); return route.fulfill({ json: plan }) })
-  await page.goto(`/org/${org}/repositories?repository=${repo}`)
-  await page.getByRole('button', { name: 'Set up maintenance', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Maintain shop' })
-  await dialog.getByLabel(/Requests per budget period/).fill('7')
-  await expect(dialog.getByLabel('Spending ceiling ($)')).toHaveCount(0)
-  await dialog.getByRole('button', { name: 'Check setup' }).click()
-  await expect(dialog.getByText(/Uses ChatGPT plan. Up to 7 requests per monthly period/)).toBeVisible()
-  expect(input).toMatchObject({ connection_id: connectionID, requests: 7, micro_usd: 0 })
-})

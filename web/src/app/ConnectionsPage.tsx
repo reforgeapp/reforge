@@ -14,7 +14,6 @@ import { ModelEligibility, ModelPricing } from './ModelPricing'
 import { CustomProfilesPanel } from './CustomProfilesPanel'
 import { AgentQualificationPanel } from './AgentQualificationPanel'
 import { ModelConnectionForm } from './ModelConnectionForm'
-import { ChatGPTConnectionForm, ChatGPTSetupDialog, ChatGPTConnectionActions } from './ChatGPTConnection'
 import { ForgeConnectionForm } from './ForgeConnectionForm'
 import { RepositoryImportDialog, type ImportConnection } from './RepositoryImportDialog'
 import { connectionProviderLabel, connectionStateStatus, modelProfileLabel } from '../model-providers'
@@ -48,8 +47,6 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
   const search = useSearch({ strict: false }) as Record<string, string | undefined>
   const navigate = useNavigate({ from: '/org/$orgID/$section' })
   const [formOpen, setFormOpen] = useState(false)
-  const [chatGPTNotice, setChatGPTNotice] = useState('')
-  const clearChatGPT = () => { void navigate({ search: previous => { const next = { ...previous }; delete next.chatgpt_setup; delete next.chatgpt_result; return next }, replace: true }) }
   const [importState, setImportState] = useState<{ connection: ImportConnection; filter: string }>()
   const [githubResult, setGithubResult] = useState<{ result: string; reason?: string }>()
   const handledResult = useRef('')
@@ -168,10 +165,6 @@ export function ConnectionsPage({ orgID }: { orgID: string }) {
       <summary>Custom command profiles</summary>
       <CustomProfilesPanel orgID={orgID} />
     </details>}
-    {search.chatgpt_result === 'permission_required' && <p role="alert">ChatGPT plan use was not authorized. Start again and enable plan usage.</p>}
-    {search.chatgpt_result === 'failed' && <p role="alert">ChatGPT sign-in failed or expired. Start again from Add connection.</p>}
-    {chatGPTNotice && <p role="status">{chatGPTNotice} <a href="https://chatgpt.com/settings/usage" target="_blank" rel="noreferrer">Manage usage</a></p>}
-    {search.chatgpt_setup && <ChatGPTSetupDialog orgID={orgID} id={search.chatgpt_setup} csrf={csrf} onClose={clearChatGPT} onSaved={connection => { clearChatGPT(); refresh(); setChatGPTNotice('ChatGPT plan connected. Eligible repairs use your plan.'); void navigate({ search: previous => { const next = { ...previous, connection: connection.id, connection_tab: 'models' }; delete next.chatgpt_setup; delete next.chatgpt_result; return next }, replace: true }) }} />}
     <ConnectionForm
       open={formOpen}
       tab={tab}
@@ -381,7 +374,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
     <Button disabled={!!busy || !csrf || revoked || !!edit} onClick={() => setEdit({ name: connection.name, namespace: connection.settings.namespace ?? '' })}>Edit</Button>
     <span className="detail-actions-end">
       <Button className="button button-danger-ghost" disabled={!!busy || !csrf || revoked} onClick={() => setConfirmRevoke(true)}>Revoke</Button>
-      <Button className="button button-danger-ghost" disabled={!!busy || !csrf || connection.settings.auth_kind === 'chatgpt_oauth' && !revoked} title={connection.settings.auth_kind === 'chatgpt_oauth' && !revoked ? 'Revoke this connection before deleting.' : undefined} onClick={() => setConfirmDelete(true)}>Delete</Button>
+      <Button className="button button-danger-ghost" disabled={!!busy || !csrf} onClick={() => setConfirmDelete(true)}>Delete</Button>
     </span>
   </>
 
@@ -391,13 +384,12 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
       {namespaceEditable && <label>Namespace<input value={edit.namespace} placeholder={connection.provider === 'github' ? 'org, user:name or owner/repo' : 'Organisation, group or owner'} onChange={event => setEdit({ ...edit, namespace: event.target.value })} /></label>}
       <div className="row-actions"><Button type="submit" className="button button-primary" disabled={!!busy || !edit.name.trim()}>{busy === 'edit' ? 'Saving…' : 'Save'}</Button><Button type="button" disabled={!!busy} onClick={() => setEdit(undefined)}>Cancel</Button></div>
     </form>}
-    <ConnectionDetailTabs kind={connection.settings.auth_kind === 'chatgpt_oauth' ? 'chatgpt' : connection.kind} value={detailTab} onChange={setDetailTab} />
+    <ConnectionDetailTabs kind={connection.kind} value={detailTab} onChange={setDetailTab} />
     {detailTab === 'overview' && <ConnectionOverview connection={connection} capabilities={capabilities} />}
-    {detailTab === 'overview' && connection.settings.auth_kind === 'chatgpt_oauth' && !revoked && <><ModelEligibility orgID={orgID} connectionID={connection.id} /><ChatGPTConnectionActions orgID={orgID} connection={connection} csrf={csrf} /></>}
     {detailTab === 'overview' && connection.kind==='agent' && !revoked && <ModelEligibility orgID={orgID} connectionID={connection.id} />}
     {detailTab === 'overview' && connection.kind === 'model' && connection.settings.billing_route === 'direct_api' && connection.settings.model && !revoked && <ModelPricing orgID={orgID} connectionID={connection.id} model={connection.settings.model} csrf={csrf} />}
     {detailTab === 'qualification' && connection.kind === 'agent' && <AgentQualificationPanel orgID={orgID} connectionID={connection.id} provider={connection.provider} />}
-    {detailTab === 'configuration' && connection.kind !== 'agent' && connection.settings.auth_kind !== 'chatgpt_oauth' && <PrivateRouteEditor
+    {detailTab === 'configuration' && connection.kind !== 'agent' && <PrivateRouteEditor
       csrf={csrf}
       busy={busy}
       pools={pools}
@@ -435,7 +427,7 @@ type ConnectionDetailTab = 'overview' | 'configuration' | 'qualification' | 'act
 function ConnectionDetailTabs({ kind, value, onChange }: { kind: string; value: ConnectionDetailTab; onChange: (tab: ConnectionDetailTab) => void }) {
   return <nav className="detail-tabs" aria-label="Connection detail">
     <Button aria-pressed={value === 'overview'} onClick={() => onChange('overview')}>Overview</Button>
-    {kind !== 'agent' && kind !== 'chatgpt' && <Button aria-pressed={value === 'configuration'} onClick={() => onChange('configuration')}>Configuration</Button>}
+    {kind !== 'agent' && <Button aria-pressed={value === 'configuration'} onClick={() => onChange('configuration')}>Configuration</Button>}
     {kind === 'agent' && <Button aria-pressed={value === 'qualification'} onClick={() => onChange('qualification')}>Qualification</Button>}
     <Button aria-pressed={value === 'actions'} onClick={() => onChange('actions')}>Actions</Button>
   </nav>
@@ -446,7 +438,6 @@ function authLabel(connection: Connection) {
   if (authKind === 'token') return 'Personal access token'
   if (authKind === 'github_app' || authKind === 'github_app_platform') return connection.settings.managed ? 'GitHub App' : 'GitHub App (manual)'
   if (authKind === 'api_key') return 'API key'
-  if (authKind === 'chatgpt_oauth') return 'ChatGPT plan'
   if (authKind === 'official_runtime') return 'Official runtime'
   return authKind || 'Unknown'
 }
@@ -557,7 +548,7 @@ type ConnectionActionsProps = {
 function ConnectionActions({ connection, orgID, csrf, busy, secret, onSecretChange, onRotate }: ConnectionActionsProps) {
   const managed = !!connection.settings.managed
   return <section className="connection-actions">
-    {connection.kind !== 'agent' && connection.settings.auth_kind !== 'chatgpt_oauth' && !managed && <>
+    {connection.kind !== 'agent' && !managed && <>
       <label>Rotate secret<input type="password" autoComplete="new-password" value={secret} onChange={event => onSecretChange(event.target.value)} /></label>
       <Button disabled={!secret || !!busy || !csrf || connection.state === 'revoked'} onClick={onRotate}>{busy === 'rotate' ? 'Rotating…' : 'Rotate credential'}</Button>
     </>}
@@ -654,7 +645,7 @@ type ConnectionFormProps = {
 }
 
 function ConnectionForm({ open, tab, orgID, csrf, onClose, onCreated, onReady }: ConnectionFormProps) {
-  const [modelKind, setModelKind] = useState<'model' | 'agent' | 'chatgpt'>('model')
+  const [modelKind, setModelKind] = useState<'model' | 'agent'>('model')
   const [modelBusy, setModelBusy] = useState(false)
   const [forgeBusy, setForgeBusy] = useState(false)
   const busy = modelBusy || forgeBusy
@@ -665,15 +656,12 @@ function ConnectionForm({ open, tab, orgID, csrf, onClose, onCreated, onReady }:
 
   return <Dialog open={open} title="Add connection" onClose={() => { if (!busy) onClose() }}>
     <div className="form-stack">
-      {tab === 'models' && <label>Connection type<select value={modelKind} disabled={busy} onChange={event => setModelKind(event.target.value as 'model' | 'agent' | 'chatgpt')}>
+      {tab === 'models' && <label>Connection type<select value={modelKind} disabled={busy} onChange={event => setModelKind(event.target.value as 'model' | 'agent')}>
         <option value="model">Model API</option>
-        <option value="chatgpt">ChatGPT plan</option>
         <option value="agent">Agent runtime</option>
       </select></label>}
       {tab === 'models'
-        ? modelKind === 'chatgpt'
-          ? open && <ChatGPTConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onBusyChange={setModelBusy} />
-          : modelKind === 'model'
+        ? modelKind === 'model'
           ? open && <ModelConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
           : open && <AgentConnectionForm orgID={orgID} csrf={csrf} onClose={onClose} onCreated={onCreated} onBusyChange={setModelBusy} />
         : open && <ForgeConnectionForm orgID={orgID} csrf={csrf} kind={tab === 'delivery' ? 'delivery' : 'forge'} onClose={onClose} onReady={onReady} onBusyChange={setForgeBusy} />}

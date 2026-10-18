@@ -31,7 +31,7 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
  useEffect(reset,[orgID,findingID,findingVersion])
  useEffect(()=>{if(!preview)return;const timer=window.setInterval(()=>setClock(Date.now()),1000);return()=>window.clearInterval(timer)},[preview])
  const approvedProfiles=useMemo(()=>(profiles.data?.items??[]).filter(item=>item.approved_at&&!item.revoked_at),[profiles.data])
- const healthyModels=useMemo(()=>profile?(agents.data?.items??[]).filter(item=>item.provider==='custom_command'&&item.state==='healthy'):(models.data?.items??[]).filter(item=>item.kind==='model'&&item.state==='healthy'&&(item.settings.billing_route==='direct_api'||item.settings.auth_kind==='chatgpt_oauth')),[agents.data,models.data,profile])
+ const healthyModels=useMemo(()=>profile?(agents.data?.items??[]).filter(item=>item.provider==='custom_command'&&item.state==='healthy'):(models.data?.items??[]).filter(item=>item.kind==='model'&&item.state==='healthy'&&item.settings.billing_route==='direct_api'),[agents.data,models.data,profile])
  const activePools=useMemo(()=>(pools.data?.items??[]).filter(item=>item.state==='active'&&(!repositoryID||item.repository_ids.includes(repositoryID))),[pools.data,repositoryID])
  const selectedProfile=approvedProfiles.find(item=>item.id===profile)
  const imageNames=Object.keys(recipes.data??{})
@@ -45,8 +45,7 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
  const start=async()=>{if(!preview||expired||!ready||preview.blockers.length||!preview.context.plan.digest){setError('Check fix again before starting.');return}setBusy(true);setError('');try{const run=await repairAPI.start(orgID,{...input,plan_digest:preview.context.plan.digest,idempotency_key:idempotencyKey},csrf);setRunID(run.task.id)}catch(error){setError(message(error))}finally{setBusy(false)}}
  return <fieldset disabled={busy}><legend>Fix this</legend>
  {defaults.isLoading&&<p role="status">Checking approved maintenance setup…</p>}
- {defaults.data?.subscription&&<p className="table-meta">Uses ChatGPT plan · {defaults.data.requests} requests per {defaults.data.period} period.</p>}
- {defaults.data?.micro_usd!==undefined&&!defaults.data.subscription&&<p className="table-meta">Shared maintenance ceiling ${(defaults.data.micro_usd/1_000_000).toFixed(2)} per {defaults.data.period} period.<span className="help-tip" tabIndex={0} title="Organisation spending limits also apply.">?</span></p>}
+ {defaults.data?.micro_usd!==undefined&&<p className="table-meta">Shared maintenance ceiling ${(defaults.data.micro_usd/1_000_000).toFixed(2)} per {defaults.data.period} period.<span className="help-tip" tabIndex={0} title="Organisation spending limits also apply.">?</span></p>}
  {!advanced&&defaults.data?.blockers.length? <div><ul>{defaults.data.blockers.map(item=><li key={item}>{item}</li>)}</ul><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}`}>Set up maintenance</a></div>:null}
  {!imageNames.length&&!recipes.isLoading&&<p>Operator: enable repair execution.</p>}
  <details open={advanced} onToggle={event=>{const next=event.currentTarget.open;if(next!==advanced){setAdvanced(next);setProfile('');reset()}}}><summary>Advanced</summary>

@@ -19,7 +19,6 @@ import (
 
 const (
 	defaultProfile  = "responses"
-	ChatGPTProfile  = "chatgpt_plan"
 	maxResponseBody = 8 << 20
 	maxStreamEvent  = 1 << 20
 	maxStreamBytes  = 16 << 20
@@ -56,7 +55,7 @@ func build(config model.Config, requireModel bool) (*Provider, error) {
 	if profile == "" {
 		profile = defaultProfile
 	}
-	if profile != defaultProfile && profile != ChatGPTProfile {
+	if profile != defaultProfile {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "unsupported OpenAI profile"}
 	}
 	base, err := url.Parse(config.Endpoint)
@@ -64,9 +63,6 @@ func build(config model.Config, requireModel bool) (*Provider, error) {
 		return nil, &domain.ProviderError{Kind: "configuration", Message: "endpoint must be a fixed HTTP origin"}
 	}
 	base.Path = strings.TrimRight(base.Path, "/")
-	if profile == ChatGPTProfile && (base.Scheme != "https" || base.Host != "api.openai.com" || (base.Path != "" && base.Path != "/v1")) {
-		return nil, &domain.ProviderError{Kind: "configuration", Message: "ChatGPT plan requests require the public OpenAI Responses endpoint"}
-	}
 	if !strings.HasSuffix(base.Path, "/v1") {
 		base.Path += "/v1"
 	}
@@ -80,18 +76,6 @@ func build(config model.Config, requireModel bool) (*Provider, error) {
 }
 
 func (p *Provider) Probe(ctx context.Context) (model.Capabilities, error) {
-	if p.config.Profile == ChatGPTProfile {
-		items, err := p.ListModels(ctx)
-		if err != nil {
-			return model.Capabilities{}, err
-		}
-		for _, item := range items {
-			if item.ID == p.config.Model {
-				return model.Capabilities{Provider: "openai", Model: item.ID, BillingRoute: "openai.chatgpt_plan", Features: map[string]domain.Capability{"responses": capability(domain.Supported, "ChatGPT plan Responses contract", "adapter"), "usage": capability(domain.Unknown, "Reported after completed inference; remaining plan allowance is managed in ChatGPT", "account catalog")}}, nil
-			}
-		}
-		return model.Capabilities{}, &domain.ProviderError{Kind: "model_unsupported", Message: "Choose a model available to this ChatGPT account"}
-	}
 	response, err := p.do(ctx, http.MethodGet, "/models/"+url.PathEscape(p.config.Model), nil)
 	if err != nil {
 		return model.Capabilities{}, classifyTransport(ctx, err, false)
@@ -139,11 +123,6 @@ func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
 		return nil, err
 	}
 	var payload struct {
-		Models []struct {
-			Slug       string `json:"slug"`
-			Name       string `json:"display_name"`
-			Visibility string `json:"visibility"`
-		} `json:"models"`
 		Data []struct {
 			ID string `json:"id"`
 		} `json:"data"`
@@ -152,14 +131,6 @@ func (p *Provider) ListModels(ctx context.Context) ([]model.Model, error) {
 		return nil, &domain.ProviderError{Kind: "protocol", Message: "invalid model list"}
 	}
 	models := make([]model.Model, 0, len(payload.Data))
-	if p.config.Profile == ChatGPTProfile {
-		for _, entry := range payload.Models {
-			if entry.Slug != "" && entry.Visibility == "list" {
-				models = append(models, model.Model{ID: entry.Slug, Name: entry.Name})
-			}
-		}
-		return models, nil
-	}
 	for _, entry := range payload.Data {
 		if entry.ID != "" {
 			models = append(models, model.Model{ID: entry.ID})
@@ -277,13 +248,6 @@ func (p *Provider) turnBody(request model.TurnRequest, modelID string) ([]byte, 
 	if request.MaxOutputTokens > 0 {
 		body["max_output_tokens"] = request.MaxOutputTokens
 	}
-	if p.config.Profile == ChatGPTProfile {
-		delete(body, "max_output_tokens")
-		delete(body, "service_tier")
-		if len(tools) > 0 {
-			body["tools"] = []any{map[string]any{"type": "namespace", "name": "reforge", "description": "Repository maintenance tools", "tools": tools}}
-		}
-	}
 	body["include"] = []string{"reasoning.encrypted_content"}
 	raw, err := json.Marshal(body)
 	if len(raw) > model.MaxRequestBytes {
@@ -378,16 +342,6 @@ func (p *Provider) readStream(ctx context.Context, reader io.Reader, validators 
 		}
 		payload := append([]byte(nil), data.Bytes()...)
 		data.Reset()
-		if p.config.Profile == ChatGPTProfile {
-			var item struct {
-				Item struct {
-					Namespace string `json:"namespace"`
-				} `json:"item"`
-			}
-			if json.Unmarshal(payload, &item) == nil && item.Item.Namespace != "" && item.Item.Namespace != "reforge" {
-				return &domain.ProviderError{Kind: "protocol", Message: "Unregistered tool namespace", Uncertain: true}
-			}
-		}
 		typeName, err := processStreamEvent(ctx, eventType, payload, &responseID, states, validators, &continuationItems, emit)
 		if err != nil {
 			return err
@@ -577,21 +531,6 @@ func processStreamEvent(ctx context.Context, eventType string, payload []byte, r
 		}
 		return "completed", nil
 	case "response.failed", "response.incomplete", "error":
-		var failure struct {
-			Error struct {
-				Code string `json:"code"`
-			} `json:"error"`
-		}
-		_ = json.Unmarshal(event.Response, &failure)
-		if failure.Error.Code == "" {
-			_ = json.Unmarshal(payload, &failure)
-		}
-		if failure.Error.Code == "" {
-			_ = json.Unmarshal(event.Error, &failure.Error)
-		}
-		if err := subscriptionError(failure.Error.Code); err != nil {
-			return "", err
-		}
 		return "", &domain.ProviderError{Kind: "provider", Message: "OpenAI response did not complete"}
 	}
 	return "", nil
@@ -662,21 +601,6 @@ func checkResponse(response *http.Response) error {
 		return nil
 	}
 	kind := "provider"
-	var failure struct {
-		Error struct {
-			Code string `json:"code"`
-		} `json:"error"`
-	}
-	if response.Body != nil {
-		_ = json.NewDecoder(io.LimitReader(response.Body, 64<<10)).Decode(&failure)
-	}
-	if err := subscriptionError(failure.Error.Code); err != nil {
-		var provider *domain.ProviderError
-		if errors.As(err, &provider) {
-			provider.Uncertain = response.StatusCode >= 500
-		}
-		return err
-	}
 	switch response.StatusCode {
 	case http.StatusUnauthorized, http.StatusForbidden:
 		kind = "auth"
@@ -688,25 +612,6 @@ func checkResponse(response *http.Response) error {
 		kind = "invalid_request"
 	}
 	return &domain.ProviderError{Kind: kind, Message: "OpenAI request failed", RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: response.StatusCode >= 500}
-}
-
-func subscriptionError(code string) error {
-	kind, message := "", ""
-	switch code {
-	case "subscription_sharing_usage_limit_exceeded":
-		kind, message = "quota", "ChatGPT plan usage limit reached. Manage usage at https://chatgpt.com/settings/usage, then resume the run"
-	case "subscription_sharing_usage_unavailable", "subscription_sharing_user_unavailable":
-		kind, message = "quota", "ChatGPT plan usage is temporarily unavailable. Try again later"
-	case "subscription_sharing_user_not_eligible", "chatpass_v2_scope_not_authorized", "chatpass_v2_invalid_authorization_context", "subscription_sharing_route_not_supported":
-		kind, message = "auth", "ChatGPT plan access is unavailable for this account or integration. Check connection permissions"
-	case "subscription_sharing_invalid_user":
-		kind, message = "auth", "Reconnect your ChatGPT account"
-	case "subscription_sharing_unsupported_capability":
-		kind, message = "invalid_request", "ChatGPT plan rejected an unsupported request capability"
-	default:
-		return nil
-	}
-	return &domain.ProviderError{Kind: kind, Message: message}
 }
 
 func decodeBounded(reader io.Reader, target any) error {

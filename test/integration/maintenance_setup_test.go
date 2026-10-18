@@ -2,7 +2,6 @@ package integration
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"slices"
 	"strings"
@@ -261,80 +260,5 @@ func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	status, err = service.MaintenanceStatus(ctx, f.owner, f.org, repo)
 	if err != nil || status.Mode != "observe" || status.Continuous {
 		t.Fatalf("scan-only retains delegation: %+v %v", status, err)
-	}
-}
-
-func TestChatGPTMaintenanceUsesRequestAllowance(t *testing.T) {
-	f := newInventoryFixture(t, 0)
-	ctx := context.Background()
-	repo, other, model, pool := domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()
-	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
-		queries := []struct {
-			sql  string
-			args []any
-		}{
-			{`UPDATE connections SET state='healthy' WHERE org_id=$1 AND id=$2`, []any{f.org, f.connection.ID}},
-			{`INSERT INTO repositories(org_id,id,connection_id,native_id,name) VALUES($1,$2,$4,'maintained','maintained'),($1,$3,$4,'untouched','untouched')`, []any{f.org, repo, other, f.connection.ID}},
-			{`INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Approved','https://model.example','{"model":"approved"}','healthy')`, []any{f.org, model}},
-			{`INSERT INTO runner_pools(org_id,id,name,state,builtin) VALUES($1,$2,'Built in','active',true)`, []any{f.org, pool}},
-			{`INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at) VALUES($1,$2,$3,'Runner','fixture',now()+interval '1 hour')`, []any{f.org, domain.NewID(), pool}},
-		}
-		for _, q := range queries {
-			if _, err := tx.Exec(ctx, q.sql, q.args...); err != nil {
-				return err
-			}
-		}
-		return nil
-	}); err != nil {
-		t.Fatal(err)
-	}
-	seedPricedFixtureRoute(t, f, model, "approved")
-	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `UPDATE connections SET provider='openai',endpoint='https://api.openai.com/v1',settings='{"model":"approved","profile":"chatgpt_plan","auth_kind":"chatgpt_oauth","billing_route":"subscription"}' WHERE org_id=$1 AND id=$2`, f.org, model)
-		if err != nil {
-			return err
-		}
-		var raw []byte
-		if err = tx.QueryRow(ctx, `SELECT config FROM budget_routes WHERE org_id=$1 AND connection_id=$2`, f.org, model).Scan(&raw); err != nil {
-			return err
-		}
-		var route budget.Route
-		if err = json.Unmarshal(raw, &route); err != nil {
-			return err
-		}
-		route.Mode = "quota"
-		route.Qualified = true
-		route.QualificationRef = "chatgpt-plan/v1"
-		raw, _ = json.Marshal(route)
-		_, err = tx.Exec(ctx, `UPDATE budget_routes SET config=$3 WHERE org_id=$1 AND connection_id=$2`, f.org, model, raw)
-		return err
-	}); err != nil {
-		t.Fatal(err)
-	}
-	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
-	if err != nil {
-		t.Fatal(err)
-	}
-	budgets := budget.New(f.db, f.identity, nil, nil)
-	repairs := repair.New(f.db, f.identity, nil, nil, nil, policies, budgets, nil, nil, nil, map[string]string{"javascript": "sha256:" + strings.Repeat("a", 64)})
-	service := autopilot.New(f.db, f.identity, repairs, nil, budgets, policies)
-	command := autopilot.MaintenanceCommand{Mode: "propose", Requests: 10, ConnectionID: model, Continuous: true}
-	plan, err := service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
-	if err != nil || !plan.Ready || !plan.Subscription || plan.MicroUSD != 0 || plan.Requests != 10 || plan.OrgRequests == nil || *plan.OrgRequests != 10 {
-		t.Fatalf("subscription setup: %+v %v", plan, err)
-	}
-	command.Proof = plan.Proof
-	if _, err = service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "subscription setup"); err != nil {
-		t.Fatal(err)
-	}
-	for _, scope := range []budget.Scope{{Kind: "organisation", ID: f.org}, {Kind: "repository", ID: repo}} {
-		limit, err := budgets.GetLimit(ctx, f.owner, f.org, scope)
-		if err != nil || limit.Caps.MicroUSD != nil || limit.Caps.Requests == nil || *limit.Caps.Requests != 10 || limit.Caps.Tokens == nil || limit.Caps.Milliseconds == nil || limit.Caps.Concurrency == nil {
-			t.Fatalf("quota missing or priced as dollars: %+v %v", limit, err)
-		}
-	}
-	defaults, err := repairs.Defaults(ctx, f.owner, f.org, repo)
-	if err != nil || len(defaults.Blockers) != 0 || defaults.ModelConnectionID != model {
-		t.Fatalf("subscription cannot run ordinary repair: %+v %v", defaults, err)
 	}
 }

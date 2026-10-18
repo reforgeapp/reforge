@@ -309,9 +309,6 @@ func TestEscalatedModelPrefersEligibleAlternativeAndFallsBackToPrior(t *testing.
 		if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,'Autopilot failover')`, org); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'organisation',$1,'daily',clock_timestamp()-interval '1 day',clock_timestamp()+interval '1 day','{"micro_usd":10000000}',1)`, org); err != nil {
-			return err
-		}
 		for i, model := range []string{priorModel, alternateModel} {
 			if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state,reason) VALUES($1,$2,'model','test',$3,'https://model.invalid',jsonb_build_object('model',$4::text),'healthy','')`, org, model, "Model "+strconv.Itoa(i), "model-"+strconv.Itoa(i)); err != nil {
 				return err

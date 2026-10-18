@@ -12668,184 +12668,6 @@
           }
         }
       }
-    },
-    "/api/v1/orgs/{orgID}/chatgpt": {
-      "get": {
-        "operationId": "getChatGPTStatus",
-        "security": [
-          {
-            "sessionCookie": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "orgID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChatGPTStatus"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/orgs/{orgID}/chatgpt/setups": {
-      "post": {
-        "operationId": "startChatGPTSetup",
-        "security": [
-          {
-            "sessionCookie": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "orgID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-CSRF-Token",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChatGPTAuthorization"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatGPTSetupInput"
-              }
-            }
-          }
-        }
-      }
-    },
-    "/api/v1/orgs/{orgID}/chatgpt/setups/{setupID}": {
-      "get": {
-        "operationId": "getChatGPTSetup",
-        "security": [
-          {
-            "sessionCookie": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "orgID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setupID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ChatGPTSetup"
-                }
-              }
-            }
-          }
-        }
-      },
-      "post": {
-        "operationId": "completeChatGPTSetup",
-        "security": [
-          {
-            "sessionCookie": []
-          }
-        ],
-        "parameters": [
-          {
-            "name": "orgID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setupID",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "X-CSRF-Token",
-            "in": "header",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "201": {
-            "description": "Success",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Connection"
-                }
-              }
-            }
-          }
-        },
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ChatGPTModelInput"
-              }
-            }
-          }
-        }
-      }
     }
   },
   "components": {
@@ -21153,12 +20975,6 @@
           },
           "connection_id": {
             "type": "string"
-          },
-          "requests": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 10000
           }
         }
       },
@@ -21272,24 +21088,6 @@
             "items": {
               "type": "string"
             }
-          },
-          "requests": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 10000
-          },
-          "subscription": {
-            "type": "boolean"
-          },
-          "organisation_requests": {
-            "type": "integer",
-            "format": "int64",
-            "minimum": 0,
-            "maximum": 10000
-          },
-          "creates_organisation_quota": {
-            "type": "boolean"
           }
         }
       },
@@ -21732,13 +21530,6 @@
             "items": {
               "type": "string"
             }
-          },
-          "requests": {
-            "type": "integer",
-            "format": "int64"
-          },
-          "subscription": {
-            "type": "boolean"
           }
         },
         "required": [
@@ -22007,97 +21798,6 @@
             "items": {
               "type": "string"
             }
-          }
-        }
-      },
-      "ChatGPTStatus": {
-        "type": "object",
-        "required": [
-          "available"
-        ],
-        "properties": {
-          "available": {
-            "type": "boolean"
-          },
-          "reason": {
-            "type": "string"
-          }
-        }
-      },
-      "ChatGPTSetupInput": {
-        "type": "object",
-        "required": [
-          "name"
-        ],
-        "properties": {
-          "name": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 160
-          },
-          "connection_id": {
-            "type": "string"
-          },
-          "version": {
-            "type": "integer",
-            "format": "int64"
-          }
-        }
-      },
-      "ChatGPTAuthorization": {
-        "type": "object",
-        "required": [
-          "url"
-        ],
-        "properties": {
-          "url": {
-            "type": "string",
-            "format": "uri"
-          },
-          "helper": {
-            "type": "string"
-          }
-        }
-      },
-      "ChatGPTSetup": {
-        "type": "object",
-        "required": [
-          "id",
-          "name",
-          "account",
-          "models"
-        ],
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "name": {
-            "type": "string"
-          },
-          "account": {
-            "type": "string"
-          },
-          "model": {
-            "type": "string"
-          },
-          "models": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/ModelCatalogItem"
-            }
-          }
-        }
-      },
-      "ChatGPTModelInput": {
-        "type": "object",
-        "required": [
-          "model"
-        ],
-        "properties": {
-          "model": {
-            "type": "string",
-            "minLength": 1,
-            "maxLength": 200
           }
         }
       }

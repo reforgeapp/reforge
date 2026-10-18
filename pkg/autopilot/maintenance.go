@@ -21,7 +21,6 @@ type MaintenanceCommand struct {
 	ConnectionID string `json:"connection_id,omitempty"`
 	Mode         string `json:"mode"`
 	MicroUSD     int64  `json:"micro_usd"`
-	Requests     int64  `json:"requests,omitempty"`
 	Continuous   bool   `json:"continuous"`
 	Proof        string `json:"proof,omitempty"`
 }
@@ -31,10 +30,6 @@ type MaintenancePlan struct {
 	Repository           string                   `json:"repository"`
 	Mode                 string                   `json:"mode"`
 	MicroUSD             int64                    `json:"micro_usd"`
-	Requests             int64                    `json:"requests,omitempty"`
-	Subscription         bool                     `json:"subscription"`
-	OrgRequests          *int64                   `json:"organisation_requests,omitempty"`
-	CreatesOrgQuota      bool                     `json:"creates_organisation_quota"`
 	Continuous           bool                     `json:"continuous"`
 	Actions              []policy.Action          `json:"actions"`
 	Environments         []string                 `json:"environments,omitempty"`
@@ -78,14 +73,14 @@ func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, o
 				}
 			}
 		}
-		return tx.QueryRow(ctx, `SELECT coalesce((SELECT continuous FROM autopilot_requests WHERE org_id=$1 AND repository_id=$2),false),coalesce((SELECT (caps->>'micro_usd')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2),$3),coalesce((SELECT (caps->>'requests')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2),0)`, org, repo, out.MicroUSD).Scan(&out.Continuous, &out.MicroUSD, &out.Requests)
+		return tx.QueryRow(ctx, `SELECT coalesce((SELECT continuous FROM autopilot_requests WHERE org_id=$1 AND repository_id=$2),false),coalesce((SELECT (caps->>'micro_usd')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2),$3)`, org, repo, out.MicroUSD).Scan(&out.Continuous, &out.MicroUSD)
 	})
 	return out, err
 }
 
 func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, repo string, in MaintenanceCommand) (MaintenancePlan, error) {
-	out := MaintenancePlan{RepositoryID: repo, Mode: in.Mode, MicroUSD: in.MicroUSD, Continuous: in.Continuous, Requests: in.Requests, Actions: []policy.Action{}, Decisions: map[policy.Action]string{}, Blockers: []string{}}
-	if !auth.ValidID(repo) || in.ConnectionID != "" && !auth.ValidID(in.ConnectionID) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 || in.Requests < 0 || in.Requests > 10000 || in.Mode != "observe" && in.MicroUSD == 0 && in.Requests == 0 {
+	out := MaintenancePlan{RepositoryID: repo, Mode: in.Mode, MicroUSD: in.MicroUSD, Continuous: in.Continuous, Actions: []policy.Action{}, Decisions: map[policy.Action]string{}, Blockers: []string{}}
+	if !auth.ValidID(repo) || in.ConnectionID != "" && !auth.ValidID(in.ConnectionID) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 || in.Mode != "observe" && in.MicroUSD == 0 {
 		return out, auth.ErrInvalid
 	}
 	var forgeHealthy, global, orgPolicy bool
@@ -108,14 +103,13 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	var connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion int64
 	out.BudgetPeriod = "monthly"
 	if in.Mode != "observe" {
-		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version,r.config->>'mode'='quota' FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
+		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
 		if err != nil {
 			return out, err
 		}
 		models, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
 			Connection, Model, Route        string
 			ConnectionVersion, RouteVersion int64
-			Subscription                    bool
 		}])
 		if err != nil {
 			return out, err
@@ -131,20 +125,12 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			if parent.Policy.Allow.Models != nil && !slices.Contains(parent.Policy.Allow.Models, m.Model) || !policy.RouteAllowed(parent.Policy.Allow.Routes, m.Connection, m.Route) {
 				continue
 			}
-			out.ConnectionID, out.Model, out.Route, out.Subscription = m.Connection, m.Model, m.Route, m.Subscription
+			out.ConnectionID, out.Model, out.Route = m.Connection, m.Model, m.Route
 			connectionVersion, routeVersion = m.ConnectionVersion, m.RouteVersion
 			break
 		}
-		if out.Subscription && in.Requests == 0 || !out.Subscription && in.MicroUSD == 0 && out.Model != "" {
-			return out, auth.ErrInvalid
-		}
-		if out.Subscription {
-			out.MicroUSD = 0
-		} else {
-			out.Requests = 0
-		}
 		if out.Model == "" {
-			out.Blockers = append(out.Blockers, "Operator: reconnect approved model or choose a replacement with a configured allowance")
+			out.Blockers = append(out.Blockers, "Operator: reconnect approved model or explicitly choose a replacement with known pricing")
 		}
 		err = tx.QueryRow(ctx, `SELECT p.id::text,p.version FROM runner_pools p WHERE p.org_id=$1 AND p.state='active' AND (p.builtin OR EXISTS(SELECT 1 FROM runner_pool_repositories rp WHERE rp.org_id=p.org_id AND rp.pool_id=p.id AND rp.repository_id=$2)) AND EXISTS(SELECT 1 FROM runners n WHERE n.org_id=p.org_id AND n.pool_id=p.id AND n.state='active' AND n.credential_expires_at>now() AND n.last_seen_at>now()-interval '5 minutes') ORDER BY p.builtin DESC,p.created_at LIMIT 1`, a.OrgID, repo).Scan(&out.PoolID, &poolVersion)
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -155,65 +141,27 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		if s.repairs == nil || len(s.repairs.Recipes()) == 0 {
 			out.Blockers = append(out.Blockers, "Operator: install maintenance execution images")
 		}
-
-		if out.Subscription {
-			var capsRaw []byte
-			err = tx.QueryRow(ctx, `SELECT caps,period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND scope_id=$1`, a.OrgID).Scan(&capsRaw, &out.OrgPeriod, &orgBudgetVersion)
-			if errors.Is(err, pgx.ErrNoRows) {
-				if a.Role == domain.Owner && a.AllRepositories {
-					out.CreatesOrgLimit = true
-					out.OrgPeriod = "monthly"
-					out.OrgRequests = &out.Requests
-				} else {
-					out.Blockers = append(out.Blockers, "Operator: set an organisation request limit")
-				}
-			} else if err != nil {
-				return out, err
+		err = tx.QueryRow(ctx, `SELECT (caps->>'micro_usd')::bigint,period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND scope_id=$1`, a.OrgID).Scan(&out.OrgMicroUSD, &out.OrgPeriod, &orgBudgetVersion)
+		if errors.Is(err, pgx.ErrNoRows) {
+			if a.Role == domain.Owner && a.AllRepositories {
+				out.CreatesOrgLimit = true
+				out.OrgMicroUSD = &in.MicroUSD
+				out.OrgPeriod = "monthly"
 			} else {
-				var caps budget.Caps
-				if json.Unmarshal(capsRaw, &caps) != nil {
-					return out, budget.ErrInvalid
-				}
-				out.OrgRequests = caps.Requests
-				if caps.Requests == nil || caps.Tokens == nil || caps.Milliseconds == nil || caps.Concurrency == nil {
-					if a.Role == domain.Owner && a.AllRepositories {
-						out.CreatesOrgQuota = true
-						if out.OrgRequests == nil {
-							out.OrgRequests = &out.Requests
-						}
-					} else {
-						out.Blockers = append(out.Blockers, "Operator: set an organisation request limit")
-					}
-				} else if err = s.budgets.ModelHeadroomTx(ctx, tx, a.OrgID, out.ConnectionID, ""); errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
-					out.Blockers = append(out.Blockers, "Resume or raise organisation allowance")
-				} else if err != nil {
-					return out, err
-				}
+				out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
 			}
+		} else if err != nil {
+			return out, err
 		} else {
-			err = tx.QueryRow(ctx, `SELECT (caps->>'micro_usd')::bigint,period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND scope_id=$1`, a.OrgID).Scan(&out.OrgMicroUSD, &out.OrgPeriod, &orgBudgetVersion)
-			if errors.Is(err, pgx.ErrNoRows) {
-				if a.Role == domain.Owner && a.AllRepositories {
-					out.CreatesOrgLimit = true
-					out.OrgMicroUSD = &in.MicroUSD
-					out.OrgPeriod = "monthly"
-				} else {
-					out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
-				}
+			err = s.budgets.HeadroomTx(ctx, tx, a.OrgID)
+			if errors.Is(err, budget.ErrUnknown) {
+				out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
+			} else if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
+				out.Blockers = append(out.Blockers, "Resume or raise organisation spending limit")
 			} else if err != nil {
 				return out, err
-			} else {
-				err = s.budgets.ModelHeadroomTx(ctx, tx, a.OrgID, out.ConnectionID, "")
-				if errors.Is(err, budget.ErrUnknown) {
-					out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
-				} else if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
-					out.Blockers = append(out.Blockers, "Resume or raise organisation spending limit")
-				} else if err != nil {
-					return out, err
-				}
 			}
 		}
-
 		err = tx.QueryRow(ctx, `SELECT period,version FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2`, a.OrgID, repo).Scan(&out.BudgetPeriod, &repoBudgetVersion)
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return out, err
@@ -225,7 +173,7 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 			return out, err
 		}
 	}
-	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, out.ConnectionID, out.MicroUSD, out.initialize)
+	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, out.ConnectionID, in.MicroUSD, out.initialize)
 	if err != nil {
 		return out, err
 	}
@@ -314,21 +262,12 @@ func (s *Service) ConfigureMaintenance(ctx context.Context, session auth.Session
 			return err
 		}
 		if in.Mode != "observe" {
-			caps, _ := json.Marshal(map[string]int64{"micro_usd": out.MicroUSD})
-			if out.Subscription {
-				caps, _ = json.Marshal(budget.ChatGPTCaps(out.Requests))
-			}
+			caps, _ := json.Marshal(map[string]int64{"micro_usd": in.MicroUSD})
 			if out.CreatesOrgLimit {
 				if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'organisation',$1,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$2,1) ON CONFLICT DO NOTHING`, org, caps); err != nil {
 					return err
 				}
 			}
-			if out.CreatesOrgQuota {
-				if _, err = tx.Exec(ctx, `UPDATE budget_limits SET caps=$2::jsonb||jsonb_strip_nulls(caps),version=version+1 WHERE org_id=$1 AND scope_kind='organisation' AND scope_id=$1`, org, caps); err != nil {
-					return err
-				}
-			}
-
 			if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'repository',$2,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$3,1) ON CONFLICT(org_id,scope_kind,scope_id) DO UPDATE SET caps=budget_limits.caps||EXCLUDED.caps,version=budget_limits.version+1`, org, repo, caps); err != nil {
 				return err
 			}

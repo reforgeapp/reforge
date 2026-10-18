@@ -1653,29 +1653,6 @@ type Capability struct {
 }
 type CapabilityState string
 type ChangeState string
-type ChatGPTAuthorization struct {
-	Helper *string `json:"helper,omitempty"`
-	Url    string  `json:"url"`
-}
-type ChatGPTModelInput struct {
-	Model string `json:"model"`
-}
-type ChatGPTSetup struct {
-	Account string             `json:"account"`
-	Id      string             `json:"id"`
-	Model   *string            `json:"model,omitempty"`
-	Models  []ModelCatalogItem `json:"models"`
-	Name    string             `json:"name"`
-}
-type ChatGPTSetupInput struct {
-	ConnectionId *string `json:"connection_id,omitempty"`
-	Name         string  `json:"name"`
-	Version      *int64  `json:"version,omitempty"`
-}
-type ChatGPTStatus struct {
-	Available bool    `json:"available"`
-	Reason    *string `json:"reason,omitempty"`
-}
 type Connection struct {
 	Capabilities      map[string]ConnectionCapability `json:"capabilities"`
 	CredentialVersion int64                           `json:"credential_version"`
@@ -2345,7 +2322,6 @@ type MaintenanceCommand struct {
 	MicroUsd     int64                  `json:"micro_usd"`
 	Mode         MaintenanceCommandMode `json:"mode"`
 	Proof        *string                `json:"proof,omitempty"`
-	Requests     *int64                 `json:"requests,omitempty"`
 }
 type MaintenanceCommandMode string
 type MaintenanceConfig struct {
@@ -2418,7 +2394,6 @@ type MaintenancePlan struct {
 	ConnectionId             *string                  `json:"connection_id,omitempty"`
 	Continuous               bool                     `json:"continuous"`
 	CreatesOrganisationLimit bool                     `json:"creates_organisation_limit"`
-	CreatesOrganisationQuota *bool                    `json:"creates_organisation_quota,omitempty"`
 	Decisions                map[string]string        `json:"decisions"`
 	DeliveryRepositories     *[]string                `json:"delivery_repositories,omitempty"`
 	Environments             *[]string                `json:"environments,omitempty"`
@@ -2427,15 +2402,12 @@ type MaintenancePlan struct {
 	Model                    *string                  `json:"model,omitempty"`
 	OrganisationMicroUsd     *int64                   `json:"organisation_micro_usd,omitempty"`
 	OrganisationPeriod       *string                  `json:"organisation_period,omitempty"`
-	OrganisationRequests     *int64                   `json:"organisation_requests,omitempty"`
 	PoolId                   *string                  `json:"pool_id,omitempty"`
 	Proof                    string                   `json:"proof"`
 	Ready                    bool                     `json:"ready"`
 	Repository               string                   `json:"repository"`
 	RepositoryId             string                   `json:"repository_id"`
-	Requests                 *int64                   `json:"requests,omitempty"`
 	Route                    *string                  `json:"route,omitempty"`
-	Subscription             *bool                    `json:"subscription,omitempty"`
 }
 type MaintenancePlanActions string
 type MaintenancePlanMode string
@@ -3050,9 +3022,7 @@ type RepairDefaults struct {
 	ModelRoute        string   `json:"model_route"`
 	Period            *string  `json:"period,omitempty"`
 	Pool              string   `json:"pool"`
-	Requests          *int64   `json:"requests,omitempty"`
 	RunnerPoolId      string   `json:"runner_pool_id"`
-	Subscription      *bool    `json:"subscription,omitempty"`
 }
 type RepairExecution struct {
 	BaselineRepository ForgeRepoRef `json:"baseline_repository"`
@@ -3502,12 +3472,6 @@ type ResumeCampaignParams struct {
 type StartCampaignParams struct {
 	XCSRFToken string `json:"X-CSRF-Token"`
 	IfMatch    string `json:"If-Match"`
-}
-type StartChatGPTSetupParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
-}
-type CompleteChatGPTSetupParams struct {
-	XCSRFToken string `json:"X-CSRF-Token"`
 }
 type ListConnectionsParams struct {
 	Kind   *string `form:"kind,omitempty" json:"kind,omitempty"`
@@ -4015,8 +3979,6 @@ type CancelCampaignJSONRequestBody = CampaignControlInput
 type PauseCampaignJSONRequestBody = CampaignControlInput
 type ResumeCampaignJSONRequestBody = CampaignControlInput
 type StartCampaignJSONRequestBody = CampaignControlInput
-type StartChatGPTSetupJSONRequestBody = ChatGPTSetupInput
-type CompleteChatGPTSetupJSONRequestBody = ChatGPTModelInput
 type CreateConnectionJSONRequestBody = ConnectionCreate
 type CreateAgentsConnectionJSONRequestBody = ConnectionCreate
 type CreateDeliveryConnectionJSONRequestBody = ConnectionCreate

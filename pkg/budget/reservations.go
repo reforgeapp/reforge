@@ -66,8 +66,8 @@ func (s *Service) validateLease(ctx context.Context, tx pgx.Tx, l Lease) (string
 
 func currentConnection(ctx context.Context, tx pgx.Tx, org, id string, route Route) (int64, error) {
 	var version int64
-	var kind, billing, model, provider, profile, authKind, endpoint string
-	err := tx.QueryRow(ctx, `SELECT version,kind,coalesce(settings->>'billing_route',''),coalesce(settings->>'model',''),provider,coalesce(settings->>'profile',''),coalesce(settings->>'auth_kind',''),endpoint FROM connections WHERE org_id=$1 AND id=$2 AND state='healthy' AND revoked_at IS NULL`, org, id).Scan(&version, &kind, &billing, &model, &provider, &profile, &authKind, &endpoint)
+	var kind, billing, model string
+	err := tx.QueryRow(ctx, `SELECT version,kind,coalesce(settings->>'billing_route',''),coalesce(settings->>'model','') FROM connections WHERE org_id=$1 AND id=$2 AND state='healthy' AND revoked_at IS NULL`, org, id).Scan(&version, &kind, &billing, &model)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return 0, ErrRevoked
 	}
@@ -77,8 +77,7 @@ func currentConnection(ctx context.Context, tx pgx.Tx, org, id string, route Rou
 	if route.Mode == "priced" && (kind != "model" || billing != "direct_api" || model != route.Model) {
 		return 0, ErrRevoked
 	}
-	plan := kind == "model" && provider == "openai" && profile == "chatgpt_plan" && authKind == "chatgpt_oauth" && endpoint == "https://api.openai.com/v1" && model == route.Model && AutomaticEligible(route)
-	if route.Mode == "quota" && (kind != "agent" && !plan || billing != "subscription" || !route.Qualified) {
+	if route.Mode == "quota" && (kind != "agent" || billing != "subscription" || !route.Qualified) {
 		return 0, ErrRevoked
 	}
 	return version, nil
