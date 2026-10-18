@@ -277,6 +277,7 @@
 .mode-button[aria-pressed="true"] { color: var(--primary); background: var(--primary-soft); border-color: var(--primary-border); }
 .mode-auto { border: 2px solid transparent; background: linear-gradient(var(--surface-2), var(--surface-2)) padding-box, linear-gradient(90deg, #3b82f6, #a855f7, #f59e0b) border-box; color: var(--text); box-shadow: 0 0 10px rgba(168, 85, 247, 0.25); }
 .mode-auto[aria-pressed="true"] { color: var(--text); border-color: transparent; background: linear-gradient(90deg, rgba(59, 130, 246, 0.16), rgba(168, 85, 247, 0.16)) padding-box, linear-gradient(var(--surface-2), var(--surface-2)) padding-box, linear-gradient(90deg, #3b82f6, #a855f7, #f59e0b) border-box; box-shadow: 0 0 14px rgba(168, 85, 247, 0.5), 0 0 4px rgba(59, 130, 246, 0.4); }
+.mode-auto:disabled[aria-pressed="true"] { opacity: 1; cursor: default; }
 .mode-auto svg { color: #c084fc; }
 .version-list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
 .version-item { display: grid; gap: 2px; width: 100%; padding: 8px 10px; border: 1px solid transparent; border-radius: var(--radius); color: var(--text); text-align: left; font-size: 13px; }
