@@ -79,7 +79,7 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	if err != nil {
 		t.Fatal(err)
 	}
-	user, org, repo, forgeID, modelID, poolID, findingID, oldTask := domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()
+	user, org, repo, forgeID, modelID, poolID, findingID, oldTask, priorTask, wrongDigestTask := domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()
 	session := auth.Session{ID: domain.NewID(), User: auth.User{ID: user}}
 	branch := "reforge/repair/" + oldTask
 	headSHA, targetSHA := strings.Repeat("a", 40), strings.Repeat("b", 40)
@@ -148,8 +148,24 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 		}
 		oldContext, _ := json.Marshal(ExecutionContext{FollowUpBranch: branch})
 		oldChange, _ := json.Marshal(change)
-		_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,branch,candidate_sha,native_change,report,candidate_artifacts) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10,'{"patches":[]}','[]')`, org, oldTask, repo, findingID, user, strings.Repeat("f", 64), oldContext, branch, headSHA, oldChange)
-		return err
+		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,branch,candidate_sha,native_change,report,candidate_artifacts) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published',$8,$9,$10,'{"patches":[]}','[]')`, org, oldTask, repo, findingID, user, strings.Repeat("f", 64), oldContext, branch, headSHA, oldChange); err != nil {
+			return err
+		}
+		priorReport, _ := json.Marshal(Report{State: "handoff", Reason: strings.Repeat("prior model summary ", 300), Candidate: []CheckResult{{CommandID: "go-test", ExitCode: 1, Complete: true, Cases: map[string]string{"TestFixture": "fail"}, Reason: "TestFixture still fails"}}, Patches: []sandbox.Patch{{Path: "secret.go", Content: []byte("DO_NOT_FORWARD_SOURCE")}}})
+		for _, item := range []struct {
+			taskID  string
+			digest  string
+			created string
+			report  []byte
+		}{{priorTask, strings.Repeat("f", 64), "clock_timestamp()", priorReport}, {wrongDigestTask, strings.Repeat("9", 64), "clock_timestamp()+interval '1 hour'", []byte(`{"state":"handoff","reason":"WRONG_DIGEST_FEEDBACK"}`)}} {
+			if _, err := tx.Exec(ctx, `INSERT INTO workflow_tasks(org_id,id,repository_id,operation_id,idempotency_key,request_hash,recipe,recipe_version,target_branch,policy_hash,starting_policy_hash,state,max_attempts,created_by,created_at) VALUES($1,$2,$3,$4,$5,$6,'go','1','main',$6,$6,'failed',1,$7,`+item.created+`)`, org, item.taskID, repo, domain.NewID(), "prior-"+item.taskID, strings.Repeat("1", 64), user); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,report,candidate_artifacts) VALUES($1,$2,$3,$4,$5,1,$6,$7,'handoff',$8,'[]')`, org, item.taskID, repo, findingID, user, item.digest, oldContext, item.report); err != nil {
+				return err
+			}
+		}
+		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -184,6 +200,10 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	}
 	if len(ownerPreview.Blockers) != 0 || ownerPreview.Context.ReplacesBranch != branch || ownerPreview.Context.FollowUpBranch != "" || ownerPreview.Context.Plan.BaselineSHA != headSHA || ownerPreview.Context.Plan.TargetSHA != targetSHA {
 		t.Fatalf("dirty owned replacement preview=%+v", ownerPreview)
+	}
+	feedback := ownerPreview.Context.PriorFeedback
+	if len(feedback) >= 2048 || !strings.Contains(feedback, "Previous attempt task state: failed") || !strings.Contains(feedback, "go-test") || !strings.Contains(feedback, "TestFixture") || !strings.Contains(feedback, "TestFixture still fails") || strings.Contains(feedback, "WRONG_DIGEST_FEEDBACK") || strings.Contains(feedback, "DO_NOT_FORWARD_SOURCE") {
+		t.Fatalf("prior feedback was not scoped and bounded: %q", feedback)
 	}
 	nonOwner := in
 	nonOwner.Owner = false

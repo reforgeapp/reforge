@@ -4,9 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"slices"
+	"sort"
 	"strings"
 	"time"
+	"unicode"
 	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
@@ -63,6 +66,85 @@ func (s *Service) Recipes() map[string]string {
 func manage(a domain.Actor, repo string) bool {
 	return auth.CanReadRepository(a, repo) && (a.Role == domain.Owner || a.Role == domain.Admin || a.Role == domain.Maintainer)
 }
+
+func priorAttemptFeedbackTx(ctx context.Context, tx pgx.Tx, org string, finding discovery.Finding) (string, error) {
+	var taskState, taskReason string
+	var raw []byte
+	err := tx.QueryRow(ctx, `SELECT t.state,t.reason,coalesce(rr.report,'{}'::jsonb) FROM repair_runs rr JOIN workflow_tasks t ON t.org_id=rr.org_id AND t.id=rr.task_id WHERE rr.org_id=$1 AND rr.finding_id=$2 AND rr.finding_version=$3 AND rr.finding_digest=$4 AND t.state IN ('completed','failed','cancelled') ORDER BY t.created_at DESC,rr.created_at DESC,t.id DESC LIMIT 1`, org, finding.ID, finding.Version, finding.EvidenceDigest).Scan(&taskState, &taskReason, &raw)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	var report Report
+	_ = json.Unmarshal(raw, &report)
+	lines := []string{"Previous attempt task state: " + taskState}
+	if report.State != "" {
+		lines = append(lines, "Previous repair state: "+feedbackText(report.State, 80))
+	}
+	count := 0
+	for _, group := range []struct {
+		name   string
+		checks []CheckResult
+	}{{"baseline", report.Baseline}, {"candidate", report.Candidate}, {"target", report.Target}, {"reproduction", report.Reproduction}} {
+		for _, check := range group.checks {
+			failed := make([]string, 0)
+			caseNames := make([]string, 0, len(check.Cases))
+			for name := range check.Cases {
+				caseNames = append(caseNames, name)
+			}
+			sort.Strings(caseNames)
+			for _, name := range caseNames {
+				if check.Cases[name] == "fail" && len(failed) < 8 {
+					failed = append(failed, feedbackText(name, 100))
+				}
+			}
+			if check.ExitCode == 0 && check.Complete && len(failed) == 0 {
+				continue
+			}
+			line := fmt.Sprintf("%s check %s: exit %d, complete %t", group.name, feedbackText(check.CommandID, 100), check.ExitCode, check.Complete)
+			if len(failed) > 0 {
+				line += "; failed cases: " + strings.Join(failed, ", ")
+			}
+			if check.Reason != "" {
+				line += "; result: " + feedbackText(check.Reason, 160)
+			}
+			lines = append(lines, line)
+			count++
+			if count == 8 {
+				break
+			}
+		}
+		if count == 8 {
+			break
+		}
+	}
+	if report.Reason != "" {
+		lines = append(lines, "Previous result reason: "+feedbackText(report.Reason, 320))
+	} else if taskReason != "" {
+		lines = append(lines, "Previous task reason: "+feedbackText(taskReason, 320))
+	}
+	if count == 0 {
+		lines = append(lines, "No failed-check details were recorded.")
+	}
+	feedback := strings.Join(lines, "\n")
+	if len(feedback) > 2048 {
+		feedback = clip(feedback, 2045)
+	}
+	return feedback, nil
+}
+
+func feedbackText(value string, limit int) string {
+	value = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) {
+			return ' '
+		}
+		return r
+	}, value)
+	return strings.TrimSpace(clip(value, limit))
+}
+
 func (s *Service) Preview(ctx context.Context, session auth.Session, org string, in Input) (Preview, error) {
 	out := Preview{Blockers: []string{}, ExpiresAt: time.Now().UTC().Add(5 * time.Minute)}
 	if !auth.ValidID(in.FindingID) || in.FindingVersion < 1 || !auth.ValidID(in.ModelConnectionID) || !auth.ValidID(in.RunnerPoolID) || len(in.ModelRoute) == 0 || len(in.ModelRoute) > 100 {
@@ -116,6 +198,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	var spec *customcmd.ProfileSpec
 	var poolVersion int64
 	var forgeProvider string
+	var priorFeedback string
 	attempts := 3
 	check := func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
 		actor, err := s.auth.ActorTx(ctx, tx, session, org)
@@ -146,7 +229,12 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			return err
 		}
 		forgeProvider = forgeConnection.Provider
-		if _, err := discovery.PrepareRepairTx(ctx, tx, org, f.ID, in.FindingVersion); err != nil {
+		current, err := discovery.PrepareRepairTx(ctx, tx, org, f.ID, in.FindingVersion)
+		if err != nil {
+			return err
+		}
+		priorFeedback, err = priorAttemptFeedbackTx(ctx, tx, org, current)
+		if err != nil {
 			return err
 		}
 		if err := tx.QueryRow(ctx, `SELECT native_id,name FROM repositories WHERE org_id=$1 AND id=$2`, org, f.RepositoryID).Scan(&ref.NativeID, &ref.FullName); err != nil {
@@ -288,7 +376,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	authority, _ := json.Marshal([]any{resolved.Hash, modelConnection.ID, modelConnection.Version, route, spec, poolVersion, in.RunnerPoolID, f.ID, f.Version, f.EvidenceDigest, attempts})
 	plan.AuthorityHash = hashBytes(authority)
 	plan.Digest = planDigest(plan)
-	context := ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 131072)), TurnTimeoutMS: min(route.MaxMilliseconds, model.MaxTurnTimeout.Milliseconds()), CustomProfile: spec, Finding: f, PolicyHash: resolved.Hash}
+	context := ExecutionContext{MaxAttempts: attempts, Plan: plan, Repository: ref, BaselineRepository: baselineRef, ConnectionID: f.Evidence.ConnectionID, ConnectionVersion: f.Evidence.ConnectionVersion, Model: modelConnection.Settings.Model, MaxOutputTokens: int(min(route.MaxOutputTokens, 131072)), TurnTimeoutMS: min(route.MaxMilliseconds, model.MaxTurnTimeout.Milliseconds()), CustomProfile: spec, Finding: f, PolicyHash: resolved.Hash, PriorFeedback: priorFeedback}
 	if spec != nil {
 		context.MaxOutputTokens = 0
 		context.TurnTimeoutMS = int64(spec.MaxWallSeconds) * 1000

@@ -17281,6 +17281,10 @@
           },
           "policy_hash": {
             "type": "string"
+          },
+          "prior_feedback": {
+            "type": "string",
+            "description": "Bounded untrusted summary of the latest terminal repair attempt for this finding version and evidence digest."
           }
         },
         "required": [

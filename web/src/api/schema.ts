@@ -4035,6 +4035,7 @@ export interface components {
             turn_timeout_ms: number;
             finding: components["schemas"]["Finding"];
             policy_hash: string;
+            prior_feedback?: string;
         };
         RepairPreview: {
             context: components["schemas"]["RepairExecution"];

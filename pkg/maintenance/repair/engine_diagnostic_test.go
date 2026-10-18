@@ -74,14 +74,15 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 	plan.Digest = planDigest(plan)
 
 	for _, tc := range []struct {
-		name     string
-		readErr  error
-		wantText string
-		regular  bool
-		fedBack  bool
+		name          string
+		readErr       error
+		wantText      string
+		regular       bool
+		fedBack       bool
+		priorFeedback string
 	}{
 		{name: "owner read failure", readErr: errors.New("private runtime detail"), wantText: "could not be read"},
-		{name: "owner missing evidence", readErr: fs.ErrNotExist, wantText: "is missing", fedBack: true},
+		{name: "owner missing evidence", readErr: fs.ErrNotExist, wantText: "is missing", fedBack: true, priorFeedback: "candidate check go-test: exit 1; failed cases: TestFixture"},
 		{name: "owner changed evidence", wantText: "changed", fedBack: true},
 		{name: "regular repair read failure", readErr: errors.New("private runtime detail"), wantText: "could not be read", regular: true},
 	} {
@@ -95,8 +96,9 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 			}
 			var seen string
 			engine := Engine{
-				Runtime: runtime,
-				Model:   "fixture",
+				Runtime:       runtime,
+				Model:         "fixture",
+				PriorFeedback: tc.priorFeedback,
 				Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
 					for _, message := range in.Messages {
 						seen += message.Text + "\n"
@@ -113,6 +115,9 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 				report, err = engine.Run(context.Background(), plan, snapshotForEngine(t, base, files), snapshotForEngine(t, target, files))
 			} else {
 				report, err = engine.runCI(context.Background(), plan, Report{State: "handoff", Artifacts: []string{}}, files)
+			}
+			if tc.priorFeedback != "" && (!strings.Contains(seen, "UNTRUSTED historical data") || !strings.Contains(seen, tc.priorFeedback) || !strings.Contains(seen, "Re-read current source and frozen checks")) {
+				t.Fatalf("prior attempt feedback was not clearly delivered: %q", seen)
 			}
 			if tc.fedBack {
 				if !strings.Contains(seen, "Checks rejected") || !strings.Contains(seen, "value.test.js") || !strings.Contains(seen, tc.wantText) {

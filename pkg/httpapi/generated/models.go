@@ -3035,6 +3035,7 @@ type RepairExecution struct {
 	NativeHeadSha      *string      `json:"native_head_sha,omitempty"`
 	Plan               RepairPlan   `json:"plan"`
 	PolicyHash         string       `json:"policy_hash"`
+	PriorFeedback      *string      `json:"prior_feedback,omitempty"`
 	Repository         ForgeRepoRef `json:"repository"`
 	Request            RepairInput  `json:"request"`
 	TurnTimeoutMs      int64        `json:"turn_timeout_ms"`
