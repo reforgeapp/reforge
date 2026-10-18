@@ -10,6 +10,7 @@ import (
 	"path"
 	"slices"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -267,6 +268,50 @@ func appendOwnerRecent(recent, name, reply string) string {
 	return recent
 }
 
+func canonicalizeGoCases(results []CheckResult, commands []recipes.Command, files map[string][]byte) []CheckResult {
+	for i, command := range commands {
+		if i >= len(results) || command.ReportFormat != "json" || len(command.Args) == 0 || path.Base(command.Args[0]) != "go" {
+			continue
+		}
+		module := goModulePath(files[path.Join(command.Directory, "go.mod")])
+		if module == "" {
+			continue
+		}
+		cases := make(map[string]string, len(results[i].Cases))
+		for name, state := range results[i].Cases {
+			if strings.HasPrefix(name, module+"/") {
+				remainder := strings.TrimPrefix(name, module+"/")
+				directory := path.Clean(command.Directory)
+				if directory == "." || directory == "" {
+					name = remainder
+				} else {
+					name = directory + "/" + remainder
+				}
+			}
+			cases[name] = state
+		}
+		results[i].Cases = cases
+	}
+	return results
+}
+
+func goModulePath(body []byte) string {
+	for _, line := range strings.Split(string(body), "\n") {
+		fields := strings.Fields(strings.TrimSpace(line))
+		if len(fields) < 2 || fields[0] != "module" {
+			continue
+		}
+		module := fields[1]
+		if len(module) > 1 && module[0] == '"' && module[len(module)-1] == '"' {
+			if unquoted, err := strconv.Unquote(module); err == nil {
+				module = unquoted
+			}
+		}
+		return module
+	}
+	return ""
+}
+
 func ownerTools() []model.Tool {
 	tools := []model.Tool{
 		{Name: "read_file", Description: "Read repository text, including staged changes. Use next_offset to continue large files", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"offset":{"type":"integer","minimum":0},"limit":{"type":"integer","minimum":1,"maximum":65536}},"required":["path"],"additionalProperties":false}`)},
@@ -360,6 +405,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if err != nil {
 		return fail("Target environment unavailable or protected files changed", err)
 	}
+	out.Baseline = canonicalizeGoCases(out.Baseline, p.Recipe.Commands, files)
 	paths := make([]string, 0, len(files))
 	for file := range files {
 		paths = append(paths, file)
@@ -862,6 +908,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					if err != nil {
 						return fail("Defect reproduction unavailable", err)
 					}
+					out.Reproduction = canonicalizeGoCases(out.Reproduction, p.Recipe.Commands, original)
 				}
 				candidate, err = e.validate(ctx, checkPlan, p.TargetSHA, proposed, fmt.Sprintf("ci-candidate-%d", turn+1), &out)
 				if retryable(ctx, err) {
@@ -871,6 +918,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				if err != nil {
 					return fail("Candidate environment failed or modified protected validation", err)
 				}
+				candidate = canonicalizeGoCases(candidate, p.Recipe.Commands, updated())
 				checked = revision
 				body := summarizeChecks(candidate)
 				reply = string(body)
@@ -895,13 +943,27 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 				}
 				verified := Verified(p, out.Baseline, candidate) && (!e.RequireReproduction || BehaviourFixed(p, out.Reproduction, candidate))
 				proposal := !verified && ProposalReady(p, out.Baseline, candidate)
-				if checked != revision || len(current()) == 0 || !verified && !proposal {
-					reply = "Not finished: stage a change and pass run_checks on the current changes first"
-					if checked == revision && len(candidate) > 0 {
-						reply += "\nCurrent checks: " + clip(string(summarizeChecks(candidate)), 4096)
-					}
-					if e.RequireReproduction && !BehaviourReproduced(p, out.Reproduction) {
+				if checked != revision {
+					reply = "Not finished: staged changes changed after the last run_checks; run_checks again"
+					break
+				}
+				if len(current()) == 0 {
+					reply = "Not finished: stage a change before finish"
+					break
+				}
+				if !verified && !proposal {
+					switch {
+					case e.RequireReproduction && !BehaviourReproduced(p, out.Reproduction):
 						reply = "Not finished: a counted regression test must fail on the original code and pass with the fix. Add the regression test and run_checks; unavailable or unreproduced checks need a handoff."
+					case e.RequireReproduction && !BehaviourFixed(p, out.Reproduction, candidate):
+						reply = "Not finished: the reproduced regression still fails with the candidate; fix it and run_checks again"
+					case lostPassingCase(out.Baseline, candidate):
+						reply = "Not finished: a test that passed on the baseline no longer passes; preserve baseline passing tests and run_checks again"
+					default:
+						reply = "Not finished: run_checks completed, but candidate results do not meet repair proof requirements; resolve failed or incomplete checks and run_checks again"
+					}
+					if len(candidate) > 0 {
+						reply += "\nCurrent checks: " + clip(string(summarizeChecks(candidate)), 4096)
 					}
 					break
 				}
