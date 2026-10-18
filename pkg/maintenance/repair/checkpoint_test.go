@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
@@ -123,6 +124,17 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 	service := &Service{runners: runners}
 	if _, err = service.SaveReport(ctx, assignment.Credential.Token, Report{PlanDigest: plan.Digest, State: "handoff", Mode: "owner"}); err != nil {
 		t.Fatalf("save handoff before first checkpoint: %v", err)
+	}
+	longReason := "Unverified proposal: " + strings.Repeat("界", 700)
+	saved, err := service.SaveReport(ctx, assignment.Credential.Token, Report{PlanDigest: plan.Digest, State: "handoff", Mode: "owner", Reason: longReason})
+	if err != nil {
+		t.Fatalf("save long report reason: %v", err)
+	}
+	if saved.Report == nil || len(saved.Report.Reason) > 2000 || !strings.HasSuffix(saved.Report.Reason, "…") || !utf8.ValidString(saved.Report.Reason) {
+		t.Fatalf("report reason was not safely bounded: %v", saved.Report)
+	}
+	if _, err = service.SaveReport(ctx, assignment.Credential.Token, Report{PlanDigest: plan.Digest, State: "handoff", Mode: "owner", Reason: strings.Repeat("x", 1<<20)}); !errors.Is(err, auth.ErrInvalid) {
+		t.Fatalf("oversized raw report accepted: %v", err)
 	}
 	var active bool
 	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {

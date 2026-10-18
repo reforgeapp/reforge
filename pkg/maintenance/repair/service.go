@@ -604,6 +604,13 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 	if err != nil || len(raw) > 1<<20 {
 		return out, auth.ErrInvalid
 	}
+	if len(in.Reason) > 2000 {
+		in.Reason = clip(in.Reason, 1997)
+	}
+	raw, err = json.Marshal(in)
+	if err != nil {
+		return out, auth.ErrInvalid
+	}
 	ci, owner := in.Mode == "ci", in.Mode == "owner"
 	if in.Mode != "" && !ci && !owner || len(in.Dependencies) > maxCheckpointDependencies || !owner && len(in.Dependencies) > 10 {
 		return out, auth.ErrInvalid
