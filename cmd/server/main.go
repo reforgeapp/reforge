@@ -225,6 +225,7 @@ func run() error {
 	app.RegisterCampaigns(campaigns)
 	autopilots := autopilot.New(db, identity, repairs, merges, budgets, policies)
 	autopilots.Tasks = workflows
+	autopilots.Connections = connectionService
 	autopilots.Deployments = deliveries
 	autopilots.Promotions = promotions
 	notices := alerts.New(db, identity, vault, alerts.SMTP{Address: cfg.SMTPAddress, Username: cfg.SMTPUsername, Password: cfg.SMTPPassword, From: cfg.SMTPFrom, Security: cfg.SMTPSecurity}, cfg.PublicURL)

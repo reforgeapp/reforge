@@ -17,6 +17,7 @@ import (
 
 	"reforge/internal/auth"
 	"reforge/internal/budget"
+	"reforge/internal/connections"
 	"reforge/internal/deployment"
 	"reforge/internal/domain"
 	"reforge/internal/forge"
@@ -64,6 +65,7 @@ type Service struct {
 	Deployments *deployment.Service
 	Promotions  *gitops.Service
 	Notify      func(context.Context, string) error
+	Connections *connections.Service
 }
 
 func New(db *store.Store, identity *auth.Service, repairs *repair.Service, merges *mergecontrol.Service, budgets *budget.Service, policies *policy.Service) *Service {
@@ -312,6 +314,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 	session, sc, err := s.session(ctx, org)
 	if err != nil {
 		return s.status(ctx, org, "Import a repository to start")
+	}
+	if err = s.reverify(ctx, session, org); err != nil {
+		slog.WarnContext(ctx, "autopilot connection reverify failed", "org_id", org, "error", err)
 	}
 	if sc.enabled {
 		if err = s.closeReplaced(ctx, session, org); err != nil {

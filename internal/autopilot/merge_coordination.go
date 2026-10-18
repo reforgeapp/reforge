@@ -6,6 +6,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"reforge/internal/auth"
+	"reforge/internal/domain"
 )
 
 func (s *Service) ownerRepairPinsTarget(ctx context.Context, org, repository, target string) (bool, error) {
@@ -34,4 +35,31 @@ func (s *Service) closeReplaced(ctx context.Context, session auth.Session, org s
 		return err
 	}
 	return s.repairs.CloseReplaced(ctx, session, org)
+}
+
+func (s *Service) reverify(ctx context.Context, session auth.Session, org string) error {
+	if s.Connections == nil {
+		return nil
+	}
+	type stale struct {
+		ID      string
+		Version int64
+	}
+	var items []stale
+	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT id::text,version FROM connections WHERE org_id=$1 AND kind='forge' AND state='unverified' AND reason LIKE 'GitHub App installation changed%' AND deleted_at IS NULL`, org)
+		if err != nil {
+			return err
+		}
+		items, err = pgx.CollectRows(rows, pgx.RowToStructByPos[stale])
+		return err
+	}); err != nil {
+		return err
+	}
+	for _, c := range items {
+		if _, err := s.Connections.Test(ctx, session, org, c.ID, c.Version, domain.NewID()); err != nil {
+			return err
+		}
+	}
+	return nil
 }
