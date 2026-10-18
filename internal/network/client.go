@@ -396,7 +396,7 @@ func (t *transport) RoundTrip(request *http.Request) (*http.Response, error) {
 func (t *transport) CloseIdleConnections() { t.transport.CloseIdleConnections() }
 
 func WithTimeout(client *http.Client, timeout time.Duration) (*http.Client, error) {
-	if client == nil || timeout <= 0 || timeout > 5*time.Minute {
+	if client == nil || timeout <= 0 || timeout > 10*time.Minute {
 		return nil, ErrRequest
 	}
 	guarded, ok := client.Transport.(*transport)
