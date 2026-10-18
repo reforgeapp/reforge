@@ -285,13 +285,13 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			err = execute(ctx, func(callctx context.Context) (model.TurnResult, error) {
 				scoped, err := network.WithTimeout(resolved.Client, time.Duration(in.TimeoutMS)*time.Millisecond)
 				if err != nil {
-					return model.TurnResult{}, err
+					return model.TurnResult{}, &domain.ProviderError{Kind: "configuration", Message: "model request not sent: " + err.Error()}
 				}
 				defer scoped.CloseIdleConnections()
 				resolved.Client = scoped
 				provider, err := s.factory.Model(resolved)
 				if err != nil {
-					return model.TurnResult{}, err
+					return model.TurnResult{}, &domain.ProviderError{Kind: "configuration", Message: "model request not sent: " + err.Error()}
 				}
 				in.Session = lease.AttemptID
 				return model.CollectTurn(callctx, provider, in)
