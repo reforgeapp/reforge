@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/reforgeapp/reforge/pkg/workflow"
@@ -61,3 +62,24 @@ func TestCompletionReasonExplainsSourceMovement(t *testing.T) {
 		t.Fatalf("reason=%q", got)
 	}
 }
+
+func TestProviderUnavailableCodeRemainsTransientAndExplainsProviderFailure(t *testing.T) {
+	transport := fixedRoundTripper(func(*http.Request) (*http.Response, error) {
+		return &http.Response{StatusCode: http.StatusServiceUnavailable, Header: make(http.Header), Body: io.NopCloser(strings.NewReader(`{"code":"provider_unavailable","message":"Git provider temporarily unavailable; retry shortly"}`))}, nil
+	})
+	client, err := New(Config{Endpoint: "https://runner.example", Name: "fixture", CredentialFile: filepath.Join(t.TempDir(), "credential"), Client: &http.Client{Transport: transport}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.call(context.Background(), http.MethodPost, "/runner/v1/repair/stage", "job-token", nil, nil)
+	if !errors.Is(err, ErrTransientControlPlane) || !errors.Is(err, ErrProviderUnavailable) {
+		t.Fatalf("transient=%t provider=%t err=%v", errors.Is(err, ErrTransientControlPlane), errors.Is(err, ErrProviderUnavailable), err)
+	}
+	if got := completionReason(err); got != "Git provider temporarily unavailable" {
+		t.Fatalf("reason=%q", got)
+	}
+}
+
+type fixedRoundTripper func(*http.Request) (*http.Response, error)
+
+func (f fixedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) { return f(req) }

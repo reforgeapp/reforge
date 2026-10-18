@@ -27,6 +27,7 @@ import (
 
 var ErrControlPlane = errors.New("runner control plane unavailable or rejected request")
 var ErrTransientControlPlane = errors.New("runner control plane temporarily unavailable")
+var ErrProviderUnavailable = errors.New("Git provider temporarily unavailable")
 var ErrUnauthorized = errors.New("runner credential rejected")
 var ErrSourceMoved = errors.New("native source or target moved")
 
@@ -289,6 +290,9 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 		if response.StatusCode == http.StatusUnauthorized {
 			base = fmt.Errorf("%w: %w", ErrControlPlane, ErrUnauthorized)
 		}
+		if decoded && failure.Code == "provider_unavailable" {
+			base = errors.Join(base, ErrProviderUnavailable)
+		}
 		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "source_moved" {
 			return response.StatusCode, fmt.Errorf("%w: %w", ErrControlPlane, ErrSourceMoved)
 		}
@@ -427,6 +431,8 @@ func completionReason(err error) string {
 		reason = "Runner authorization failed"
 	case errors.Is(err, context.DeadlineExceeded):
 		reason = "Runner operation timed out"
+	case errors.Is(err, ErrProviderUnavailable):
+		reason = "Git provider temporarily unavailable"
 	case errors.Is(err, ErrTransientControlPlane):
 		reason = "Control plane temporarily unavailable"
 	default:

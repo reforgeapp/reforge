@@ -5,6 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/inventory"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/privateconnector"
@@ -135,6 +136,7 @@ func discoveryResponse(c *gin.Context, status int, version int64, value any) {
 }
 
 func discoveryFailure(c *gin.Context, err error) {
+	var providerError *domain.ProviderError
 	switch {
 	case errors.Is(err, discovery.ErrStale), errors.Is(err, inventory.ErrStale):
 		Fail(c, 409, "discovery_stale", "Discovery evidence changed; refresh the finding and retry", false)
@@ -143,7 +145,9 @@ func discoveryFailure(c *gin.Context, err error) {
 	case errors.Is(err, discovery.ErrBlocked):
 		Fail(c, 409, "discovery_blocked", "Finding requires reviewed ownership or complete evidence", false)
 	case errors.Is(err, privateconnector.ErrUnavailable):
-		Fail(c, 503, "provider_unavailable", "Code host temporarily unavailable; retry shortly", true)
+		Fail(c, 503, "provider_unavailable", "Git provider temporarily unavailable; retry shortly", true)
+	case errors.As(err, &providerError) && providerError.Kind == "transient":
+		Fail(c, 503, "provider_unavailable", "Git provider temporarily unavailable; retry shortly", true)
 	default:
 		IdentityFailure(c, err)
 	}

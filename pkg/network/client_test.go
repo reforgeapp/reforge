@@ -140,6 +140,71 @@ func TestDNSRebindingAndLiteralDial(t *testing.T) {
 	}
 }
 
+func TestDNSLookupRetriesOnceAndPreservesFailure(t *testing.T) {
+	p, err := newPolicy("https://forge.example", Options{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstErr := errors.New("temporary resolver failure")
+	secondErr := errors.New("resolver still unavailable")
+	lookups, dials := 0, 0
+	lookup := func(context.Context, string) ([]netip.Addr, error) {
+		lookups++
+		if lookups == 1 {
+			return nil, firstErr
+		}
+		return nil, secondErr
+	}
+	dial := func(context.Context, string, string) (net.Conn, error) {
+		dials++
+		return nil, nil
+	}
+	if _, err = p.dial(lookup, dial)(context.Background(), "tcp", "forge.example:443"); !errors.Is(err, firstErr) || !errors.Is(err, secondErr) {
+		t.Fatalf("resolver errors not preserved: %v", err)
+	}
+	if lookups != 2 || dials != 0 {
+		t.Fatalf("lookups=%d dials=%d", lookups, dials)
+	}
+
+	lookups = 0
+	lookup = func(context.Context, string) ([]netip.Addr, error) {
+		lookups++
+		if lookups == 1 {
+			return nil, firstErr
+		}
+		return []netip.Addr{netip.MustParseAddr("127.0.0.1")}, nil
+	}
+	if _, err = p.dial(lookup, dial)(context.Background(), "tcp", "forge.example:443"); !errors.Is(err, ErrDestination) {
+		t.Fatalf("unsafe retry answer accepted: %v", err)
+	}
+	if lookups != 2 || dials != 0 {
+		t.Fatalf("unsafe answer lookups=%d dials=%d", lookups, dials)
+	}
+
+	lookups, dials = 0, 0
+	dialErr := errors.New("fake dial reached")
+	lookup = func(context.Context, string) ([]netip.Addr, error) {
+		lookups++
+		if lookups == 1 {
+			return nil, firstErr
+		}
+		return []netip.Addr{netip.MustParseAddr("8.8.8.8")}, nil
+	}
+	dial = func(_ context.Context, network, address string) (net.Conn, error) {
+		dials++
+		if network != "tcp" || address != "8.8.8.8:443" {
+			t.Fatalf("unexpected dial target: %s %s", network, address)
+		}
+		return nil, dialErr
+	}
+	if _, err = p.dial(lookup, dial)(context.Background(), "tcp", "forge.example:443"); err == nil {
+		t.Fatal("fake dial failure was lost")
+	}
+	if lookups != 2 || dials != 1 {
+		t.Fatalf("successful retry lookups=%d dials=%d", lookups, dials)
+	}
+}
+
 func TestDialFallsBackAcrossAddressFamilies(t *testing.T) {
 	p, err := newPolicy("https://models.example", Options{})
 	if err != nil {

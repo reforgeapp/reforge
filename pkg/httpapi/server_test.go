@@ -2,12 +2,17 @@ package httpapi
 
 import (
 	"encoding/json"
-	"github.com/reforgeapp/reforge/pkg/config"
-	"github.com/reforgeapp/reforge/pkg/domain"
+	"errors"
+	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/gin-gonic/gin"
+	"github.com/reforgeapp/reforge/pkg/config"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
 )
 
 func TestIntegratedRouteRegistration(t *testing.T) {
@@ -29,6 +34,25 @@ func TestIntegratedRouteRegistration(t *testing.T) {
 	s.Router.ServeHTTP(w, httptest.NewRequest("GET", "/healthz", nil))
 	if w.Code != 200 {
 		t.Fatalf("registered application health: %d", w.Code)
+	}
+}
+
+func TestDiscoveryFailureMapsTransientProviderToRetryable503(t *testing.T) {
+	w := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(w)
+	c.Set("request_id", "request")
+	discoveryFailure(c, &domain.ProviderError{Kind: "transient", Message: "request failed"})
+	var body domain.Error
+	if w.Code != http.StatusServiceUnavailable || json.Unmarshal(w.Body.Bytes(), &body) != nil || body.Code != "provider_unavailable" || !body.Retryable {
+		t.Fatalf("status=%d body=%s", w.Code, w.Body.String())
+	}
+
+	w = httptest.NewRecorder()
+	c, _ = gin.CreateTestContext(w)
+	c.Set("request_id", "request")
+	discoveryFailure(c, errors.Join(privateconnector.ErrUnavailable, errors.New("private transport")))
+	if w.Code != http.StatusServiceUnavailable {
+		t.Fatalf("private unavailable status=%d", w.Code)
 	}
 }
 

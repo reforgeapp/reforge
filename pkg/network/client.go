@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"net/netip"
@@ -280,7 +281,24 @@ func (p *policy) dial(lookup lookupFunc, dial dialFunc) dialFunc {
 		} else {
 			ips, err = lookup(ctx, host)
 			if err != nil {
-				return nil, ErrDestination
+				firstErr := err
+				if ctx.Err() != nil {
+					return nil, ctx.Err()
+				}
+				timer := time.NewTimer(100 * time.Millisecond)
+				select {
+				case <-ctx.Done():
+					timer.Stop()
+					return nil, ctx.Err()
+				case <-timer.C:
+				}
+				ips, err = lookup(ctx, host)
+				if err != nil {
+					if ctx.Err() != nil {
+						return nil, ctx.Err()
+					}
+					return nil, fmt.Errorf("DNS lookup failed: %w", errors.Join(firstErr, err))
+				}
 			}
 		}
 		if len(ips) == 0 {
