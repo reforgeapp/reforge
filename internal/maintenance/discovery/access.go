@@ -44,7 +44,7 @@ func (s *Service) recheckAccess(ctx context.Context, org string) error {
 	}
 	var items []pending
 	if err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		rows, err := tx.Query(ctx, `SELECT f.id::text,f.source_id,coalesce(f.evidence->>'connection_id',''),r.native_id,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.source_id IN ('provider-access','dependabot-alerts') ORDER BY f.last_seen LIMIT 10`, org)
+		rows, err := tx.Query(ctx, `SELECT f.id::text,f.source_id,coalesce(f.evidence->>'connection_id',''),r.native_id,r.name FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id JOIN connections c ON c.org_id=f.org_id AND c.id::text=f.evidence->>'connection_id' AND c.state='healthy' WHERE f.org_id=$1 AND f.state='open' AND f.source_id IN ('provider-access','dependabot-alerts') ORDER BY f.last_seen LIMIT 10`, org)
 		if err != nil {
 			return err
 		}
