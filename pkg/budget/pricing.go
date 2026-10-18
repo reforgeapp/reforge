@@ -34,6 +34,13 @@ type PricingOptions struct {
 	Reason    string          `json:"reason"`
 }
 
+const ChatGPTMaxOutputTokens = 131072
+
+func ChatGPTCaps(requests int64) Caps {
+	tokens, milliseconds, concurrency := requests*(model.MaxRequestBytes+8192+ChatGPTMaxOutputTokens), requests*600000, int64(1)
+	return Caps{Requests: &requests, Tokens: &tokens, Milliseconds: &milliseconds, Concurrency: &concurrency}
+}
+
 func pricePreset(id string) (PricingPreset, bool) {
 	for _, p := range pricingPresets {
 		if p.ID == id {
@@ -57,12 +64,12 @@ func (s *Service) Pricing(ctx context.Context, session auth.Session, org, connec
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
-		var kind, provider, endpoint, model, state string
-		if err := tx.QueryRow(ctx, `SELECT kind,provider,endpoint,coalesce(settings->>'model',''),state FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&kind, &provider, &endpoint, &model, &state); err != nil {
+		var kind, provider, endpoint, model, state, billing string
+		if err := tx.QueryRow(ctx, `SELECT kind,provider,endpoint,coalesce(settings->>'model',''),state,coalesce(settings->>'billing_route','') FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&kind, &provider, &endpoint, &model, &state, &billing); err != nil {
 			return auth.ErrForbidden
 		}
 		for _, p := range pricingPresets {
-			if provider == p.Provider && model == p.Model && presetEndpoint(endpoint) {
+			if billing != "subscription" && provider == p.Provider && model == p.Model && presetEndpoint(endpoint) {
 				out.Presets = append(out.Presets, p)
 			}
 		}
@@ -90,6 +97,9 @@ func (s *Service) Pricing(ctx context.Context, session auth.Session, org, connec
 		case kind == "model" && AutomaticEligible(r):
 			out.Manual, out.Automatic = true, true
 			out.Reason = "Manual repairs and automatic maintenance; approved spending ceilings apply"
+			if r.Mode == "quota" {
+				out.Reason = "Uses your ChatGPT plan; Reforge request limits and ChatGPT usage settings apply"
+			}
 		case kind == "agent" && provider == "custom_command" && r.Mode == "quota" && r.Qualified && r.QualificationRef != "":
 			if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM custom_profiles WHERE org_id=$1 AND approved_at IS NOT NULL AND revoked_at IS NULL)`, org).Scan(&out.Manual); err != nil {
 				return err
@@ -134,8 +144,10 @@ func pricingMetadataTx(ctx context.Context, tx pgx.Tx, org string, r *Route) err
 	return nil
 }
 
-func AutomaticEligible(r Route) bool { return validRoute(r) && r.Mode == "priced" && !r.Paused }
+func AutomaticEligible(r Route) bool {
+	return validRoute(r) && !r.Paused && (r.Mode == "priced" || r.Mode == "quota" && r.Qualified && r.QualificationRef == "chatgpt-plan/v1" && r.MaxRequests == 1)
+}
 
 func AutomaticRouteSQL(alias string) string {
-	return alias + `.config @? '$ ? (@.mode == "priced" && @.pricing_version != "" && @.max_input_tokens > 0 && @.max_output_tokens > 0 && @.max_milliseconds > 0 && @.max_requests == 1 && @.input_micro_usd_per_million >= 0 && @.output_micro_usd_per_million >= 0 && @.request_micro_usd >= 0 && @.paused == false)' AND ` + alias + `.config->>'connection_id'=` + alias + `.connection_id::text AND ` + alias + `.config->>'model'=` + alias + `.model AND ` + alias + `.config->>'name'=` + alias + `.name`
+	return alias + `.config @? '$ ? (((@.mode == "priced" && @.pricing_version != "") || (@.mode == "quota" && @.qualified == true && @.qualification_ref == "chatgpt-plan/v1" && @.input_micro_usd_per_million == 0 && @.output_micro_usd_per_million == 0 && @.request_micro_usd == 0)) && @.max_input_tokens > 0 && @.max_output_tokens > 0 && @.max_milliseconds > 0 && @.max_requests == 1 && @.input_micro_usd_per_million >= 0 && @.output_micro_usd_per_million >= 0 && @.request_micro_usd >= 0 && @.paused == false)' AND ` + alias + `.config->>'connection_id'=` + alias + `.connection_id::text AND ` + alias + `.config->>'model'=` + alias + `.model AND ` + alias + `.config->>'name'=` + alias + `.name`
 }

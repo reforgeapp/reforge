@@ -316,7 +316,25 @@ func (s *Service) RepositoryHeadroomTx(ctx context.Context, tx pgx.Tx, org, repo
 	return headroomTx(ctx, tx, org, Scope{Kind: "repository", ID: repository}, false)
 }
 
-func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, required bool) error {
+func (s *Service) ModelHeadroomTx(ctx context.Context, tx pgx.Tx, org, connection, repository string) error {
+	if !auth.ValidID(connection) {
+		return ErrUnknown
+	}
+	var quota bool
+	if err := tx.QueryRow(ctx, `SELECT coalesce(provider='openai' AND settings->>'billing_route'='subscription' AND settings->>'auth_kind'='chatgpt_oauth' AND settings->>'profile'='chatgpt_plan',false) FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&quota); err != nil {
+		return err
+	}
+	if err := headroomTx(ctx, tx, org, Scope{Kind: "organisation", ID: org}, true, quota); err != nil {
+		return err
+	}
+	if repository != "" {
+		return headroomTx(ctx, tx, org, Scope{Kind: "repository", ID: repository}, false, quota)
+	}
+	return nil
+}
+
+func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, required bool, subscription ...bool) error {
+	quota := len(subscription) == 0 || subscription[0]
 	limit, err := loadLimit(ctx, tx, org, scope)
 	if errors.Is(err, pgx.ErrNoRows) {
 		if !required {
@@ -330,7 +348,7 @@ func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, require
 	if limit.Paused {
 		return ErrRevoked
 	}
-	if limit.Caps.MicroUSD == nil {
+	if limit.Caps.MicroUSD == nil && !(quota && quotaCaps(limit.Caps)) {
 		if required {
 			return ErrUnknown
 		}
@@ -347,6 +365,18 @@ func headroomTx(ctx context.Context, tx pgx.Tx, org string, scope Scope, require
 	spent, err := loadSpend(ctx, tx, org, limit.Scope, start)
 	if err != nil {
 		return err
+	}
+	if quota && quotaCaps(limit.Caps) {
+		for i, ceiling := range []*int64{limit.Caps.Tokens, limit.Caps.Milliseconds, limit.Caps.Requests} {
+			used := []int64{spent.Tokens + limit.Held.Tokens, spent.Milliseconds + limit.Held.Milliseconds, spent.Requests + limit.Held.Requests}[i]
+			if used >= *ceiling {
+				return ErrCapacity
+			}
+		}
+		if limit.Held.Concurrency >= *limit.Caps.Concurrency {
+			return ErrCapacity
+		}
+		return nil
 	}
 	if spent.MicroUSD+limit.Held.MicroUSD >= *limit.Caps.MicroUSD {
 		return ErrCapacity
