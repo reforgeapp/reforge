@@ -19,13 +19,22 @@ import (
 )
 
 func TestChatGPTConnectionCustodyAndSetupIsolation(t *testing.T) {
+	for name, config := range map[string]chatgpt.Config{
+		"registered":  {ClientID: "oaiapp_fixture", RedirectURL: "https://app.example/auth/openai/callback", PlanUsageEnabled: true},
+		"self-hosted": {SelfHosted: true, HostID: "urn:uuid:00000000-0000-4000-8000-000000000001", RedirectURL: chatgpt.LocalRedirect, PlanUsageEnabled: true},
+	} {
+		t.Run(name, func(t *testing.T) { testChatGPTConnectionCustodyAndSetupIsolation(t, config) })
+	}
+}
+
+func testChatGPTConnectionCustodyAndSetupIsolation(t *testing.T, config chatgpt.Config) {
 	f := newInventoryFixture(t, 0)
 	ctx := context.Background()
 	status, err := f.connections.ChatGPTStatus(ctx, f.owner, f.org)
 	if err != nil || status.Available {
 		t.Fatalf("unconfigured hosted client enabled: %+v %v", status, err)
 	}
-	f.connections.SetChatGPT(chatgpt.Config{ClientID: "oaiapp_fixture", RedirectURL: "https://app.example/auth/openai/callback", PlanUsageEnabled: true})
+	f.connections.SetChatGPT(config)
 	const access = "oauth-test-access-never-return"
 	f.connections.RegisterCatalog(func(_ context.Context, r connections.Resolved) ([]connections.CatalogItem, error) {
 		if r.Secret != access || r.Connection.Settings.BillingRoute != "subscription" || r.Connection.Endpoint != chatgpt.Resource {
@@ -35,7 +44,7 @@ func TestChatGPTConnectionCustodyAndSetupIsolation(t *testing.T) {
 	})
 	id, other := domain.NewID(), domain.NewID()
 	browser, state := chatgpt.Random(), chatgpt.Random()
-	raw, _ := json.Marshal(map[string]any{"name": "ChatGPT fixture", "nonce": "nonce", "verifier": "verifier", "credentials": chatgpt.Credentials{ClientID: "oaiapp_fixture", Subject: "verified-subject", Email: "owner@example.test", AccessToken: access, RefreshToken: "oauth-test-refresh", IDToken: "retained-id", Scopes: "resource.invoke chatgpt.tokens.use.direct", Expiry: time.Now().Add(time.Hour)}})
+	raw, _ := json.Marshal(map[string]any{"name": "ChatGPT fixture", "nonce": "nonce", "verifier": "verifier", "host_id": config.HostID, "credentials": chatgpt.Credentials{ClientID: "oaiapp_fixture", HostID: config.HostID, Subject: "verified-subject", Email: "owner@example.test", AccessToken: access, RefreshToken: "oauth-test-refresh", IDToken: "retained-id", Scopes: "resource.invoke chatgpt.tokens.use.direct", Expiry: time.Now().Add(time.Hour)}})
 	envelope, err := f.vault.SealContext(ctx, secrets.Binding{OrgID: f.org, ConnectionID: id, Version: 1}, raw)
 	if err != nil {
 		t.Fatal(err)

@@ -98,7 +98,11 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	identity.SetOrgOIDCVault(vault)
 	app.RegisterIdentity(identity)
 	connectionService := connections.New(db, identity, vault, cfg.Development)
-	connectionService.SetChatGPT(chatgpt.Config{ClientID: os.Getenv("REFORGE_CHATGPT_CLIENT_ID"), ClientSecret: os.Getenv("REFORGE_CHATGPT_CLIENT_SECRET"), RedirectURL: cfg.PublicURL + "/auth/openai/callback", PlanUsageEnabled: os.Getenv("REFORGE_CHATGPT_PLAN_USAGE_ENABLED") == "true"})
+	chatGPTConfig := chatgpt.Config{ClientID: os.Getenv("REFORGE_CHATGPT_CLIENT_ID"), ClientSecret: os.Getenv("REFORGE_CHATGPT_CLIENT_SECRET"), RedirectURL: cfg.PublicURL + "/auth/openai/callback", PlanUsageEnabled: os.Getenv("REFORGE_CHATGPT_PLAN_USAGE_ENABLED") == "true", SelfHosted: os.Getenv("REFORGE_CHATGPT_SELF_HOSTED") == "true", HostID: os.Getenv("REFORGE_CHATGPT_HOST_ID")}
+	if chatGPTConfig.SelfHosted {
+		chatGPTConfig.RedirectURL = chatgpt.LocalRedirect
+	}
+	connectionService.SetChatGPT(chatGPTConfig)
 	providers.Factory{Development: cfg.Development}.Register(connectionService)
 	app.RegisterConnections(connectionService)
 	app.RegisterChatGPT(connectionService)

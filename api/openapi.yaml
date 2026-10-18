@@ -22053,6 +22053,9 @@
           "url": {
             "type": "string",
             "format": "uri"
+          },
+          "helper": {
+            "type": "string"
           }
         }
       },

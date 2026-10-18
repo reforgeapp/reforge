@@ -1654,7 +1654,8 @@ type Capability struct {
 type CapabilityState string
 type ChangeState string
 type ChatGPTAuthorization struct {
-	Url string `json:"url"`
+	Helper *string `json:"helper,omitempty"`
+	Url    string  `json:"url"`
 }
 type ChatGPTModelInput struct {
 	Model string `json:"model"`

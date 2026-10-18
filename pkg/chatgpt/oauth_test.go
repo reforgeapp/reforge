@@ -28,14 +28,23 @@ func reply(status int, value any) *http.Response {
 }
 
 func TestOAuthPKCEIdentityGrantAndRefresh(t *testing.T) {
+	for name, config := range map[string]Config{
+		"registered":  {ClientID: "oaiapp_fixture", RedirectURL: "https://app.example/auth/openai/callback", PlanUsageEnabled: true},
+		"self-hosted": {SelfHosted: true, HostID: "urn:uuid:00000000-0000-4000-8000-000000000001", RedirectURL: LocalRedirect, PlanUsageEnabled: true},
+	} {
+		t.Run(name, func(t *testing.T) { testOAuthPKCEIdentityGrantAndRefresh(t, config) })
+	}
+}
+
+func testOAuthPKCEIdentityGrantAndRefresh(t *testing.T, config Config) {
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	if err != nil {
 		t.Fatal(err)
 	}
-	config := Config{ClientID: "oaiapp_fixture", RedirectURL: "https://app.example/auth/openai/callback", PlanUsageEnabled: true}
+	registrationID := "oaiapp_fixture"
 	nonce, verifier, state := Random(), Random(), Random()
 	scopes := "openid profile email offline_access resource.invoke chatgpt.tokens.use.direct"
-	claims := map[string]any{"iss": Issuer, "aud": config.ClientID, "sub": "owner-subject", "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(), "nonce": nonce, "email": "owner@example.test"}
+	claims := map[string]any{"iss": Issuer, "aud": registrationID, "sub": "owner-subject", "exp": time.Now().Add(time.Hour).Unix(), "iat": time.Now().Unix(), "nonce": nonce, "email": "owner@example.test"}
 	sign := func() string {
 		header := base64.RawURLEncoding.EncodeToString([]byte(`{"alg":"RS256","kid":"fixture"}`))
 		raw, _ := json.Marshal(claims)
@@ -61,7 +70,7 @@ func TestOAuthPKCEIdentityGrantAndRefresh(t *testing.T) {
 			return reply(200, map[string]any{"keys": []any{map[string]string{"kty": "RSA", "alg": "RS256", "use": "sig", "kid": "fixture", "n": base64.RawURLEncoding.EncodeToString(key.PublicKey.N.Bytes()), "e": base64.RawURLEncoding.EncodeToString(exponent)}}}), nil
 		case "/api/accounts/oauth/token":
 			tokenRequests++
-			if r.ParseForm() != nil || r.Form.Get("client_id") != config.ClientID || r.Form.Get("resource") != Resource || r.Form.Get("client_secret") != "" {
+			if r.ParseForm() != nil || r.Form.Get("client_id") != registrationID || r.Form.Get("resource") != Resource || r.Form.Get("client_secret") != "" {
 				t.Fatal("invalid OAuth token binding")
 			}
 			if refreshing {
@@ -75,7 +84,7 @@ func TestOAuthPKCEIdentityGrantAndRefresh(t *testing.T) {
 			}
 			return reply(200, map[string]any{"access_token": "access-one", "refresh_token": "refresh-one", "id_token": sign(), "token_type": "Bearer", "expires_in": 3600, "scope": scopes}), nil
 		case "/oauth/revoke":
-			if r.ParseForm() != nil || r.Form.Get("token") != "refresh-two" || r.Form.Get("client_id") != config.ClientID || r.Form.Get("token_type_hint") != "refresh_token" {
+			if r.ParseForm() != nil || r.Form.Get("token") != "refresh-two" || r.Form.Get("client_id") != registrationID || r.Form.Get("token_type_hint") != "refresh_token" {
 				t.Fatal("revocation lost current session")
 			}
 			return reply(200, nil), nil
@@ -94,9 +103,36 @@ func TestOAuthPKCEIdentityGrantAndRefresh(t *testing.T) {
 	if query.Get("state") != state || query.Get("nonce") != nonce || query.Get("code_challenge") != Digest(verifier) || query.Get("code_challenge_method") != "S256" || !strings.Contains(query.Get("scope"), "chatgpt.tokens.use.direct") {
 		t.Fatal("authorization missing consent or PKCE")
 	}
-	credentials, err := oauth.Exchange(context.Background(), "authorization-code", nonce, verifier)
+	exchange := func() (Credentials, error) {
+		return oauth.ExchangeRegistration(context.Background(), "authorization-code", nonce, verifier, config.ClientID, registrationID)
+	}
+	if config.SelfHosted {
+		if query.Get("client_id") != "dynamic_agent_client" || query.Get("agent_name_hint") != "Reforge" || query.Get("ext_agent_host_id") != config.HostID || query.Get("redirect_uri") != LocalRedirect {
+			t.Fatal("self-hosted registration lost host or loopback binding")
+		}
+		returning, _ := url.Parse(oauth.AuthorizationURL(state, nonce, verifier, registrationID))
+		if returning.Query().Get("client_id") != registrationID || returning.Query().Has("agent_name_hint") {
+			t.Fatal("reauthorization did not reuse issued registration")
+		}
+		for _, issued := range []string{"", "dynamic_agent_client"} {
+			if _, err := oauth.ExchangeRegistration(context.Background(), "authorization-code", nonce, verifier, "", issued); !errors.Is(err, ErrAuthorization) {
+				t.Fatal("registration accepted missing issued client")
+			}
+		}
+		if _, err := oauth.ExchangeRegistration(context.Background(), "authorization-code", nonce, verifier, registrationID, "oaiapp_other"); !errors.Is(err, ErrAuthorization) {
+			t.Fatal("reauthorization replaced selected registration")
+		}
+	}
+	credentials, err := exchange()
 	if err != nil || credentials.Subject != "owner-subject" {
 		t.Fatalf("validated account not retained: %v", err)
+	}
+	if config.SelfHosted {
+		wrongHost := config
+		wrongHost.HostID = "urn:uuid:00000000-0000-4000-8000-000000000002"
+		if wrongHost.Accepts(credentials) {
+			t.Fatal("credentials crossed host boundary")
+		}
 	}
 	refreshing = true
 	renewed, err := oauth.Refresh(context.Background(), credentials)
@@ -114,13 +150,13 @@ func TestOAuthPKCEIdentityGrantAndRefresh(t *testing.T) {
 		} else {
 			claims[field] = "wrong"
 		}
-		if _, err := oauth.Exchange(context.Background(), "authorization-code", nonce, verifier); !errors.Is(err, ErrAuthorization) {
+		if _, err := exchange(); !errors.Is(err, ErrAuthorization) {
 			t.Fatalf("accepted invalid %s", field)
 		}
 		claims[field] = original
 	}
 	scopes = "openid profile email"
-	if _, err := oauth.Exchange(context.Background(), "authorization-code", nonce, verifier); !errors.Is(err, ErrPermission) {
+	if _, err := exchange(); !errors.Is(err, ErrPermission) {
 		t.Fatal("identity-only login authorized inference")
 	}
 	if tokenRequests != 7 {

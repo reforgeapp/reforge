@@ -29,6 +29,8 @@ type chatGPTAttempt struct {
 	Verifier     string              `json:"verifier"`
 	ConnectionID string              `json:"connection_id,omitempty"`
 	Version      int64               `json:"version,omitempty"`
+	ClientID     string              `json:"client_id,omitempty"`
+	HostID       string              `json:"host_id,omitempty"`
 	Credentials  chatgpt.Credentials `json:"credentials"`
 }
 
@@ -70,7 +72,7 @@ func (s *Service) RunChatGPTCleanup(ctx context.Context) {
 func (s *Service) ChatGPTStatus(ctx context.Context, session auth.Session, org string) (ChatGPTStatus, error) {
 	out := ChatGPTStatus{Available: s.chatGPT.Available()}
 	if !out.Available {
-		out.Reason = "ChatGPT plan connection awaits OpenAI hosted integration approval"
+		out.Reason = "ChatGPT plan connection needs self-hosted setup or an approved OpenAI OAuth client"
 	}
 	err := s.auth.WithActor(ctx, session, org, func(_ pgx.Tx, actor domain.Actor) error {
 		if actor.Role != domain.Owner {
@@ -136,7 +138,7 @@ func (s *Service) BeginChatGPT(ctx context.Context, session auth.Session, org, n
 		return "", auth.ErrInvalid
 	}
 	id, nonce, verifier, state := domain.NewID(), chatgpt.Random(), chatgpt.Random(), chatgpt.Random()
-	value := chatGPTAttempt{Name: name, Nonce: nonce, Verifier: verifier, ConnectionID: connection, Version: expected}
+	value := chatGPTAttempt{Name: name, Nonce: nonce, Verifier: verifier, ConnectionID: connection, Version: expected, HostID: s.chatGPT.HostID}
 	client, err := s.chatGPTClient(ctx)
 	if err != nil {
 		return "", err
@@ -146,6 +148,23 @@ func (s *Service) BeginChatGPT(ctx context.Context, session auth.Session, org, n
 		if actor.Role != domain.Owner || session.AutomationID() != "" {
 			return auth.ErrForbidden
 		}
+		if s.chatGPT.SelfHosted && connection == "" {
+			var priorID string
+			var raw []byte
+			err := tx.QueryRow(ctx, `SELECT id,envelope FROM chatgpt_setups WHERE org_id=$1 AND user_id=$2 AND session_hash=$3 AND phase='exchanging' AND expires_at>now() LIMIT 1`, org, actor.UserID, chatgpt.Digest(session.ID)).Scan(&priorID, &raw)
+			if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+				return err
+			}
+			if err == nil {
+				prior, err := s.openChatGPT(ctx, org, priorID, raw)
+				if err != nil {
+					return err
+				}
+				if prior.ConnectionID == "" && prior.Name == name && prior.HostID == value.HostID {
+					value.ClientID = prior.ClientID
+				}
+			}
+		}
 		if connection != "" {
 			current, err := load(ctx, tx, org, connection)
 			if err != nil {
@@ -154,6 +173,11 @@ func (s *Service) BeginChatGPT(ctx context.Context, session auth.Session, org, n
 			if !current.Settings.ChatGPT() || current.State == "revoked" || current.Version != expected {
 				return auth.ErrConflict
 			}
+			var credentials chatgpt.Credentials
+			if err := s.chatGPTCredentialsTx(ctx, tx, current, &credentials); err != nil {
+				return err
+			}
+			value.ClientID = credentials.ClientID
 		}
 		envelope, err := s.sealChatGPT(ctx, org, id, value)
 		if err != nil {
@@ -171,10 +195,10 @@ func (s *Service) BeginChatGPT(ctx context.Context, session auth.Session, org, n
 	if err != nil {
 		return "", err
 	}
-	return client.AuthorizationURL(org+"."+id+"."+state, nonce, verifier), nil
+	return client.AuthorizationURL(org+"."+id+"."+state, nonce, verifier, value.ClientID), nil
 }
 
-func (s *Service) CompleteChatGPT(ctx context.Context, session auth.Session, state, browser, code, failure string) (string, string, error) {
+func (s *Service) CompleteChatGPT(ctx context.Context, session auth.Session, state, browser, code, failure string, issued ...string) (string, string, error) {
 	parts := strings.Split(state, ".")
 	if len(parts) != 3 || !auth.ValidID(parts[0]) || !auth.ValidID(parts[1]) || len(parts[2]) != 43 || len(browser) != 43 {
 		return "", "", chatgpt.ErrAuthorization
@@ -204,7 +228,40 @@ func (s *Service) CompleteChatGPT(ctx context.Context, session auth.Session, sta
 		return org, id, err
 	}
 	defer client.Close()
-	attempt.Credentials, err = client.Exchange(ctx, code, attempt.Nonce, attempt.Verifier)
+	callbackClient := ""
+	if len(issued) == 1 {
+		callbackClient = issued[0]
+	}
+	expectedClient := s.chatGPT.ClientID
+	if s.chatGPT.SelfHosted {
+		if attempt.HostID != s.chatGPT.HostID {
+			return org, id, chatgpt.ErrAuthorization
+		}
+		expectedClient = attempt.ClientID
+		registrationID, err := client.RegistrationID(expectedClient, callbackClient)
+		if err != nil {
+			return org, id, err
+		}
+		attempt.ClientID = registrationID
+		err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, actor domain.Actor) error {
+			if actor.Role != domain.Owner {
+				return auth.ErrForbidden
+			}
+			envelope, err := s.sealChatGPT(ctx, org, id, attempt)
+			if err != nil {
+				return err
+			}
+			command, err := tx.Exec(ctx, `UPDATE chatgpt_setups SET envelope=$4 WHERE org_id=$1 AND id=$2 AND user_id=$3 AND phase='exchanging' AND expires_at>now()`, org, id, actor.UserID, envelope)
+			if err == nil && command.RowsAffected() != 1 {
+				return chatgpt.ErrAuthorization
+			}
+			return err
+		})
+		if err != nil {
+			return org, id, err
+		}
+	}
+	attempt.Credentials, err = client.ExchangeRegistration(ctx, code, attempt.Nonce, attempt.Verifier, expectedClient, callbackClient)
 	if err != nil {
 		return org, id, err
 	}
@@ -383,7 +440,7 @@ func (s *Service) resolveChatGPTTx(_ context.Context, _ pgx.Tx, resolved Resolve
 	var credentials chatgpt.Credentials
 	err := json.Unmarshal([]byte(resolved.Secret), &credentials)
 	resolved.Secret = ""
-	if err != nil || !resolved.Connection.ModelReady() || !s.chatGPT.Available() || !credentials.Valid(s.chatGPT.ClientID) || !credentials.Expiry.After(time.Now().Add(15*time.Second)) {
+	if err != nil || !resolved.Connection.ModelReady() || !s.chatGPT.Accepts(credentials) || !credentials.Expiry.After(time.Now().Add(15*time.Second)) {
 		return resolved, chatgpt.ErrRefresh
 	}
 	resolved.Secret = credentials.AccessToken
@@ -412,7 +469,7 @@ func (s *Service) RefreshChatGPT(ctx context.Context, org, id string) error {
 		if err := s.chatGPTCredentialsTx(ctx, tx, c, &credentials); err != nil {
 			return err
 		}
-		needsRefresh = !credentials.Valid(s.chatGPT.ClientID) || !credentials.Expiry.After(time.Now().Add(2*time.Minute))
+		needsRefresh = !s.chatGPT.Accepts(credentials) || !credentials.Expiry.After(time.Now().Add(2*time.Minute))
 		return nil
 	}); err != nil {
 		return err
@@ -444,7 +501,7 @@ func (s *Service) RefreshChatGPT(ctx context.Context, org, id string) error {
 		if err = s.chatGPTCredentialsTx(ctx, tx, c, &credentials); err != nil {
 			return err
 		}
-		if credentials.Valid(s.chatGPT.ClientID) && credentials.Expiry.After(time.Now().Add(2*time.Minute)) {
+		if s.chatGPT.Accepts(credentials) && credentials.Expiry.After(time.Now().Add(2*time.Minute)) {
 			return nil
 		}
 		refreshContext, stop := context.WithTimeout(ctx, 8*time.Second)

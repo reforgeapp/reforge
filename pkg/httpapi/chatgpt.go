@@ -40,7 +40,17 @@ func (s *Server) RegisterChatGPT(service *connections.Service) {
 			return
 		}
 		http.SetCookie(c.Writer, s.chatGPTCookie(browser, 600))
-		c.JSON(http.StatusCreated, gin.H{"url": location})
+		result := gin.H{"url": location}
+		if parsed, err := url.Parse(location); err == nil && parsed.Query().Get("redirect_uri") == chatgpt.LocalRedirect {
+			helper, err := chatgpt.LocalHelper(location, s.Config.PublicURL+"/auth/openai/callback")
+			if err != nil {
+				connectionFailure(c, err)
+				return
+			}
+			result["helper"] = helper
+		}
+		c.Header("Cache-Control", "no-store")
+		c.JSON(http.StatusCreated, result)
 	})
 	group.GET("/setups/:setupID", func(c *gin.Context) {
 		session, _ := SessionFromContext(c)
@@ -80,11 +90,11 @@ func (s *Server) RegisterChatGPT(service *connections.Service) {
 		}
 		http.SetCookie(c.Writer, s.chatGPTCookie("", -1))
 		query := c.Request.URL.Query()
-		if len(query["state"]) != 1 || len(query["code"]) > 1 || len(query["error"]) > 1 {
+		if len(query["state"]) != 1 || len(query["code"]) > 1 || len(query["error"]) > 1 || len(query["client_id"]) > 1 {
 			c.Redirect(http.StatusSeeOther, "/?chatgpt_result=failed")
 			return
 		}
-		org, id, err := service.CompleteChatGPT(c.Request.Context(), session, query.Get("state"), browser, query.Get("code"), query.Get("error"))
+		org, id, err := service.CompleteChatGPT(c.Request.Context(), session, query.Get("state"), browser, query.Get("code"), query.Get("error"), query.Get("client_id"))
 		location := "/"
 		if auth.ValidID(org) {
 			location = "/org/" + org + "/connections"

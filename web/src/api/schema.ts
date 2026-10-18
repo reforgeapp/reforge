@@ -5343,6 +5343,7 @@ export interface components {
         ChatGPTAuthorization: {
 
             url: string;
+            helper?: string;
         };
         ChatGPTSetup: {
             id: string;
