@@ -516,6 +516,12 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	}
 	var fallback struct{ Connection, Route string }
 	for _, c := range candidates {
+		if err := s.budgets.ModelHeadroomTx(ctx, tx, org, c.Connection, ""); err != nil {
+			if errors.Is(err, budget.ErrCapacity) || errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrUnknown) {
+				continue
+			}
+			return "", "", "", err
+		}
 		switch err := s.budgets.ConnectionHeadroomTx(ctx, tx, org, c.Connection); {
 		case err == nil:
 			if c.Connection != avoid {
@@ -535,7 +541,7 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 		return "", "", "Model connection budgets used up", nil
 	}
 	var configured int
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND r.config->>'mode'='priced'`, org).Scan(&configured); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND (r.config->>'mode'='priced' OR r.config->>'qualification_ref'='chatgpt-plan/v1')`, org).Scan(&configured); err != nil {
 		return "", "", "", err
 	}
 	if configured > 0 {

@@ -88,7 +88,7 @@ func (f Factory) Forge(ctx context.Context, r connections.Resolved, checks ...fu
 }
 func (f Factory) Model(r connections.Resolved) (model.ModelProvider, error) {
 	c := r.Connection
-	if c.Route != nil || r.Client == nil || c.Kind != "model" || c.Settings.BillingRoute != "direct_api" {
+	if c.Route != nil || r.Client == nil || !c.ModelReady() {
 		return nil, network.ErrDestination
 	}
 	cfg := model.Config{Endpoint: c.Endpoint, APIKey: r.Secret, Model: c.Settings.Model, Client: r.Client, Profile: c.Settings.Profile}

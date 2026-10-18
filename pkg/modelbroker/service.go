@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/chatgpt"
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/model"
@@ -122,7 +123,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		if err != nil {
 			return err
 		}
-		if initial.Kind != "model" || initial.State != "healthy" || initial.Settings.Model != in.Model || initial.Settings.BillingRoute != "direct_api" {
+		if !initial.ModelReady() || initial.State != "healthy" || initial.Settings.Model != in.Model {
 			return ErrUnavailable
 		}
 		if err = s.settleOrphansTx(ctx, tx, l); err != nil {
@@ -143,6 +144,14 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	}
 	if cached != nil {
 		return *cached, nil
+	}
+	if initial.Settings.ChatGPT() {
+		if err := s.connections.RefreshChatGPT(ctx, lease.OrgID, initial.ID); err != nil {
+			if errors.Is(err, chatgpt.ErrRefresh) || errors.Is(err, chatgpt.ErrPermission) {
+				return result, &domain.ProviderError{Kind: "auth", Message: "Reconnect your ChatGPT account"}
+			}
+			return result, err
+		}
 	}
 	ctx, cancel := context.WithTimeout(ctx, time.Duration(in.TimeoutMS)*time.Millisecond)
 	defer cancel()
@@ -191,7 +200,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			if err != nil {
 				return err
 			}
-			if route.Mode != "priced" {
+			if route.Mode != "priced" && !(current.Settings.ChatGPT() && budget.AutomaticEligible(route)) {
 				return ErrUnavailable
 			}
 			quote := budget.Quote{OperationID: in.OperationID, Model: in.Model, Route: t.ModelRoute, RouteVersion: route.Version, InputTokens: int64(len(raw)) + 4096, MaxOutputTokens: int64(in.MaxOutputTokens), MaxMilliseconds: in.TimeoutMS, MaxRequests: 1}
@@ -320,6 +329,11 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.WarnContext(ctx, "model turn rejected", "org_id", lease.OrgID, "operation_id", in.OperationID, "model", in.Model, "kind", providerError.Kind, "message", providerError.Message)
 	}
 	persistErr := s.db.Tenant(finalctx, lease.OrgID, "", func(tx pgx.Tx) error {
+		if providerError != nil && providerError.Kind == "quota" && initial.Settings.ChatGPT() {
+			if _, err := tx.Exec(finalctx, `UPDATE connections SET state='degraded',reason='ChatGPT plan usage unavailable. Manage usage in ChatGPT, then test this connection and resume the run' WHERE org_id=$1 AND id=$2`, lease.OrgID, initial.ID); err != nil {
+				return err
+			}
+		}
 		if rejected {
 			if _, e := s.budgets.SettleTx(finalctx, tx, lease.OrgID, reservation.ID, budget.Settlement{Known: true, Reference: "model-turn:" + in.OperationID}); e != nil {
 				return e
@@ -385,6 +399,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
 	if persistErr == nil && !known {
+		if providerError != nil && providerError.Kind == "quota" {
+			return model.TurnResult{}, providerError
+		}
 		return model.TurnResult{}, ErrTurnFailed
 	}
 	if persistErr != nil {

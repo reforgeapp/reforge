@@ -67,7 +67,9 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		case errors.Is(err, repair.ErrRunLimit):
 			Fail(c, 409, "run_limit", "Run reached its model turn or time limit", false)
 		case errors.Is(err, modelbroker.ErrUnavailable):
-			Fail(c, 409, "model_unavailable", "Use an approved direct API connection with a configured budget and assigned private runner", false)
+			Fail(c, 409, "model_unavailable", "Use an approved model connection with a configured allowance and assigned runner", false)
+		case errors.As(err, &provider) && provider.Kind == "auth":
+			Fail(c, 409, "model_unavailable", "Reconnect the model account, then resume the run", false)
 		case err != nil:
 			budgetFailure(c, err)
 		default:

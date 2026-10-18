@@ -53,7 +53,7 @@ coalesce((SELECT n.id::text FROM runners n JOIN runner_pools p ON p.org_id=n.org
 coalesce((SELECT rp.repository_id::text FROM runner_pool_repositories rp JOIN runner_pools p ON p.org_id=rp.org_id AND p.id=rp.pool_id JOIN chosen r ON r.id=rp.repository_id WHERE rp.org_id=$1 AND p.state='active' LIMIT 1),''),
 coalesce((SELECT s.reason FROM maintenance_scans s JOIN chosen r ON r.id=s.repository_id WHERE s.org_id=$1 AND s.state<>'complete'),''),
 coalesce((SELECT s.repository_id::text FROM maintenance_scans s JOIN chosen r ON r.id=s.repository_id WHERE s.org_id=$1 AND s.state<>'complete'),''),
-EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND coalesce((caps->>'micro_usd')::bigint,0)>0)`,
+EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation' AND NOT paused AND (coalesce((caps->>'micro_usd')::bigint,0)>0 OR coalesce((caps->>'requests')::bigint,0)>0 AND coalesce((caps->>'tokens')::bigint,0)>0 AND coalesce((caps->>'milliseconds')::bigint,0)>0 AND coalesce((caps->>'concurrency')::bigint,0)>0))`,
 			org, a.AllRepositories, a.RepositoryIDs, requested).Scan(&forge, &model, &priced, &repository, &scanned, &runner, &assigned, &scanReason, &scanRepository, &budgeted)
 		if err != nil {
 			return err
@@ -76,7 +76,11 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 					return err
 				}
 				var limits budget.Service
-				err = limits.HeadroomTx(ctx, tx, org)
+				if model != "" {
+					err = limits.ModelHeadroomTx(ctx, tx, org, model, repository)
+				} else {
+					err = limits.HeadroomTx(ctx, tx, org)
+				}
 				budgeted = err == nil
 				if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
 					return err

@@ -210,7 +210,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			}
 			bound := customcmd.SpecFromProfile(profile)
 			spec = &bound
-		} else if modelConnection.Kind != "model" || modelConnection.Settings.BillingRoute != "direct_api" {
+		} else if !modelConnection.ModelReady() {
 			return auth.ErrConflict
 		}
 		route, err = s.budgets.RouteTx(ctx, tx, org, in.ModelConnectionID, modelConnection.Settings.Model, in.ModelRoute)
