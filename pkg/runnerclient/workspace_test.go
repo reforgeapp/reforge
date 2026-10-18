@@ -1,6 +1,7 @@
 package runnerclient
 
 import (
+	"context"
 	"os"
 	"path/filepath"
 	"testing"
@@ -30,8 +31,26 @@ func TestBootstrapPrefersMaintenanceImage(t *testing.T) {
 	}
 	cfg := sandbox.RuntimeConfig{Images: map[string]string{"go": goImage, "maintenance": maintenance}}
 	p := repair.Plan{Image: "go", Recipe: recipes.Recipe{Name: "bootstrap"}}
-	if got := planImage(cfg, p); got != "maintenance" {
-		t.Fatalf("bootstrap image = %q, want maintenance", got)
+	image := planImage(cfg, p)
+	if image != "maintenance" {
+		t.Fatalf("bootstrap image = %q, want maintenance", image)
+	}
+	runtime := &recordingSandboxRuntime{}
+	request := sandbox.WorkspaceRequest{CommitSHA: "commit", Image: p.Image}
+	prepare := commandPreparer{
+		cfg:     cfg,
+		runtime: runtime,
+		image:   image,
+		fetch: func(context.Context, sandbox.WorkspaceRequest) (sandbox.Snapshot, error) {
+			return sandbox.Snapshot{CommitSHA: "commit"}, nil
+		},
+	}
+	_, err := prepare.prepare(context.Background(), request, nil, sandbox.Command{Args: []string{"/opt/reforge/tool", "validate-bootstrap"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(runtime.requests) != 1 || runtime.requests[0].Image != "maintenance" {
+		t.Fatalf("prepared image = %+v, want maintenance", runtime.requests)
 	}
 }
 

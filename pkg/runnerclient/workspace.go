@@ -25,7 +25,8 @@ type commandPreparer struct {
 }
 
 func (p commandPreparer) prepare(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {
-	if p.image != "" && !imageAvailable(p.cfg, request.Image) {
+	bootstrapValidator := len(command.Args) == 2 && path.Base(command.Args[0]) == "tool" && command.Args[1] == "validate-bootstrap"
+	if p.image != "" && (bootstrapValidator || !imageAvailable(p.cfg, request.Image)) {
 		request.Image = p.image
 	}
 	if p.cfg.Backend == "kubernetes" {
