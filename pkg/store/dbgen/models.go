@@ -77,6 +77,7 @@ type AutopilotAttempt struct {
 	BlockerKind     string             `json:"blocker_kind"`
 	MaxRuns         int32              `json:"max_runs"`
 	MergeNeedsHuman bool               `json:"merge_needs_human"`
+	PlatformRetries int32              `json:"platform_retries"`
 }
 
 type AutopilotBotMerge struct {

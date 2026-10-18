@@ -24,8 +24,12 @@ func EmitTx(ctx context.Context, tx pgx.Tx, event domain.Event) error {
 	_, err := tx.Exec(ctx, `INSERT INTO workflow_events(org_id,id,repository_id,type,aggregate_type,aggregate_id,aggregate_version,request_id,data_version,data) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`, event.OrgID, id, optional(event.RepositoryID), event.Type, event.AggregateType, event.AggregateID, event.AggregateVersion, event.RequestID, event.DataVersion, event.Data)
 	return err
 }
-func emitTask(ctx context.Context, tx pgx.Tx, t Task, eventType, requestID string) error {
-	return EmitTx(ctx, tx, domain.Event{OrgID: t.OrgID, RepositoryID: t.RepositoryID, Type: eventType, AggregateType: "task", AggregateID: t.ID, AggregateVersion: t.Version, RequestID: requestID, DataVersion: 1, Data: mustJSON(map[string]any{"state": t.State, "reason": t.Reason, "cancel_version": t.CancelVersion, "policy_hash": t.PolicyHash})})
+func emitTask(ctx context.Context, tx pgx.Tx, t Task, eventType, requestID string, platformFailure ...bool) error {
+	data := map[string]any{"state": t.State, "reason": t.Reason, "cancel_version": t.CancelVersion, "policy_hash": t.PolicyHash}
+	if len(platformFailure) > 0 && platformFailure[0] && eventType == "task.failed" {
+		data["platform_failure"] = true
+	}
+	return EmitTx(ctx, tx, domain.Event{OrgID: t.OrgID, RepositoryID: t.RepositoryID, Type: eventType, AggregateType: "task", AggregateID: t.ID, AggregateVersion: t.Version, RequestID: requestID, DataVersion: 1, Data: mustJSON(data)})
 }
 
 func (s *Service) Replay(ctx context.Context, session auth.Session, orgID string, after int64, limit int) (EventPage, error) {

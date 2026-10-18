@@ -40,7 +40,7 @@ func (s *Service) RequestFinding(ctx context.Context, session auth.Session, org 
 		return err
 	}
 	if c.runs >= c.runLimit {
-		return s.record(ctx, org, c, "", "blocked", "Fix attempts exhausted; review the evidence before retrying", 0, "exhausted")
+		return s.record(ctx, org, c, "", "blocked", "No verified fix yet; waiting for new evidence or repair tools", 0, "exhausted")
 	}
 	if s.Scan != nil {
 		_ = s.Scan(ctx, session, org, finding.RepositoryID, request)

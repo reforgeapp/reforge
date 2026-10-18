@@ -254,14 +254,14 @@ func (s *Service) List(ctx context.Context, session auth.Session, orgID, state s
 	return page, err
 }
 
-func setTaskState(ctx context.Context, tx pgx.Tx, t *Task, state domain.TaskState, reason, requestID string) error {
+func setTaskState(ctx context.Context, tx pgx.Tx, t *Task, state domain.TaskState, reason, requestID string, platformFailure ...bool) error {
 	t.State = state
 	t.Reason = reason
 	t.Version++
 	if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state=$3,reason=$4,version=$5,cancel_version=$6,policy_hash=$7,cancellation_requested=$8 WHERE org_id=$1 AND id=$2`, t.OrgID, t.ID, t.State, t.Reason, t.Version, t.CancelVersion, t.PolicyHash, t.CancellationRequested); err != nil {
 		return err
 	}
-	return emitTask(ctx, tx, *t, "task."+string(state), requestID)
+	return emitTask(ctx, tx, *t, "task."+string(state), requestID, platformFailure...)
 }
 
 func (s *Service) Cancel(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Task, error) {

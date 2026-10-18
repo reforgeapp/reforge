@@ -44,6 +44,11 @@ const WorkQuery = `WITH work AS (
  WHERE rr.org_id=$1 AND ($2 OR rr.repository_id=ANY($3::uuid[])) AND rr.state='published' AND rr.native_change IS NOT NULL AND coalesce(rr.native_change->>'state','open') IN ('open','opened')
  AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state='merged')
  AND NOT EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged'))
+ UNION ALL
+	 SELECT 'parked:'||coalesce(t.id::text,f.id::text||':'||f.version::text||':'||a.blocker_kind),f.repository_id::text,r.name,'repair','waiting','blocked',f.title,CASE a.blocker_kind WHEN 'platform' THEN CASE WHEN a.retry_after IS NULL THEN 'Waiting for runner or model service recovery' ELSE 'Retry scheduled after temporary runner or model service failure' END WHEN 'exhausted' THEN 'Reforge will try again when repository evidence or repair tools change' WHEN 'unsupported' THEN 'Waiting for repair tools that support this finding' ELSE 'Waiting for maintenance runner recovery' END,CASE WHEN t.id IS NOT NULL THEN 'runs?run='||t.id ELSE 'repositories?repository='||f.repository_id END,coalesce(t.created_at,a.updated_at)
+ FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id
+ WHERE a.org_id=$1 AND ($2 OR f.repository_id=ANY($3::uuid[])) AND f.state='open' AND a.outcome IN ('blocked','retry') AND a.blocker_kind IN ('platform','exhausted','unsupported','restore_runner') AND (t.id IS NULL OR t.state NOT IN ('queued','reproducing','planning','repairing','validating','publishing','reconciling','cancelling','blocked'))
+ AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.native_change IS NOT NULL)
 ) `
 
 func WorkCountsTx(ctx context.Context, tx pgx.Tx, a domain.Actor) (active, blocked, review int64, err error) {
