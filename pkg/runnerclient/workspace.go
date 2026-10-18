@@ -224,6 +224,11 @@ func imageAvailable(cfg sandbox.RuntimeConfig, image string) bool {
 }
 
 func planImage(cfg sandbox.RuntimeConfig, p repair.Plan) string {
+	if p.Recipe.Name == "bootstrap" {
+		if image := maintenanceImage(cfg); image != "" {
+			return image
+		}
+	}
 	if imageAvailable(cfg, p.Image) {
 		return p.Image
 	}
@@ -242,4 +247,27 @@ func planImage(cfg sandbox.RuntimeConfig, p repair.Plan) string {
 		}
 	}
 	return p.Image
+}
+
+func maintenanceImage(cfg sandbox.RuntimeConfig) string {
+	if cfg.Kubernetes != nil {
+		image := cfg.Kubernetes.Toolchains["maintenance"]
+		if imageAvailable(cfg, image) {
+			return image
+		}
+		return ""
+	}
+	for digest, root := range cfg.Images {
+		available := true
+		for _, binary := range []string{"usr/local/go/bin/go", "usr/local/bin/node", "usr/local/bin/python3"} {
+			if _, err := os.Stat(filepath.Join(root, binary)); err != nil {
+				available = false
+				break
+			}
+		}
+		if available {
+			return digest
+		}
+	}
+	return ""
 }

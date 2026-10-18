@@ -1,11 +1,39 @@
 package runnerclient
 
 import (
+	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
 )
+
+func TestBootstrapPrefersMaintenanceImage(t *testing.T) {
+	goImage := t.TempDir()
+	maintenance := t.TempDir()
+	for _, binary := range []string{"usr/local/go/bin/go", "usr/local/bin/node", "usr/local/bin/python3"} {
+		for _, root := range []string{maintenance, goImage} {
+			if root == goImage && binary != "usr/local/go/bin/go" {
+				continue
+			}
+			name := filepath.Join(root, binary)
+			if err := os.MkdirAll(filepath.Dir(name), 0755); err != nil {
+				t.Fatal(err)
+			}
+			if err := os.WriteFile(name, nil, 0644); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	cfg := sandbox.RuntimeConfig{Images: map[string]string{"go": goImage, "maintenance": maintenance}}
+	p := repair.Plan{Image: "go", Recipe: recipes.Recipe{Name: "bootstrap"}}
+	if got := planImage(cfg, p); got != "maintenance" {
+		t.Fatalf("bootstrap image = %q, want maintenance", got)
+	}
+}
 
 func TestHasNpmLockfileFindsNearestWorkspaceAncestor(t *testing.T) {
 	snapshot := sandbox.Snapshot{Files: []guest.File{
