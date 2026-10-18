@@ -39,6 +39,7 @@ const providerLabels: Record<string, string> = {
 }
 
 export function connectionProviderLabel(provider: string, profile?: string) {
+  if (provider === 'openai' && profile === 'chatgpt_plan') return 'ChatGPT'
   if (provider === 'compatible' && (profile === 'opencode_zen' || profile === 'opencode_go')) return 'OpenCode'
   return providerLabels[provider] ?? provider
 }
