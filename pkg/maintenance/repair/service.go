@@ -298,7 +298,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			}
 			bound := customcmd.SpecFromProfile(profile)
 			spec = &bound
-		} else if modelConnection.Kind != "model" || modelConnection.Settings.BillingRoute != "direct_api" {
+		} else if !modelConnection.NativeAgent() && (modelConnection.Kind != "model" || modelConnection.Settings.BillingRoute != "direct_api") {
 			return auth.ErrConflict
 		}
 		route, err = s.budgets.RouteTx(ctx, tx, org, in.ModelConnectionID, modelConnection.Settings.Model, in.ModelRoute)
@@ -309,7 +309,7 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 			if route.Mode != "quota" || route.Paused || !route.Qualified || route.QualificationRef == "" {
 				return budget.ErrUnknown
 			}
-		} else if !budget.AutomaticEligible(route) {
+		} else if modelConnection.NativeAgent() && !budget.NativeEligible(route) || !modelConnection.NativeAgent() && !budget.AutomaticEligible(route) {
 			return budget.ErrUnknown
 		}
 		if err = tx.QueryRow(ctx, `SELECT p.version FROM runner_pool_repositories rp JOIN runner_pools p ON p.org_id=rp.org_id AND p.id=rp.pool_id WHERE rp.org_id=$1 AND rp.pool_id=$2 AND rp.repository_id=$3 AND p.state='active'`, org, in.RunnerPoolID, f.RepositoryID).Scan(&poolVersion); err != nil {

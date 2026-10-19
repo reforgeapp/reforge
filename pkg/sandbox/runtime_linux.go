@@ -34,6 +34,7 @@ type Snapshot struct {
 }
 
 type KubernetesRuntimeConfig struct {
+	AgentImage             string            `json:"agent_image,omitempty"`
 	Namespace              string            `json:"namespace"`
 	RunnerID               string            `json:"-"`
 	RuntimeClassName       string            `json:"runtime_class_name,omitempty"`

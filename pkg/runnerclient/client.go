@@ -18,6 +18,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/artifact"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/model"
@@ -32,14 +33,15 @@ var ErrUnauthorized = errors.New("runner credential rejected")
 var ErrSourceMoved = errors.New("native source or target moved")
 
 type Config struct {
-	Endpoint       string        `json:"endpoint"`
-	Development    bool          `json:"development"`
-	Name           string        `json:"name"`
-	Slots          int           `json:"slots"`
-	Internal       bool          `json:"internal"`
-	CredentialFile string        `json:"credential_file"`
-	DrainTimeout   time.Duration `json:"drain_timeout"`
-	Client         *http.Client  `json:"-"`
+	Endpoint       string               `json:"endpoint"`
+	Development    bool                 `json:"development"`
+	Name           string               `json:"name"`
+	Slots          int                  `json:"slots"`
+	Internal       bool                 `json:"internal"`
+	CredentialFile string               `json:"credential_file"`
+	DrainTimeout   time.Duration        `json:"drain_timeout"`
+	Client         *http.Client         `json:"-"`
+	NativeAgents   *agent.NativeManager `json:"-"`
 }
 
 type Client struct {
@@ -73,6 +75,8 @@ func (Job) String() string   { return "[runner job]" }
 func (Job) GoString() string { return "[runner job]" }
 
 type Processor func(context.Context, *Client, Job) (workflow.Completion, error)
+
+func (c *Client) NativeAgents() *agent.NativeManager { return c.config.NativeAgents }
 
 func New(cfg Config) (*Client, error) {
 	u, err := url.Parse(cfg.Endpoint)
@@ -294,12 +298,16 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 			base = errors.Join(base, ErrProviderUnavailable)
 		}
 		modelFailure := false
+		if decoded && response.StatusCode == http.StatusUnauthorized && (failure.Code == "agent_sign_in_required" || failure.Code == "agent_sign_in_uncertain") {
+			base = &domain.ProviderError{Kind: "agent_auth", Message: "Sign in to your agent account again; work resumes automatically", Uncertain: failure.Code == "agent_sign_in_uncertain"}
+			modelFailure = true
+		}
 		if decoded && response.StatusCode == http.StatusPaymentRequired && (failure.Code == "model_billing_unavailable" || failure.Code == "model_billing_uncertain") {
 			base = &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", Uncertain: failure.Code == "model_billing_uncertain"}
 			modelFailure = true
 		}
-		if decoded && response.StatusCode == http.StatusTooManyRequests && failure.Code == "model_rate_limit" {
-			base = &domain.ProviderError{Kind: "quota", Message: "Model provider rate limit or quota reached; retry later"}
+		if decoded && response.StatusCode == http.StatusTooManyRequests && (failure.Code == "model_rate_limit" || failure.Code == "model_rate_limit_uncertain") {
+			base = &domain.ProviderError{Kind: "quota", Message: "Model provider rate limit or quota reached; retry later", Uncertain: failure.Code == "model_rate_limit_uncertain"}
 			modelFailure = true
 		}
 		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "source_moved" {
@@ -449,7 +457,7 @@ func completionReason(err error) string {
 		reason = "Git provider temporarily unavailable"
 	case errors.Is(err, ErrTransientControlPlane):
 		reason = "Control plane temporarily unavailable"
-	case errors.As(err, &provider) && (provider.Kind == "billing" || provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited"):
+	case errors.As(err, &provider) && (provider.Kind == "billing" || provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited" || provider.Kind == "agent_auth"):
 		reason = provider.Message
 	default:
 		reason = err.Error()

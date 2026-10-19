@@ -55,6 +55,13 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		result, err := service.Turn(c.Request.Context(), strings.TrimPrefix(token, "Bearer "), in)
 		var provider *domain.ProviderError
 		switch {
+		case errors.As(err, &provider) && provider.Kind == "agent_auth":
+			c.Header("Retry-After", "900")
+			code := "agent_sign_in_required"
+			if provider.Uncertain {
+				code = "agent_sign_in_uncertain"
+			}
+			Fail(c, http.StatusUnauthorized, code, "Sign in to your agent account again; work resumes automatically", false)
 		case errors.As(err, &provider) && provider.Kind == "billing":
 			retryAfter := max(provider.RetryAfter, 15*time.Minute)
 			c.Header("Retry-After", strconv.FormatInt(int64(retryAfter/time.Second), 10))
@@ -67,7 +74,11 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 			if provider.RetryAfter > 0 {
 				c.Header("Retry-After", strconv.FormatInt(int64(provider.RetryAfter/time.Second), 10))
 			}
-			Fail(c, 429, "model_rate_limit", "Model provider rate limit or quota reached; retry later", false)
+			code := "model_rate_limit"
+			if provider.Uncertain {
+				code = "model_rate_limit_uncertain"
+			}
+			Fail(c, 429, code, "Model provider rate limit or quota reached; retry later", false)
 		case errors.Is(err, modelbroker.ErrTurnFailed):
 			Fail(c, 409, "model_retry", "Model turn failed and was settled; retry the turn", true)
 		case errors.Is(err, modelbroker.ErrUncertain):
@@ -75,7 +86,7 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		case errors.Is(err, repair.ErrRunLimit):
 			Fail(c, 409, "run_limit", "Run reached its model turn or time limit", false)
 		case errors.Is(err, modelbroker.ErrUnavailable):
-			Fail(c, 409, "model_unavailable", "Use an approved direct API connection with a configured budget and assigned private runner", false)
+			Fail(c, 409, "model_unavailable", "Connect a verified model or agent with an available runner and maintenance allowance", false)
 		case err != nil:
 			budgetFailure(c, err)
 		default:

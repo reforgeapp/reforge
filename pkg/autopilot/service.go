@@ -441,7 +441,12 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		if err := tx.QueryRow(ctx, environmentFailing, org).Scan(&unhealthy); err != nil || unhealthy {
 			return err
 		}
-		switch err := s.budgets.HeadroomTx(ctx, tx, org); {
+		var err error
+		model, route, headroom, err = s.pickModel(ctx, tx, org, false, "")
+		if err != nil {
+			return err
+		}
+		switch err := s.budgets.ModelHeadroomTx(ctx, tx, org, model); {
 		case errors.Is(err, budget.ErrUnknown):
 			headroom = "Set a spend limit in Usage → Budgets"
 			return nil
@@ -454,10 +459,8 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		case err != nil:
 			return err
 		}
-		var err error
-		model, route, headroom, err = s.pickModel(ctx, tx, org, false, "")
-		if err != nil || model == "" {
-			return err
+		if model == "" {
+			return nil
 		}
 		var c candidate
 		err = tx.QueryRow(ctx, `SELECT f.id::text,f.version,f.repository_id::text,r.name,coalesce((SELECT a.task_id::text FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),''),coalesce((SELECT a.runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),0),coalesce((SELECT a.max_runs FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version),$4::integer),f.category,coalesce(f.evidence->'dependencies'->0->>'ecosystem',''),coalesce((SELECT to_char(q.requested_at AT TIME ZONE 'UTC','YYYYMMDDHH24MISSUS') FROM autopilot_requests q WHERE q.org_id=f.org_id AND q.repository_id=f.repository_id),'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND f.last_seen>clock_timestamp()-interval '1 hour' AND coalesce((f.evidence->>'complete')::boolean,false) AND (jsonb_array_length(coalesce(f.evidence->'blockers','[]'))=0 OR f.evidence->'blockers'=jsonb_build_array('`+discovery.WaitingForRebase+`'::text) AND EXISTS(SELECT 1 FROM autopilot_attempts x WHERE x.org_id=f.org_id AND x.finding_id=f.id AND x.finding_version=f.version AND x.reason='`+rebaseExhausted+`')) AND r.accessible AND NOT r.archived AND NOT r.paused AND NOT EXISTS(SELECT 1 FROM autopilot_attempts a LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version AND NOT (a.runs<a.max_runs AND (a.outcome='retry' AND a.retry_after<=clock_timestamp() OR a.outcome='blocked' AND a.blocker_kind='platform' AND a.retry_after<=clock_timestamp() OR a.outcome='queued' AND t.state IN ('failed','cancelled') AND a.updated_at<clock_timestamp()-interval '10 minutes' AND NOT EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=a.org_id AND rr.task_id=a.task_id AND rr.report->>'reason' LIKE 'Skipped:%' AND rr.updated_at>clock_timestamp()-interval '6 hours') OR a.outcome='queued' AND t.state='completed' AND EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=a.org_id AND m.task_id=a.task_id AND NOT m.active)))) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.evidence_digest=f.evidence_digest AND m.supersession IS NOT NULL) AND NOT EXISTS(SELECT 1 FROM maintenance_repairs m JOIN workflow_tasks t ON t.org_id=m.org_id AND t.id=m.task_id WHERE m.org_id=f.org_id AND m.finding_id=f.id AND m.active AND t.state NOT IN ('failed','cancelled')) AND ($2::text[] IS NULL OR f.repository_id::text=ANY($2)) ORDER BY f.repository_id::text=ANY($3) DESC,f.source='user_report' DESC,f.category='missing_validation' DESC,f.source='native_ci' DESC,coalesce(f.evidence->>'ownership','')='reforge' DESC,coalesce((SELECT max(a2.updated_at) FROM autopilot_attempts a2 JOIN maintenance_findings f2 ON f2.org_id=a2.org_id AND f2.id=a2.finding_id WHERE a2.org_id=f.org_id AND f2.repository_id=f.repository_id),'-infinity'),f.first_seen,f.id LIMIT 1`, org, filter, sc.requested, maxRuns).Scan(&c.finding, &c.version, &c.repository, &c.name, &c.previous, &c.runs, &c.runLimit, &c.category, &c.ecosystem, &c.requestGeneration)
@@ -524,7 +527,7 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	if largest {
 		order = turnCost + " DESC"
 	}
-	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` AND `+modelFailureCooldown+` ORDER BY `+order+`,c.created_at,r.name`, org)
+	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND `+budget.AutomaticConnectionSQL("c", "r")+` AND `+modelFailureCooldown+` ORDER BY `+order+`,c.created_at,r.name`, org)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -553,7 +556,7 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 		return "", "", "Model connection budgets used up", nil
 	}
 	var configured int
-	if err = tx.QueryRow(ctx, `SELECT count(*) FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND r.config->>'mode'='priced'`, org).Scan(&configured); err != nil {
+	if err = tx.QueryRow(ctx, `SELECT count(*) FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND r.config->>'mode'='priced'`, org).Scan(&configured); err != nil {
 		return "", "", "", err
 	}
 	if configured > 0 {
@@ -584,12 +587,12 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if resolved.Policy.Defaults.Model != "" {
 		err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` AND `+modelFailureCooldown+` ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&model, &route)
+			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticConnectionSQL("c", "r")+` AND `+modelFailureCooldown+` ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&model, &route)
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
 			var cooldownKind string
 			if cooldownErr := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-				return tx.QueryRow(ctx, `SELECT `+modelFailureCooldownKind+` FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&cooldownKind)
+				return tx.QueryRow(ctx, `SELECT `+modelFailureCooldownKind+` FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticConnectionSQL("c", "r")+` LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&cooldownKind)
 			}); cooldownErr != nil && !errors.Is(cooldownErr, pgx.ErrNoRows) {
 				return cooldownErr
 			}

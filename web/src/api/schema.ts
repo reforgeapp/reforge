@@ -2747,6 +2747,134 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/orgs/{orgID}/agents": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["nativeAgentOptions"];
+        put?: never;
+        post: operations["createNativeAgent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["nativeAgentStatus"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["nativeAgentLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["nativeAgentLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/code": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["nativeAgentCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["nativeAgentModels"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["nativeAgentVerify"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/default": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["useNativeAgentDefault"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3045,8 +3173,11 @@ export interface components {
             ca_pem?: string;
             allowed_models?: string[];
 
-            readonly managed?: "github_manifest" | "github_hosted";
+            readonly managed?: "github_manifest" | "github_hosted" | "native_runtime";
             readonly webhook_pending?: boolean;
+            readonly runtime_user_id?: string;
+            readonly runtime_runner_id?: string;
+            readonly runtime_disconnected?: boolean;
         };
         PrivateRoute: {
 
@@ -4035,6 +4166,7 @@ export interface components {
             turn_timeout_ms: number;
             finding: components["schemas"]["Finding"];
             policy_hash: string;
+
             prior_feedback?: string;
         };
         RepairPreview: {
@@ -5090,6 +5222,7 @@ export interface components {
             creates_organisation_limit: boolean;
             environments?: string[];
             delivery_repositories?: string[];
+            subscription?: boolean;
         };
         BugReport: {
             observed: string;
@@ -5271,6 +5404,43 @@ export interface components {
             expires_at: string;
             limits: string[];
             blockers: string[];
+        };
+        NativeAgentInput: {
+
+            provider: "codex" | "claude_code";
+            name?: string;
+        };
+        NativeAgentAction: {
+
+            login_id?: string;
+            code?: string;
+            model?: string;
+        };
+        NativeAgentOptions: {
+            available: boolean;
+            reason?: string;
+        };
+        NativeAgentState: {
+
+            state: "starting" | "pending" | "connected" | "ready" | "failed" | "disconnected";
+            login?: {
+                id: string;
+                url: string;
+                code?: string;
+            };
+            account?: {
+                id: string;
+                email?: string;
+                plan?: string;
+            };
+            models?: {
+                id: string;
+                name?: string;
+            }[];
+            model?: string;
+            version?: string;
+            reason?: string;
+            code_required?: boolean;
         };
     };
     responses: never;
@@ -12687,6 +12857,328 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RestorePlan"];
+                };
+            };
+        };
+    };
+    nativeAgentOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentOptions"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    createNativeAgent: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentInput"];
+            };
+        };
+        responses: {
+
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Connection"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentLogin: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentAction"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentLogout: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentAction"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentCode: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentAction"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentModels: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentAction"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    nativeAgentVerify: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["NativeAgentAction"];
+            };
+        };
+        responses: {
+
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["NativeAgentState"];
+                };
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
+                };
+            };
+        };
+    };
+    useNativeAgentDefault: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-CSRF-Token": string;
+            };
+            path: {
+                orgID: string;
+                connectionID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["APIError"];
                 };
             };
         };

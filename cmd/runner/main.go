@@ -315,7 +315,7 @@ func runPrivateWorker(ctx context.Context, client *runnerclient.Client, endpoint
 				private.Close()
 			}
 			var err error
-			private, err = privateconnector.NewClient(privateconnector.ClientConfig{Endpoint: endpoint, Credential: token, Target: privateconnector.Target{OrgID: identity.OrgID, RunnerID: identity.ID}, Development: development, CAPEM: ca, Client: httpClient})
+			private, err = privateconnector.NewClient(privateconnector.ClientConfig{Endpoint: endpoint, Credential: token, Target: privateconnector.Target{OrgID: identity.OrgID, RunnerID: identity.ID}, Development: development, CAPEM: ca, Client: httpClient, Internal: httpClient != nil, Agents: client.NativeAgents()})
 			if err != nil {
 				return err
 			}

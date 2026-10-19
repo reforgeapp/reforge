@@ -21,8 +21,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/runnerclient"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
+	"github.com/reforgeapp/reforge/pkg/sandbox/kubernetes"
 )
 
 var recipes = []string{"go", "javascript", "python"}
@@ -239,8 +241,9 @@ func runBuiltin(args []string) (retErr error) {
 	transport.Proxy = nil
 	defer transport.CloseIdleConnections()
 	httpClient := &http.Client{Transport: hostTransport{host: public.Host, base: transport}}
+	var nativeAgents *agent.NativeManager
 	newClient := func(name string) (*runnerclient.Client, error) {
-		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, Internal: true, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient})
+		return runnerclient.New(runnerclient.Config{Endpoint: f.endpoint, Development: true, Name: "built-in", Slots: f.slots, Internal: true, CredentialFile: filepath.Join(f.state, name+".json"), Client: httpClient, NativeAgents: nativeAgents})
 	}
 	control, err := newClient("control")
 	if err != nil {
@@ -250,6 +253,14 @@ func runBuiltin(args []string) (retErr error) {
 	defer cancel()
 	work, stopWork := runnerclient.Draining(ctx, f.drain)
 	defer stopWork()
+	if config.Backend == "kubernetes" && config.Kubernetes != nil && config.Kubernetes.AgentImage != "" {
+		kube := config.Kubernetes
+		client, err := kubernetes.NewHTTPPodClient(kubernetes.APIConfig{Namespace: kube.Namespace})
+		if err != nil {
+			return err
+		}
+		nativeAgents = agent.NewNativeManager(work, agent.NewNativeKubernetesOpen(agent.NativeKubernetesConfig{Client: client, Namespace: kube.Namespace, Image: kube.AgentImage, RuntimeClassName: kube.RuntimeClassName, ImagePullSecrets: kube.ImagePullSecrets, StorageClass: kube.CacheStorageClass, AccessMode: kube.CacheAccessMode}))
+	}
 	process, closeProcessor := runnerclient.RepairProcessorWithCloser(config)
 	var mu sync.Mutex
 	var workers, privateWorkers sync.WaitGroup

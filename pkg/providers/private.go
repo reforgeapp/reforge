@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/domain"
@@ -59,6 +60,9 @@ func RegisterPrivate(service *connections.Service, connector *privateconnector.C
 }
 func PrivateConnection(r connections.Resolved) privateconnector.Connection {
 	c := r.Connection
+	if c.NativeAgent() {
+		return privateconnector.Connection{Native: &agent.NativeScope{OrgID: c.OrgID, UserID: c.Settings.RuntimeUserID, ConnectionID: c.ID, RunnerID: c.Settings.RuntimeRunnerID, Provider: c.Provider, AccountID: c.Settings.Namespace}, Kind: "agent", AuthKind: "official_runtime", Model: c.Settings.Model, OrgID: c.OrgID, ID: c.ID, Version: c.Version, CredentialVersion: c.CredentialVersion, Provider: c.Provider}
+	}
 	out := privateconnector.Connection{CheckPublishers: r.CheckPublishers, Kind: c.Kind, AuthKind: c.Settings.AuthKind, AppID: c.Settings.AppID, InstallationID: c.Settings.InstallationID, Model: c.Settings.Model, Profile: c.Settings.Profile, OrgID: c.OrgID, ID: c.ID, Version: c.Version, CredentialVersion: c.CredentialVersion, Provider: c.Provider, Endpoint: c.Endpoint, CAPEM: []byte(c.Settings.CAPEM), Secret: r.Secret, Route: network.PrivateRoute{OrgID: c.OrgID, ConnectionID: c.ID, RunnerID: c.Route.RunnerID, Host: c.Route.Host, CIDRs: append([]string(nil), c.Route.CIDRs...)}}
 	if r.Protection != nil {
 		p := r.Protection

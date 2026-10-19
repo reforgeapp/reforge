@@ -74,6 +74,10 @@ jobs:
           - image: reforge-runner
             dockerfile: deploy/runner/Dockerfile
             context: .
+          - image: reforge-agent
+            dockerfile: deploy/runner/Dockerfile
+            context: .
+            target: agent-runtime
           - image: reforge-workspace-go
             dockerfile: deploy/runner/Dockerfile
             context: .

@@ -12668,6 +12668,547 @@
           }
         }
       }
+    },
+    "/api/v1/orgs/{orgID}/agents": {
+      "get": {
+        "operationId": "nativeAgentOptions",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentOptions"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createNativeAgent",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "201": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Connection"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentInput"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}": {
+      "get": {
+        "operationId": "nativeAgentStatus",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/login": {
+      "post": {
+        "operationId": "nativeAgentLogin",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/logout": {
+      "post": {
+        "operationId": "nativeAgentLogout",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/code": {
+      "post": {
+        "operationId": "nativeAgentCode",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/models": {
+      "post": {
+        "operationId": "nativeAgentModels",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/verify": {
+      "post": {
+        "operationId": "nativeAgentVerify",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeAgentState"
+                }
+              }
+            }
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeAgentAction"
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/orgs/{orgID}/agents/{connectionID}/default": {
+      "post": {
+        "operationId": "useNativeAgentDefault",
+        "security": [
+          {
+            "sessionCookie": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "orgID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "connectionID",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "X-CSRF-Token",
+            "in": "header",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Success"
+          },
+          "default": {
+            "description": "Structured failure",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/APIError"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -13869,11 +14410,24 @@
             "type": "string",
             "enum": [
               "github_manifest",
-              "github_hosted"
+              "github_hosted",
+              "native_runtime"
             ],
             "readOnly": true
           },
           "webhook_pending": {
+            "type": "boolean",
+            "readOnly": true
+          },
+          "runtime_user_id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "runtime_runner_id": {
+            "type": "string",
+            "readOnly": true
+          },
+          "runtime_disconnected": {
             "type": "boolean",
             "readOnly": true
           }
@@ -21092,6 +21646,9 @@
             "items": {
               "type": "string"
             }
+          },
+          "subscription": {
+            "type": "boolean"
           }
         }
       },
@@ -21802,6 +22359,141 @@
             "items": {
               "type": "string"
             }
+          }
+        }
+      },
+      "NativeAgentInput": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "provider"
+        ],
+        "properties": {
+          "provider": {
+            "type": "string",
+            "enum": [
+              "codex",
+              "claude_code"
+            ]
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 160
+          }
+        }
+      },
+      "NativeAgentAction": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "login_id": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "code": {
+            "type": "string",
+            "maxLength": 2048
+          },
+          "model": {
+            "type": "string",
+            "maxLength": 200
+          }
+        }
+      },
+      "NativeAgentOptions": {
+        "type": "object",
+        "required": [
+          "available"
+        ],
+        "properties": {
+          "available": {
+            "type": "boolean"
+          },
+          "reason": {
+            "type": "string"
+          }
+        }
+      },
+      "NativeAgentState": {
+        "type": "object",
+        "required": [
+          "state"
+        ],
+        "properties": {
+          "state": {
+            "type": "string",
+            "enum": [
+              "starting",
+              "pending",
+              "connected",
+              "ready",
+              "failed",
+              "disconnected"
+            ]
+          },
+          "login": {
+            "type": "object",
+            "required": [
+              "id",
+              "url"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "url": {
+                "type": "string"
+              },
+              "code": {
+                "type": "string"
+              }
+            }
+          },
+          "account": {
+            "type": "object",
+            "required": [
+              "id"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "email": {
+                "type": "string"
+              },
+              "plan": {
+                "type": "string"
+              }
+            }
+          },
+          "models": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "model": {
+            "type": "string"
+          },
+          "version": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "code_required": {
+            "type": "boolean"
           }
         }
       }

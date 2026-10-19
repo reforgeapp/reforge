@@ -12,6 +12,8 @@ import { StatusBadge } from '../components/Status'
 import { SplitView, DetailPanel } from '../components/Workspace'
 import { ModelEligibility, ModelPricing } from './ModelPricing'
 import { CustomProfilesPanel } from './CustomProfilesPanel'
+import { NativeAgentForm, NativeAgentPanel } from './NativeAgentPanel'
+import { nativeAgentAPI } from '../agent-api'
 import { AgentQualificationPanel } from './AgentQualificationPanel'
 import { ModelConnectionForm } from './ModelConnectionForm'
 import { ForgeConnectionForm } from './ForgeConnectionForm'
@@ -355,6 +357,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
   const connectionStatus = connectionStateStatus(connection.provider, connection.settings.profile, connection.state, connection.key_confirmed_at, connection.reason)
   const forgeLike = connection.kind === 'forge'
   const namespaceEditable = forgeLike && connection.settings.auth_kind !== 'github_app' && connection.settings.auth_kind !== 'github_app_platform'
+  const native = connection.settings.managed === 'native_runtime'
   const revoked = connection.state === 'revoked'
   const status = <p>
     <span title={connectionStatus.title}><StatusBadge label={connectionStatus.label} tone={connectionStatus.tone} /></span>
@@ -373,7 +376,7 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
     >{busy === 'test' ? 'Testing…' : 'Test connection'}</Button>}
     <Button disabled={!!busy || !csrf || revoked || !!edit} onClick={() => setEdit({ name: connection.name, namespace: connection.settings.namespace ?? '' })}>Edit</Button>
     <span className="detail-actions-end">
-      <Button className="button button-danger-ghost" disabled={!!busy || !csrf || revoked} onClick={() => setConfirmRevoke(true)}>Revoke</Button>
+      {!native && <Button className="button button-danger-ghost" disabled={!!busy || !csrf || revoked} onClick={() => setConfirmRevoke(true)}>Revoke</Button>}
       <Button className="button button-danger-ghost" disabled={!!busy || !csrf} onClick={() => setConfirmDelete(true)}>Delete</Button>
     </span>
   </>
@@ -384,11 +387,12 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
       {namespaceEditable && <label>Namespace<input value={edit.namespace} placeholder={connection.provider === 'github' ? 'org, user:name or owner/repo' : 'Organisation, group or owner'} onChange={event => setEdit({ ...edit, namespace: event.target.value })} /></label>}
       <div className="row-actions"><Button type="submit" className="button button-primary" disabled={!!busy || !edit.name.trim()}>{busy === 'edit' ? 'Saving…' : 'Save'}</Button><Button type="button" disabled={!!busy} onClick={() => setEdit(undefined)}>Cancel</Button></div>
     </form>}
-    <ConnectionDetailTabs kind={connection.kind} value={detailTab} onChange={setDetailTab} />
-    {detailTab === 'overview' && <ConnectionOverview connection={connection} capabilities={capabilities} />}
-    {detailTab === 'overview' && connection.kind==='agent' && !revoked && <ModelEligibility orgID={orgID} connectionID={connection.id} />}
+    <ConnectionDetailTabs native={native} kind={connection.kind} value={detailTab} onChange={setDetailTab} />
+    {detailTab === 'overview' && !native && <ConnectionOverview connection={connection} capabilities={capabilities} />}
+    {detailTab === 'overview' && native && !revoked && <NativeAgentPanel orgID={orgID} connection={connection} csrf={csrf} />}
+    {detailTab === 'overview' && connection.kind==='agent' && !native && !revoked && <ModelEligibility orgID={orgID} connectionID={connection.id} />}
     {detailTab === 'overview' && connection.kind === 'model' && connection.settings.billing_route === 'direct_api' && connection.settings.model && !revoked && <ModelPricing orgID={orgID} connectionID={connection.id} model={connection.settings.model} csrf={csrf} />}
-    {detailTab === 'qualification' && connection.kind === 'agent' && <AgentQualificationPanel orgID={orgID} connectionID={connection.id} provider={connection.provider} />}
+    {detailTab === 'qualification' && connection.kind === 'agent' && !native && <AgentQualificationPanel orgID={orgID} connectionID={connection.id} provider={connection.provider} />}
     {detailTab === 'configuration' && connection.kind !== 'agent' && <PrivateRouteEditor
       csrf={csrf}
       busy={busy}
@@ -418,18 +422,18 @@ function ConnectionDetail({ connectionID, orgID, csrf, onRefresh, onImport, onDe
     {error && <p className="error-text" role="alert">{error}</p>}
   </DetailPanel>
   <Dialog open={confirmRevoke} title="Revoke connection" onClose={() => setConfirmRevoke(false)}><p>Revoke {connection.name}? It will stop being available to this organisation.</p><div className="connection-confirm-actions"><Button type="button" disabled={!!busy} onClick={() => setConfirmRevoke(false)}>Cancel</Button><Button type="button" className="button-danger" disabled={!!busy || !csrf} onClick={() => void run('revoke', async () => { await api.revokeConnection(orgID, connection.id, connection.version, csrf); setConfirmRevoke(false) })}>{busy === 'revoke' ? 'Revoking…' : 'Revoke connection'}</Button></div></Dialog>
-  <Dialog open={confirmDelete} title="Delete connection" onClose={() => setConfirmDelete(false)}><p>Delete {connection.name}? This cannot be undone.</p>{error && confirmDelete && <p className="error-text" role="alert">{error}</p>}<div className="connection-confirm-actions"><Button type="button" disabled={!!busy} onClick={() => setConfirmDelete(false)}>Cancel</Button><Button type="button" className="button-danger" disabled={!!busy || !csrf} onClick={() => { setBusy('delete'); setError(''); void api.deleteConnection(orgID, connection.id, connection.version, csrf).then(() => { setConfirmDelete(false); onDeleted() }, reason => setError(message(reason))).finally(() => setBusy('')) }}>{busy === 'delete' ? 'Deleting…' : 'Delete connection'}</Button></div></Dialog>
+  <Dialog open={confirmDelete} title="Delete connection" onClose={() => setConfirmDelete(false)}><p>Delete {connection.name}? This cannot be undone.</p>{error && confirmDelete && <p className="error-text" role="alert">{error}</p>}<div className="connection-confirm-actions"><Button type="button" disabled={!!busy} onClick={() => setConfirmDelete(false)}>Cancel</Button><Button type="button" className="button-danger" disabled={!!busy || !csrf} onClick={() => { setBusy('delete'); setError(''); void (async () => { if (native && !connection.settings.runtime_disconnected) await nativeAgentAPI.action(orgID, connection.id, 'logout', csrf); const current = await api.getConnection(orgID, connection.id); await api.deleteConnection(orgID, connection.id, current.version, csrf) })().then(() => { setConfirmDelete(false); onDeleted() }, reason => setError(message(reason))).finally(() => setBusy('')) }}>{busy === 'delete' ? 'Deleting…' : 'Delete connection'}</Button></div></Dialog>
   </>
 }
 
 type ConnectionDetailTab = 'overview' | 'configuration' | 'qualification' | 'actions'
 
-function ConnectionDetailTabs({ kind, value, onChange }: { kind: string; value: ConnectionDetailTab; onChange: (tab: ConnectionDetailTab) => void }) {
+function ConnectionDetailTabs({ native = false, kind, value, onChange }: { native?: boolean; kind: string; value: ConnectionDetailTab; onChange: (tab: ConnectionDetailTab) => void }) {
   return <nav className="detail-tabs" aria-label="Connection detail">
     <Button aria-pressed={value === 'overview'} onClick={() => onChange('overview')}>Overview</Button>
     {kind !== 'agent' && <Button aria-pressed={value === 'configuration'} onClick={() => onChange('configuration')}>Configuration</Button>}
-    {kind === 'agent' && <Button aria-pressed={value === 'qualification'} onClick={() => onChange('qualification')}>Qualification</Button>}
-    <Button aria-pressed={value === 'actions'} onClick={() => onChange('actions')}>Actions</Button>
+    {kind === 'agent' && !native && <Button aria-pressed={value === 'qualification'} onClick={() => onChange('qualification')}>Qualification</Button>}
+    {!native && <Button aria-pressed={value === 'actions'} onClick={() => onChange('actions')}>Actions</Button>}
   </nav>
 }
 
@@ -677,7 +681,12 @@ type AgentConnectionFormProps = {
   onBusyChange?: (busy: boolean) => void
 }
 
-function AgentConnectionForm({ orgID, csrf, onClose, onCreated, onBusyChange }: AgentConnectionFormProps) {
+function AgentConnectionForm(props: AgentConnectionFormProps) {
+  const [advanced, setAdvanced] = useState(false)
+  return <div className="form-stack">{advanced ? <AdvancedAgentConnectionForm {...props} /> : <NativeAgentForm {...props} />}<Button type="button" onClick={() => setAdvanced(!advanced)}>{advanced ? 'Use built-in agent' : 'Other agent runtime'}</Button></div>
+}
+
+function AdvancedAgentConnectionForm({ orgID, csrf, onClose, onCreated, onBusyChange }: AgentConnectionFormProps) {
   const [provider, setProvider] = useState('codex')
   const [name, setName] = useState('')
   const [endpoint, setEndpoint] = useState('')

@@ -43,9 +43,13 @@ func (s *Service) Defaults(ctx context.Context, session auth.Session, org, repo 
 		for _, scope := range []string{"organisation", "repository"} {
 			var err error
 			if scope == "organisation" {
-				err = s.budgets.HeadroomTx(ctx, tx, org)
+				if resolved.Policy.Defaults.ConnectionID != "" {
+					err = s.budgets.ModelHeadroomTx(ctx, tx, org, resolved.Policy.Defaults.ConnectionID)
+				} else {
+					err = s.budgets.HeadroomTx(ctx, tx, org)
+				}
 			} else {
-				err = s.budgets.RepositoryHeadroomTx(ctx, tx, org, repo)
+				err = s.budgets.RepositoryModelHeadroomTx(ctx, tx, org, repo, resolved.Policy.Defaults.ConnectionID)
 			}
 			if errors.Is(err, budget.ErrUnknown) {
 				out.Blockers = append(out.Blockers, "Set a maintenance spending ceiling")
@@ -63,7 +67,7 @@ func (s *Service) Defaults(ctx context.Context, session auth.Session, org, repo 
 			out.Blockers = append(out.Blockers, "Choose an approved default in maintenance setup")
 			return nil
 		}
-		rows, err := tx.Query(ctx, `SELECT c.id::text,c.name,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` ORDER BY c.id LIMIT 2`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID)
+		rows, err := tx.Query(ctx, `SELECT c.id::text,c.name,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticConnectionSQL("c", "r")+` ORDER BY c.id LIMIT 2`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID)
 		if err != nil {
 			return err
 		}

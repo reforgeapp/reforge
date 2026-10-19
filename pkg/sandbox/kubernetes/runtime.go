@@ -735,10 +735,11 @@ func (r *Runtime) endEgress(ctx context.Context, state *workspaceState) error {
 }
 
 func validPodSpec(spec PodSpec) error {
+	networkOK := spec.NetworkProfile == "none" || spec.NetworkProfile == "agent" && spec.Labels["app.kubernetes.io/name"] == "reforge-agent" && spec.CacheClaim != "" && len(spec.Labels["reforge.io/account-key"]) == 32
 	if spec.CacheClaim != "" && (!strings.HasPrefix(spec.CacheClaim, "rf-cache-") || len(spec.CacheClaim) > 63) {
 		return ErrBoundary
 	}
-	if !namespaceValue.MatchString(spec.Ref.Namespace) || len(spec.Ref.Name) > 63 || !strings.HasPrefix(spec.Ref.Name, "rf-ws-") || !validImageRef(spec.Image) || !validPullSecrets(spec.ImagePullSecrets) || spec.RunAsUser != 65532 || !spec.RunAsNonRoot || spec.RunAsGroup != 65532 || spec.FSGroup != 65532 || spec.AllowPrivilegeEscalation || !spec.ReadOnlyRootFilesystem || !slicesEqual(spec.DropCapabilities, []string{"ALL"}) || spec.SeccompProfile != "RuntimeDefault" || spec.AutomountServiceAccountToken || spec.HostNetwork || spec.HostPID || spec.HostIPC || len(spec.HostPaths) != 0 || spec.WorkspaceEmptyDirBytes <= 0 || spec.TempEmptyDirBytes <= 0 || spec.ActiveDeadlineSeconds <= 0 || spec.RestartPolicy != "Never" || spec.NetworkProfile != "none" || spec.Resources.MemoryBytes <= 0 || spec.Resources.CPUs <= 0 || spec.Resources.DiskBytes <= 0 {
+	if !namespaceValue.MatchString(spec.Ref.Namespace) || len(spec.Ref.Name) > 63 || !strings.HasPrefix(spec.Ref.Name, "rf-ws-") || !validImageRef(spec.Image) || !validPullSecrets(spec.ImagePullSecrets) || spec.RunAsUser != 65532 || !spec.RunAsNonRoot || spec.RunAsGroup != 65532 || spec.FSGroup != 65532 || spec.AllowPrivilegeEscalation || !spec.ReadOnlyRootFilesystem || !slicesEqual(spec.DropCapabilities, []string{"ALL"}) || spec.SeccompProfile != "RuntimeDefault" || spec.AutomountServiceAccountToken || spec.HostNetwork || spec.HostPID || spec.HostIPC || len(spec.HostPaths) != 0 || spec.WorkspaceEmptyDirBytes <= 0 || spec.TempEmptyDirBytes <= 0 || spec.ActiveDeadlineSeconds <= 0 || spec.RestartPolicy != "Never" || !networkOK || spec.Resources.MemoryBytes <= 0 || spec.Resources.CPUs <= 0 || spec.Resources.DiskBytes <= 0 {
 		return ErrBoundary
 	}
 	for _, value := range spec.Labels {

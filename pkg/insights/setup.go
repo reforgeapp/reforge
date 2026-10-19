@@ -42,7 +42,7 @@ func (s *Service) Setup(ctx context.Context, session auth.Session, org string, r
 		err := tx.QueryRow(ctx, `WITH chosen AS (
 SELECT id,connection_id FROM repositories WHERE org_id=$1 AND accessible AND NOT archived AND ($2 OR id=ANY($3::uuid[])) AND ($4='' OR id::text=$4) ORDER BY name LIMIT 1
 ), priced_model AS (
-SELECT c.id FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` ORDER BY c.created_at,r.name LIMIT 1
+SELECT c.id FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND `+budget.AutomaticConnectionSQL("c", "r")+` ORDER BY c.created_at,r.name LIMIT 1
 ) SELECT
 coalesce((SELECT c.id::text FROM chosen r JOIN connections c ON c.org_id=$1 AND c.id=r.connection_id AND c.state='healthy'),CASE WHEN NOT EXISTS(SELECT 1 FROM chosen) THEN (SELECT id::text FROM connections WHERE org_id=$1 AND kind='forge' AND state='healthy' ORDER BY created_at LIMIT 1) END,''),
 coalesce((SELECT id::text FROM priced_model),(SELECT id::text FROM connections WHERE org_id=$1 AND kind='model' AND state='healthy' ORDER BY created_at LIMIT 1),''),
@@ -71,16 +71,28 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 			needsRepair = !policyReady || !slices.Contains(resolved.Policy.Deny, policy.Repair)
 			if needsRepair {
 				model, priced = "", ""
-				err = tx.QueryRow(ctx, `SELECT c.id::text,CASE WHEN `+budget.AutomaticRouteSQL("r")+` THEN c.id::text ELSE '' END FROM connections c LEFT JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' AND ($3='' OR r.name=$3) WHERE c.org_id=$1 AND c.state='healthy' AND c.kind='model' AND ($6='' OR c.id::text=$6) AND ($2='' OR c.settings->>'model'=$2) AND ($4::text[] IS NULL OR c.settings->>'model'=ANY($4)) AND ($5::text[] IS NULL OR r.name=ANY($5) OR c.id::text||'/'||r.name=ANY($5)) ORDER BY (`+budget.AutomaticRouteSQL("r")+`) DESC NULLS LAST,c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Allow.Models, resolved.Policy.Allow.Routes, resolved.Policy.Defaults.ConnectionID).Scan(&model, &priced)
+				err = tx.QueryRow(ctx, `SELECT c.id::text,CASE WHEN `+budget.AutomaticConnectionSQL("c", "r")+` THEN c.id::text ELSE '' END FROM connections c LEFT JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' AND ($3='' OR r.name=$3) WHERE c.org_id=$1 AND c.state='healthy' AND c.kind IN ('model','agent') AND ($6='' OR c.id::text=$6) AND ($2='' OR c.settings->>'model'=$2) AND ($4::text[] IS NULL OR c.settings->>'model'=ANY($4)) AND ($5::text[] IS NULL OR r.name=ANY($5) OR c.id::text||'/'||r.name=ANY($5)) ORDER BY (`+budget.AutomaticConnectionSQL("c", "r")+`) DESC NULLS LAST,c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Allow.Models, resolved.Policy.Allow.Routes, resolved.Policy.Defaults.ConnectionID).Scan(&model, &priced)
 				if err != nil && err != pgx.ErrNoRows {
 					return err
 				}
 				var limits budget.Service
-				err = limits.HeadroomTx(ctx, tx, org)
+				if model != "" {
+					err = limits.ModelHeadroomTx(ctx, tx, org, model)
+				} else {
+					err = limits.HeadroomTx(ctx, tx, org)
+				}
 				budgeted = err == nil
 				if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
 					return err
 				}
+			}
+		}
+		if repository == "" && priced != "" {
+			var limits budget.Service
+			err := limits.ModelHeadroomTx(ctx, tx, org, priced)
+			budgeted = err == nil
+			if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
+				return err
 			}
 		}
 		scan := SetupStep{ID: "scan", Done: scanned != "", RepositoryID: repository}

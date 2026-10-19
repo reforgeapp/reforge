@@ -65,7 +65,7 @@ func TestExistingReplaysKnownProviderRejections(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, failure := range []string{"billing", "billing_uncertain", "quota", "rate_limit", "rate_limited", "uncertain", "auth"} {
+	for _, failure := range []string{"billing", "billing_uncertain", "quota", "quota_uncertain", "rate_limit", "rate_limited", "agent_auth", "agent_auth_uncertain", "uncertain", "auth"} {
 		_, err = tx.Exec(context.Background(), `INSERT INTO model_turns (org_id,id,state,request_hash,task_id,attempt_id,failure) VALUES ('org',$1,'failed','hash','task','attempt',$2)`, failure, failure)
 		if err != nil {
 			t.Fatal(err)
@@ -77,18 +77,16 @@ func TestExistingReplaysKnownProviderRejections(t *testing.T) {
 	}
 	service := &Service{}
 	lease := workflow.Lease{OrgID: "org", TaskID: "task", AttemptID: "attempt"}
-	for _, failure := range []string{"billing", "billing_uncertain", "quota", "rate_limit", "rate_limited"} {
+	for _, failure := range []string{"billing", "billing_uncertain", "quota", "quota_uncertain", "rate_limit", "rate_limited", "agent_auth", "agent_auth_uncertain"} {
 		_, err = service.existing(context.Background(), tx, lease, failure, "hash")
 		var provider *domain.ProviderError
-		kind := failure
-		if failure == "billing_uncertain" {
-			kind = "billing"
-		}
-		if !errors.As(err, &provider) || provider.Kind != kind || provider.Uncertain != (failure == "billing_uncertain") || errors.Is(err, ErrTurnFailed) {
+		kind := strings.TrimSuffix(failure, "_uncertain")
+		uncertain := failure != kind
+		if !errors.As(err, &provider) || provider.Kind != kind || provider.Uncertain != uncertain || errors.Is(err, ErrTurnFailed) {
 			t.Fatalf("failure %s replayed as %v", failure, err)
 		}
-		if (failure == "billing" || failure == "billing_uncertain") && provider.RetryAfter != 15*time.Minute {
-			t.Fatalf("billing replay delay=%v", provider.RetryAfter)
+		if provider.RetryAfter != 15*time.Minute {
+			t.Fatalf("failure %s replay delay=%v", failure, provider.RetryAfter)
 		}
 	}
 	for _, failure := range []string{"uncertain", "auth"} {

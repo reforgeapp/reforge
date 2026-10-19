@@ -34,7 +34,8 @@ type Page struct {
 
 var query = `WITH managed AS (
  SELECT r.*,coalesce(rp.document#>>'{defaults,model}',op.document#>>'{defaults,model}','') AS model,
- coalesce(rp.document#>>'{defaults,route}',op.document#>>'{defaults,route}','') AS route
+ coalesce(rp.document#>>'{defaults,route}',op.document#>>'{defaults,route}','') AS route,
+ coalesce((SELECT c.kind='agent' AND c.settings->>'managed'='native_runtime' FROM connections c WHERE c.org_id=r.org_id AND c.state='healthy' AND c.kind IN ('model','agent') AND (coalesce(rp.document#>>'{defaults,connection_id}',op.document#>>'{defaults,connection_id}','')='' OR c.id::text=coalesce(rp.document#>>'{defaults,connection_id}',op.document#>>'{defaults,connection_id}')) AND (coalesce(rp.document#>>'{defaults,model}',op.document#>>'{defaults,model}','')='' OR c.settings->>'model'=coalesce(rp.document#>>'{defaults,model}',op.document#>>'{defaults,model}')) ORDER BY c.created_at LIMIT 1),false) AS subscription
   ,coalesce(rp.document#>>'{defaults,connection_id}',op.document#>>'{defaults,connection_id}','') AS model_connection
  FROM repositories r
  LEFT JOIN policy_bindings rb ON rb.org_id=r.org_id AND rb.scope_kind='repository' AND rb.scope_id=r.id
@@ -47,7 +48,7 @@ var query = `WITH managed AS (
  AND (EXISTS(SELECT 1 FROM autopilot_requests q WHERE q.org_id=r.org_id AND q.repository_id=r.id AND (q.continuous OR q.requested_at>now()-interval '1 day')) OR EXISTS(SELECT 1 FROM autopilot_settings s WHERE s.org_id=r.org_id AND s.enabled))
  AND EXISTS(SELECT 1 FROM maintenance_findings f WHERE f.org_id=r.org_id AND f.repository_id=r.id AND f.state='open')
 ), limits AS (
- SELECT l.*,coalesce((l.held->>'micro_usd')::bigint,0)+coalesce((s.amount->>'micro_usd')::bigint,0) AS used
+ SELECT l.*,coalesce((l.held->>'micro_usd')::bigint,0)+coalesce((s.amount->>'micro_usd')::bigint,0) AS used, EXISTS(SELECT 1 FROM jsonb_each_text(l.caps) cap WHERE cap.key IN ('tokens','milliseconds','requests','concurrency') AND cap.value IS NOT NULL AND coalesce((l.held->>cap.key)::bigint,0)+coalesce((s.amount->>cap.key)::bigint,0)>=cap.value::bigint) AS quota_exhausted
  FROM budget_limits l LEFT JOIN budget_spend s ON s.org_id=l.org_id AND s.scope_kind=l.scope_kind AND s.scope_id=l.scope_id AND s.period_start=CASE l.period WHEN 'daily' THEN date_trunc('day',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' WHEN 'monthly' THEN date_trunc('month',now() AT TIME ZONE 'UTC') AT TIME ZONE 'UTC' ELSE l.period_start END
  WHERE l.org_id=$1
 ), budget_scopes AS (
@@ -76,12 +77,12 @@ var query = `WITH managed AS (
  UNION ALL
  SELECT 'host:'||r.id,'reconnect','',0,r.id::text,r.name,'Reconnect code host','Code host access is unavailable','connections?connection='||r.connection_id,'Reconnect','operator',NULL FROM managed r JOIN connections c ON c.org_id=r.org_id AND c.id=r.connection_id WHERE c.state<>'healthy'
  UNION ALL
- SELECT 'budget:'||r.id||':'||coalesce(l.scope_kind,'organisation'),'raise_limit','',0,r.id::text,r.name,'Adjust maintenance spending limit',CASE WHEN l.paused THEN 'Spending paused' WHEN l.caps->>'micro_usd' IS NULL THEN 'Dollar ceiling missing' ELSE 'Spending allowance used or outside its budget period' END,'usage?scope_kind='||coalesce(l.scope_kind,'organisation')||'&scope_id='||coalesce(l.scope_id,r.org_id),'Adjust spending limit','owner',NULL
+ SELECT 'budget:'||r.id||':'||coalesce(l.scope_kind,'organisation'),'raise_limit','',0,r.id::text,r.name,'Adjust maintenance spending limit',CASE WHEN l.paused THEN 'Maintenance allowance paused' WHEN r.subscription THEN 'Maintenance allowance used or outside its budget period' WHEN l.caps->>'micro_usd' IS NULL THEN 'Dollar ceiling missing' ELSE 'Spending allowance used or outside its budget period' END,'usage?scope_kind='||coalesce(l.scope_kind,'organisation')||'&scope_id='||coalesce(l.scope_id,r.org_id),'Adjust spending limit','owner',NULL
  FROM managed r JOIN budget_scopes l ON l.repository_id=r.id
- WHERE l.org_id IS NULL OR l.paused OR l.scope_kind='organisation' AND l.caps->>'micro_usd' IS NULL OR l.used>=(l.caps->>'micro_usd')::bigint OR l.period='custom' AND (now()<l.period_start OR now()>=l.period_end)
+ WHERE l.org_id IS NULL OR l.paused OR NOT r.subscription AND (l.scope_kind='organisation' AND l.caps->>'micro_usd' IS NULL OR l.used>=(l.caps->>'micro_usd')::bigint) OR r.subscription AND l.quota_exhausted OR l.period='custom' AND (now()<l.period_start OR now()>=l.period_end)
  UNION ALL
- SELECT 'model:'||r.id,'reconnect','',0,r.id::text,r.name,'Connect approved maintenance model','Healthy approved model with known pricing unavailable','repositories?repository='||r.id,'Set up maintenance','operator',NULL FROM managed r
- WHERE NOT EXISTS(SELECT 1 FROM connections c JOIN budget_routes b ON b.org_id=c.org_id AND b.connection_id=c.id AND b.model=c.settings->>'model' WHERE c.org_id=r.org_id AND c.kind='model' AND c.state='healthy' AND ` + budget.AutomaticRouteSQL("b") + ` AND (r.model_connection='' OR r.model_connection=c.id::text) AND (r.model='' OR r.model=c.settings->>'model' AND r.route=b.name))
+ SELECT 'model:'||r.id,'reconnect','',0,r.id::text,r.name,'Connect approved maintenance model','Verified maintenance model unavailable','repositories?repository='||r.id,'Set up maintenance','operator',NULL FROM managed r
+ WHERE NOT EXISTS(SELECT 1 FROM connections c JOIN budget_routes b ON b.org_id=c.org_id AND b.connection_id=c.id AND b.model=c.settings->>'model' WHERE c.org_id=r.org_id AND c.kind IN ('model','agent') AND c.state='healthy' AND ` + budget.AutomaticConnectionSQL("c", "b") + ` AND (r.model_connection='' OR r.model_connection=c.id::text) AND (r.model='' OR r.model=c.settings->>'model' AND r.route=b.name))
 ) `
 
 func CountTx(ctx context.Context, tx pgx.Tx, a domain.Actor) (int64, error) {

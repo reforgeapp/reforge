@@ -510,7 +510,7 @@ func strictJSON(b []byte, out any) error {
 }
 func (r Result) valid(kind Kind) bool {
 	count := 0
-	for _, present := range []bool{r.Workflows != nil, r.DeploymentGates != nil, r.Deployment != nil, r.TrainGate != nil, r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.Behind != nil, r.File != nil, r.Files != nil, r.Log != "", r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil, r.Issues != nil, r.Advisories != nil, r.Link != ""} {
+	for _, present := range []bool{r.Native != nil, r.Workflows != nil, r.DeploymentGates != nil, r.Deployment != nil, r.TrainGate != nil, r.ExecutionCheck != nil, r.Queue != nil, r.MergeEvidence != nil, r.Merge != nil, r.Commit != nil, r.Capabilities != nil, r.Inventory != nil, r.Repository != nil, r.SHA != "", r.Behind != nil, r.File != nil, r.Files != nil, r.Log != "", r.Change != nil, r.Checks != nil, r.Approvals != nil, r.Changes != nil, r.ModelCapabilities != nil, r.Models != nil, r.Manifest != nil, r.Turn != nil, r.Issues != nil, r.Advisories != nil, r.Link != ""} {
 		if present {
 			count++
 		}
@@ -520,12 +520,14 @@ func (r Result) valid(kind Kind) bool {
 			return false
 		}
 		switch r.Failure.Code {
-		case "auth", "scope", "rate_limit", "protocol", "transient", "model_unsupported", "capability_unknown", "quota", "context", "canceled", "invalid_request", "configuration", "invalid", "identity", "pagination", "unauthorized", "forbidden", "conflict", "provider", "response", "not_found", "rate_limited", "transport", "uncertain", "unsupported", "credential_echo", "expired":
+		case "billing", "auth", "scope", "rate_limit", "protocol", "transient", "model_unsupported", "capability_unknown", "quota", "context", "canceled", "invalid_request", "configuration", "invalid", "identity", "pagination", "unauthorized", "forbidden", "conflict", "provider", "response", "not_found", "rate_limited", "transport", "uncertain", "unsupported", "credential_echo", "expired":
 			return true
 		}
 		return false
 	}
 	switch kind {
+	case AgentAction:
+		return count == 1 && r.Native != nil
 	case ForgeRefreshBranch:
 		return count == 0
 	case ForgeDeliveryWorkflows:

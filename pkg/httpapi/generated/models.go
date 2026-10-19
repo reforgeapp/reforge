@@ -2,6 +2,8 @@ package generated
 
 import (
 	"time"
+
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 const (
@@ -196,6 +198,7 @@ func (e ChangeState) Valid() bool {
 const (
 	GithubHosted   ConnectionSettingsManaged = "github_hosted"
 	GithubManifest ConnectionSettingsManaged = "github_manifest"
+	NativeRuntime  ConnectionSettingsManaged = "native_runtime"
 )
 
 func (e ConnectionSettingsManaged) Valid() bool {
@@ -203,6 +206,8 @@ func (e ConnectionSettingsManaged) Valid() bool {
 	case GithubHosted:
 		return true
 	case GithubManifest:
+		return true
+	case NativeRuntime:
 		return true
 	default:
 		return false
@@ -771,6 +776,50 @@ const (
 func (e ModelCatalogSettingsBillingRoute) Valid() bool {
 	switch e {
 	case DirectApi:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	ClaudeCode NativeAgentInputProvider = "claude_code"
+	Codex      NativeAgentInputProvider = "codex"
+)
+
+func (e NativeAgentInputProvider) Valid() bool {
+	switch e {
+	case ClaudeCode:
+		return true
+	case Codex:
+		return true
+	default:
+		return false
+	}
+}
+
+const (
+	NativeAgentStateStateConnected    NativeAgentStateState = "connected"
+	NativeAgentStateStateDisconnected NativeAgentStateState = "disconnected"
+	NativeAgentStateStateFailed       NativeAgentStateState = "failed"
+	NativeAgentStateStatePending      NativeAgentStateState = "pending"
+	NativeAgentStateStateReady        NativeAgentStateState = "ready"
+	NativeAgentStateStateStarting     NativeAgentStateState = "starting"
+)
+
+func (e NativeAgentStateState) Valid() bool {
+	switch e {
+	case NativeAgentStateStateConnected:
+		return true
+	case NativeAgentStateStateDisconnected:
+		return true
+	case NativeAgentStateStateFailed:
+		return true
+	case NativeAgentStateStatePending:
+		return true
+	case NativeAgentStateStateReady:
+		return true
+	case NativeAgentStateStateStarting:
 		return true
 	default:
 		return false
@@ -1694,18 +1743,21 @@ type ConnectionPage struct {
 	NextCursor *string      `json:"next_cursor,omitempty"`
 }
 type ConnectionSettings struct {
-	AllowedModels  *[]string                  `json:"allowed_models,omitempty"`
-	AppId          *string                    `json:"app_id,omitempty"`
-	AuthKind       string                     `json:"auth_kind"`
-	BillingRoute   string                     `json:"billing_route"`
-	CaPem          *string                    `json:"ca_pem,omitempty"`
-	InstallationId *string                    `json:"installation_id,omitempty"`
-	Managed        *ConnectionSettingsManaged `json:"managed,omitempty"`
-	Model          *string                    `json:"model,omitempty"`
-	Namespace      *string                    `json:"namespace,omitempty"`
-	Profile        *string                    `json:"profile,omitempty"`
-	RuntimeVersion *string                    `json:"runtime_version,omitempty"`
-	WebhookPending *bool                      `json:"webhook_pending,omitempty"`
+	AllowedModels       *[]string                  `json:"allowed_models,omitempty"`
+	AppId               *string                    `json:"app_id,omitempty"`
+	AuthKind            string                     `json:"auth_kind"`
+	BillingRoute        string                     `json:"billing_route"`
+	CaPem               *string                    `json:"ca_pem,omitempty"`
+	InstallationId      *string                    `json:"installation_id,omitempty"`
+	Managed             *ConnectionSettingsManaged `json:"managed,omitempty"`
+	Model               *string                    `json:"model,omitempty"`
+	Namespace           *string                    `json:"namespace,omitempty"`
+	Profile             *string                    `json:"profile,omitempty"`
+	RuntimeDisconnected *bool                      `json:"runtime_disconnected,omitempty"`
+	RuntimeRunnerId     *string                    `json:"runtime_runner_id,omitempty"`
+	RuntimeUserId       *string                    `json:"runtime_user_id,omitempty"`
+	RuntimeVersion      *string                    `json:"runtime_version,omitempty"`
+	WebhookPending      *bool                      `json:"webhook_pending,omitempty"`
 }
 type ConnectionSettingsManaged string
 type ConnectionUpdate struct {
@@ -2408,6 +2460,7 @@ type MaintenancePlan struct {
 	Repository               string                   `json:"repository"`
 	RepositoryId             string                   `json:"repository_id"`
 	Route                    *string                  `json:"route,omitempty"`
+	Subscription             *bool                    `json:"subscription,omitempty"`
 }
 type MaintenancePlanActions string
 type MaintenancePlanMode string
@@ -2596,6 +2649,42 @@ type ModelUsage struct {
 	OutputTokens        int64  `json:"output_tokens"`
 	Source              string `json:"source"`
 }
+type NativeAgentAction struct {
+	Code    *string             `json:"code,omitempty"`
+	LoginId *openapi_types.UUID `json:"login_id,omitempty"`
+	Model   *string             `json:"model,omitempty"`
+}
+type NativeAgentInput struct {
+	Name     *string                  `json:"name,omitempty"`
+	Provider NativeAgentInputProvider `json:"provider"`
+}
+type NativeAgentInputProvider string
+type NativeAgentOptions struct {
+	Available bool    `json:"available"`
+	Reason    *string `json:"reason,omitempty"`
+}
+type NativeAgentState struct {
+	Account *struct {
+		Email *string `json:"email,omitempty"`
+		Id    string  `json:"id"`
+		Plan  *string `json:"plan,omitempty"`
+	} `json:"account,omitempty"`
+	CodeRequired *bool `json:"code_required,omitempty"`
+	Login        *struct {
+		Code *string `json:"code,omitempty"`
+		Id   string  `json:"id"`
+		Url  string  `json:"url"`
+	} `json:"login,omitempty"`
+	Model  *string `json:"model,omitempty"`
+	Models *[]struct {
+		Id   string  `json:"id"`
+		Name *string `json:"name,omitempty"`
+	} `json:"models,omitempty"`
+	Reason  *string               `json:"reason,omitempty"`
+	State   NativeAgentStateState `json:"state"`
+	Version *string               `json:"version,omitempty"`
+}
+type NativeAgentStateState string
 type NativeBuildValidation struct {
 	Builds    int               `json:"builds"`
 	Cases     map[string]string `json:"cases"`
@@ -3402,6 +3491,27 @@ type SubmitDeploymentHealthParams struct {
 type SubmitGitOpsHealthParams struct {
 	XReforgeSignature string `json:"X-Reforge-Signature"`
 }
+type CreateNativeAgentParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type NativeAgentCodeParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type UseNativeAgentDefaultParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type NativeAgentLoginParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type NativeAgentLogoutParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type NativeAgentModelsParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
+type NativeAgentVerifyParams struct {
+	XCSRFToken string `json:"X-CSRF-Token"`
+}
 type ListAuditEventsParams struct {
 	RepositoryId *string    `form:"repository_id,omitempty" json:"repository_id,omitempty"`
 	ActorId      *string    `form:"actor_id,omitempty" json:"actor_id,omitempty"`
@@ -3969,6 +4079,12 @@ type RunnerProgressJSONBody struct {
 }
 type SubmitDeploymentHealthJSONRequestBody = DeploymentHealth
 type SubmitGitOpsHealthJSONRequestBody = GitOpsHealth
+type CreateNativeAgentJSONRequestBody = NativeAgentInput
+type NativeAgentCodeJSONRequestBody = NativeAgentAction
+type NativeAgentLoginJSONRequestBody = NativeAgentAction
+type NativeAgentLogoutJSONRequestBody = NativeAgentAction
+type NativeAgentModelsJSONRequestBody = NativeAgentAction
+type NativeAgentVerifyJSONRequestBody = NativeAgentAction
 type UpdateAutopilotJSONRequestBody = AutopilotUpdate
 type RetryFindingJSONRequestBody = RetryCommand
 type PutBudgetRouteJSONRequestBody = BudgetRouteInput

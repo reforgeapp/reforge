@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
@@ -78,6 +79,7 @@ const (
 	ModelProbe               Kind = "model.probe"
 	ModelList                Kind = "model.list"
 	ModelTurn                Kind = "model.turn"
+	AgentAction              Kind = "agent.action"
 	GiteaProbe                    = ForgeProbe
 	GiteaInventory                = ForgeInventory
 	GiteaRepository               = ForgeRepository
@@ -146,6 +148,7 @@ type DeliveryArgs struct {
 }
 
 type Operation struct {
+	Agent          *agent.NativeAction          `json:"agent,omitempty"`
 	Delivery       *DeliveryArgs                `json:"delivery,omitempty"`
 	Pipeline       *forge.PipelineRequest       `json:"pipeline,omitempty"`
 	TrainGate      *forge.TrainGateRequest      `json:"train_gate,omitempty"`
@@ -182,13 +185,15 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	count := 0
-	for _, present := range []bool{o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Comment != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Refresh != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Compare != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
+	for _, present := range []bool{o.Agent != nil, o.Delivery != nil, o.Pipeline != nil, o.TrainGate != nil, o.ExecutionCheck != nil, o.CancelQueue != nil, o.Close != nil, o.Comment != nil, o.Merge != nil, o.Commit != nil, o.Branch != nil, o.Refresh != nil, o.Create != nil, o.Find != nil, o.Inventory != nil, o.Repository != nil, o.Ref != nil, o.File != nil, o.Files != nil, o.CheckLog != nil, o.Compare != nil, o.Change != nil, o.Checks != nil, o.Changes != nil, o.Source != nil, o.Turn != nil} {
 		if present {
 			count++
 		}
 	}
 	valid := false
 	switch o.Kind {
+	case AgentAction:
+		valid = o.Agent != nil && o.Agent.Valid()
 	case ForgeDeliveryWorkflows:
 		valid = o.Delivery != nil && o.Delivery.Repository.NativeID != "" && len(o.Delivery.Repository.FullName) <= 1024
 	case ForgeDeliveryGates:
@@ -274,6 +279,7 @@ type Target struct {
 	RunnerID string `json:"runner_id"`
 }
 type Connection struct {
+	Native            *agent.NativeScope    `json:"native,omitempty"`
 	Protection        *ProtectionCredential `json:"protection,omitempty"`
 	CheckPublishers   map[string]string     `json:"check_publishers,omitempty"`
 	Kind              string                `json:"kind,omitempty"`
@@ -353,6 +359,7 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	Native            *agent.NativeState             `json:"native,omitempty"`
 	Workflows         []forge.Workflow               `json:"workflows,omitempty"`
 	DeploymentGates   *forge.DeploymentGates         `json:"deployment_gates,omitempty"`
 	Deployment        *forge.DeploymentStatus        `json:"deployment,omitempty"`
@@ -424,12 +431,17 @@ func (o Operation) MaximumTTL() time.Duration {
 	switch o.Kind {
 	case ModelTurn:
 		return MaxModelTTL
+	case AgentAction:
+		return 5 * time.Minute
 	case ForgeMergeInspect, ForgeQueueInspect, ForgeMerge:
 		return MaxMergeTTL
 	}
 	return MaxTTL
 }
 func (o Operation) ttl(fallback time.Duration) time.Duration {
+	if o.Kind == AgentAction {
+		return o.MaximumTTL()
+	}
 	if o.Kind == ModelTurn && o.Turn != nil {
 		return time.Duration(o.Turn.TimeoutMS) * time.Millisecond
 	}
@@ -440,5 +452,5 @@ func (o Operation) ttl(fallback time.Duration) time.Duration {
 }
 
 func (o Operation) Mutation() bool {
-	return o.Kind == ForgePipelineCancel || o.Kind == ForgePipelineTrigger || o.Kind == ForgePipelineRecover || o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeRefreshBranch || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeCloseChange || o.Kind == ForgeCommentChange || o.Kind == ForgeWriteExecutionCheck
+	return o.Kind == AgentAction && o.Agent != nil && o.Agent.Kind != "status" && o.Agent.Kind != "models" || o.Kind == ForgePipelineCancel || o.Kind == ForgePipelineTrigger || o.Kind == ForgePipelineRecover || o.Kind == ForgeReleaseTrainGate || o.Kind == ForgeRefreshBranch || o.Kind == ForgeUpdateBranch || o.Kind == ForgeCreateChange || o.Kind == ForgeMerge || o.Kind == ForgeCancelQueue || o.Kind == ForgeCloseChange || o.Kind == ForgeCommentChange || o.Kind == ForgeWriteExecutionCheck
 }

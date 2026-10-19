@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/forge"
@@ -27,6 +28,7 @@ import (
 )
 
 type Executor struct {
+	Agents      *agent.NativeManager
 	Authorize   func(context.Context) error
 	Target      Target
 	Development bool
@@ -84,7 +86,7 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 	fail := func(code string, uncertain bool) Result {
 		return Result{OperationID: grant.Operation.ID, Failure: &Failure{Code: code, Uncertain: uncertain}}
 	}
-	if grant.RunnerVersion < 1 || grant.Target != e.Target || !auth.ValidID(grant.ID) || !auth.ValidID(grant.AuthorityID) || len(grant.ResultCapability) != 43 || grant.Operation.validate() != nil || validateConnection(grant.Connection, e.Target, e.Development) != nil {
+	if grant.RunnerVersion < 1 || grant.Target != e.Target || !auth.ValidID(grant.ID) || !auth.ValidID(grant.AuthorityID) || len(grant.ResultCapability) != 43 || grant.Operation.validate() != nil {
 		return fail("invalid", false)
 	}
 	remaining := time.Until(grant.executionDeadline)
@@ -93,6 +95,12 @@ func (e Executor) Execute(ctx context.Context, grant Grant) Result {
 	}
 	ctx, cancel := context.WithDeadline(ctx, grant.executionDeadline)
 	defer cancel()
+	if grant.Connection.Kind == "agent" {
+		return e.executeAgent(ctx, grant)
+	}
+	if validateConnection(grant.Connection, e.Target, e.Development) != nil {
+		return fail("invalid", false)
+	}
 	client, err := network.NewClient(grant.Connection.Endpoint, network.Options{RunnerID: e.Target.RunnerID, PrivateRoute: &grant.Connection.Route, CAPEM: grant.Connection.CAPEM, Development: e.Development})
 	if err != nil {
 		return fail("invalid", false)

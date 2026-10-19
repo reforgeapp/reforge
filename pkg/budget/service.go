@@ -309,6 +309,13 @@ func (s *Service) HeadroomTx(ctx context.Context, tx pgx.Tx, org string) error {
 }
 
 func (s *Service) ConnectionHeadroomTx(ctx context.Context, tx pgx.Tx, org, connection string) error {
+	var native bool
+	if err := tx.QueryRow(ctx, `SELECT coalesce(kind='agent' AND settings->>'managed'='native_runtime',false) FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&native); err != nil {
+		return err
+	}
+	if native {
+		return nativeHeadroomTx(ctx, tx, org, Scope{Kind: "connection", ID: connection}, true)
+	}
 	return headroomTx(ctx, tx, org, Scope{Kind: "connection", ID: connection}, false)
 }
 

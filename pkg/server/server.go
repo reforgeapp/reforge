@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/agent"
+	"github.com/reforgeapp/reforge/pkg/agentcontrol"
 	"github.com/reforgeapp/reforge/pkg/alerts"
 	"github.com/reforgeapp/reforge/pkg/artifact"
 	"github.com/reforgeapp/reforge/pkg/auth"
@@ -176,6 +177,7 @@ func Run(ctx context.Context, cfg config.Config, setup func(*App) error) error {
 	}
 	providers.RegisterPrivate(connectionService, private, runners)
 	app.RegisterPrivateConnector(private)
+	app.RegisterNativeAgents(agentcontrol.New(db, identity, connectionService, runners, private, policies, os.Getenv("REFORGE_NATIVE_AGENTS") == "true"))
 	authority.Register("model.turn", func(ctx context.Context, tx pgx.Tx, t workflow.Task, p policy.Resolved) error {
 		if t.State != domain.TaskPlanning && t.State != domain.TaskRepairing {
 			return workflow.ErrPolicy

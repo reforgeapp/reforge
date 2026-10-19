@@ -26,6 +26,7 @@ type MaintenanceCommand struct {
 }
 
 type MaintenancePlan struct {
+	Subscription         bool                     `json:"subscription"`
 	RepositoryID         string                   `json:"repository_id"`
 	Repository           string                   `json:"repository"`
 	Mode                 string                   `json:"mode"`
@@ -80,7 +81,7 @@ func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, o
 
 func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, repo string, in MaintenanceCommand) (MaintenancePlan, error) {
 	out := MaintenancePlan{RepositoryID: repo, Mode: in.Mode, MicroUSD: in.MicroUSD, Continuous: in.Continuous, Actions: []policy.Action{}, Decisions: map[policy.Action]string{}, Blockers: []string{}}
-	if !auth.ValidID(repo) || in.ConnectionID != "" && !auth.ValidID(in.ConnectionID) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 || in.Mode != "observe" && in.MicroUSD == 0 {
+	if !auth.ValidID(repo) || in.ConnectionID != "" && !auth.ValidID(in.ConnectionID) || !auth.CanReadRepository(a, repo) || in.MicroUSD < 0 || in.MicroUSD > 1_000_000_000_000 {
 		return out, auth.ErrInvalid
 	}
 	var forgeHealthy, global, orgPolicy bool
@@ -103,13 +104,14 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	var connectionVersion, routeVersion, poolVersion, orgBudgetVersion, repoBudgetVersion int64
 	out.BudgetPeriod = "monthly"
 	if in.Mode != "observe" {
-		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
+		rows, err := tx.Query(ctx, `SELECT c.id::text,c.settings->>'model',r.name,c.version,r.version,c.kind='agent' FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind IN ('model','agent') AND c.state='healthy' AND `+budget.AutomaticConnectionSQL("c", "r")+` ORDER BY (c.settings->>'model'=$2 AND r.name=$3) DESC,c.created_at,r.name`, a.OrgID, current.Policy.Defaults.Model, current.Policy.Defaults.Route)
 		if err != nil {
 			return out, err
 		}
 		models, err := pgx.CollectRows(rows, pgx.RowToStructByPos[struct {
 			Connection, Model, Route        string
 			ConnectionVersion, RouteVersion int64
+			Subscription                    bool
 		}])
 		if err != nil {
 			return out, err
@@ -126,8 +128,12 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 				continue
 			}
 			out.ConnectionID, out.Model, out.Route = m.Connection, m.Model, m.Route
+			out.Subscription = m.Subscription
 			connectionVersion, routeVersion = m.ConnectionVersion, m.RouteVersion
 			break
+		}
+		if out.Subscription {
+			in.MicroUSD, out.MicroUSD = 0, 0
 		}
 		if out.Model == "" {
 			out.Blockers = append(out.Blockers, "Operator: reconnect approved model or explicitly choose a replacement with known pricing")
@@ -153,7 +159,11 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		} else if err != nil {
 			return out, err
 		} else {
-			err = s.budgets.HeadroomTx(ctx, tx, a.OrgID)
+			if out.ConnectionID != "" {
+				err = s.budgets.ModelHeadroomTx(ctx, tx, a.OrgID, out.ConnectionID)
+			} else {
+				err = s.budgets.HeadroomTx(ctx, tx, a.OrgID)
+			}
 			if errors.Is(err, budget.ErrUnknown) {
 				out.Blockers = append(out.Blockers, "Operator: set an organisation dollar ceiling")
 			} else if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
@@ -166,12 +176,15 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 		if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 			return out, err
 		}
-		err = s.budgets.RepositoryHeadroomTx(ctx, tx, a.OrgID, repo)
+		err = s.budgets.RepositoryModelHeadroomTx(ctx, tx, a.OrgID, repo, out.ConnectionID)
 		if errors.Is(err, budget.ErrRevoked) || errors.Is(err, budget.ErrCapacity) {
 			out.Blockers = append(out.Blockers, "Resume or raise repository spending limit")
 		} else if err != nil {
 			return out, err
 		}
+	}
+	if in.Mode != "observe" && !out.Subscription && in.MicroUSD == 0 {
+		return out, auth.ErrInvalid
 	}
 	r, p, err := s.policies.MaintenanceTx(ctx, tx, a.OrgID, repo, in.Mode, out.Model, out.Route, out.ConnectionID, in.MicroUSD, out.initialize)
 	if err != nil {
@@ -262,7 +275,7 @@ func (s *Service) ConfigureMaintenance(ctx context.Context, session auth.Session
 			return err
 		}
 		if in.Mode != "observe" {
-			caps, _ := json.Marshal(map[string]int64{"micro_usd": in.MicroUSD})
+			caps, _ := json.Marshal(map[string]int64{"micro_usd": out.MicroUSD})
 			if out.CreatesOrgLimit {
 				if _, err = tx.Exec(ctx, `INSERT INTO budget_limits(org_id,scope_kind,scope_id,period,period_start,period_end,caps,version) VALUES($1,'organisation',$1,'monthly',date_trunc('month',now()),date_trunc('month',now())+interval '1 month',$2,1) ON CONFLICT DO NOTHING`, org, caps); err != nil {
 					return err

@@ -159,6 +159,9 @@ func validSetup(r CreateRequest) bool {
 	case "model":
 		return validModel(r, true)
 	case "agent":
+		if r.Settings.Managed == "native_runtime" || r.Settings.RuntimeUserID != "" || r.Settings.RuntimeRunnerID != "" {
+			return false
+		}
 		if r.Provider == "custom_command" {
 			return r.Settings.AuthKind == "official_runtime" && r.Settings.BillingRoute == "subscription" && r.Secret == "" && r.Settings.Model != ""
 		}
@@ -468,6 +471,9 @@ func (s *Service) Rotate(ctx context.Context, session auth.Session, orgID, id st
 }
 func (s *Service) Revoke(ctx context.Context, session auth.Session, orgID, id string, expected int64, requestID string) (Connection, error) {
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.revoked", func(tx pgx.Tx, c *Connection) error {
+		if c.NativeAgent() && !c.Settings.RuntimeDisconnected {
+			return ErrManaged
+		}
 		invalidate(c)
 		c.State = "revoked"
 		c.Reason = "Connection revoked; create a new connection to restore access"
@@ -492,7 +498,7 @@ func (s *Service) Update(ctx context.Context, session auth.Session, orgID, id st
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.updated", func(tx pgx.Tx, c *Connection) error {
 		name = strings.TrimSpace(name)
 		namespace = strings.TrimSpace(namespace)
-		if name == "" || len(name) > 160 || len(namespace) > 256 || strings.ContainsAny(namespace, "\x00\r\n") || (namespace != c.Settings.Namespace && (c.Kind != "forge" || c.Settings.GitHubApp())) {
+		if name == "" || len(name) > 160 || (len(namespace) > 256 && !c.NativeAgent()) || strings.ContainsAny(namespace, "\x00\r\n") || (namespace != c.Settings.Namespace && (c.Kind != "forge" || c.Settings.GitHubApp())) {
 			return auth.ErrInvalid
 		}
 		c.Name = name
@@ -516,6 +522,9 @@ func (s *Service) Delete(ctx context.Context, session auth.Session, orgID, id st
 		}
 		if c.Version != expected {
 			return auth.ErrConflict
+		}
+		if c.NativeAgent() && !c.Settings.RuntimeDisconnected {
+			return ErrManaged
 		}
 		var use InUseError
 		var history bool
@@ -568,6 +577,9 @@ func (s *Service) Rewrap(ctx context.Context, session auth.Session, orgID, id st
 }
 func (s *Service) SetRoute(ctx context.Context, session auth.Session, orgID, id string, expected int64, route *Route, requestID string) (Connection, error) {
 	return s.change(ctx, session, orgID, id, expected, requestID, "connection.route_changed", func(tx pgx.Tx, c *Connection) error {
+		if c.NativeAgent() {
+			return ErrManaged
+		}
 		if route == nil {
 			if _, err := tx.Exec(ctx, `DELETE FROM connection_routes WHERE org_id=$1 AND connection_id=$2`, orgID, id); err != nil {
 				return err
@@ -611,6 +623,12 @@ func (s *Service) ResolveTx(ctx context.Context, tx pgx.Tx, orgID, id, runnerID 
 	}
 	if r.Connection.State == "revoked" {
 		return r, ErrRevoked
+	}
+	if r.Connection.NativeAgent() {
+		if runnerID != r.Connection.Settings.RuntimeRunnerID {
+			return r, ErrRunnerRequired
+		}
+		return r, s.checkRunner(ctx, tx, orgID, runnerID)
 	}
 	if r.Connection.Route != nil {
 		if r.Connection.Route.RevokedAt != nil || r.Connection.Route.RunnerID != runnerID {

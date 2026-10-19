@@ -796,7 +796,7 @@ func pausable(err error) bool {
 	var provider *domain.ProviderError
 	if errors.As(err, &provider) {
 		switch provider.Kind {
-		case "billing", "quota", "rate_limit", "rate_limited":
+		case "billing", "quota", "rate_limit", "rate_limited", "agent_auth":
 			return true
 		}
 	}
@@ -822,7 +822,7 @@ func modelFailure(err error) string {
 	var provider *domain.ProviderError
 	if errors.As(err, &provider) {
 		switch provider.Kind {
-		case "billing", "quota", "rate_limit", "rate_limited":
+		case "billing", "quota", "rate_limit", "rate_limited", "agent_auth":
 			return provider.Message
 		}
 	}

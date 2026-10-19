@@ -76,6 +76,9 @@ func (s *Service) EnrollBuiltin(ctx context.Context, org, name string, slots int
 		if _, err = tx.Exec(ctx, `INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at,slots) VALUES($1,$2,$3,$4,$5,$6,$7)`, org, c.Runner.ID, pool, c.Runner.Name, hash(c.Token), c.ExpiresAt, slots); err != nil {
 			return err
 		}
+		if _, err = tx.Exec(ctx, `UPDATE connections SET settings=jsonb_set(settings,'{runtime_runner_id}',to_jsonb($2::text)),version=version+1 WHERE org_id=$1 AND kind='agent' AND provider IN ('codex','claude_code') AND settings->>'managed'='native_runtime' AND settings->>'runtime_runner_id'=ANY($3::text[]) AND state<>'revoked'`, org, c.Runner.ID, previous); err != nil {
+			return err
+		}
 		return audit(ctx, tx, org, builtinActor, "runner.enrolled", c.Runner.ID, "", map[string]string{"pool_id": pool})
 	})
 	if err != nil {

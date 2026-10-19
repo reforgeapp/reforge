@@ -19,6 +19,7 @@ func TestIntegratedRouteRegistration(t *testing.T) {
 	s := New(config.Config{WebDir: t.TempDir()}, nil)
 	s.RegisterIdentity(nil)
 	s.RegisterConnections(nil)
+	s.RegisterNativeAgents(nil)
 	s.RegisterPolicy(nil)
 	s.RegisterWorkflow(nil)
 	s.RegisterBudget(nil)

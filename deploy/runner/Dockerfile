@@ -76,6 +76,24 @@ USER 65532:65532
 ENTRYPOINT ["/opt/reforge/tool", "hold"]
 
 
+FROM node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 AS agent-runtime
+COPY --from=npm /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/npm
+ARG BASE_REFRESH
+RUN : "${BASE_REFRESH}" \
+ && apt-get update \
+ && apt-get upgrade -y \
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install --global @openai/codex@0.163.0 @anthropic-ai/claude-code@2.1.302 \
+ && npm cache clean --force \
+ && useradd --uid 65532 --no-create-home --home-dir /cache --shell /usr/sbin/nologin reforge-agent \
+ && /usr/local/bin/codex --version \
+ && /usr/local/bin/claude --version
+COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/reforge/tool", "hold"]
+
+
 FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
 ARG BASE_REFRESH
 RUN : "${BASE_REFRESH}" \

@@ -95,13 +95,17 @@ func (s *Service) ApplyMaintenanceTx(ctx context.Context, tx pgx.Tx, org, repo, 
 	return bindMaintenanceTx(ctx, tx, org, actor, request, Scope{Kind: "repository", ID: repo}, p)
 }
 
-func bindMaintenanceTx(ctx context.Context, tx pgx.Tx, org, actor, request string, scope Scope, p Policy) error {
+func bindMaintenanceTx(ctx context.Context, tx pgx.Tx, org, actor, request string, scope Scope, p Policy, reasons ...string) error {
 	id := domain.NewID()
 	b, err := json.Marshal(p)
 	if err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `INSERT INTO policy_versions(org_id,id,scope_kind,scope_id,document,policy_hash,actor_id,reason) VALUES($1,$2,$3,$4,$5,$6,$7,'Set up maintenance')`, org, id, scope.Kind, scope.ID, b, hash(p), actor); err != nil {
+	reason := "Set up maintenance"
+	if len(reasons) > 0 {
+		reason = reasons[0]
+	}
+	if _, err = tx.Exec(ctx, `INSERT INTO policy_versions(org_id,id,scope_kind,scope_id,document,policy_hash,actor_id,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, org, id, scope.Kind, scope.ID, b, hash(p), actor, reason); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `INSERT INTO policy_bindings(org_id,scope_kind,scope_id,policy_version_id,version,simulation_hash) VALUES($1,$2,$3,$4,1,$5) ON CONFLICT(org_id,scope_kind,scope_id) DO UPDATE SET policy_version_id=EXCLUDED.policy_version_id,version=policy_bindings.version+1,simulation_hash=EXCLUDED.simulation_hash`, org, scope.Kind, scope.ID, id, hash(p)); err != nil {

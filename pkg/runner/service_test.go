@@ -805,6 +805,21 @@ func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	accountID := domain.NewID()
+	nativeConnectionID := domain.NewID()
+	settings, err := json.Marshal(map[string]string{
+		"managed": "native_runtime", "auth_kind": "official_runtime", "billing_route": "subscription",
+		"runtime_user_id": f.session.User.ID, "runtime_runner_id": first.Runner.ID, "namespace": accountID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, f.session.User.ID, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'agent','codex','Codex','https://chatgpt.com',$3,'healthy')`, f.org, nativeConnectionID, settings)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
 	pool, err := f.service.Pool(ctx, f.session, f.org, first.Runner.PoolID)
 	if err != nil || !pool.Builtin || len(pool.RepositoryIDs) != 2 {
 		t.Fatalf("built-in pool %+v: %v", pool, err)
@@ -834,6 +849,15 @@ func TestBuiltinPoolCoversRepositoriesAndReplacesRunner(t *testing.T) {
 	second, err := f.service.EnrollBuiltin(ctx, f.org, "built-in", 1)
 	if err != nil || second.Runner.PoolID != pool.ID {
 		t.Fatalf("re-enrol: %v", err)
+	}
+	var runtimeUserID, runtimeRunnerID, persistedAccountID string
+	if err = f.db.Tenant(ctx, f.org, f.session.User.ID, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT settings->>'runtime_user_id',settings->>'runtime_runner_id',settings->>'namespace' FROM connections WHERE org_id=$1 AND id=$2`, f.org, nativeConnectionID).Scan(&runtimeUserID, &runtimeRunnerID, &persistedAccountID)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if runtimeRunnerID != second.Runner.ID || runtimeUserID != f.session.User.ID || persistedAccountID != accountID {
+		t.Fatalf("native runtime binding after runner replacement: user=%s runner=%s account=%s", runtimeUserID, runtimeRunnerID, persistedAccountID)
 	}
 	if _, err = f.service.Claim(ctx, first.Token); !errors.Is(err, auth.ErrUnauthenticated) {
 		t.Fatal("replaced built-in runner still valid")

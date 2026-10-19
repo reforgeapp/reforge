@@ -9,8 +9,11 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"net/url"
+	"strings"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/auth"
 )
 
@@ -21,6 +24,8 @@ type ClientConfig struct {
 	Development bool
 	CAPEM       []byte
 	Client      *http.Client `json:"-"`
+	Internal    bool
+	Agents      *agent.NativeManager
 }
 
 func (c ClientConfig) String() string       { return "private supervisor client configuration [redacted]" }
@@ -37,6 +42,12 @@ type Client struct {
 
 func NewClient(cfg ClientConfig) (*Client, error) {
 	base, e := safeControllerURL(cfg.Endpoint, cfg.Development)
+	if e != nil && cfg.Internal && cfg.Development && cfg.Client != nil {
+		u, err := url.Parse(cfg.Endpoint)
+		if err == nil && u.Scheme == "http" && u.Host != "" && u.User == nil && u.Path == "" && u.RawQuery == "" && u.Fragment == "" && u.Opaque == "" {
+			base, e = strings.TrimSuffix(u.String(), "/"), nil
+		}
+	}
 	if e != nil || cfg.Credential == "" || len(cfg.Credential) > 256 || !auth.ValidID(cfg.Target.OrgID) || !auth.ValidID(cfg.Target.RunnerID) {
 		return nil, ErrInvalid
 	}
@@ -64,7 +75,7 @@ func NewClient(cfg ClientConfig) (*Client, error) {
 	}
 	httpClient.Timeout = MaxTTL + 5*time.Second
 	httpClient.CheckRedirect = func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }
-	return &Client{base: base, credential: cfg.Credential, target: cfg.Target, client: httpClient, executor: Executor{Target: cfg.Target, Development: cfg.Development}}, nil
+	return &Client{base: base, credential: cfg.Credential, target: cfg.Target, client: httpClient, executor: Executor{Target: cfg.Target, Development: cfg.Development, Agents: cfg.Agents}}, nil
 }
 func (c *Client) String() string       { return "private supervisor client [redacted]" }
 func (c *Client) GoString() string     { return c.String() }

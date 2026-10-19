@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -79,14 +80,16 @@ func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id,
 		return nil, auth.ErrConflict
 	}
 	if state == "failed" {
-		if failure == "billing" {
-			return nil, &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", RetryAfter: 15 * time.Minute}
-		}
-		if failure == "billing_uncertain" {
-			return nil, &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", RetryAfter: 15 * time.Minute, Uncertain: true}
-		}
-		if failure == "quota" || failure == "rate_limit" || failure == "rate_limited" {
-			return nil, &domain.ProviderError{Kind: failure, Message: "Model provider rate limit or quota reached; retry later"}
+		kind := strings.TrimSuffix(failure, "_uncertain")
+		if kind == "billing" || kind == "quota" || kind == "rate_limit" || kind == "rate_limited" || kind == "agent_auth" {
+			message := "Model provider rate limit or quota reached; retry later"
+			if kind == "billing" {
+				message = "Model provider allowance unavailable; check subscription/billing"
+			}
+			if kind == "agent_auth" {
+				message = "Sign in to your agent account again; work resumes automatically"
+			}
+			return nil, &domain.ProviderError{Kind: kind, Message: message, RetryAfter: 15 * time.Minute, Uncertain: failure != kind}
 		}
 		return nil, ErrTurnFailed
 	}
@@ -131,7 +134,10 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		if err != nil {
 			return err
 		}
-		if initial.Kind != "model" || initial.State != "healthy" || initial.Settings.Model != in.Model || initial.Settings.BillingRoute != "direct_api" {
+		if initial.NativeAgent() && initial.State != "healthy" {
+			return &domain.ProviderError{Kind: "agent_auth", Message: "Sign in to your agent account again; work resumes automatically", RetryAfter: 15 * time.Minute}
+		}
+		if (!initial.NativeAgent() && (initial.Kind != "model" || initial.Settings.BillingRoute != "direct_api")) || initial.State != "healthy" || initial.Settings.Model != in.Model {
 			return ErrUnavailable
 		}
 		if err = s.settleOrphansTx(ctx, tx, l); err != nil {
@@ -183,7 +189,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			}
 			runnerID := ""
 			if ready != nil {
-				if current.Route == nil || current.Route.RevokedAt != nil || current.Route.RunnerID != ready.ID || ready.ID != l.WorkerID || ready.OrgID != l.OrgID {
+				nativeMatch := current.NativeAgent() && current.Settings.RuntimeRunnerID == ready.ID
+				privateMatch := current.Route != nil && current.Route.RevokedAt == nil && current.Route.RunnerID == ready.ID
+				if (!nativeMatch && !privateMatch) || ready.ID != l.WorkerID || ready.OrgID != l.OrgID {
 					return auth.ErrForbidden
 				}
 				if err = s.runners.ValidatePrivateSupervisorTx(ctx, tx, ready.Runner, ready.CredentialHash); err != nil {
@@ -200,7 +208,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			if err != nil {
 				return err
 			}
-			if route.Mode != "priced" {
+			if !current.NativeAgent() && route.Mode != "priced" || current.NativeAgent() && !budget.NativeEligible(route) {
 				return ErrUnavailable
 			}
 			quote := budget.Quote{OperationID: in.OperationID, Model: in.Model, Route: t.ModelRoute, RouteVersion: route.Version, InputTokens: int64(len(raw)) + 4096, MaxOutputTokens: int64(in.MaxOutputTokens), MaxMilliseconds: in.TimeoutMS, MaxRequests: 1}
@@ -270,8 +278,8 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		<-done
 		return err
 	}
-	if initial.Route != nil {
-		if s.private == nil || initial.Route.RunnerID != lease.WorkerID {
+	if initial.Route != nil || initial.NativeAgent() {
+		if s.private == nil || initial.Route != nil && initial.Route.RunnerID != lease.WorkerID || initial.NativeAgent() && initial.Settings.RuntimeRunnerID != lease.WorkerID {
 			return result, ErrUnavailable
 		}
 		_, err = s.private.Dispatch(ctx, privateconnector.Target{OrgID: lease.OrgID, RunnerID: lease.WorkerID}, privateconnector.Operation{ID: in.OperationID, Kind: privateconnector.ModelTurn, Turn: &in}, func(callctx context.Context, ready privateconnector.Ready, deliver privateconnector.Deliver) error {
@@ -315,6 +323,11 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 	body, marshalErr := json.Marshal(result)
 	var providerError *domain.ProviderError
 	rejected := errors.As(err, &providerError) && !providerError.Uncertain
+	if initial.NativeAgent() && providerError != nil && (providerError.Kind == "auth" || providerError.Kind == "unauthorized") {
+		copy := *providerError
+		copy.Kind, copy.Message, copy.RetryAfter = "agent_auth", "Sign in to your agent account again; work resumes automatically", 15*time.Minute
+		providerError, err = &copy, &copy
+	}
 	known := err == nil && marshalErr == nil && len(body) <= 3<<20 && result.Usage.Known && result.Usage.CacheTokens >= 0 && result.Usage.CacheCreationTokens >= 0 && !privateconnector.ContainsSecret(body, resolved.Secret)
 	amount, amountErr := budget.ObservedAmount(reservation.Route, result.Usage.InputTokens, result.Usage.OutputTokens, time.Since(started).Milliseconds())
 	known = known && amountErr == nil
@@ -334,7 +347,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 				return e
 			}
 			switch providerError.Kind {
-			case "auth", "unauthorized", "forbidden", "scope", "model_unsupported", "not_found":
+			case "auth", "agent_auth", "unauthorized", "forbidden", "scope", "model_unsupported", "not_found":
 				reason := "Model calls rejected by the provider: " + providerError.Message
 				if privateconnector.ContainsSecret([]byte(reason), resolved.Secret) {
 					reason = "Model calls rejected by the provider"
@@ -351,8 +364,8 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 				return e
 			}
 			failure := "uncertain"
-			if providerError != nil && providerError.Kind == "billing" {
-				failure = "billing_uncertain"
+			if providerError != nil && pausableKind(providerError.Kind) {
+				failure = providerError.Kind + "_uncertain"
 			}
 			changed, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',failure=$3,completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID, failure)
 			if e == nil && changed.RowsAffected() != 1 {
@@ -398,7 +411,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
 	if persistErr == nil && !known {
-		if providerError != nil && providerError.Kind == "billing" {
+		if providerError != nil && pausableKind(providerError.Kind) {
 			return model.TurnResult{}, err
 		}
 		return model.TurnResult{}, ErrTurnFailed
@@ -410,4 +423,8 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		return model.TurnResult{}, err
 	}
 	return result, nil
+}
+
+func pausableKind(kind string) bool {
+	return kind == "billing" || kind == "quota" || kind == "rate_limit" || kind == "rate_limited" || kind == "agent_auth"
 }

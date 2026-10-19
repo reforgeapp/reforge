@@ -47,16 +47,19 @@ func (s *Service) RequestFinding(ctx context.Context, session auth.Session, org 
 	}
 	var model, route, reason string
 	err = s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-		if err := s.budgets.HeadroomTx(ctx, tx, org); err != nil {
+		var err error
+		model, route, reason, err = s.pickModel(ctx, tx, org, false, "")
+		if err != nil || model == "" {
+			return err
+		}
+		if err := s.budgets.ModelHeadroomTx(ctx, tx, org, model); err != nil {
 			if !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrRevoked) {
 				return err
 			}
 			reason = "Set up maintenance or raise spending limit"
 			return nil
 		}
-		var err error
-		model, route, reason, err = s.pickModel(ctx, tx, org, false, "")
-		return err
+		return nil
 	})
 	if err != nil {
 		return err

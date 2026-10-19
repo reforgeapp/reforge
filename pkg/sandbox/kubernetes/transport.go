@@ -123,6 +123,48 @@ func apiStatus(err error, code int) bool {
 	return err != nil && strings.Contains(err.Error(), fmt.Sprintf("API status %d:", code))
 }
 
+func (c *HTTPPodClient) DeleteClaim(ctx context.Context, name string) error {
+	if !strings.HasPrefix(name, "rf-cache-") || !namespaceValue.MatchString(name) {
+		return ErrBoundary
+	}
+	resource := c.resourceURL("persistentvolumeclaims", name)
+	raw, err := c.request(ctx, http.MethodGet, resource, nil)
+	if apiStatus(err, http.StatusNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var claim struct {
+		Metadata struct {
+			UID string `json:"uid"`
+		} `json:"metadata"`
+	}
+	if json.Unmarshal(raw, &claim) != nil || claim.Metadata.UID == "" {
+		return ErrBoundary
+	}
+	body, _ := json.Marshal(map[string]any{"apiVersion": "v1", "kind": "DeleteOptions", "preconditions": map[string]string{"uid": claim.Metadata.UID}})
+	if err := c.requestJSON(ctx, http.MethodDelete, resource, body, nil); err != nil && !apiStatus(err, http.StatusNotFound) {
+		return err
+	}
+	for {
+		_, err := c.request(ctx, http.MethodGet, resource, nil)
+		if apiStatus(err, http.StatusNotFound) {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		timer := time.NewTimer(250 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return ctx.Err()
+		case <-timer.C:
+		}
+	}
+}
+
 func (c *HTTPPodClient) Get(ctx context.Context, ref PodRef) (Pod, error) {
 	if err := c.validateRef(ref, false); err != nil {
 		return Pod{}, err

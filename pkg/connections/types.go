@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"log/slog"
 	"net/http"
@@ -11,18 +12,21 @@ import (
 )
 
 type Settings struct {
-	Namespace      string   `json:"namespace,omitempty"`
-	Model          string   `json:"model,omitempty"`
-	Profile        string   `json:"profile,omitempty"`
-	AuthKind       string   `json:"auth_kind"`
-	BillingRoute   string   `json:"billing_route"`
-	AppID          string   `json:"app_id,omitempty"`
-	InstallationID string   `json:"installation_id,omitempty"`
-	RuntimeVersion string   `json:"runtime_version,omitempty"`
-	CAPEM          string   `json:"ca_pem,omitempty"`
-	AllowedModels  []string `json:"allowed_models,omitempty"`
-	Managed        string   `json:"managed,omitempty"`
-	WebhookPending bool     `json:"webhook_pending,omitempty"`
+	RuntimeUserID       string   `json:"runtime_user_id,omitempty"`
+	RuntimeRunnerID     string   `json:"runtime_runner_id,omitempty"`
+	RuntimeDisconnected bool     `json:"runtime_disconnected,omitempty"`
+	Namespace           string   `json:"namespace,omitempty"`
+	Model               string   `json:"model,omitempty"`
+	Profile             string   `json:"profile,omitempty"`
+	AuthKind            string   `json:"auth_kind"`
+	BillingRoute        string   `json:"billing_route"`
+	AppID               string   `json:"app_id,omitempty"`
+	InstallationID      string   `json:"installation_id,omitempty"`
+	RuntimeVersion      string   `json:"runtime_version,omitempty"`
+	CAPEM               string   `json:"ca_pem,omitempty"`
+	AllowedModels       []string `json:"allowed_models,omitempty"`
+	Managed             string   `json:"managed,omitempty"`
+	WebhookPending      bool     `json:"webhook_pending,omitempty"`
 }
 
 func (s Settings) GitHubApp() bool {
@@ -55,6 +59,10 @@ type Connection struct {
 	Version           int64                        `json:"version"`
 	Route             *Route                       `json:"private_route,omitempty"`
 	SecretID          *string                      `json:"-"`
+}
+
+func (c Connection) NativeAgent() bool {
+	return c.Kind == "agent" && (c.Provider == "codex" || c.Provider == "claude_code") && c.Settings.Managed == "native_runtime" && c.Settings.AuthKind == "official_runtime" && c.Settings.BillingRoute == "subscription" && auth.ValidID(c.Settings.RuntimeUserID) && auth.ValidID(c.Settings.RuntimeRunnerID)
 }
 
 type CreateRequest struct {

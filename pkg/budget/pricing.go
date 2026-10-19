@@ -57,8 +57,8 @@ func (s *Service) Pricing(ctx context.Context, session auth.Session, org, connec
 		if a.Role != domain.Owner {
 			return auth.ErrForbidden
 		}
-		var kind, provider, endpoint, model, state string
-		if err := tx.QueryRow(ctx, `SELECT kind,provider,endpoint,coalesce(settings->>'model',''),state FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&kind, &provider, &endpoint, &model, &state); err != nil {
+		var kind, provider, endpoint, model, state, managed string
+		if err := tx.QueryRow(ctx, `SELECT kind,provider,endpoint,coalesce(settings->>'model',''),state,coalesce(settings->>'managed','') FROM connections WHERE org_id=$1 AND id=$2`, org, connection).Scan(&kind, &provider, &endpoint, &model, &state, &managed); err != nil {
 			return auth.ErrForbidden
 		}
 		for _, p := range pricingPresets {
@@ -66,7 +66,7 @@ func (s *Service) Pricing(ctx context.Context, session auth.Session, org, connec
 				out.Presets = append(out.Presets, p)
 			}
 		}
-		if kind == "agent" && provider != "custom_command" {
+		if kind == "agent" && provider != "custom_command" && managed != "native_runtime" {
 			out.Reason = "Runtime account, custody and quota qualification missing; no paid fallback"
 			return nil
 		}
@@ -87,6 +87,9 @@ func (s *Service) Pricing(ctx context.Context, session auth.Session, org, connec
 			return nil
 		}
 		switch {
+		case kind == "agent" && (provider == "codex" || provider == "claude_code") && managed == "native_runtime" && NativeEligible(r):
+			out.Manual, out.Automatic = true, true
+			out.Reason = "Uses your connected subscription; runtime limits apply"
 		case kind == "model" && AutomaticEligible(r):
 			out.Manual, out.Automatic = true, true
 			out.Reason = "Manual repairs and automatic maintenance; approved spending ceilings apply"
