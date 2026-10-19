@@ -434,11 +434,7 @@ func normalizeError(ctx context.Context, err error, uncertain bool) error {
 		case 403:
 			kind = "auth"
 		}
-		wasUncertain := uncertain || apiErr.StatusCode >= 500
-		if apiErr.StatusCode == 402 {
-			wasUncertain = false
-		}
-		failure := providerError(kind, "Anthropic API request failed", wasUncertain)
+		failure := providerError(kind, "Anthropic API request failed", uncertain || apiErr.StatusCode >= 500)
 		if apiErr.Response != nil {
 			failure.RetryAfter = model.RetryAfter(apiErr.Response.Header, time.Now())
 		}

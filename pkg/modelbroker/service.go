@@ -82,6 +82,9 @@ func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id,
 		if failure == "billing" {
 			return nil, &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", RetryAfter: 15 * time.Minute}
 		}
+		if failure == "billing_uncertain" {
+			return nil, &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", RetryAfter: 15 * time.Minute, Uncertain: true}
+		}
 		if failure == "quota" || failure == "rate_limit" || failure == "rate_limited" {
 			return nil, &domain.ProviderError{Kind: failure, Message: "Model provider rate limit or quota reached; retry later"}
 		}
@@ -347,7 +350,11 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 			if e := s.budgets.SettleUnknownAtMaximumTx(finalctx, tx, lease.OrgID, reservation.ID, "model-turn:"+in.OperationID); e != nil {
 				return e
 			}
-			changed, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',failure='uncertain',completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID)
+			failure := "uncertain"
+			if providerError != nil && providerError.Kind == "billing" {
+				failure = "billing_uncertain"
+			}
+			changed, e := tx.Exec(finalctx, `UPDATE model_turns SET state='failed',failure=$3,completed_at=clock_timestamp() WHERE org_id=$1 AND id=$2 AND state='dispatched'`, lease.OrgID, in.OperationID, failure)
 			if e == nil && changed.RowsAffected() != 1 {
 				return auth.ErrConflict
 			}
@@ -391,6 +398,9 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
 	if persistErr == nil && !known {
+		if providerError != nil && providerError.Kind == "billing" {
+			return model.TurnResult{}, err
+		}
 		return model.TurnResult{}, ErrTurnFailed
 	}
 	if persistErr != nil {

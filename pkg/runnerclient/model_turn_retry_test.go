@@ -85,23 +85,33 @@ func TestModelTurnDoesNotRetryUnauthorizedOrUnknownState(t *testing.T) {
 }
 
 func TestModelTurnBillingIsTypedAndDelayedWithoutRetry(t *testing.T) {
-	var attempts atomic.Int32
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		attempts.Add(1)
-		w.Header().Set("Retry-After", "900")
-		w.WriteHeader(http.StatusPaymentRequired)
-		_, _ = io.WriteString(w, `{"code":"model_billing_unavailable","message":"Model provider allowance unavailable; check subscription/billing"}`)
-	}))
-	defer server.Close()
-	client, err := New(Config{Endpoint: server.URL, Development: true, Name: "fixture", CredentialFile: filepath.Join(t.TempDir(), "credential")})
-	if err != nil {
-		t.Fatal(err)
-	}
-	_, err = client.ModelTurn(context.Background(), Job{Token: "job-token"}, retryTestTurn())
-	var delayed domain.Delayed
-	var provider *domain.ProviderError
-	if !errors.As(err, &delayed) || delayed.After != 15*time.Minute || !errors.As(err, &provider) || provider.Kind != "billing" || provider.Message != "Model provider allowance unavailable; check subscription/billing" || attempts.Load() != 1 {
-		t.Fatalf("attempts=%d err=%v", attempts.Load(), err)
+	for _, test := range []struct {
+		code      string
+		uncertain bool
+	}{
+		{code: "model_billing_unavailable"},
+		{code: "model_billing_uncertain", uncertain: true},
+	} {
+		t.Run(test.code, func(t *testing.T) {
+			var attempts atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				attempts.Add(1)
+				w.Header().Set("Retry-After", "900")
+				w.WriteHeader(http.StatusPaymentRequired)
+				_, _ = io.WriteString(w, `{"code":"`+test.code+`","message":"Model provider allowance unavailable; check subscription/billing"}`)
+			}))
+			defer server.Close()
+			client, err := New(Config{Endpoint: server.URL, Development: true, Name: "fixture", CredentialFile: filepath.Join(t.TempDir(), "credential")})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.ModelTurn(context.Background(), Job{Token: "job-token"}, retryTestTurn())
+			var delayed domain.Delayed
+			var provider *domain.ProviderError
+			if !errors.As(err, &delayed) || delayed.After != 15*time.Minute || !errors.As(err, &provider) || provider.Kind != "billing" || provider.Uncertain != test.uncertain || provider.Message != "Model provider allowance unavailable; check subscription/billing" || attempts.Load() != 1 {
+				t.Fatalf("attempts=%d err=%v", attempts.Load(), err)
+			}
+		})
 	}
 }
 

@@ -58,7 +58,11 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 		case errors.As(err, &provider) && provider.Kind == "billing":
 			retryAfter := max(provider.RetryAfter, 15*time.Minute)
 			c.Header("Retry-After", strconv.FormatInt(int64(retryAfter/time.Second), 10))
-			Fail(c, http.StatusPaymentRequired, "model_billing_unavailable", "Model provider allowance unavailable; check subscription/billing", false)
+			code := "model_billing_unavailable"
+			if provider.Uncertain {
+				code = "model_billing_uncertain"
+			}
+			Fail(c, http.StatusPaymentRequired, code, "Model provider allowance unavailable; check subscription/billing", false)
 		case errors.As(err, &provider) && (provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited"):
 			if provider.RetryAfter > 0 {
 				c.Header("Retry-After", strconv.FormatInt(int64(provider.RetryAfter/time.Second), 10))

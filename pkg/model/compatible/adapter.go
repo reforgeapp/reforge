@@ -724,11 +724,7 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 			}, detail[:min(len(detail), 300)])
 		}
 	}
-	wasUncertain := uncertain || response.StatusCode >= 500
-	if kind == "billing" && response.StatusCode < 500 {
-		wasUncertain = false
-	}
-	return &domain.ProviderError{Kind: kind, Message: message, RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: wasUncertain}
+	return &domain.ProviderError{Kind: kind, Message: message, RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: uncertain || response.StatusCode >= 500}
 }
 
 func classifyTransport(ctx context.Context, err error, uncertain bool) error {

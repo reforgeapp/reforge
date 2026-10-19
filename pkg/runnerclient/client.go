@@ -294,8 +294,8 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 			base = errors.Join(base, ErrProviderUnavailable)
 		}
 		modelFailure := false
-		if decoded && response.StatusCode == http.StatusPaymentRequired && failure.Code == "model_billing_unavailable" {
-			base = &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing"}
+		if decoded && response.StatusCode == http.StatusPaymentRequired && (failure.Code == "model_billing_unavailable" || failure.Code == "model_billing_uncertain") {
+			base = &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", Uncertain: failure.Code == "model_billing_uncertain"}
 			modelFailure = true
 		}
 		if decoded && response.StatusCode == http.StatusTooManyRequests && failure.Code == "model_rate_limit" {
