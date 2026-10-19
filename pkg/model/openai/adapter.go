@@ -606,6 +606,8 @@ func checkResponse(response *http.Response) error {
 		kind = "auth"
 	case http.StatusNotFound:
 		kind = "model_unsupported"
+	case http.StatusPaymentRequired:
+		kind = "billing"
 	case http.StatusTooManyRequests:
 		kind = "quota"
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:

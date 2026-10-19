@@ -118,6 +118,30 @@ func TestMalformedIncompleteAndEmptyTools(t *testing.T) {
 	}
 }
 
+func TestInsufficientFundsIsNonRetryableBillingRejection(t *testing.T) {
+	for _, test := range []struct {
+		name      string
+		status    int
+		body      string
+		kind      string
+		uncertain bool
+	}{
+		{name: "funds body", status: http.StatusBadRequest, body: `{"error":{"message":"Upstream request failed: Insufficient account funds"}}`, kind: "billing"},
+		{name: "payment required", status: http.StatusPaymentRequired, body: `{"error":{"message":"payment required"}}`, kind: "billing"},
+		{name: "unknown server failure", status: http.StatusInternalServerError, body: `{"error":{"message":"upstream failure"}}`, kind: "provider", uncertain: true},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			client := &fixtureClient{responses: []*http.Response{fixtureResponse(test.status, test.body)}}
+			provider := fixtureProvider(t, client)
+			err := provider.StreamTurn(context.Background(), model.TurnRequest{Messages: []model.Message{{Role: "user", Text: "x"}}, MaxOutputTokens: 32}, func(model.Event) error { return nil })
+			var providerErr *domain.ProviderError
+			if !errors.As(err, &providerErr) || providerErr.Kind != test.kind || providerErr.Uncertain != test.uncertain {
+				t.Fatalf("unexpected rejection: %#v", err)
+			}
+		})
+	}
+}
+
 func TestCancellationAndUnavailableModelList(t *testing.T) {
 	client := &fixtureClient{err: context.Canceled}
 	provider := fixtureProvider(t, client)

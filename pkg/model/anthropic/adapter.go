@@ -425,6 +425,8 @@ func normalizeError(ctx context.Context, err error, uncertain bool) error {
 			kind = "auth"
 		case 404:
 			kind = "model_unsupported"
+		case 402:
+			kind = "billing"
 		case 408, 409, 429, 529:
 			kind = "rate_limit"
 		case 400, 413, 422:
@@ -432,7 +434,11 @@ func normalizeError(ctx context.Context, err error, uncertain bool) error {
 		case 403:
 			kind = "auth"
 		}
-		failure := providerError(kind, "Anthropic API request failed", uncertain || apiErr.StatusCode >= 500)
+		wasUncertain := uncertain || apiErr.StatusCode >= 500
+		if apiErr.StatusCode == 402 {
+			wasUncertain = false
+		}
+		failure := providerError(kind, "Anthropic API request failed", wasUncertain)
 		if apiErr.Response != nil {
 			failure.RetryAfter = model.RetryAfter(apiErr.Response.Header, time.Now())
 		}

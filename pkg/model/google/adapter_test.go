@@ -109,6 +109,11 @@ func TestErrorsAreBoundedAndCancellationIsUncertain(t *testing.T) {
 	if !errors.As(err, &providerErr) || providerErr.Kind != "quota" || !providerErr.Uncertain {
 		t.Fatalf("unexpected quota error: %#v", err)
 	}
+	client.responses = []*http.Response{response(http.StatusPaymentRequired, `{"error":{"code":402,"message":"payment required"}}`)}
+	err = provider.StreamTurn(context.Background(), model.TurnRequest{Messages: []model.Message{{Role: "user", Text: "x"}}, MaxOutputTokens: 8}, func(model.Event) error { return nil })
+	if !errors.As(err, &providerErr) || providerErr.Kind != "billing" || providerErr.Uncertain {
+		t.Fatalf("unexpected billing error: %#v", err)
+	}
 }
 
 func TestCancellationAfterDispatchIsUncertain(t *testing.T) {

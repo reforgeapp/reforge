@@ -334,12 +334,18 @@ func classifyError(ctx context.Context, err error, uncertain bool) error {
 			kind = "auth"
 		case http.StatusNotFound:
 			kind = "model_unsupported"
+		case http.StatusPaymentRequired:
+			kind = "billing"
 		case http.StatusTooManyRequests, http.StatusServiceUnavailable:
 			kind = "quota"
 		case http.StatusBadRequest, http.StatusUnprocessableEntity:
 			kind = "invalid_request"
 		}
-		return &domain.ProviderError{Kind: kind, Message: "Google request failed", Uncertain: uncertain || apiErr.Code >= 500}
+		wasUncertain := uncertain || apiErr.Code >= 500
+		if apiErr.Code == http.StatusPaymentRequired {
+			wasUncertain = false
+		}
+		return &domain.ProviderError{Kind: kind, Message: "Google request failed", Uncertain: wasUncertain}
 	}
 	return &domain.ProviderError{Kind: "transport", Message: "Google request could not be completed", Uncertain: uncertain}
 }

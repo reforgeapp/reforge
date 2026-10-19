@@ -66,9 +66,9 @@ func binding(org, id string) secrets.Binding {
 	return secrets.Binding{OrgID: org, ConnectionID: id, Version: 1}
 }
 func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id, hash string) (*model.TurnResult, error) {
-	var state, oldHash, task, attempt string
+	var state, oldHash, task, attempt, failure string
 	var raw []byte
-	err := tx.QueryRow(ctx, `SELECT state,request_hash,task_id::text,attempt_id::text,result_envelope FROM model_turns WHERE org_id=$1 AND id=$2`, l.OrgID, id).Scan(&state, &oldHash, &task, &attempt, &raw)
+	err := tx.QueryRow(ctx, `SELECT state,request_hash,task_id::text,attempt_id::text,result_envelope,coalesce(failure,'') FROM model_turns WHERE org_id=$1 AND id=$2`, l.OrgID, id).Scan(&state, &oldHash, &task, &attempt, &raw, &failure)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -79,6 +79,12 @@ func (s *Service) existing(ctx context.Context, tx pgx.Tx, l workflow.Lease, id,
 		return nil, auth.ErrConflict
 	}
 	if state == "failed" {
+		if failure == "billing" {
+			return nil, &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing", RetryAfter: 15 * time.Minute}
+		}
+		if failure == "quota" || failure == "rate_limit" || failure == "rate_limited" {
+			return nil, &domain.ProviderError{Kind: failure, Message: "Model provider rate limit or quota reached; retry later"}
+		}
 		return nil, ErrTurnFailed
 	}
 	if state != "complete" {

@@ -159,6 +159,13 @@ func TestQuotaErrorIsTypedAndDoesNotExposeBody(t *testing.T) {
 	if !errors.As(err, &providerErr) || providerErr.Kind != "quota" || providerErr.RetryAfter != 3*time.Second || strings.Contains(err.Error(), "secret quota") {
 		t.Fatalf("unexpected quota error: %v", err)
 	}
+	provider = testProvider(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return response(http.StatusPaymentRequired, `{"error":{"message":"payment required"}}`), nil
+	}))
+	err = provider.StreamTurn(context.Background(), model.TurnRequest{MaxOutputTokens: 20}, func(model.Event) error { return nil })
+	if !errors.As(err, &providerErr) || providerErr.Kind != "billing" || providerErr.Uncertain {
+		t.Fatalf("unexpected billing error: %v", err)
+	}
 }
 
 func TestNewRejectsModelFallbackAndEstimateIsUnknown(t *testing.T) {

@@ -168,6 +168,13 @@ func TestProbeListAndSafeRateLimit(t *testing.T) {
 	if !errors.As(err, &providerErr) || providerErr.Kind != "rate_limit" || strings.Contains(err.Error(), "fixture secret") {
 		t.Fatalf("unexpected safe rate-limit error: %v", err)
 	}
+	billing := testProvider(t, roundTripFunc(func(*http.Request) (*http.Response, error) {
+		return response(http.StatusPaymentRequired, `{"type":"error","error":{"type":"billing_error","message":"payment required"}}`), nil
+	}))
+	err = billing.StreamTurn(context.Background(), model.TurnRequest{Messages: []model.Message{{Role: "user", Text: "x"}}, MaxOutputTokens: 8}, func(model.Event) error { return nil })
+	if !errors.As(err, &providerErr) || providerErr.Kind != "billing" || providerErr.Uncertain {
+		t.Fatalf("unexpected billing error: %v", err)
+	}
 }
 
 func TestCancellationAndConservativeEstimate(t *testing.T) {

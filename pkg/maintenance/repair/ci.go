@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"path"
@@ -601,12 +600,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		result, err := e.turnWithRetry(ctx, modelTurn)
 		if err != nil {
 			if pausable(err) {
-				var paused error = fmt.Errorf("%w: %s", ErrPaused, modelFailure(err))
-				var delayed domain.Delayed
-				if errors.As(err, &delayed) {
-					paused = domain.Delayed{Err: paused, After: delayed.After}
-				}
-				return fail("Paused: "+modelFailure(err), paused)
+				return fail("Paused: "+modelFailure(err), pausedModelError(err))
 			}
 			return fail(modelFailure(err), err)
 		}

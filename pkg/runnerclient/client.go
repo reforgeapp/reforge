@@ -293,10 +293,19 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 		if decoded && failure.Code == "provider_unavailable" {
 			base = errors.Join(base, ErrProviderUnavailable)
 		}
+		modelFailure := false
+		if decoded && response.StatusCode == http.StatusPaymentRequired && failure.Code == "model_billing_unavailable" {
+			base = &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing"}
+			modelFailure = true
+		}
+		if decoded && response.StatusCode == http.StatusTooManyRequests && failure.Code == "model_rate_limit" {
+			base = &domain.ProviderError{Kind: "quota", Message: "Model provider rate limit or quota reached; retry later"}
+			modelFailure = true
+		}
 		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "source_moved" {
 			return response.StatusCode, fmt.Errorf("%w: %w", ErrControlPlane, ErrSourceMoved)
 		}
-		if decoded && failure.Message != "" && len(failure.Message) <= 300 {
+		if decoded && !modelFailure && failure.Message != "" && len(failure.Message) <= 300 {
 			base = fmt.Errorf("%w: %s", base, failure.Message)
 		}
 		if delay := model.RetryAfter(response.Header, time.Now()); delay > 0 {
@@ -398,7 +407,11 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 	}()
 	result, err := process(jobctx, c, job)
 	if err != nil {
-		slog.WarnContext(ctx, "runner job failed", "task_id", job.Lease.TaskID, "attempt_id", job.Lease.AttemptID, "outcome", result.Outcome, "error", err)
+		if result.Outcome == "paused" {
+			slog.InfoContext(ctx, "runner job paused", "task_id", job.Lease.TaskID, "attempt_id", job.Lease.AttemptID, "error", err)
+		} else {
+			slog.WarnContext(ctx, "runner job failed", "task_id", job.Lease.TaskID, "attempt_id", job.Lease.AttemptID, "outcome", result.Outcome, "error", err)
+		}
 		result.Reason = completionReason(err)
 	}
 	if err != nil && result.Outcome == "" {
@@ -424,6 +437,7 @@ func (c *Client) runJob(ctx context.Context, job Job, process Processor) error {
 
 func completionReason(err error) string {
 	var reason string
+	var provider *domain.ProviderError
 	switch {
 	case errors.Is(err, ErrSourceMoved):
 		reason = "Publication failed: source or target moved; run a fresh scan"
@@ -435,6 +449,8 @@ func completionReason(err error) string {
 		reason = "Git provider temporarily unavailable"
 	case errors.Is(err, ErrTransientControlPlane):
 		reason = "Control plane temporarily unavailable"
+	case errors.As(err, &provider) && (provider.Kind == "billing" || provider.Kind == "quota" || provider.Kind == "rate_limit" || provider.Kind == "rate_limited"):
+		reason = provider.Message
 	default:
 		reason = err.Error()
 	}

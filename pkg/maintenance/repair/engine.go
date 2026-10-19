@@ -444,6 +444,9 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 		messages = compact(messages)
 		result, err := e.turn(ctx, model.Turn{OperationID: domain.NewID(), Model: e.Model, System: "Repair application source using the supplied tools. Frozen tests define expected behavior: never change assertions, tests, manifests, vendored dependencies or validation commands. Fix source to satisfy those tests for all inputs and both dependency versions. Never hard-code test outputs. Call apply_patch to apply the complete source file; describing a patch does not apply it. Each turn is bounded; batch independent reads when useful.", Messages: messages, Tools: repairTools(), MaxOutputTokens: tokens, Continuation: continuation, TimeoutMS: timeout.Milliseconds()})
 		if err != nil {
+			if pausable(err) {
+				return fail("Paused: "+modelFailure(err), pausedModelError(err))
+			}
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++
@@ -790,6 +793,13 @@ func (e Engine) turnWithRetry(ctx context.Context, in model.Turn) (model.TurnRes
 }
 
 func pausable(err error) bool {
+	var provider *domain.ProviderError
+	if errors.As(err, &provider) {
+		switch provider.Kind {
+		case "billing", "quota", "rate_limit", "rate_limited":
+			return true
+		}
+	}
 	message := strings.ToLower(err.Error())
 	for _, marker := range []string{"wait for the applicable budget", "model usage is unresolved", "rate limit", "too many requests", "429"} {
 		if strings.Contains(message, marker) {
@@ -799,7 +809,23 @@ func pausable(err error) bool {
 	return false
 }
 
+func pausedModelError(err error) error {
+	paused := fmt.Errorf("%w: %w", ErrPaused, err)
+	var delayed domain.Delayed
+	if errors.As(err, &delayed) {
+		return domain.Delayed{Err: paused, After: delayed.After}
+	}
+	return paused
+}
+
 func modelFailure(err error) string {
+	var provider *domain.ProviderError
+	if errors.As(err, &provider) {
+		switch provider.Kind {
+		case "billing", "quota", "rate_limit", "rate_limited":
+			return provider.Message
+		}
+	}
 	if strings.Contains(err.Error(), "invalid model turn") {
 		return "Model conversation grew past the request limit"
 	}

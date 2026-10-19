@@ -694,6 +694,8 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 		kind = "model_unsupported"
 	case http.StatusTooManyRequests, http.StatusServiceUnavailable:
 		kind = "quota"
+	case http.StatusPaymentRequired:
+		kind = "billing"
 	case http.StatusBadRequest, http.StatusUnprocessableEntity:
 		kind = "invalid_request"
 	}
@@ -710,6 +712,10 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 			detail = body.Error.Message
 		}
 		if detail = strings.TrimSpace(detail); detail != "" {
+			lower := strings.ToLower(detail)
+			if strings.Contains(lower, "insufficient account funds") || strings.Contains(lower, "insufficient funds") {
+				kind = "billing"
+			}
 			message += ": " + strings.Map(func(r rune) rune {
 				if unicode.IsPrint(r) {
 					return r
@@ -718,7 +724,11 @@ func classifyHTTP(response *http.Response, uncertain bool) error {
 			}, detail[:min(len(detail), 300)])
 		}
 	}
-	return &domain.ProviderError{Kind: kind, Message: message, RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: uncertain || response.StatusCode >= 500}
+	wasUncertain := uncertain || response.StatusCode >= 500
+	if kind == "billing" && response.StatusCode < 500 {
+		wasUncertain = false
+	}
+	return &domain.ProviderError{Kind: kind, Message: message, RetryAfter: model.RetryAfter(response.Header, time.Now()), Uncertain: wasUncertain}
 }
 
 func classifyTransport(ctx context.Context, err error, uncertain bool) error {

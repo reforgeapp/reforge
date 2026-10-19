@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
@@ -19,6 +20,22 @@ type retryRuntime struct {
 	files    map[string][]byte
 	requests []sandbox.WorkspaceRequest
 	sequence int
+}
+
+func TestEngineRunPausesOnProviderBilling(t *testing.T) {
+	plan, files := testPlan(t)
+	runtime := &retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+		turns++
+		return model.TurnResult{}, domain.Delayed{Err: &domain.ProviderError{Kind: "billing", Message: "Model provider allowance unavailable; check subscription/billing"}, After: 15 * time.Minute}
+	}}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	var delayed domain.Delayed
+	var provider *domain.ProviderError
+	if !errors.Is(err, ErrPaused) || !errors.As(err, &delayed) || delayed.After != 15*time.Minute || !errors.As(err, &provider) || provider.Kind != "billing" || turns != 1 || report.State != "handoff" || !strings.Contains(report.Reason, "subscription/billing") || len(report.Baseline) != 1 || report.Baseline[0].ExitCode == 0 {
+		t.Fatalf("report=%+v turns=%d error=%v", report, turns, err)
+	}
 }
 
 func (r *retryRuntime) PreparePinnedWorkspace(_ context.Context, in sandbox.WorkspaceRequest) (sandbox.Workspace, error) {
