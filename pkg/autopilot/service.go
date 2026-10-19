@@ -45,6 +45,8 @@ const (
 )
 
 const active = `('queued','reproducing','planning','repairing','validating','publishing','reconciling','cancelling')`
+const modelFailureCooldown = `NOT coalesce((SELECT m.state='failed' AND m.created_at>clock_timestamp()-CASE WHEN m.failure='billing' THEN interval '15 minutes' ELSE interval '10 minutes' END FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '15 minutes' AND (m.state='complete' OR m.state='failed' AND m.failure NOT IN ('orphaned','uncertain')) ORDER BY m.created_at DESC LIMIT 1),false)`
+const modelFailureCooldownKind = `coalesce((SELECT CASE WHEN m.state='failed' AND m.created_at>clock_timestamp()-CASE WHEN m.failure='billing' THEN interval '15 minutes' ELSE interval '10 minutes' END THEN CASE WHEN m.failure='billing' THEN 'billing' ELSE 'provider' END ELSE '' END FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '15 minutes' AND (m.state='complete' OR m.state='failed' AND m.failure NOT IN ('orphaned','uncertain')) ORDER BY m.created_at DESC LIMIT 1),'')`
 
 type Settings struct {
 	Enabled   bool       `json:"enabled"`
@@ -522,7 +524,7 @@ func (s *Service) pickModel(ctx context.Context, tx pgx.Tx, org string, largest 
 	if largest {
 		order = turnCost + " DESC"
 	}
-	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` AND NOT coalesce((SELECT m.state='failed' AND m.failure NOT IN ('orphaned','uncertain') FROM model_turns m JOIN budget_reservations b ON b.org_id=m.org_id AND b.id=m.reservation_id WHERE m.org_id=c.org_id AND b.record->>'connection_id'=c.id::text AND m.created_at>clock_timestamp()-interval '10 minutes' ORDER BY m.created_at DESC LIMIT 1),false) ORDER BY `+order+`,c.created_at,r.name`, org)
+	rows, err := tx.Query(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND `+budget.AutomaticRouteSQL("r")+` AND `+modelFailureCooldown+` ORDER BY `+order+`,c.created_at,r.name`, org)
 	if err != nil {
 		return "", "", "", err
 	}
@@ -582,9 +584,22 @@ func (s *Service) queue(ctx context.Context, session auth.Session, org string, c
 	}
 	if resolved.Policy.Defaults.Model != "" {
 		err := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
-			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&model, &route)
+			return tx.QueryRow(ctx, `SELECT c.id::text,r.name FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` AND `+modelFailureCooldown+` ORDER BY c.created_at LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&model, &route)
 		})
 		if errors.Is(err, pgx.ErrNoRows) {
+			var cooldownKind string
+			if cooldownErr := s.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+				return tx.QueryRow(ctx, `SELECT `+modelFailureCooldownKind+` FROM connections c JOIN budget_routes r ON r.org_id=c.org_id AND r.connection_id=c.id AND r.model=c.settings->>'model' WHERE c.org_id=$1 AND c.kind='model' AND c.state='healthy' AND c.settings->>'model'=$2 AND r.name=$3 AND ($4='' OR c.id::text=$4) AND `+budget.AutomaticRouteSQL("r")+` LIMIT 1`, org, resolved.Policy.Defaults.Model, resolved.Policy.Defaults.Route, resolved.Policy.Defaults.ConnectionID).Scan(&cooldownKind)
+			}); cooldownErr != nil && !errors.Is(cooldownErr, pgx.ErrNoRows) {
+				return cooldownErr
+			}
+			if cooldownKind != "" {
+				wait, reason, status := 10*time.Minute, "Waiting for model provider recovery; retry scheduled", "Waiting for model provider recovery; retries automatically"
+				if cooldownKind == "billing" {
+					wait, reason, status = 15*time.Minute, "Waiting for model provider allowance; retry scheduled", "Waiting for model provider allowance; retries automatically"
+				}
+				return errors.Join(s.record(ctx, org, c, "", "retry", reason, wait, "platform"), s.status(ctx, org, status))
+			}
 			return s.record(ctx, org, c, "", "retry", "Approved model unavailable; reconnect it or choose a new default", 10*time.Minute, "reconnect")
 		}
 		if err != nil {

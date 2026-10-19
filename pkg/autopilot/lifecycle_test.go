@@ -3,6 +3,7 @@ package autopilot
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/url"
 	"os"
 	"strings"
@@ -14,6 +15,8 @@ import (
 	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/maintenance/attention"
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/policy"
 	"github.com/reforgeapp/reforge/pkg/store"
 	"github.com/reforgeapp/reforge/pkg/workflow"
@@ -161,6 +164,123 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	altModel, cooldownFinding := domain.NewID(), domain.NewID()
+	billingJob, billingAttempt, billingReservation, billingTurn := domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()
+	altSettings, _ := json.Marshal(map[string]string{"model": "lifecycle-alternate"})
+	altRoute, _ := json.Marshal(budget.Route{ConnectionID: altModel, Model: "lifecycle-alternate", Name: "default", Mode: "priced", PricingVersion: "fixture-v1", InputMicroUSDPerMillion: 1, OutputMicroUSDPerMillion: 1, MaxInputTokens: 4096, MaxOutputTokens: 1024, MaxMilliseconds: 600_000, MaxRequests: 1, Version: 1})
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_findings SET last_seen=clock_timestamp()-interval '2 hours' WHERE org_id=$1 AND id=$2`, org, finding); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','openai','Alternate model','https://api.openai.com',$3,'healthy')`, org, altModel, altSettings); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO budget_routes(org_id,connection_id,model,name,config,version) VALUES($1,$2,'lifecycle-alternate','default',$3,1)`, org, altModel, altRoute); err != nil {
+			return err
+		}
+		if err := policies.ApplyMaintenanceTx(ctx, tx, org, repo, owner.User.ID, domain.NewID(), policy.Policy{Schema: "maintenance/v1", Defaults: policy.Defaults{ConnectionID: model, Model: "lifecycle-model", Route: "default"}}, true); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'scanner','billing-cooldown','dependency','high','Billing cooldown finding',$5,$6)`, org, cooldownFinding, repo, repeatByte('6', 64), []byte(`{"complete":true,"blockers":[]}`), repeatByte('7', 64)); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_jobs(org_id,id,task_id,operation_id,state) VALUES($1,$2,$3,$4,'failed')`, org, billingJob, task, domain.NewID()); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_attempts(org_id,id,task_id,job_id,number,fence,lease_owner,state,ended_at) VALUES($1,$2,$3,$4,1,1,'fixture','failed',clock_timestamp())`, org, billingAttempt, task, billingJob); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO budget_reservations(org_id,id,operation_id,repository_id,task_id,job_id,attempt_id,fingerprint,record,state) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,'settled')`, org, billingReservation, domain.NewID(), repo, task, billingJob, billingAttempt, repeatByte('8', 64), []byte(`{"connection_id":"`+model+`"}`)); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO model_turns(org_id,id,task_id,attempt_id,repository_id,reservation_id,request_hash,state,failure,completed_at) VALUES($1,$2,$3,$4,$5,$6,$7,'failed','billing',clock_timestamp())`, org, billingTurn, task, billingAttempt, repo, billingReservation, repeatByte('9', 64))
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service.repairs = repair.New(db, identity, discovery.New(db, identity, nil), nil, nil, policies, budgets, nil, nil, nil, map[string]string{})
+	if err = service.Step(ctx, org); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		var blocker, reason string
+		var retryAfter *time.Time
+		if err := tx.QueryRow(ctx, `SELECT blocker_kind,reason,retry_after FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, cooldownFinding).Scan(&blocker, &reason, &retryAfter); err != nil {
+			var status string
+			if statusErr := tx.QueryRow(ctx, `SELECT status FROM autopilot_settings WHERE org_id=$1`, org).Scan(&status); statusErr != nil {
+				return statusErr
+			}
+			return fmt.Errorf("billing cooldown finding not scheduled; status=%s: %w", status, err)
+		}
+		if blocker != "platform" || reason != "Waiting for model provider allowance; retry scheduled" || retryAfter == nil || !retryAfter.After(time.Now()) {
+			t.Fatalf("pinned billing-cooled model did not pause: blocker=%s reason=%q retry=%v", blocker, reason, retryAfter)
+		}
+		var status string
+		if err := tx.QueryRow(ctx, `SELECT status FROM autopilot_settings WHERE org_id=$1`, org).Scan(&status); err != nil {
+			return err
+		}
+		if status != "Waiting for model provider allowance; retries automatically" {
+			t.Fatalf("billing cooldown status=%q", status)
+		}
+		a, err := identity.ActorTx(ctx, tx, owner, org)
+		if err != nil {
+			return err
+		}
+		work, err := attention.WorkTx(ctx, tx, a, "blocked", 100, "")
+		if err != nil {
+			return err
+		}
+		found := false
+		for _, item := range work.Items {
+			if item.ID == "parked:"+cooldownFinding+":1:platform" {
+				found = item.Reason == "Waiting for model provider allowance"
+			}
+		}
+		if !found {
+			t.Fatalf("billing cooldown missing truthful Work row: %+v", work.Items)
+		}
+		var tasks int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND repository_id=$2`, org, repo).Scan(&tasks); err != nil {
+			return err
+		}
+		if tasks != 1 {
+			t.Fatalf("billing cooldown created work: tasks=%d", tasks)
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, cooldownFinding); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_findings SET state='dismissed' WHERE org_id=$1 AND id=$2`, org, cooldownFinding); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM model_turns WHERE org_id=$1 AND id=$2`, org, billingTurn); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM budget_reservations WHERE org_id=$1 AND id=$2`, org, billingReservation); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM workflow_attempts WHERE org_id=$1 AND id=$2`, org, billingAttempt); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM workflow_jobs WHERE org_id=$1 AND id=$2`, org, billingJob); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM budget_routes WHERE org_id=$1 AND connection_id=$2`, org, altModel); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `DELETE FROM connections WHERE org_id=$1 AND id=$2`, org, altModel); err != nil {
+			return err
+		}
+		if err := policies.ApplyMaintenanceTx(ctx, tx, org, repo, owner.User.ID, domain.NewID(), policy.Policy{Schema: "maintenance/v1"}, true); err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `UPDATE maintenance_findings SET last_seen=clock_timestamp() WHERE org_id=$1 AND id=$2`, org, finding)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	service.repairs = nil
+
 	err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		before, err := spendMicroUSD(ctx, tx, org)
 		if err != nil {
