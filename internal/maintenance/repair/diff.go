@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"strings"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func SourceDiff(original map[string][]byte, patches []sandbox.Patch) string {

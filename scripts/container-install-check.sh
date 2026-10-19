@@ -104,7 +104,7 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/secrets"
 )
 
 const orgID = "00000000-0000-4000-8000-000000000001"

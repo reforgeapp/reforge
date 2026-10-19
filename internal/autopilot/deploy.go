@@ -9,11 +9,11 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/auth"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/gitops"
-	"reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/gitops"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
 )
 
 func (s *Service) observeDeployments(ctx context.Context, session auth.Session, org string) error {

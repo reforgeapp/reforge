@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/config"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestOrgInvitationRoutesAreRegistered(t *testing.T) {

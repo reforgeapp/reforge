@@ -9,10 +9,10 @@ import (
 	"sync"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/sandbox"
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 type threadResponse struct {

@@ -9,8 +9,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Server) RegisterPrivateConnector(connector *privateconnector.Connector) {

@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/agent"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/agent"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func (s *Server) RegisterAgentAuth(service *agent.AuthService) {

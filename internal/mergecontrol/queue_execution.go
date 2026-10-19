@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func (s *Service) executeQueueGate(ctx context.Context, org string, operation Operation, original Gate) (Operation, error) {

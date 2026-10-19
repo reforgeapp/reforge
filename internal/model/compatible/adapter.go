@@ -14,9 +14,9 @@ import (
 	"time"
 	"unicode"
 
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	openaimodel "reforge/internal/model/openai"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	openaimodel "github.com/reforgeapp/reforge/internal/model/openai"
 )
 
 const (

@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	"reforge/internal/config"
-	"reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/forge/github"
 )
 
 type Hosted struct {

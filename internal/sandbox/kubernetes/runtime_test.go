@@ -11,8 +11,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 type fakePodClient struct {

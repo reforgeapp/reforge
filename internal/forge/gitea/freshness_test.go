@@ -2,9 +2,9 @@ package gitea
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
 	"net/http/httptest"
-	"reforge/internal/forge"
 	"strings"
 	"testing"
 )

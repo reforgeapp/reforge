@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/runner"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type patchRuntime struct{ files map[string][]byte }

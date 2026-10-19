@@ -9,10 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/gitops"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/gitops"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Server) RegisterGitOps(service *gitops.Service) {

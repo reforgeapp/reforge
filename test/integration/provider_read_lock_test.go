@@ -14,16 +14,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/config"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/httpapi"
-	"reforge/internal/privateconnector"
-	"reforge/internal/providers"
-	"reforge/internal/runner"
-	"reforge/internal/secrets"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/httpapi"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/providers"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestProviderReadReleasesTenantLockAndRechecksAuthorization(t *testing.T) {

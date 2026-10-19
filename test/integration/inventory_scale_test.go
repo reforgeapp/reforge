@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/inventory"
+	"github.com/reforgeapp/reforge/internal/inventory"
 )
 
 func TestInventoryTenThousandRepositoriesAcrossTenOrganisations(t *testing.T) {

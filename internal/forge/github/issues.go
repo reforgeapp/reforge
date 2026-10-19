@@ -7,8 +7,8 @@ import (
 	"strconv"
 	"strings"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) ListIssues(ctx context.Context, reference forge.RepoRef) ([]forge.Issue, error) {

@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestValidateRuntimeConfigSelectsPinnedKubernetesImages(t *testing.T) {

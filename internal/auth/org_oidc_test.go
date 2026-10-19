@@ -17,10 +17,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
-	"reforge/internal/network"
-	"reforge/internal/secrets"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestNormalizeOrgOIDCIssuerBoundaries(t *testing.T) {

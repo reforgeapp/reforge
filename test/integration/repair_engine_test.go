@@ -14,13 +14,13 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/model"
-	"reforge/internal/model/compatible"
-	"reforge/internal/network"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/model/compatible"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 func TestRepairEngineRealModelAndGVisor(t *testing.T) {

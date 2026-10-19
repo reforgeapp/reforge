@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/sandbox"
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 type fakeLauncher struct {

@@ -8,10 +8,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/agent"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/agent"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 func TestAgentQualificationGatesCapabilities(t *testing.T) {

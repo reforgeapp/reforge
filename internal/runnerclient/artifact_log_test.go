@@ -4,10 +4,10 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/artifact"
-	"reforge/internal/maintenance/recipes"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestRepairArtifactSanitizationLeavesGoJSONInterpretationRaw(t *testing.T) {

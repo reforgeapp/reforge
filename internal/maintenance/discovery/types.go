@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/connections"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/detectors"
-	"reforge/internal/privateconnector"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 var ErrStale = errors.New("discovery evidence changed or expired; refresh discovery")

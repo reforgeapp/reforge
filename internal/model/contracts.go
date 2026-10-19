@@ -3,9 +3,9 @@ package model
 import (
 	"context"
 	"encoding/json"
+	"github.com/reforgeapp/reforge/internal/domain"
 	"log/slog"
 	"net/http"
-	"reforge/internal/domain"
 )
 
 type HTTPClient interface {

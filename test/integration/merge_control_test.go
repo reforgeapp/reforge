@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/mergecontrol"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/policy"
 )
 
 func TestMergeConfigurationIsolationAndDurableCancellation(t *testing.T) {

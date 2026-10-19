@@ -8,12 +8,12 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/model"
-	"reforge/internal/network"
-	"reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/runner"
 )
 
 const MaxResponse = 90 << 20

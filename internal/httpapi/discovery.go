@@ -5,8 +5,8 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/inventory"
-	"reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/inventory"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
 )
 
 func (s *Server) RegisterDiscovery(service *discovery.Service) {

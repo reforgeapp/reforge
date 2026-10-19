@@ -4,10 +4,10 @@ import (
 	"context"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/deployment"
-	"reforge/internal/gitops"
-	"reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/gitops"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
 )
 
 type Window struct {

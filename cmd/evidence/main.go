@@ -9,10 +9,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/gitops"
 	"io"
 	"os"
-	"reforge/internal/deployment"
-	"reforge/internal/gitops"
 	"strings"
 )
 

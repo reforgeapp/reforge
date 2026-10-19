@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 func TestRuntimeGoChecksKeepModuleFilesReadOnly(t *testing.T) {

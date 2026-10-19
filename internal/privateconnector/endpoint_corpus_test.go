@@ -9,8 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/network"
 )
 
 func TestEndpointHostileCorpusRejectedAtGrantBoundary(t *testing.T) {

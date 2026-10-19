@@ -5,11 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/heartbeat"
-	"reforge/internal/privateconnector"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/heartbeat"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/source"
 	"time"
 )
 

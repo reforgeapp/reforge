@@ -3,11 +3,11 @@ package gitops
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/privateconnector"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 func (s *Service) manifestFile(ctx context.Context, org string, g Gate, sha string, check func(context.Context, pgx.Tx, connections.Connection) error) ([]byte, error) {

@@ -6,9 +6,9 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 func TestRepairAndCILoadTrustedSkillsAcrossTurns(t *testing.T) {

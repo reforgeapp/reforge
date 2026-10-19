@@ -5,8 +5,8 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) CloseChange(ctx context.Context, in forge.CloseChangeRequest) (forge.Change, error) {

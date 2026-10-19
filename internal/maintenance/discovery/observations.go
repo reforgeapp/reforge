@@ -10,11 +10,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/detectors"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 func validObservation(in Observation) bool {

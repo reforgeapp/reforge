@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Service) Write(ctx context.Context, org, id string, op privateconnector.Operation, authorize func(context.Context, pgx.Tx, connections.Connection) (string, error), validate func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {

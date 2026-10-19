@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 const navigationOutputLimit = 64 << 10

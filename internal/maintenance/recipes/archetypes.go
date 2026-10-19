@@ -5,7 +5,7 @@ import (
 	"slices"
 	"strings"
 
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 const (

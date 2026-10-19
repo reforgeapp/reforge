@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/agent"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/agent"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
 )
 
 type qualificationRequest struct {

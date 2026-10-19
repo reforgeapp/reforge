@@ -3,7 +3,7 @@ package policy
 import (
 	"time"
 
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 type Action string

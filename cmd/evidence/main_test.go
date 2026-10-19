@@ -3,9 +3,9 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"github.com/reforgeapp/reforge/internal/deployment"
 	"os"
 	"path/filepath"
-	"reforge/internal/deployment"
 	"testing"
 )
 

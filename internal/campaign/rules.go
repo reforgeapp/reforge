@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
 )
 
 func fingerprint(value any) string {

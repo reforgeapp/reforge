@@ -9,8 +9,8 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestOwnerResumesSavedEditsAndRerunsChecks(t *testing.T) {

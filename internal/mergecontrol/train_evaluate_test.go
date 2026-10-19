@@ -1,7 +1,7 @@
 package mergecontrol
 
 import (
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"strings"
 	"testing"
 	"time"

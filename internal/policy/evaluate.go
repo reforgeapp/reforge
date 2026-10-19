@@ -11,7 +11,7 @@ import (
 	"sort"
 	"strings"
 
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 func Parse(data []byte) (Policy, error) {

@@ -17,8 +17,8 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 const maxBody = 4 << 20

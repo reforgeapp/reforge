@@ -3,18 +3,18 @@ package httpapi
 import (
 	"encoding/json"
 	"errors"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"reforge/internal/maintenance/repair"
 	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
-	"reforge/internal/model"
-	"reforge/internal/modelbroker"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/modelbroker"
 )
 
 func (s *Server) RegisterModelBroker(service *modelbroker.Service) {

@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 const sandboxUser = 65532

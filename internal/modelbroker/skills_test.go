@@ -8,11 +8,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/budget"
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestSkillExpansionRejectedBeforeJobOrBudgetAccess(t *testing.T) {

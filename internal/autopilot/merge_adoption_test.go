@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/budget"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) {

@@ -10,8 +10,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/runner"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestHeartbeatRetriesTransientFailureWithinLease(t *testing.T) {

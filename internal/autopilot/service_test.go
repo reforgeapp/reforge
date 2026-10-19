@@ -8,12 +8,12 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/autopilot"
-	"reforge/internal/budget"
-	"reforge/internal/domain"
-	"reforge/internal/policy"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/autopilot"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestAutopilotReportsWhyItWaits(t *testing.T) {

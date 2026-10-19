@@ -3,10 +3,10 @@ package gitlab
 import (
 	"context"
 	"errors"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
 )
 
 func (p *Provider) CancelNativeQueue(ctx context.Context, request forge.QueueCancelRequest) (forge.QueueState, error) {

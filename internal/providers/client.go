@@ -4,9 +4,9 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/connections"
-	"reforge/internal/privateconnector"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 type Client interface {

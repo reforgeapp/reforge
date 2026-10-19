@@ -6,7 +6,7 @@ import (
 	"errors"
 	"time"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 const ProtocolVersion = 1

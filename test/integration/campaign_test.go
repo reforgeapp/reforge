@@ -13,12 +13,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/campaign"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/policy"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/campaign"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type campaignExecution struct {

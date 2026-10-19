@@ -5,8 +5,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"reforge/internal/alerts"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/alerts"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func (s *Server) RegisterAlerts(service *alerts.Service) {

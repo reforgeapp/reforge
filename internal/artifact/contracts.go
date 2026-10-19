@@ -2,8 +2,8 @@ package artifact
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/domain"
 	"io"
-	"reforge/internal/domain"
 	"time"
 )
 

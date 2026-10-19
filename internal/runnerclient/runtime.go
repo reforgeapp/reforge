@@ -9,9 +9,9 @@ import (
 	"strconv"
 	"strings"
 
-	"reforge/internal/egress"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/kubernetes"
+	"github.com/reforgeapp/reforge/internal/egress"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/kubernetes"
 )
 
 func ValidateRuntimeConfig(cfg sandbox.RuntimeConfig) error {

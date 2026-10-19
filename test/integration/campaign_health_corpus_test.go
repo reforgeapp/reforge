@@ -4,10 +4,10 @@ import (
 	"context"
 	"testing"
 
-	"reforge/internal/auth"
-	"reforge/internal/campaign"
-	"reforge/internal/policy"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/campaign"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type campaignMissingHealth struct {

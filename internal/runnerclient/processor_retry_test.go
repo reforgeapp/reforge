@@ -8,7 +8,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestRepairProcessorResumesOnlyTransientControlFailures(t *testing.T) {

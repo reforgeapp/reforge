@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestQueuePolicySeparatesAdmissionAndCandidateExecution(t *testing.T) {

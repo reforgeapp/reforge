@@ -4,7 +4,7 @@ import (
 	"context"
 	"strconv"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) CloseChange(ctx context.Context, in forge.CloseChangeRequest) (forge.Change, error) {

@@ -3,7 +3,7 @@ package discovery
 import (
 	"testing"
 
-	"reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
 )
 
 func TestFingerprintCanonicalizesDependencyOrder(t *testing.T) {

@@ -5,8 +5,8 @@ import (
 	"strconv"
 	"unicode/utf8"
 
-	"reforge/internal/forge"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 const maxCommitMessage = 64 << 10

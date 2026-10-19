@@ -7,8 +7,8 @@ import (
 	"io"
 	"regexp"
 
+	"github.com/reforgeapp/reforge/internal/domain"
 	"github.com/santhosh-tekuri/jsonschema/v6"
-	"reforge/internal/domain"
 )
 
 const MaxRequestBytes = 1 << 20

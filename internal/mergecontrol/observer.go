@@ -4,14 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"reforge/internal/heartbeat"
+	"github.com/reforgeapp/reforge/internal/heartbeat"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Service) Observe(ctx context.Context, org, id string) (Operation, error) {

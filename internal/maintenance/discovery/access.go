@@ -6,10 +6,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Service) recheckAllAccess(ctx context.Context) error {

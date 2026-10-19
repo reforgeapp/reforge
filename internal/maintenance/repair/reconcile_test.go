@@ -4,9 +4,9 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/forge"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 func TestStageRecoveryRequiresExactParentMarkerAndWholeTree(t *testing.T) {

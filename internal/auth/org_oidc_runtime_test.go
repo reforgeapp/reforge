@@ -19,9 +19,9 @@ import (
 
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
-	"reforge/internal/secrets"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestOrgOIDCRuntimeLoginCallback(t *testing.T) {

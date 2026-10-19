@@ -2,20 +2,20 @@ package providers
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge/gitea"
+	"github.com/reforgeapp/reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/forge/gitlab"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/model/anthropic"
+	"github.com/reforgeapp/reforge/internal/model/compatible"
+	"github.com/reforgeapp/reforge/internal/model/google"
+	"github.com/reforgeapp/reforge/internal/model/openai"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 	"net/url"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/forge/gitea"
-	"reforge/internal/forge/github"
-	"reforge/internal/forge/gitlab"
-	"reforge/internal/model"
-	"reforge/internal/model/anthropic"
-	"reforge/internal/model/compatible"
-	"reforge/internal/model/google"
-	"reforge/internal/model/openai"
-	"reforge/internal/network"
-	"reforge/internal/privateconnector"
 )
 
 type Factory struct{ Development bool }

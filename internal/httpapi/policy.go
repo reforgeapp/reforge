@@ -2,7 +2,7 @@ package httpapi
 
 import (
 	"github.com/gin-gonic/gin"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/policy"
 	"strconv"
 )
 

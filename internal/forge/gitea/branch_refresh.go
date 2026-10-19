@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) RefreshAppBranch(ctx context.Context, in forge.RefreshBranchRequest) error {

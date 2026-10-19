@@ -3,14 +3,14 @@ package providers
 import (
 	"context"
 
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	"reforge/internal/model/anthropic"
-	"reforge/internal/model/compatible"
-	"reforge/internal/model/google"
-	"reforge/internal/model/openai"
-	"reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/model/anthropic"
+	"github.com/reforgeapp/reforge/internal/model/compatible"
+	"github.com/reforgeapp/reforge/internal/model/google"
+	"github.com/reforgeapp/reforge/internal/model/openai"
+	"github.com/reforgeapp/reforge/internal/network"
 )
 
 func (f Factory) Catalog(ctx context.Context, r connections.Resolved) ([]connections.CatalogItem, error) {

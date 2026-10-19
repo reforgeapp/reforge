@@ -1,9 +1,9 @@
 package gitops
 
 import (
-	"reforge/internal/deployment"
-	"reforge/internal/forge"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/policy"
 	"time"
 )
 

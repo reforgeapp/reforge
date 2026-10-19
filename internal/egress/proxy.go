@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/network"
 )
 
 var Registries = []string{"registry.npmjs.org", "proxy.golang.org", "sum.golang.org"}

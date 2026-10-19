@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/forge"
-	"reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
 )
 
 func TestBotMergeRetryChecksPendingCIWithinOneMinute(t *testing.T) {

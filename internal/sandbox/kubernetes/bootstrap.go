@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
-	"reforge/internal/egress"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/egress"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 var ErrEgressBootstrap = errors.New("registry egress bootstrap unavailable")

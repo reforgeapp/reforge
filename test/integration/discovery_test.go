@@ -12,10 +12,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/detectors"
-	"reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
 )
 
 type discoveryFixture struct {

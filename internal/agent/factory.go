@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 type Launcher func(context.Context, Binding) (Runtime, error)

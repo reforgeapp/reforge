@@ -5,7 +5,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/budget"
 )
 
 func (s *Server) RegisterBudget(service *budget.Service) {

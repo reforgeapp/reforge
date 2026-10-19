@@ -10,15 +10,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/budget"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/gitops"
-	"reforge/internal/maintenance/recipes"
-	"reforge/internal/policy"
-	"reforge/internal/store"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/gitops"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type Service struct {

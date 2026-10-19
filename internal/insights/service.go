@@ -5,9 +5,9 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/budget"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/domain"
 	"strings"
 	"time"
 )

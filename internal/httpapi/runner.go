@@ -14,11 +14,11 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"reforge/internal/artifact"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/runner"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func (s *Server) RegisterRunner(service *runner.Service) {

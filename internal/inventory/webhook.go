@@ -12,10 +12,10 @@ import (
 	"strconv"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/secrets"
 )
 
 const MaxWebhookBytes = 1 << 20

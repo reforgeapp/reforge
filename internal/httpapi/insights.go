@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"github.com/gin-gonic/gin"
-	"reforge/internal/insights"
+	"github.com/reforgeapp/reforge/internal/insights"
 	"strconv"
 	"time"
 )

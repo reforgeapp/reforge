@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Service) validateQueueEffectTx(ctx context.Context, tx pgx.Tx, session *auth.Session, org string, expected Operation, gate Gate) error {

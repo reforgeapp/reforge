@@ -7,9 +7,9 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (s *Service) Jobs(ctx context.Context, session auth.Session, org string, limit int, cursor string) (domain.Page[Job], error) {

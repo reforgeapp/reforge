@@ -3,7 +3,7 @@ package httpapi
 import (
 	"github.com/gin-gonic/gin"
 
-	"reforge/internal/autopilot"
+	"github.com/reforgeapp/reforge/internal/autopilot"
 )
 
 func (s *Server) RegisterAutopilot(service *autopilot.Service) {

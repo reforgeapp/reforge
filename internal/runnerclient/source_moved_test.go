@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestSourceMovedErrorRequiresConflictCode(t *testing.T) {

@@ -6,17 +6,17 @@ import (
 	"net/http"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/forge/gitea"
-	"reforge/internal/forge/github"
-	"reforge/internal/forge/gitlab"
-	"reforge/internal/privateconnector"
-	"reforge/internal/runner"
-	"reforge/internal/source"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge/gitea"
+	"github.com/reforgeapp/reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/forge/gitlab"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 type Service struct {

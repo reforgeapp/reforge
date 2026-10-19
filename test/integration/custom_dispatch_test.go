@@ -8,16 +8,16 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/artifact"
-	"reforge/internal/budget"
-	"reforge/internal/connections"
-	"reforge/internal/control"
-	"reforge/internal/customcmd"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/policy"
-	"reforge/internal/runner"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/control"
+	"github.com/reforgeapp/reforge/internal/customcmd"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func i64(value int64) *int64 { return &value }

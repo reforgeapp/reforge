@@ -4,8 +4,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/deployment"
-	"reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
 )
 
 const (

@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/connections"
 )
 
 func protectionConnection() connections.Connection {

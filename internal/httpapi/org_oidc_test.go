@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 func TestOrgOIDCActivationRequiresCurrentVerification(t *testing.T) {

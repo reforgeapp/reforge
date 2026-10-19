@@ -9,11 +9,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/budget"
-	"reforge/internal/control"
-	"reforge/internal/domain"
-	"reforge/internal/policy"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/control"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestTaskBudgetHTTPAndCurrentPolicyDispatch(t *testing.T) {

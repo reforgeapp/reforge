@@ -11,9 +11,9 @@ import (
 	"math"
 	"strings"
 
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
 	"google.golang.org/genai"
-	"reforge/internal/domain"
-	"reforge/internal/model"
 )
 
 type captureKey struct{}

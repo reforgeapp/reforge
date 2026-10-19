@@ -7,11 +7,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"github.com/reforgeapp/reforge/internal/heartbeat"
 	"io"
 	"log/slog"
 	"os"
 	"path/filepath"
-	"reforge/internal/heartbeat"
 	"regexp"
 	"strings"
 	"syscall"
@@ -20,9 +20,9 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 const MaxSize int64 = 1 << 20

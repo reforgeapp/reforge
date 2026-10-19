@@ -19,8 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 var ErrUnavailable = errors.New("sandbox isolation or resource controls unavailable")

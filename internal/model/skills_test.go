@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 type skillTurnFixture struct {

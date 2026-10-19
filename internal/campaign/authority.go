@@ -6,11 +6,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/mergecontrol"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func (s *Service) automationSession(ctx context.Context, org, id, purpose, controller string) (auth.Session, error) {

@@ -9,13 +9,13 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/privateconnector"
-	"reforge/internal/providers"
-	"reforge/internal/source"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/providers"
+	"github.com/reforgeapp/reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestSupersessionRequiresExactPublishedReplacementBinding(t *testing.T) {

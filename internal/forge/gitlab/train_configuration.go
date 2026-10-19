@@ -10,7 +10,7 @@ import (
 	"reflect"
 
 	"github.com/goccy/go-yaml"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 const trainEnvironment = "reforge-merge-policy"

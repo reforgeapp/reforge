@@ -6,8 +6,8 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
 )
 
 func TestRepairSourceMovedUsesTypedConflict(t *testing.T) {

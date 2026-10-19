@@ -21,16 +21,16 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"reforge/internal/auth"
-	"reforge/internal/config"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/httpapi"
-	"reforge/internal/network"
-	"reforge/internal/privateconnector"
-	"reforge/internal/runner"
-	"reforge/internal/store"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/httpapi"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type realFixture struct {

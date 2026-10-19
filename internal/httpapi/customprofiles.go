@@ -9,8 +9,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/customcmd"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/customcmd"
 )
 
 func (s *Server) RegisterCustomProfiles(service *customcmd.Service) {

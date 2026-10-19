@@ -8,9 +8,9 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/maintenance/recipes"
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 type diagnosticRuntime struct {

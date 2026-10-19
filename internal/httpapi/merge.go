@@ -8,9 +8,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5/pgconn"
-	"reforge/internal/domain"
-	"reforge/internal/mergecontrol"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Server) RegisterMerge(service *mergecontrol.Service) {

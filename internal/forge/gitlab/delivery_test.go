@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestGitLabDeliveryGuardAndPinnedDispatch(t *testing.T) {

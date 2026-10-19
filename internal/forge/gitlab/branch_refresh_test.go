@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestRefreshAppBranchPreflightsAndUsesNativeRebase(t *testing.T) {

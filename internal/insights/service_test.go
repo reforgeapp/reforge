@@ -15,14 +15,14 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/budget"
-	"reforge/internal/config"
-	"reforge/internal/domain"
-	"reforge/internal/httpapi"
-	"reforge/internal/insights"
-	"reforge/internal/policy"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/httpapi"
+	"github.com/reforgeapp/reforge/internal/insights"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestScopedLedgerAndAuditExport(t *testing.T) {

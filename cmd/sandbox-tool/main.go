@@ -2,9 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 	"io/fs"
 	"os"
-	"reforge/internal/sandbox/guest"
 )
 
 func main() {

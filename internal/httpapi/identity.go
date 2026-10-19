@@ -9,7 +9,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func (s *Server) RegisterIdentity(service *auth.Service) {

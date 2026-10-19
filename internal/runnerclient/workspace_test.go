@@ -3,8 +3,8 @@ package runnerclient
 import (
 	"testing"
 
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 func TestHasNpmLockfileFindsNearestWorkspaceAncestor(t *testing.T) {

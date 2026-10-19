@@ -4,9 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
 )
 
 func (s *Service) Cancel(ctx context.Context, session auth.Session, org, id string, expected int64, request string) (Promotion, error) {

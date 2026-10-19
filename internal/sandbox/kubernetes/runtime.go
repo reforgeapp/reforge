@@ -13,8 +13,8 @@ import (
 	"sync"
 	"time"
 
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
 )
 
 var ErrUnavailable = errors.New("Kubernetes sandbox unavailable")

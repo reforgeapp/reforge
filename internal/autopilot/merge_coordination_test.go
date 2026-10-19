@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestOwnerRepairTargetCoordinationIsRepositoryAndTargetScoped(t *testing.T) {

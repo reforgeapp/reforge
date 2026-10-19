@@ -18,11 +18,11 @@ import (
 	"syscall"
 	"time"
 
-	"reforge/internal/artifact"
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	"reforge/internal/runner"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 var ErrControlPlane = errors.New("runner control plane unavailable or rejected request")

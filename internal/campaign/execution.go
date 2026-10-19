@@ -7,13 +7,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/gitops"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/mergecontrol"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/gitops"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/mergecontrol"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type nativeExecutor struct {

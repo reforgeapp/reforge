@@ -2,8 +2,8 @@ package gitea
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
-	"reforge/internal/forge"
 )
 
 func (p *Provider) Behind(ctx context.Context, repo forge.RepoRef, base, head string) (int, error) {

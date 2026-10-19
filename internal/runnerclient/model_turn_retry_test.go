@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/model"
 )
 
 func retryTestTurn() model.Turn {

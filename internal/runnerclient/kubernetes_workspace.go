@@ -8,8 +8,8 @@ import (
 	"sort"
 	"time"
 
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func (p commandPreparer) prepareKubernetes(ctx context.Context, request sandbox.WorkspaceRequest, patches []sandbox.Patch, command sandbox.Command) (sandbox.Workspace, error) {

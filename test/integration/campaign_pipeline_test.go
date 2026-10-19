@@ -10,10 +10,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/policy"
 )
 
 func TestCampaignPipelineUsesNativeDispatchHealthAndCancel(t *testing.T) {

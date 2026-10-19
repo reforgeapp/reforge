@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/detectors"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 func TestPublishedRepairOverlapAllowsOnlyOwnedFollowUp(t *testing.T) {

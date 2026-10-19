@@ -4,11 +4,11 @@ import (
 	"context"
 	"strings"
 
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	anthropicmodel "reforge/internal/model/anthropic"
-	googlemodel "reforge/internal/model/google"
-	openaimodel "reforge/internal/model/openai"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	anthropicmodel "github.com/reforgeapp/reforge/internal/model/anthropic"
+	googlemodel "github.com/reforgeapp/reforge/internal/model/google"
+	openaimodel "github.com/reforgeapp/reforge/internal/model/openai"
 )
 
 const (

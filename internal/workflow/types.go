@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 var ErrNoWork = errors.New("no eligible work")

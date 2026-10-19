@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 type automationGrant struct {

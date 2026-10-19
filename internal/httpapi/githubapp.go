@@ -12,9 +12,9 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
-	"reforge/internal/githubapp"
-	"reforge/internal/inventory"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/githubapp"
+	"github.com/reforgeapp/reforge/internal/inventory"
 )
 
 var githubHandoffPage = template.Must(template.New("handoff").Parse(`<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Continue to GitHub</title>{{if .Stylesheet}}<link rel="stylesheet" href="{{.Stylesheet}}">{{end}}</head><body><header class="topbar"><span class="brand"><span class="brand-mark" aria-hidden="true">R</span>Reforge</span></header><main class="content"><div class="page-header"><div><h1>Create GitHub App</h1><p>Continue to GitHub to create and install the App for this organisation.</p></div></div><form method="post" action="{{.Action}}"><input type="hidden" name="manifest" value="{{.Manifest}}"><button class="button button-primary" type="submit">Continue to GitHub</button></form></main></body></html>`))

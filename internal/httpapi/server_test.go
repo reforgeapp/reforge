@@ -2,11 +2,11 @@ package httpapi
 
 import (
 	"encoding/json"
+	"github.com/reforgeapp/reforge/internal/config"
+	"github.com/reforgeapp/reforge/internal/domain"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reforge/internal/config"
-	"reforge/internal/domain"
 	"testing"
 )
 

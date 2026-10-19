@@ -1,8 +1,8 @@
 package deployment
 
 import (
-	"reforge/internal/forge"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/policy"
 	"time"
 )
 

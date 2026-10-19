@@ -7,9 +7,9 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/inventory"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/inventory"
 )
 
 func (s *Server) RegisterInventory(service *inventory.Service) {

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) CommentChange(ctx context.Context, in forge.CommentChangeRequest) (forge.Change, error) {

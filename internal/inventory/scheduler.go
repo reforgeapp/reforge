@@ -3,12 +3,12 @@ package inventory
 import (
 	"context"
 	"errors"
-	"reforge/internal/auth"
-	"reforge/internal/heartbeat"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/heartbeat"
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/connections"
 )
 
 func (s *Service) Maintain(ctx context.Context, org string) error {

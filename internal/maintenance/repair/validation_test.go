@@ -7,9 +7,9 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/artifact"
-	"reforge/internal/maintenance/recipes"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func testPlan(t *testing.T) (Plan, map[string][]byte) {

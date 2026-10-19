@@ -1,11 +1,11 @@
 package repair
 
 import (
-	"reforge/internal/customcmd"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/sandbox"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/customcmd"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/workflow"
 	"time"
 )
 

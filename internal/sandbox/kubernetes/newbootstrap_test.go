@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/egress"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/egress"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestRegistryBootstrapLeaseKeepsTokenOutOfRefsAndRevokes(t *testing.T) {

@@ -14,13 +14,13 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge/github"
-	"reforge/internal/model/compatible"
-	"reforge/internal/network"
-	"reforge/internal/secrets"
-	"reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/model/compatible"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/store"
 )
 
 var ErrRunnerRequired = errors.New("enrol a runner in this organisation before approving a private route")

@@ -13,8 +13,8 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
 )
 
 const managedHostedWebhookPath = "/hooks/github/app"

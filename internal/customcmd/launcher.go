@@ -3,7 +3,7 @@ package customcmd
 import (
 	"context"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 type SandboxLauncher struct {

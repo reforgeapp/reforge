@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
 )
 
 type Config struct {

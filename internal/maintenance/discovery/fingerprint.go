@@ -6,8 +6,8 @@ import (
 	"encoding/json"
 	"sort"
 
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/detectors"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/detectors"
 )
 
 func digest(v any) string {

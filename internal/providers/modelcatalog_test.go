@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/connections"
 )
 
 type catalogTransport func(*http.Request) (*http.Response, error)

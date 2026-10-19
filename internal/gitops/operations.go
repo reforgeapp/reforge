@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"errors"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 const promotionColumns = `id::text,environment,source_repository_id::text,delivery_repository_id::text,gate_id::text,state,reason,version,requested_by::text,branch,candidate_sha,native_change,merge_sha,COALESCE(recovery_of::text,''),created_at,updated_at,finished_at,cancel_requested`

@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/privateconnector"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/source"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type recoveryIntent struct {

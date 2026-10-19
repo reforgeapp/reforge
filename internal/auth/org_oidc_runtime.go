@@ -9,9 +9,9 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/secrets"
 	"golang.org/x/oauth2"
-	"reforge/internal/domain"
-	"reforge/internal/secrets"
 )
 
 type oidcLoginAttempt struct {

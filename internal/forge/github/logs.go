@@ -8,8 +8,8 @@ import (
 	"strconv"
 	"time"
 
-	"reforge/internal/forge"
-	"reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/network"
 )
 
 func (p *Provider) ReadCheckLog(ctx context.Context, reference forge.RepoRef, checkID string) (string, error) {

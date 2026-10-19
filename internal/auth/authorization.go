@@ -8,7 +8,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 type Team struct {

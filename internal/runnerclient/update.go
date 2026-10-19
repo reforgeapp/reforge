@@ -12,9 +12,9 @@ import (
 	"sort"
 	"time"
 
-	"reforge/internal/egress"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/egress"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 const (

@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestSourceManifestNativeTreeTraversalAndTruncation(t *testing.T) {

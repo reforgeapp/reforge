@@ -1,4 +1,4 @@
-module reforge
+module github.com/reforgeapp/reforge
 
 go 1.27.1
 

@@ -13,8 +13,8 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
 )
 
 const (

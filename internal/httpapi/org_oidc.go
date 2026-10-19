@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func (s *Server) RegisterOrgOIDC() {

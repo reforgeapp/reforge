@@ -3,10 +3,10 @@ package github
 import (
 	"context"
 	"encoding/json"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
 	"net/url"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
 	"strconv"
 	"strings"
 	"time"

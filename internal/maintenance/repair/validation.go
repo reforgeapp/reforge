@@ -13,11 +13,11 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"reforge/internal/maintenance/recipes"
-	"reforge/internal/policy"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 var ErrValidation = errors.New("frozen validation plan or evidence is incomplete")

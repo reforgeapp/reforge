@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/policy"
 )
 
 func TestDeploymentContinuePersistsDispatchAndRejectsDuplicate(t *testing.T) {

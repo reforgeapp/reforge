@@ -10,14 +10,14 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/runner"
-	"reforge/internal/sandbox"
-	"reforge/internal/store"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func TestCheckpointShapeAllowsOwnerRetargetingProtectedFiles(t *testing.T) {

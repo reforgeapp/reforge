@@ -7,9 +7,9 @@ import (
 	"sync"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/connections"
-	"reforge/internal/policy"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 type ActionCheck func(context.Context, pgx.Tx, workflow.Task, policy.Resolved) error

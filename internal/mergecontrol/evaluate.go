@@ -1,11 +1,11 @@
 package mergecontrol
 
 import (
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/policy"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/source"
 	"slices"
 	"strings"
 	"time"

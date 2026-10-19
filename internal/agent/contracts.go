@@ -3,8 +3,8 @@ package agent
 import (
 	"context"
 	"encoding/json"
-	"reforge/internal/domain"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 type Probe struct {

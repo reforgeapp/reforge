@@ -5,11 +5,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/budget"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/policy"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/budget"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func (s *Service) CheckModelTx(ctx context.Context, tx pgx.Tx, t workflow.Task, reservation budget.Reservation) error {

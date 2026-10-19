@@ -17,8 +17,8 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestWebhooksAuthenticateBodyAndKeepSourceIdentity(t *testing.T) {

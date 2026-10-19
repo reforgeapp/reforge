@@ -11,7 +11,7 @@ import (
 	"net/http"
 	"time"
 
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 type ClientConfig struct {

@@ -10,13 +10,13 @@ import (
 	"sync"
 	"time"
 
-	"reforge/internal/artifact"
-	"reforge/internal/customcmd"
-	"reforge/internal/domain"
-	"reforge/internal/maintenance/repair"
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/artifact"
+	"github.com/reforgeapp/reforge/internal/customcmd"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 func RepairProcessor(config sandbox.RuntimeConfig) Processor {

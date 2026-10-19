@@ -8,7 +8,7 @@ import (
 	"strconv"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func TestRefreshAppBranchPreflightsAndUsesExpectedHead(t *testing.T) {

@@ -5,7 +5,7 @@ import (
 	"math/big"
 	"time"
 
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 )
 
 func values(a Amount) []int64 {

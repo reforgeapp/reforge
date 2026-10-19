@@ -2,9 +2,9 @@ package gitlab
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
 	"strings"
 	"testing"
 )

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/auth"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func (p *Provider) ListAllowedWorkflows(ctx context.Context, reference forge.RepoRef) ([]forge.Workflow, error) {

@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 type Report struct {

@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/domain"
-	"reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/model"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)

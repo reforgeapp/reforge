@@ -2,9 +2,9 @@ package privateconnector
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
-	"reforge/internal/auth"
-	"reforge/internal/forge"
 )
 
 type guardedHTTP struct {

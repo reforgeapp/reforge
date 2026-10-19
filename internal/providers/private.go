@@ -5,12 +5,12 @@ import (
 	"errors"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/domain"
-	"reforge/internal/network"
-	"reforge/internal/privateconnector"
-	"reforge/internal/runner"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/runner"
 )
 
 func RegisterPrivate(service *connections.Service, connector *privateconnector.Connector, runners *runner.Service) {

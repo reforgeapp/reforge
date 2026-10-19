@@ -13,7 +13,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 type cappedWriter struct {

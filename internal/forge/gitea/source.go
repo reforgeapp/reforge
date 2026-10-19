@@ -4,8 +4,8 @@ import (
 	"context"
 	"strconv"
 
-	"reforge/internal/forge"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 func (p *Provider) ReadSourceManifest(ctx context.Context, r forge.RepoRef, commit string) (forge.SourceManifest, error) {

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 type queueInspectionProvider struct {

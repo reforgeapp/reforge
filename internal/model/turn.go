@@ -7,7 +7,7 @@ import (
 	"log/slog"
 	"time"
 
-	"reforge/internal/skills"
+	"github.com/reforgeapp/reforge/internal/skills"
 )
 
 const MaxTurnTimeout = 10 * time.Minute

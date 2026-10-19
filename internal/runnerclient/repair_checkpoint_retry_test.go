@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/maintenance/repair"
+	"github.com/reforgeapp/reforge/internal/maintenance/repair"
 )
 
 func TestRepairCheckpointRetriesTransientWithIdenticalRequest(t *testing.T) {

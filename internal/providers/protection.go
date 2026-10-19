@@ -5,9 +5,9 @@ import (
 	"slices"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/connections"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s Service) ForProtection(id string, publishers map[string]string) Client {

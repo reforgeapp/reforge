@@ -4,10 +4,10 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
-	"reforge/internal/auth"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
 	"strconv"
 )
 

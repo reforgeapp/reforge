@@ -9,10 +9,10 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
-	"reforge/internal/deployment"
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
 )
 
 func (s *Server) RegisterDeployment(service *deployment.Service) {

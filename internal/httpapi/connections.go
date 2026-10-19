@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"reforge/internal/connections"
-	"reforge/internal/network"
-	"reforge/internal/privateconnector"
-	"reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/internal/connections"
+	"github.com/reforgeapp/reforge/internal/network"
+	"github.com/reforgeapp/reforge/internal/privateconnector"
+	"github.com/reforgeapp/reforge/internal/secrets"
 )
 
 func (s *Server) RegisterConnections(service *connections.Service) {

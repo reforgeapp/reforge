@@ -5,8 +5,8 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 type inspectionProvider struct {

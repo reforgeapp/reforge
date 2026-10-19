@@ -2,9 +2,9 @@ package gitlab
 
 import (
 	"context"
+	"github.com/reforgeapp/reforge/internal/forge"
 	"net/http"
 	"net/url"
-	"reforge/internal/forge"
 )
 
 func (p *Provider) Behind(ctx context.Context, repo forge.RepoRef, base, head string) (int, error) {

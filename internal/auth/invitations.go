@@ -10,8 +10,8 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/internal/domain"
 	"golang.org/x/oauth2"
-	"reforge/internal/domain"
 )
 
 type OrgOIDCInvitation struct {

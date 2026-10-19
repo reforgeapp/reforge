@@ -7,10 +7,10 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/forge"
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/model"
-	"reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox"
 )
 
 func TestOwnerReadsOriginalRevisionAgainstChangedTarget(t *testing.T) {

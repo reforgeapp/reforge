@@ -3,11 +3,11 @@ package integration
 import (
 	"context"
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/store"
 	"net/url"
 	"os"
 	"path/filepath"
-	"reforge/internal/domain"
-	"reforge/internal/store"
 	"strings"
 	"sync"
 	"testing"

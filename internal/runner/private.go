@@ -5,7 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/hex"
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/auth"
 	"time"
 )
 

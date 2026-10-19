@@ -8,8 +8,8 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func gateJob(id int64, name, status, sha string, pipeline int64, allow bool) trainGateJob {

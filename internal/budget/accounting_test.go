@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/domain"
 )
 
 func n(value int64) *int64 { return &value }

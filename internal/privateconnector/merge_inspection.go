@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"time"
 
-	"reforge/internal/domain"
-	"reforge/internal/forge"
-	"reforge/internal/source"
+	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/source"
 )
 
 func inspectMerge(ctx context.Context, provider forge.Provider, args ChangeArgs) (*forge.MergeEvidence, error) {

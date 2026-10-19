@@ -16,8 +16,8 @@ import (
 	"strings"
 
 	"github.com/jackc/pgx/v5"
-	"reforge/internal/auth"
-	"reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/forge/github"
 )
 
 var errProvider = errors.New("GitHub request failed")

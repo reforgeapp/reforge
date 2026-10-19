@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 func fixture(format string) (forge.SourceManifest, map[string][]byte) {

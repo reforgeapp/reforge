@@ -9,7 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 var ErrUnsupported = errors.New("runner operation is not registered")

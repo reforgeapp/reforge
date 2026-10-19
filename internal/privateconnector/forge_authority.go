@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"reforge/internal/auth"
-	"reforge/internal/forge"
-	"reforge/internal/forge/gitea"
-	"reforge/internal/forge/github"
-	"reforge/internal/forge/gitlab"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/forge/gitea"
+	"github.com/reforgeapp/reforge/internal/forge/github"
+	"github.com/reforgeapp/reforge/internal/forge/gitlab"
 )
 
 func BindForgeOperation(provider forge.Provider, operation Operation) forge.Provider {

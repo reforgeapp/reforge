@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"reforge/internal/auth"
-	"reforge/internal/forge"
+	"github.com/reforgeapp/reforge/internal/auth"
+	"github.com/reforgeapp/reforge/internal/forge"
 )
 
 type protectionHTTPFixture struct{ calls int }

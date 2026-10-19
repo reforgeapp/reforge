@@ -11,10 +11,10 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"reforge/internal/maintenance/discovery"
-	"reforge/internal/model"
-	"reforge/internal/sandbox/guest"
-	"reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
+	"github.com/reforgeapp/reforge/internal/model"
+	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/internal/workflow"
 )
 
 const maxReviewFindings = 20
