@@ -27,7 +27,7 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version="$(bash scripts/release-version.sh "$GITHUB_RUN_NUMBER" "$GITHUB_SHA")"
+          version="$(bash scripts/release-version.sh "$GITHUB_SHA")"
           tag="v$version"
           published=false
           if git show-ref --verify --quiet "refs/tags/$tag"; then

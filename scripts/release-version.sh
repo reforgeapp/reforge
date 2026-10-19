@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if (( $# < 1 || $# > 2 )) || [[ ! ${1:-} =~ ^[1-9][0-9]*$ ]]; then
-  echo "Usage: release-version.sh RUN_NUMBER [COMMIT]; RUN_NUMBER must be a positive integer without leading zeros" >&2
+if (( $# > 1 )); then
+  echo "Usage: release-version.sh [COMMIT]" >&2
   exit 1
 fi
 
-if ! commit=$(git rev-parse --verify --end-of-options "${2-HEAD}^{commit}" 2>/dev/null); then
+if ! commit=$(git rev-parse --verify --end-of-options "${1-HEAD}^{commit}" 2>/dev/null); then
   echo "Release commit does not resolve to a commit" >&2
   exit 1
 fi
@@ -18,4 +18,17 @@ if [[ -z $base ]]; then
   exit 1
 fi
 
-printf '%s.%s\n' "${base#v}" "$1"
+line="${base#v}"
+pattern="^v${line//./\\.}\\.(0|[1-9][0-9]*)$"
+existing=$(git tag --points-at "$commit" --list 'v*' | grep -E "$pattern" | LC_ALL=C sort -V | tail -n 1 || true)
+if [[ -n $existing ]]; then
+  printf '%s\n' "${existing#v}"
+  exit 0
+fi
+
+latest=$(git tag --list 'v*' | grep -E "$pattern" | LC_ALL=C sort -V | tail -n 1 || true)
+if [[ -z $latest ]]; then
+  printf '%s.0\n' "$line"
+else
+  printf '%s.%s\n' "$line" "$(( ${latest##*.} + 1 ))"
+fi
