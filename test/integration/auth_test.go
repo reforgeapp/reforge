@@ -20,11 +20,11 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/config"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/httpapi"
-	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/config"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/httpapi"
+	"github.com/reforgeapp/reforge/pkg/store"
 )
 
 func authDB(t *testing.T) *store.Store {

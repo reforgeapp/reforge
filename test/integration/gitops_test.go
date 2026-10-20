@@ -11,10 +11,10 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/gitops"
-	"github.com/reforgeapp/reforge/internal/policy"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/gitops"
+	"github.com/reforgeapp/reforge/pkg/policy"
 )
 
 func gitopsConfiguration(org, source, delivery string, provenance, health ed25519.PublicKey) gitops.Configuration {

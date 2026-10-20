@@ -55,4 +55,4 @@ sandbox-test:
 	REFORGE_TEST_RUNSC="$${REFORGE_TEST_RUNSC:?set the pinned runsc binary}" \
 	REFORGE_TEST_SANDBOX_TOOL=/tmp/reforge-sandbox-tool \
 	REFORGE_TEST_SANDBOX_PROBE=/tmp/reforge-sandbox-probe \
-	$(GO) test -count=1 ./internal/sandbox/
+	$(GO) test -count=1 ./pkg/sandbox/

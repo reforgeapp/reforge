@@ -7,8 +7,8 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/domain"
 )
 
 func TestScopedAutomationAuthority(t *testing.T) {

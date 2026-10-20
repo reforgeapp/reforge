@@ -14,15 +14,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/connections"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/githubapp"
-	"github.com/reforgeapp/reforge/internal/httpapi"
-	"github.com/reforgeapp/reforge/internal/inventory"
-	"github.com/reforgeapp/reforge/internal/providers"
-	"github.com/reforgeapp/reforge/internal/secrets"
-	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/githubapp"
+	"github.com/reforgeapp/reforge/pkg/httpapi"
+	"github.com/reforgeapp/reforge/pkg/inventory"
+	"github.com/reforgeapp/reforge/pkg/providers"
+	"github.com/reforgeapp/reforge/pkg/secrets"
+	"github.com/reforgeapp/reforge/pkg/store"
 )
 
 type webhookHarness struct {

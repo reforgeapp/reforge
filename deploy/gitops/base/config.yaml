@@ -6,7 +6,7 @@ data:
   REFORGE_ADDRESS: 0.0.0.0:8080
   REFORGE_EDITION: hosted
   REFORGE_DOCS_URL: /docs/
-  REFORGE_MIGRATION_DIR: /app/internal/store/migrations
+  REFORGE_MIGRATION_DIR: /app/pkg/store/migrations
 ---
 apiVersion: v1
 kind: Secret

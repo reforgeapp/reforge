@@ -1,5 +1,5 @@
 set -euo pipefail
-paths=(internal/httpapi/generated internal/store/dbgen web/src/api/schema.ts)
+paths=(pkg/httpapi/generated pkg/store/dbgen web/src/api/schema.ts)
 before=$(mktemp -d)
 trap 'for file in "$before/hashes" "$before/after"; do if [[ -f "$file" ]]; then unlink "$file"; fi; done; rmdir "$before"' EXIT
 manifest() {
@@ -14,7 +14,7 @@ go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 --config 
 go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
 npm --prefix web run generate
 python3 scripts/strip-generated-comments.py
-gofmt -w internal/httpapi/generated internal/store/dbgen
+gofmt -w pkg/httpapi/generated pkg/store/dbgen
 if [[ "${1:-}" == "--check" ]]; then
   manifest > "$before/after"
   diff -u "$before/hashes" "$before/after"

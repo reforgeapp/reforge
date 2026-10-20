@@ -3,7 +3,7 @@ package main
 import (
 	"bytes"
 	"encoding/json"
-	"github.com/reforgeapp/reforge/internal/deployment"
+	"github.com/reforgeapp/reforge/pkg/deployment"
 	"os"
 	"path/filepath"
 	"testing"

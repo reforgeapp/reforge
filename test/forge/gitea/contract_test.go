@@ -15,9 +15,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/forge"
-	"github.com/reforgeapp/reforge/internal/forge/gitea"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/forge/gitea"
 )
 
 type fixture struct {

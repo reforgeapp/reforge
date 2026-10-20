@@ -17,17 +17,17 @@ Planned layout:
 ```text
 cmd/server/                 HTTP API, webhooks, scheduler and controller modes
 cmd/runner/                 isolated job supervisor and control-plane client
-internal/auth/              sessions, organisation membership and authorisation
-internal/store/             SQL, migrations, generated queries and transaction scope
-internal/forge/             provider-neutral records and provider implementations
-internal/model/             direct inference adapters and capability probes
-internal/agent/             tool loop and official agent process bridges
-internal/policy/            deterministic evaluator and explanations
-internal/maintenance/       findings, recipes, bot coordination and campaigns
-internal/workflow/          persisted state machine, leases and reconciliation
-internal/deployment/        existing pipeline and GitOps orchestration
-internal/artifact/          tenant-scoped artifact access
-internal/httpapi/           REST, SSE, webhooks and OpenAPI handlers
+pkg/auth/                   sessions, organisation membership and authorisation
+pkg/store/                  SQL, migrations, generated queries and transaction scope
+pkg/forge/                  provider-neutral records and provider implementations
+pkg/model/                  direct inference adapters and capability probes
+pkg/agent/                  tool loop and official agent process bridges
+pkg/policy/                 deterministic evaluator and explanations
+pkg/maintenance/            findings, recipes, bot coordination and campaigns
+pkg/workflow/               persisted state machine, leases and reconciliation
+pkg/deployment/             existing pipeline and GitOps orchestration
+pkg/artifact/               tenant-scoped artifact access
+pkg/httpapi/                REST, SSE, webhooks and OpenAPI handlers
 api/openapi.yaml            reviewed API contract
 web/                       GUI
 deploy/compose/             self-hosted application + database + runner

@@ -13,10 +13,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/maintenance/recipes"
-	"github.com/reforgeapp/reforge/internal/maintenance/repair"
-	"github.com/reforgeapp/reforge/internal/sandbox"
-	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
+	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
 )
 
 func TestToolchainImagesRunFrozenRecipes(t *testing.T) {

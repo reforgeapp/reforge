@@ -1,7 +1,7 @@
 from pathlib import Path
 import re
 
-files = [*Path('internal/httpapi/generated').glob('*.go'), *Path('internal/store/dbgen').glob('*.go'), Path('web/src/api/schema.ts')]
+files = [*Path('pkg/httpapi/generated').glob('*.go'), *Path('pkg/store/dbgen').glob('*.go'), Path('web/src/api/schema.ts')]
 for file in files:
     text = file.read_text()
     text = re.sub(r'/\*.*?\*/', '', text, flags=re.S)

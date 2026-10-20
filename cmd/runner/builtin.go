@@ -21,8 +21,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/runnerclient"
-	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/pkg/runnerclient"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
 
 var recipes = []string{"go", "javascript", "python"}

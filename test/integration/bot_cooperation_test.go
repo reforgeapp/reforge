@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/connections"
-	"github.com/reforgeapp/reforge/internal/forge"
-	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
-	"github.com/reforgeapp/reforge/internal/privateconnector"
-	"github.com/reforgeapp/reforge/internal/source"
+	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/source"
 )
 
 type botCooperationReader struct {

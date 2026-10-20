@@ -2,7 +2,7 @@ package main
 
 import (
 	"context"
-	"github.com/reforgeapp/reforge/internal/store"
+	"github.com/reforgeapp/reforge/pkg/store"
 	"log/slog"
 	"os"
 	"time"
@@ -16,7 +16,7 @@ func main() {
 	}
 	d := os.Getenv("REFORGE_MIGRATION_DIR")
 	if d == "" {
-		d = "internal/store/migrations"
+		d = "pkg/store/migrations"
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()

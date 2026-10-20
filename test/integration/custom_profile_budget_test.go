@@ -9,16 +9,16 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/artifact"
-	"github.com/reforgeapp/reforge/internal/budget"
-	"github.com/reforgeapp/reforge/internal/connections"
-	"github.com/reforgeapp/reforge/internal/control"
-	"github.com/reforgeapp/reforge/internal/customcmd"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/maintenance/repair"
-	"github.com/reforgeapp/reforge/internal/policy"
-	"github.com/reforgeapp/reforge/internal/runner"
-	"github.com/reforgeapp/reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/pkg/artifact"
+	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/control"
+	"github.com/reforgeapp/reforge/pkg/customcmd"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/runner"
+	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
 type customProfileBudgetFixture struct {

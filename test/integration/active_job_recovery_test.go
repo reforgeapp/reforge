@@ -12,12 +12,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/artifact"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/runner"
-	"github.com/reforgeapp/reforge/internal/store"
-	"github.com/reforgeapp/reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/pkg/artifact"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/runner"
+	"github.com/reforgeapp/reforge/pkg/store"
+	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
 type recoveryProcess struct {

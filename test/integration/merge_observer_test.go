@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/forge"
-	"github.com/reforgeapp/reforge/internal/mergecontrol"
-	"github.com/reforgeapp/reforge/internal/policy"
-	"github.com/reforgeapp/reforge/internal/providers"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/mergecontrol"
+	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/providers"
 )
 
 func TestMergeObserverRestartTenantAndVersionGuards(t *testing.T) {

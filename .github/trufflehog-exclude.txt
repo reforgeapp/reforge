@@ -1,4 +1,4 @@
 ^deploy/compose/\.env\.example$
 ^scripts/container-install-check\.sh$
-^internal/network/client_test\.go$
-^internal/privateconnector/endpoint_corpus_test\.go$
+^pkg/network/client_test\.go$
+^pkg/privateconnector/endpoint_corpus_test\.go$

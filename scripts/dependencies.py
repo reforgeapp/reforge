@@ -141,7 +141,7 @@ for record, notice_path in notice_sources:
         f"SHA-256: {digest}\n{text}"
     )
 
-skill_root = root / 'internal/skills'
+skill_root = root / 'pkg/skills'
 skill_vendor_root = (skill_root / 'vendor').resolve()
 skill_manifest = json.loads((skill_root / 'sources.json').read_text())
 for source in skill_manifest['sources']:
@@ -158,7 +158,7 @@ for source in skill_manifest['sources']:
         evidence[record['path']] = data
     rows.append((
         source['name'], source['revision'], 'embedded agent skills',
-        f"{source['license']}; internal/skills/{source['license_path']}",
+        f"{source['license']}; pkg/skills/{source['license_path']}",
     ))
     for key in ['license_path', 'license_scope_path']:
         if key not in source:

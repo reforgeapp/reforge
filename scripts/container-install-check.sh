@@ -69,7 +69,7 @@ dc exec -T postgres psql -U reforge -d postgres -v ON_ERROR_STOP=1 -c "CREATE RO
 dc run --rm migrator >"$run_dir/clean-migration.log" 2>&1 || { tail -100 "$run_dir/clean-migration.log" >&2; fail 'clean install migration'; }
 dc exec -T postgres psql -U reforge_migrator -d reforge -v ON_ERROR_STOP=1 < "$root/scripts/runtime-grants.sql" >"$run_dir/runtime-grants.log" 2>&1 || { cat "$run_dir/runtime-grants.log" >&2; fail 'runtime grants'; }
 pass 'container images built; clean database migrated; least-privilege runtime grants applied'
-cp "$root"/internal/store/migrations/*.sql "$run_dir/migrations/"
+cp "$root"/pkg/store/migrations/*.sql "$run_dir/migrations/"
 cat > "$run_dir/migrations/900_t28a_upgrade.sql" <<'SQL'
 CREATE TABLE t28a_upgrade_marker(id integer PRIMARY KEY);
 SQL
@@ -104,7 +104,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/secrets"
+	"github.com/reforgeapp/reforge/pkg/secrets"
 )
 
 const orgID = "00000000-0000-4000-8000-000000000001"

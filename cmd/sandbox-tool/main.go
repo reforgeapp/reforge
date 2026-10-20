@@ -2,7 +2,7 @@ package main
 
 import (
 	"fmt"
-	"github.com/reforgeapp/reforge/internal/sandbox/guest"
+	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
 	"io/fs"
 	"os"
 )

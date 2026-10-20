@@ -24,11 +24,11 @@ RUN apk upgrade --no-cache \
 WORKDIR /app
 COPY --from=gobuild /out/reforge /out/reforge-migrate /out/reforge-evidence /app/
 COPY --from=web /src/web/dist /app/web/dist
-COPY internal/store/migrations /app/internal/store/migrations
+COPY pkg/store/migrations /app/pkg/store/migrations
 COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
 USER reforge
 ENV REFORGE_WEB_DIR=/app/web/dist \
-    REFORGE_MIGRATION_DIR=/app/internal/store/migrations \
+    REFORGE_MIGRATION_DIR=/app/pkg/store/migrations \
     REFORGE_ARTIFACT_DIRECTORY=/app/var/artifacts
 EXPOSE 8080
 CMD ["/app/reforge"]

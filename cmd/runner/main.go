@@ -18,10 +18,10 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/privateconnector"
-	"github.com/reforgeapp/reforge/internal/runnerclient"
-	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/runnerclient"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
 
 func main() {

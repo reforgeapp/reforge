@@ -9,15 +9,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/budget"
-	"github.com/reforgeapp/reforge/internal/campaign"
-	"github.com/reforgeapp/reforge/internal/control"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/maintenance/repair"
-	"github.com/reforgeapp/reforge/internal/policy"
-	"github.com/reforgeapp/reforge/internal/runner"
-	"github.com/reforgeapp/reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/campaign"
+	"github.com/reforgeapp/reforge/pkg/control"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/runner"
+	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
 func TestCampaignRepairAdmissionBudgetAndResume(t *testing.T) {

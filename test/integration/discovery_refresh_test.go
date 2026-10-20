@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/inventory"
+	"github.com/reforgeapp/reforge/pkg/inventory"
 )
 
 func TestStartScanQueuesRefreshAndDefersStaleExecution(t *testing.T) {

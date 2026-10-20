@@ -13,15 +13,15 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/connections"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/forge"
-	"github.com/reforgeapp/reforge/internal/maintenance/discovery"
-	"github.com/reforgeapp/reforge/internal/maintenance/repair"
-	"github.com/reforgeapp/reforge/internal/mergecontrol"
-	"github.com/reforgeapp/reforge/internal/policy"
-	"github.com/reforgeapp/reforge/internal/providers"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/connections"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/mergecontrol"
+	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/providers"
 )
 
 func verifyLiveProtectedMerge(t *testing.T, ctx context.Context, f *inventoryFixture, policies *policy.Service, discoveries *discovery.Service, reader *providers.Service, route *connections.Route, connection connections.Connection, repositoryID string, repo forge.RepoRef, run repair.Run, document policy.Policy, native func(string, string, any, any), root string) {

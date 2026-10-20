@@ -8,9 +8,9 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
-	"github.com/reforgeapp/reforge/internal/auth"
-	"github.com/reforgeapp/reforge/internal/customcmd"
-	"github.com/reforgeapp/reforge/internal/domain"
+	"github.com/reforgeapp/reforge/pkg/auth"
+	"github.com/reforgeapp/reforge/pkg/customcmd"
+	"github.com/reforgeapp/reforge/pkg/domain"
 )
 
 func customProfileFixture(t *testing.T) (*inventoryFixture, *customcmd.Service) {

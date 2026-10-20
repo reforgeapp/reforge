@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/reforgeapp/reforge/internal/sandbox"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
 
 func builtinKubernetesFixture(t *testing.T) (builtinFlags, sandbox.RuntimeConfig) {

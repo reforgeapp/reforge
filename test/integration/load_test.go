@@ -11,9 +11,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/inventory"
-	"github.com/reforgeapp/reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/inventory"
+	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
 func TestControlPlaneLoadTargets(t *testing.T) {

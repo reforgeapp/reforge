@@ -44,7 +44,7 @@ CREATE ROLE reforge_runtime LOGIN NOSUPERUSER NOCREATEDB NOCREATEROLE NOREPLICAT
 CREATE DATABASE $db OWNER reforge_migrator;
 SQL
 psql_super -d "$db" -c "REVOKE ALL ON SCHEMA public FROM PUBLIC; GRANT ALL ON SCHEMA public TO reforge_migrator;" >>"$logs/roles.log" 2>&1
-REFORGE_MIGRATION_DATABASE_URL="$(url reforge_migrator "$mig_pw")" REFORGE_MIGRATION_DIR="$root/internal/store/migrations" "$state/bin/migrate" >"$logs/migrate.log" 2>&1
+REFORGE_MIGRATION_DATABASE_URL="$(url reforge_migrator "$mig_pw")" REFORGE_MIGRATION_DIR="$root/pkg/store/migrations" "$state/bin/migrate" >"$logs/migrate.log" 2>&1
 PGPASSWORD="$mig_pw" "$pgbin/psql" -X -q -v ON_ERROR_STOP=1 "$(url reforge_migrator "$mig_pw")" -f "$root/scripts/runtime-grants.sql" >"$logs/grants.log" 2>&1
 psql_super -d "$db" -At -c "SELECT rolname, rolsuper, rolbypassrls FROM pg_roles WHERE rolname LIKE 'reforge_%' ORDER BY 1" >"$logs/db-roles.txt"
 
@@ -59,7 +59,7 @@ start_server() {
     REFORGE_ADDRESS="127.0.0.1:$port" REFORGE_PUBLIC_URL="http://127.0.0.1:$port" \
     REFORGE_DATABASE_URL="$(url reforge_runtime "$rt_pw")" REFORGE_ENCRYPTION_KEY="$enc" \
     REFORGE_MODE=development REFORGE_FIXTURE_AUTH=true REFORGE_EDITION=self-hosted \
-    REFORGE_WEB_DIR="$state/web-dist" REFORGE_MIGRATION_DIR="$root/internal/store/migrations" REFORGE_ARTIFACT_DIRECTORY="$run/var" \
+    REFORGE_WEB_DIR="$state/web-dist" REFORGE_MIGRATION_DIR="$root/pkg/store/migrations" REFORGE_ARTIFACT_DIRECTORY="$run/var" \
     "$state/bin/server" >>"$logs/server.log" 2>&1 &
   echo $! >"$run/server.pid"
   for _ in $(seq 1 120); do curl -fsS "http://127.0.0.1:$port/readyz" >/dev/null 2>&1 && return 0; sleep 0.25; done

@@ -15,14 +15,14 @@ import (
 	"testing"
 	"time"
 
-	"github.com/reforgeapp/reforge/internal/customcmd"
-	"github.com/reforgeapp/reforge/internal/domain"
-	"github.com/reforgeapp/reforge/internal/forge"
-	"github.com/reforgeapp/reforge/internal/maintenance/repair"
-	"github.com/reforgeapp/reforge/internal/runnerclient"
-	"github.com/reforgeapp/reforge/internal/sandbox"
-	"github.com/reforgeapp/reforge/internal/sandbox/guest"
-	"github.com/reforgeapp/reforge/internal/workflow"
+	"github.com/reforgeapp/reforge/pkg/customcmd"
+	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/runnerclient"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
+	"github.com/reforgeapp/reforge/pkg/sandbox/guest"
+	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
 func TestCustomProfileRealProcessorGVisor(t *testing.T) {

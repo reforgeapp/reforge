@@ -33,6 +33,6 @@ if [ -n "${REFORGE_DRILL_ARTIFACTS:-}" ]; then
   test "$missing" -eq 0
 fi
 
-REFORGE_ENCRYPTION_KEY="$REFORGE_ENCRYPTION_KEY" go test -count=1 -run TestRestoreDrillKeyRecovery ./internal/secrets/
+REFORGE_ENCRYPTION_KEY="$REFORGE_ENCRYPTION_KEY" go test -count=1 -run TestRestoreDrillKeyRecovery ./pkg/secrets/
 
 echo "restore drill complete: tables=$tables migrations=$migrations"
