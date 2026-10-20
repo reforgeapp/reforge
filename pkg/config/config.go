@@ -150,9 +150,9 @@ func (c Config) Validate() error {
 	if c.FixtureAuth && !c.Development {
 		return errors.New("fixture authentication requires explicit development mode")
 	}
-	if c.Edition == "hosted" {
-		if c.KMSRegion == "" || c.KMSKeyARN == "" {
-			return errors.New("hosted edition requires REFORGE_KMS_REGION and REFORGE_KMS_KEY_ARN")
+	if c.KMSRegion != "" || c.KMSKeyARN != "" {
+		if c.Edition != "hosted" || c.KMSRegion == "" || c.KMSKeyARN == "" {
+			return errors.New("KMS encryption requires the hosted edition, REFORGE_KMS_REGION and REFORGE_KMS_KEY_ARN")
 		}
 	} else {
 		keys := c.EncryptionKeys

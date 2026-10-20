@@ -75,7 +75,7 @@ func run() error {
 		return err
 	}
 	var vault *secrets.Vault
-	if cfg.Edition == "hosted" {
+	if cfg.KMSKeyARN != "" {
 		kmsContext, cancel := context.WithTimeout(ctx, 20*time.Second)
 		vault, err = secrets.NewKMS(kmsContext, secrets.KMSConfig{Region: cfg.KMSRegion, KeyID: cfg.KMSKeyARN, PreviousKeyIDs: cfg.KMSPreviousKeyARNs})
 		cancel()
