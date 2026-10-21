@@ -49,7 +49,7 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 	}
 	process := func(ctx context.Context, c *Client, j Job) (completion workflow.Completion, failure error) {
 		defer func() {
-			if completion.Outcome == "failed" && errors.Is(failure, ErrTransientControlPlane) {
+			if completion.Outcome == "failed" && (errors.Is(failure, ErrTransientControlPlane) || errors.Is(failure, repair.ErrSandbox)) {
 				completion.Retryable = true
 			}
 			if errors.Is(failure, repair.ErrPaused) {

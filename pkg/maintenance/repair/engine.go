@@ -67,6 +67,7 @@ type Engine struct {
 var ErrHandoff = errors.New("repair requires human review")
 var ErrRunLimit = errors.New("run reached its model turn or time limit")
 var ErrPaused = errors.New("paused until budget or provider limits allow")
+var ErrSandbox = errors.New("sandbox could not complete a file operation")
 
 type protectedEvidenceError struct {
 	path  string
@@ -86,6 +87,9 @@ func (e *protectedEvidenceError) Error() string {
 }
 
 func (e *protectedEvidenceError) Unwrap() []error {
+	if e.kind == "read" {
+		return []error{ErrSandbox, e.cause}
+	}
 	if e.cause == nil {
 		return []error{ErrValidation}
 	}
@@ -243,7 +247,12 @@ func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches 
 	checkProtected := func() error {
 		for name, want := range p.ProtectedHashes {
 			file, err := e.Runtime.CollectArtifact(ctx, w, name)
+			for try := 1; err != nil && !errors.Is(err, fs.ErrNotExist) && try < 3 && ctx.Err() == nil; try++ {
+				time.Sleep(time.Duration(try) * time.Second)
+				file, err = e.Runtime.CollectArtifact(ctx, w, name)
+			}
 			if err != nil {
+				slog.WarnContext(ctx, "protected file read failed", "attempt_id", e.AttemptID, "path", name, "error", err)
 				kind := "read"
 				if errors.Is(err, fs.ErrNotExist) {
 					kind = "missing"

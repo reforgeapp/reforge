@@ -109,8 +109,12 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 			} else {
 				report, err = engine.runCI(context.Background(), plan, Report{State: "handoff", Artifacts: []string{}}, files)
 			}
-			if !errors.Is(err, ErrValidation) {
-				t.Fatalf("expected validation sentinel, got report=%+v err=%v", report, err)
+			want := ErrValidation
+			if tc.readErr != nil && !errors.Is(tc.readErr, fs.ErrNotExist) {
+				want = ErrSandbox
+			}
+			if !errors.Is(err, want) {
+				t.Fatalf("expected %v, got report=%+v err=%v", want, report, err)
 			}
 			if tc.readErr != nil && !errors.Is(err, tc.readErr) {
 				t.Fatalf("underlying read cause was not preserved: %v", err)
