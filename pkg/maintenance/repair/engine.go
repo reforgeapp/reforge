@@ -734,6 +734,9 @@ func (e Engine) ValidateNative(ctx context.Context, p Plan, sha string, target s
 	if err != nil {
 		return out, err
 	}
+	if repaired.Mode == "owner" {
+		out.Checks = canonicalizeGoCases(out.Checks, p.Recipe.Commands, files)
+	}
 	if !Verified(p, baseline, out.Checks) && !(repaired.State == "unverified" && ProposalReady(p, baseline, out.Checks)) {
 		return out, ErrValidation
 	}

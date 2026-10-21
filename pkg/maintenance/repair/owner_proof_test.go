@@ -1,9 +1,13 @@
 package repair
 
 import (
+	"context"
+	"errors"
+	"strings"
 	"testing"
 
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
 
 func TestLostPassingCase(t *testing.T) {
@@ -20,6 +24,51 @@ func TestLostPassingCase(t *testing.T) {
 		if got := lostPassingCase(base, tc.candidate); got != tc.lost {
 			t.Errorf("%s: lost=%t", name, got)
 		}
+	}
+}
+
+type nativeGoProofRuntime struct {
+	retryRuntime
+	output []byte
+}
+
+func (r *nativeGoProofRuntime) ExecuteBoundedCommand(context.Context, sandbox.Workspace, sandbox.Command) (sandbox.CommandResult, error) {
+	return sandbox.CommandResult{Output: r.output}, nil
+}
+
+func TestNativeGoChecksPreserveOwnerEvidence(t *testing.T) {
+	for _, tc := range []struct {
+		name, state, module, test, result string
+		wantError                         bool
+	}{
+		{"validated", "validated", "old.example/repo", "TestAdd", "pass", false},
+		{"proposal", "unverified", "old.example/repo", "TestAdd", "pass", false},
+		{"module change", "unverified", "new.example/repo", "TestAdd", "pass", false},
+		{"skipped baseline pass", "unverified", "old.example/repo", "TestAdd", "skip", true},
+		{"failed baseline pass", "unverified", "old.example/repo", "TestAdd", "fail", true},
+		{"missing baseline pass", "unverified", "old.example/repo", "TestOther", "pass", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			files := map[string][]byte{"go.mod": []byte("module old.example/repo\n"), "main_test.go": []byte("package main\n")}
+			plan, err := freeze("go", "sha256:"+strings.Repeat("a", 64), strings.Repeat("b", 40), strings.Repeat("c", 40), files, nil, true)
+			if err != nil {
+				t.Fatal(err)
+			}
+			plan.Owner = true
+			plan.Recipe.Commands = []recipes.Command{{ID: "go-01", Directory: ".", Args: []string{"go", "test", "-json", "./..."}, ReportFormat: "json"}}
+			plan.Digest = planDigest(plan)
+			report := Report{Mode: "owner", State: tc.state, Baseline: []CheckResult{{CommandID: "go-01", Complete: true, Cases: map[string]string{"TestAdd": "pass"}}}, Patches: []sandbox.Patch{{Path: "go.mod", Content: []byte("module " + tc.module + "\n")}}}
+			nativeFiles := map[string][]byte{"go.mod": report.Patches[0].Content, "main_test.go": files["main_test.go"]}
+			runtime := &nativeGoProofRuntime{retryRuntime: retryRuntime{files: nativeFiles}, output: []byte(`{"Action":"` + tc.result + `","Package":"` + tc.module + `","Test":"` + tc.test + `"}` + "\n")}
+			engine := Engine{Runtime: runtime}
+			native, err := engine.ValidateNative(context.Background(), plan, strings.Repeat("d", 40), snapshotForEngine(t, plan.TargetSHA, files), report)
+			if errors.Is(err, ErrValidation) != tc.wantError || err != nil && !tc.wantError {
+				t.Fatalf("native checks=%+v error=%v", native.Checks, err)
+			}
+			if !tc.wantError && !publicationReady(Run{Context: ExecutionContext{Plan: plan}, Report: &report}, native.Checks) {
+				t.Fatal("native checks cannot be published")
+			}
+		})
 	}
 }
 
