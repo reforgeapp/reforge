@@ -3,16 +3,28 @@ package store
 import (
 	"context"
 	"crypto/sha256"
+	"embed"
 	"encoding/hex"
 	"fmt"
 	"github.com/jackc/pgx/v5"
+	"io/fs"
 	"os"
-	"path/filepath"
 	"sort"
-	"strings"
 )
 
+//go:embed migrations/*.sql
+var embedded embed.FS
+
+func Migrations() fs.FS {
+	sub, _ := fs.Sub(embedded, "migrations")
+	return sub
+}
+
 func Migrate(ctx context.Context, databaseURL, dir string) error {
+	return MigrateFS(ctx, databaseURL, os.DirFS(dir))
+}
+
+func MigrateFS(ctx context.Context, databaseURL string, migrations fs.FS) error {
 	conn, err := pgx.Connect(ctx, databaseURL)
 	if err != nil {
 		return fmt.Errorf("connect migration database: %w", err)
@@ -25,20 +37,16 @@ func Migrate(ctx context.Context, databaseURL, dir string) error {
 	if _, err = conn.Exec(ctx, `CREATE TABLE IF NOT EXISTS schema_migrations(name text PRIMARY KEY,checksum text NOT NULL,applied_at timestamptz NOT NULL DEFAULT now())`); err != nil {
 		return err
 	}
-	files, err := filepath.Glob(filepath.Join(dir, "*.sql"))
+	files, err := fs.Glob(migrations, "*.sql")
 	if err != nil {
 		return err
 	}
 	sort.Strings(files)
 	if len(files) == 0 {
-		return fmt.Errorf("no migrations in %s", dir)
+		return fmt.Errorf("no migrations found")
 	}
-	for _, file := range files {
-		name := filepath.Base(file)
-		if !strings.HasSuffix(name, ".sql") {
-			continue
-		}
-		body, err := os.ReadFile(file)
+	for _, name := range files {
+		body, err := fs.ReadFile(migrations, name)
 		if err != nil {
 			return err
 		}
