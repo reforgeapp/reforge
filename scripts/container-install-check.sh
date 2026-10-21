@@ -231,7 +231,7 @@ cat > "$run_dir/probe/overlay.json" <<JSON
 {"Replace":{"/src/cmd/demo-seed/main.go":"/probe/main.go"}}
 JSON
 
-golang_image='golang:1.27-bookworm@sha256:69a7b9788769bec032d238959b61854e9ae87f57be9029ec04e9885fabf99195'
+golang_image='golang:1.27.3-bookworm@sha256:21ade014faf952365b9ecbd8dbdb87176fbacb82fac9fb132d9f2a7b8cc3f132'
 probe() {
   docker run --rm -i --volume "$root:/src:ro" --volume "$run_dir/probe:/probe:ro" --volume "$run_dir/gomod:/go/pkg/mod" --volume "$run_dir/gocache:/root/.cache/go-build" --workdir /src --env "REFORGE_ENCRYPTION_KEY=$key" "$golang_image" go run -overlay=/probe/overlay.json ./cmd/demo-seed "$1"
 }
