@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/model"
 )
 
@@ -146,5 +147,23 @@ func TestModelTurnCanceledDuringRetryBackoff(t *testing.T) {
 		}
 	case <-time.After(250 * time.Millisecond):
 		t.Fatal("cancellation did not interrupt retry backoff")
+	}
+}
+
+func TestModelTurnRunLimitIsNotControlPlaneFailure(t *testing.T) {
+	var attempts atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts.Add(1)
+		w.WriteHeader(http.StatusConflict)
+		_, _ = io.WriteString(w, `{"code":"run_limit","message":"Run reached its model turn or time limit"}`)
+	}))
+	defer server.Close()
+	client, err := New(Config{Endpoint: server.URL, Development: true, Name: "fixture", CredentialFile: filepath.Join(t.TempDir(), "credential")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.ModelTurn(context.Background(), Job{Token: "job-token"}, retryTestTurn())
+	if !errors.Is(err, repair.ErrRunLimit) || errors.Is(err, ErrControlPlane) || attempts.Load() != 1 {
+		t.Fatalf("attempts=%d err=%v", attempts.Load(), err)
 	}
 }

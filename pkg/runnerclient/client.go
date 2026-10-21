@@ -21,6 +21,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/agent"
 	"github.com/reforgeapp/reforge/pkg/artifact"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/model"
 	"github.com/reforgeapp/reforge/pkg/runner"
 	"github.com/reforgeapp/reforge/pkg/workflow"
@@ -287,6 +288,9 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 			Message string `json:"message"`
 		}
 		decoded := json.NewDecoder(io.LimitReader(response.Body, 4096)).Decode(&failure) == nil
+		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "run_limit" {
+			return response.StatusCode, repair.ErrRunLimit
+		}
 		base := ErrControlPlane
 		if response.StatusCode == http.StatusInternalServerError || response.StatusCode == http.StatusBadGateway || response.StatusCode == http.StatusServiceUnavailable || response.StatusCode == http.StatusGatewayTimeout {
 			base = errors.Join(base, ErrTransientControlPlane)
