@@ -31,7 +31,7 @@ func main() {
 		return
 	}
 	if err := guest.Run(os.Args[1:], os.Stdin, os.Stdout); err != nil {
-		fmt.Fprintln(os.Stderr, "sandbox file operation failed")
+		fmt.Fprintln(os.Stderr, "sandbox file operation failed:", err)
 		os.Exit(1)
 	}
 }

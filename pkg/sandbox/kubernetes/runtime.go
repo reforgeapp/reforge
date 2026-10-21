@@ -7,6 +7,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"regexp"
 	"strings"
@@ -542,9 +543,10 @@ func (r *Runtime) CollectArtifact(ctx context.Context, workspace sandbox.Workspa
 	request, _ := json.Marshal(guest.Request{Operation: "read", Path: name, Limit: 4 << 20})
 	var stdout boundedOutput
 	stdout.limit = 6 << 20
-	code, err := r.config.Client.Exec(ctx, state.pod.Ref, []string{"/opt/reforge/tool"}, bytes.NewReader(request), &stdout, io.Discard)
+	stderr := boundedOutput{limit: 4 << 10}
+	code, err := r.config.Client.Exec(ctx, state.pod.Ref, []string{"/opt/reforge/tool"}, bytes.NewReader(request), &stdout, &stderr)
 	if err != nil || code != 0 || stdout.truncated {
-		return sandbox.Artifact{}, errors.Join(err, ErrBoundary)
+		return sandbox.Artifact{}, toolError(err, code, stderr)
 	}
 	var response struct {
 		Content []byte `json:"content"`
@@ -590,9 +592,10 @@ func (r *Runtime) apply(ctx context.Context, state *workspaceState, files []gues
 	}
 	var stdout boundedOutput
 	stdout.limit = 64 << 10
-	code, err := r.config.Client.Exec(ctx, state.pod.Ref, []string{"/opt/reforge/tool"}, bytes.NewReader(request), &stdout, io.Discard)
+	stderr := boundedOutput{limit: 4 << 10}
+	code, err := r.config.Client.Exec(ctx, state.pod.Ref, []string{"/opt/reforge/tool"}, bytes.NewReader(request), &stdout, &stderr)
 	if err != nil || code != 0 || stdout.truncated {
-		return errors.Join(err, ErrBoundary)
+		return toolError(err, code, stderr)
 	}
 	return nil
 }
@@ -728,6 +731,10 @@ func randomID() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(raw[:]), nil
+}
+
+func toolError(err error, code int, stderr boundedOutput) error {
+	return errors.Join(err, fmt.Errorf("%w: sandbox tool exit %d: %s", ErrBoundary, code, strings.TrimSpace(string(stderr.data))))
 }
 
 type boundedOutput struct {

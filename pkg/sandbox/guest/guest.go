@@ -116,7 +116,10 @@ func Run(args []string, input io.Reader, output io.Writer) error {
 			return errors.New("invalid artifact request")
 		}
 		info, err := root.Lstat(request.Path)
-		if err != nil || !info.Mode().IsRegular() {
+		if err != nil {
+			return err
+		}
+		if !info.Mode().IsRegular() {
 			return errors.New("artifact must be a regular file")
 		}
 		file, err := root.OpenFile(request.Path, os.O_RDONLY|syscall.O_NOFOLLOW|syscall.O_NONBLOCK, 0)
