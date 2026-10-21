@@ -12,7 +12,7 @@ import (
 )
 
 func TestRepairAndCILoadTrustedSkillsAcrossTurns(t *testing.T) {
-	const path = "vendor/addyosmani/skills/debugging-and-error-recovery/SKILL.md"
+	const path = "bundled/addyosmani/skills/debugging-and-error-recovery/SKILL.md"
 	resource, err := skills.Read(path)
 	if err != nil {
 		t.Fatal(err)

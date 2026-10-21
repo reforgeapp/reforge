@@ -5,108 +5,108 @@
       "repository": "https://github.com/addyosmani/agent-skills",
       "revision": "bcab6a1b8503100e8618c3b4e32cc78de43de769",
       "license": "MIT",
-      "license_path": "vendor/addyosmani/LICENSE",
+      "license_path": "bundled/addyosmani/LICENSE",
       "scope": "Embedded agent instructions and referenced resources; resources are data and are not executed by the skill loader.",
       "skills": [
         {
           "name": "api-and-interface-design",
-          "path": "vendor/addyosmani/skills/api-and-interface-design/SKILL.md"
+          "path": "bundled/addyosmani/skills/api-and-interface-design/SKILL.md"
         },
         {
           "name": "browser-testing-with-devtools",
-          "path": "vendor/addyosmani/skills/browser-testing-with-devtools/SKILL.md"
+          "path": "bundled/addyosmani/skills/browser-testing-with-devtools/SKILL.md"
         },
         {
           "name": "ci-cd-and-automation",
-          "path": "vendor/addyosmani/skills/ci-cd-and-automation/SKILL.md"
+          "path": "bundled/addyosmani/skills/ci-cd-and-automation/SKILL.md"
         },
         {
           "name": "code-review-and-quality",
-          "path": "vendor/addyosmani/skills/code-review-and-quality/SKILL.md"
+          "path": "bundled/addyosmani/skills/code-review-and-quality/SKILL.md"
         },
         {
           "name": "code-simplification",
-          "path": "vendor/addyosmani/skills/code-simplification/SKILL.md"
+          "path": "bundled/addyosmani/skills/code-simplification/SKILL.md"
         },
         {
           "name": "constraint-driven-development",
-          "path": "vendor/addyosmani/skills/constraint-driven-development/SKILL.md"
+          "path": "bundled/addyosmani/skills/constraint-driven-development/SKILL.md"
         },
         {
           "name": "context-engineering",
-          "path": "vendor/addyosmani/skills/context-engineering/SKILL.md"
+          "path": "bundled/addyosmani/skills/context-engineering/SKILL.md"
         },
         {
           "name": "debugging-and-error-recovery",
-          "path": "vendor/addyosmani/skills/debugging-and-error-recovery/SKILL.md"
+          "path": "bundled/addyosmani/skills/debugging-and-error-recovery/SKILL.md"
         },
         {
           "name": "deprecation-and-migration",
-          "path": "vendor/addyosmani/skills/deprecation-and-migration/SKILL.md"
+          "path": "bundled/addyosmani/skills/deprecation-and-migration/SKILL.md"
         },
         {
           "name": "documentation-and-adrs",
-          "path": "vendor/addyosmani/skills/documentation-and-adrs/SKILL.md"
+          "path": "bundled/addyosmani/skills/documentation-and-adrs/SKILL.md"
         },
         {
           "name": "doubt-driven-development",
-          "path": "vendor/addyosmani/skills/doubt-driven-development/SKILL.md"
+          "path": "bundled/addyosmani/skills/doubt-driven-development/SKILL.md"
         },
         {
           "name": "frontend-ui-engineering",
-          "path": "vendor/addyosmani/skills/frontend-ui-engineering/SKILL.md"
+          "path": "bundled/addyosmani/skills/frontend-ui-engineering/SKILL.md"
         },
         {
           "name": "git-workflow-and-versioning",
-          "path": "vendor/addyosmani/skills/git-workflow-and-versioning/SKILL.md"
+          "path": "bundled/addyosmani/skills/git-workflow-and-versioning/SKILL.md"
         },
         {
           "name": "idea-refine",
-          "path": "vendor/addyosmani/skills/idea-refine/SKILL.md"
+          "path": "bundled/addyosmani/skills/idea-refine/SKILL.md"
         },
         {
           "name": "incremental-implementation",
-          "path": "vendor/addyosmani/skills/incremental-implementation/SKILL.md"
+          "path": "bundled/addyosmani/skills/incremental-implementation/SKILL.md"
         },
         {
           "name": "interview-me",
-          "path": "vendor/addyosmani/skills/interview-me/SKILL.md"
+          "path": "bundled/addyosmani/skills/interview-me/SKILL.md"
         },
         {
           "name": "observability-and-instrumentation",
-          "path": "vendor/addyosmani/skills/observability-and-instrumentation/SKILL.md"
+          "path": "bundled/addyosmani/skills/observability-and-instrumentation/SKILL.md"
         },
         {
           "name": "performance-optimization",
-          "path": "vendor/addyosmani/skills/performance-optimization/SKILL.md"
+          "path": "bundled/addyosmani/skills/performance-optimization/SKILL.md"
         },
         {
           "name": "planning-and-task-breakdown",
-          "path": "vendor/addyosmani/skills/planning-and-task-breakdown/SKILL.md"
+          "path": "bundled/addyosmani/skills/planning-and-task-breakdown/SKILL.md"
         },
         {
           "name": "security-and-hardening",
-          "path": "vendor/addyosmani/skills/security-and-hardening/SKILL.md"
+          "path": "bundled/addyosmani/skills/security-and-hardening/SKILL.md"
         },
         {
           "name": "shipping-and-launch",
-          "path": "vendor/addyosmani/skills/shipping-and-launch/SKILL.md"
+          "path": "bundled/addyosmani/skills/shipping-and-launch/SKILL.md"
         },
         {
           "name": "source-driven-development",
-          "path": "vendor/addyosmani/skills/source-driven-development/SKILL.md"
+          "path": "bundled/addyosmani/skills/source-driven-development/SKILL.md"
         },
         {
           "name": "spec-driven-development",
-          "path": "vendor/addyosmani/skills/spec-driven-development/SKILL.md"
+          "path": "bundled/addyosmani/skills/spec-driven-development/SKILL.md"
         },
         {
           "name": "test-driven-development",
-          "path": "vendor/addyosmani/skills/test-driven-development/SKILL.md"
+          "path": "bundled/addyosmani/skills/test-driven-development/SKILL.md"
         },
         {
           "name": "using-agent-skills",
-          "path": "vendor/addyosmani/skills/using-agent-skills/SKILL.md"
+          "path": "bundled/addyosmani/skills/using-agent-skills/SKILL.md"
         }
       ],
       "excluded_skills": {},
@@ -121,217 +121,217 @@
       ],
       "files": [
         {
-          "path": "vendor/addyosmani/LICENSE",
+          "path": "bundled/addyosmani/LICENSE",
           "upstream_path": "LICENSE",
           "sha256": "6f202f8bd568cd730dbb2b0d1f8e243bc74c2fa1f64dbce9b2c7ea08bd5c9fd7"
         },
         {
-          "path": "vendor/addyosmani/agents/code-reviewer.md",
+          "path": "bundled/addyosmani/agents/code-reviewer.md",
           "upstream_path": "agents/code-reviewer.md",
           "sha256": "2d02acb9db1c37521d676587d2e0afb713c8983de957a78efdfa82d27e5fc3da"
         },
         {
-          "path": "vendor/addyosmani/agents/security-auditor.md",
+          "path": "bundled/addyosmani/agents/security-auditor.md",
           "upstream_path": "agents/security-auditor.md",
           "sha256": "66a3f68f1c691b600ddb44e88afb138e239d0572df37be84e1f9a427c887dd0a"
         },
         {
-          "path": "vendor/addyosmani/agents/test-engineer.md",
+          "path": "bundled/addyosmani/agents/test-engineer.md",
           "upstream_path": "agents/test-engineer.md",
           "sha256": "c4acde91d6307d88515387344a129a2d0679134e587596c3517d73faffcd5aa6"
         },
         {
-          "path": "vendor/addyosmani/agents/web-performance-auditor.md",
+          "path": "bundled/addyosmani/agents/web-performance-auditor.md",
           "upstream_path": "agents/web-performance-auditor.md",
           "sha256": "0928b1cf8103262a364bce0c1fc689a918852e2275441f1b2e687adfa1e607e9"
         },
         {
-          "path": "vendor/addyosmani/references/accessibility-checklist.md",
+          "path": "bundled/addyosmani/references/accessibility-checklist.md",
           "upstream_path": "references/accessibility-checklist.md",
           "sha256": "61c759d94d52296231f5f310b92b401f56c44e4430dc3cc95ebac5d7b1d5ffac"
         },
         {
-          "path": "vendor/addyosmani/references/definition-of-done.md",
+          "path": "bundled/addyosmani/references/definition-of-done.md",
           "upstream_path": "references/definition-of-done.md",
           "sha256": "d1c75d2ae65d2c7a9cd01f93fa8de63e00e75f2fe5d08be224d576157054dcee"
         },
         {
-          "path": "vendor/addyosmani/references/observability-checklist.md",
+          "path": "bundled/addyosmani/references/observability-checklist.md",
           "upstream_path": "references/observability-checklist.md",
           "sha256": "25fcd0e854596a5ab6f11b002050d245bf78f5ae0fcbd1df699b89451ae0e1e8"
         },
         {
-          "path": "vendor/addyosmani/references/orchestration-patterns.md",
+          "path": "bundled/addyosmani/references/orchestration-patterns.md",
           "upstream_path": "references/orchestration-patterns.md",
           "sha256": "61e543d86f19f86b83074f8c1c769455c7085a2c72dd47b1da21a8c63785be4a"
         },
         {
-          "path": "vendor/addyosmani/references/performance-checklist.md",
+          "path": "bundled/addyosmani/references/performance-checklist.md",
           "upstream_path": "references/performance-checklist.md",
           "sha256": "40f564d1e62341e277c01ba42c42d95264b9ef3b8e5a23249dc6e121a7e70067"
         },
         {
-          "path": "vendor/addyosmani/references/security-checklist.md",
+          "path": "bundled/addyosmani/references/security-checklist.md",
           "upstream_path": "references/security-checklist.md",
           "sha256": "37774056502fe8970dcd2fd27dca5fa31f2a55232649fc3056c89c3af7d62755"
         },
         {
-          "path": "vendor/addyosmani/references/testing-patterns.md",
+          "path": "bundled/addyosmani/references/testing-patterns.md",
           "upstream_path": "references/testing-patterns.md",
           "sha256": "f0bf05acd0edcadc27297ad5b74f104c8103ccfedba1a05cd6d6ae4af8364c56"
         },
         {
-          "path": "vendor/addyosmani/skills/api-and-interface-design/SKILL.md",
+          "path": "bundled/addyosmani/skills/api-and-interface-design/SKILL.md",
           "upstream_path": "skills/api-and-interface-design/SKILL.md",
           "sha256": "5dafd0c44a3aabf11cae5bcb34f6fcc24dfa5c01ba6e0d3176bce997f4d68bc8"
         },
         {
-          "path": "vendor/addyosmani/skills/browser-testing-with-devtools/SKILL.md",
+          "path": "bundled/addyosmani/skills/browser-testing-with-devtools/SKILL.md",
           "upstream_path": "skills/browser-testing-with-devtools/SKILL.md",
           "sha256": "4e3aacd6a380cd25bc6c2d67fdd1c926a9b22535b8a62109ecd33cefd909e3d9"
         },
         {
-          "path": "vendor/addyosmani/skills/ci-cd-and-automation/SKILL.md",
+          "path": "bundled/addyosmani/skills/ci-cd-and-automation/SKILL.md",
           "upstream_path": "skills/ci-cd-and-automation/SKILL.md",
           "sha256": "a6ed8ed56456b01ff8314c44eefc69897d9905ae4e06bb2b7036286efb79b5f0"
         },
         {
-          "path": "vendor/addyosmani/skills/code-review-and-quality/SKILL.md",
+          "path": "bundled/addyosmani/skills/code-review-and-quality/SKILL.md",
           "upstream_path": "skills/code-review-and-quality/SKILL.md",
           "sha256": "8f3cabca581bbf7cb5f0add3f7454e7a4523f9d4353a6a4a217e6fa515309612"
         },
         {
-          "path": "vendor/addyosmani/skills/code-simplification/SKILL.md",
+          "path": "bundled/addyosmani/skills/code-simplification/SKILL.md",
           "upstream_path": "skills/code-simplification/SKILL.md",
           "sha256": "f0c5ed754057eb0c1e027e2587f59de816651feb5e837242296c43ea21cf621d"
         },
         {
-          "path": "vendor/addyosmani/skills/constraint-driven-development/SKILL.md",
+          "path": "bundled/addyosmani/skills/constraint-driven-development/SKILL.md",
           "upstream_path": "skills/constraint-driven-development/SKILL.md",
           "sha256": "06479d4305f286d23cfb99f5dc85695896785269664e1f6a8d800e3b71e70c10"
         },
         {
-          "path": "vendor/addyosmani/skills/constraint-driven-development/references/floor-guard.md",
+          "path": "bundled/addyosmani/skills/constraint-driven-development/references/floor-guard.md",
           "upstream_path": "skills/constraint-driven-development/references/floor-guard.md",
           "sha256": "dba15dad8f5a5cbae464ec8457e6dd014a7bcb3ad13a360a6908d54991a5415e"
         },
         {
-          "path": "vendor/addyosmani/skills/context-engineering/SKILL.md",
+          "path": "bundled/addyosmani/skills/context-engineering/SKILL.md",
           "upstream_path": "skills/context-engineering/SKILL.md",
           "sha256": "8b736cb9e55b82b265ab6ff78349c0e826e8a6df550deddf665b7fb3ff858b63"
         },
         {
-          "path": "vendor/addyosmani/skills/debugging-and-error-recovery/SKILL.md",
+          "path": "bundled/addyosmani/skills/debugging-and-error-recovery/SKILL.md",
           "upstream_path": "skills/debugging-and-error-recovery/SKILL.md",
           "sha256": "21f3960f5d7ae2cc95c40896545004dbbcbbd752ea65fc2d53962554d4174220"
         },
         {
-          "path": "vendor/addyosmani/skills/deprecation-and-migration/SKILL.md",
+          "path": "bundled/addyosmani/skills/deprecation-and-migration/SKILL.md",
           "upstream_path": "skills/deprecation-and-migration/SKILL.md",
           "sha256": "6a624f942e09c69863a4219b9bd5d56975026b67b0c70bc83385ffd2120b6142"
         },
         {
-          "path": "vendor/addyosmani/skills/documentation-and-adrs/SKILL.md",
+          "path": "bundled/addyosmani/skills/documentation-and-adrs/SKILL.md",
           "upstream_path": "skills/documentation-and-adrs/SKILL.md",
           "sha256": "87ae44a0c7bb3eefc2131a9d11caabcc14e4d8dcb27d66a3a675551ee2ce1671"
         },
         {
-          "path": "vendor/addyosmani/skills/doubt-driven-development/SKILL.md",
+          "path": "bundled/addyosmani/skills/doubt-driven-development/SKILL.md",
           "upstream_path": "skills/doubt-driven-development/SKILL.md",
           "sha256": "6fa1fcd8420c28daf7e53c5b08b0f20b907911efd2a6d9bce0b9740da20a4008"
         },
         {
-          "path": "vendor/addyosmani/skills/frontend-ui-engineering/SKILL.md",
+          "path": "bundled/addyosmani/skills/frontend-ui-engineering/SKILL.md",
           "upstream_path": "skills/frontend-ui-engineering/SKILL.md",
           "sha256": "549044e9bd8d7fe993ce8e5c0d2b0f5465650676dc15805329973f936179eb1e"
         },
         {
-          "path": "vendor/addyosmani/skills/git-workflow-and-versioning/SKILL.md",
+          "path": "bundled/addyosmani/skills/git-workflow-and-versioning/SKILL.md",
           "upstream_path": "skills/git-workflow-and-versioning/SKILL.md",
           "sha256": "b7465d187935c52546d39fdc7bd6ac36d94eda25a9500ef8c18b767d2eb116ea"
         },
         {
-          "path": "vendor/addyosmani/skills/idea-refine/SKILL.md",
+          "path": "bundled/addyosmani/skills/idea-refine/SKILL.md",
           "upstream_path": "skills/idea-refine/SKILL.md",
           "sha256": "79e773058963adc7646b0115b4f8a4afc974c5ff95843e4ef1cafff3cb51899e"
         },
         {
-          "path": "vendor/addyosmani/skills/idea-refine/examples.md",
+          "path": "bundled/addyosmani/skills/idea-refine/examples.md",
           "upstream_path": "skills/idea-refine/examples.md",
           "sha256": "563204bfbf2f80a444151695205af4cb759e722b3d1e5460e08f278a69c89ba1"
         },
         {
-          "path": "vendor/addyosmani/skills/idea-refine/frameworks.md",
+          "path": "bundled/addyosmani/skills/idea-refine/frameworks.md",
           "upstream_path": "skills/idea-refine/frameworks.md",
           "sha256": "161ebc18fdf2d996bc62a87a2d747cf1bf53548354f8925de25c732c27f00309"
         },
         {
-          "path": "vendor/addyosmani/skills/idea-refine/refinement-criteria.md",
+          "path": "bundled/addyosmani/skills/idea-refine/refinement-criteria.md",
           "upstream_path": "skills/idea-refine/refinement-criteria.md",
           "sha256": "1ca2973a4d01b5cb37ab7ddb2eff77fa4e792634a33d0ce44961c068fc88d51a"
         },
         {
-          "path": "vendor/addyosmani/skills/idea-refine/scripts/idea-refine.sh",
+          "path": "bundled/addyosmani/skills/idea-refine/scripts/idea-refine.sh",
           "upstream_path": "skills/idea-refine/scripts/idea-refine.sh",
           "sha256": "f02a52408a4218047c032d221483abfbb48d11f090bb4915965c7419bf2e0e47"
         },
         {
-          "path": "vendor/addyosmani/skills/incremental-implementation/SKILL.md",
+          "path": "bundled/addyosmani/skills/incremental-implementation/SKILL.md",
           "upstream_path": "skills/incremental-implementation/SKILL.md",
           "sha256": "df66536610071727feae1ca95f3c391c248ad828041750ccd3699cce763aa00b"
         },
         {
-          "path": "vendor/addyosmani/skills/interview-me/SKILL.md",
+          "path": "bundled/addyosmani/skills/interview-me/SKILL.md",
           "upstream_path": "skills/interview-me/SKILL.md",
           "sha256": "ace4b675999bb504593d572e0f73f3d7e803ad6fddf318445598c82c11939db2"
         },
         {
-          "path": "vendor/addyosmani/skills/observability-and-instrumentation/SKILL.md",
+          "path": "bundled/addyosmani/skills/observability-and-instrumentation/SKILL.md",
           "upstream_path": "skills/observability-and-instrumentation/SKILL.md",
           "sha256": "e7fcb0820306d46268de9594d676ad98e35040858926c412b7000faa52a61f87"
         },
         {
-          "path": "vendor/addyosmani/skills/performance-optimization/SKILL.md",
+          "path": "bundled/addyosmani/skills/performance-optimization/SKILL.md",
           "upstream_path": "skills/performance-optimization/SKILL.md",
           "sha256": "00694d0c69bbde674d0e39de24052d90afea32d9fef9553eaee21a50a7e9b8cf"
         },
         {
-          "path": "vendor/addyosmani/skills/planning-and-task-breakdown/SKILL.md",
+          "path": "bundled/addyosmani/skills/planning-and-task-breakdown/SKILL.md",
           "upstream_path": "skills/planning-and-task-breakdown/SKILL.md",
           "sha256": "ed0f90cc5951ddd4bcab7f871f64efec93a49af9279ef93bc470da77ad8da3f7"
         },
         {
-          "path": "vendor/addyosmani/skills/security-and-hardening/SKILL.md",
+          "path": "bundled/addyosmani/skills/security-and-hardening/SKILL.md",
           "upstream_path": "skills/security-and-hardening/SKILL.md",
           "sha256": "2e3fc60eed5aba97fe416f3f3c9317fdb014a682925ec70a733c3ff99e4b9858"
         },
         {
-          "path": "vendor/addyosmani/skills/security-and-hardening/references/hardening-patterns.md",
+          "path": "bundled/addyosmani/skills/security-and-hardening/references/hardening-patterns.md",
           "upstream_path": "skills/security-and-hardening/references/hardening-patterns.md",
           "sha256": "d8ba58cad151aeca4804e48fc768240af0dd6b0ecddd07fbf24a1562140ba97a"
         },
         {
-          "path": "vendor/addyosmani/skills/shipping-and-launch/SKILL.md",
+          "path": "bundled/addyosmani/skills/shipping-and-launch/SKILL.md",
           "upstream_path": "skills/shipping-and-launch/SKILL.md",
           "sha256": "af610cf4892db7eab2e91c899e33feba90e1000bac4528b2f8dde930816ac125"
         },
         {
-          "path": "vendor/addyosmani/skills/source-driven-development/SKILL.md",
+          "path": "bundled/addyosmani/skills/source-driven-development/SKILL.md",
           "upstream_path": "skills/source-driven-development/SKILL.md",
           "sha256": "c59faf851377f0eeda45306398d16eb96d77ab1c2fd3e1a7fb58e9a0af33c1e9"
         },
         {
-          "path": "vendor/addyosmani/skills/spec-driven-development/SKILL.md",
+          "path": "bundled/addyosmani/skills/spec-driven-development/SKILL.md",
           "upstream_path": "skills/spec-driven-development/SKILL.md",
           "sha256": "f7129bca8742bad73f60209bd237e8b10dab6f1fae8576dc552fb1923bc1e721"
         },
         {
-          "path": "vendor/addyosmani/skills/test-driven-development/SKILL.md",
+          "path": "bundled/addyosmani/skills/test-driven-development/SKILL.md",
           "upstream_path": "skills/test-driven-development/SKILL.md",
           "sha256": "7c0c6ac057c19d7f8be65d9f49c3a638703b868f4625c78b70da5439d5d74fca"
         },
         {
-          "path": "vendor/addyosmani/skills/using-agent-skills/SKILL.md",
+          "path": "bundled/addyosmani/skills/using-agent-skills/SKILL.md",
           "upstream_path": "skills/using-agent-skills/SKILL.md",
           "sha256": "30787ef2c77bf1a4729fffed0f6523ba6fcbe81bdc436b36371b78c21394d3c3"
         }
@@ -342,48 +342,48 @@
       "repository": "https://github.com/juliusbrussee/caveman",
       "revision": "2fd153c67988e980fb0b2455c90832159a6a5a25",
       "license": "MIT",
-      "license_path": "vendor/caveman/LICENSE",
+      "license_path": "bundled/caveman/LICENSE",
       "scope": "Embedded agent instructions and referenced resources; resources are data and are not executed by the skill loader.",
       "skills": [
         {
           "name": "caveman",
-          "path": "vendor/caveman/skills/caveman/SKILL.md"
+          "path": "bundled/caveman/skills/caveman/SKILL.md"
         },
         {
           "name": "caveman-commit",
-          "path": "vendor/caveman/skills/caveman-commit/SKILL.md"
+          "path": "bundled/caveman/skills/caveman-commit/SKILL.md"
         },
         {
           "name": "caveman-explore",
-          "path": "vendor/caveman/skills/caveman-explore/SKILL.md"
+          "path": "bundled/caveman/skills/caveman-explore/SKILL.md"
         },
         {
           "name": "caveman-review",
-          "path": "vendor/caveman/skills/caveman-review/SKILL.md"
+          "path": "bundled/caveman/skills/caveman-review/SKILL.md"
         },
         {
           "name": "investigate-first",
-          "path": "vendor/caveman/skills/investigate-first/SKILL.md"
+          "path": "bundled/caveman/skills/investigate-first/SKILL.md"
         },
         {
           "name": "lean-build",
-          "path": "vendor/caveman/skills/lean-build/SKILL.md"
+          "path": "bundled/caveman/skills/lean-build/SKILL.md"
         },
         {
           "name": "migration",
-          "path": "vendor/caveman/skills/migration/SKILL.md"
+          "path": "bundled/caveman/skills/migration/SKILL.md"
         },
         {
           "name": "safe-refactor",
-          "path": "vendor/caveman/skills/safe-refactor/SKILL.md"
+          "path": "bundled/caveman/skills/safe-refactor/SKILL.md"
         },
         {
           "name": "surgical-patch",
-          "path": "vendor/caveman/skills/surgical-patch/SKILL.md"
+          "path": "bundled/caveman/skills/surgical-patch/SKILL.md"
         },
         {
           "name": "verify-and-stop",
-          "path": "vendor/caveman/skills/verify-and-stop/SKILL.md"
+          "path": "bundled/caveman/skills/verify-and-stop/SKILL.md"
         }
       ],
       "excluded_skills": {
@@ -409,73 +409,73 @@
       ],
       "files": [
         {
-          "path": "vendor/caveman/LICENSE",
+          "path": "bundled/caveman/LICENSE",
           "upstream_path": "LICENSE",
           "sha256": "94fe75d355887f84ee7eefca68e06d8d082a23dad47a8e1f58a94d98900edf5b"
         },
         {
-          "path": "vendor/caveman/LICENSING.md",
+          "path": "bundled/caveman/LICENSING.md",
           "upstream_path": "LICENSING.md",
           "sha256": "84e8dfe4096a9989640ed5d544355cc8878a874346245ec3b643bd5001c7b106"
         },
         {
-          "path": "vendor/caveman/skills/caveman/SKILL.md",
+          "path": "bundled/caveman/skills/caveman/SKILL.md",
           "upstream_path": "skills/caveman/SKILL.md",
           "sha256": "0bf09a0a9a017d004a81d4b693e5a2d830e1a28230a5885df773e1ed9c0571cc"
         },
         {
-          "path": "vendor/caveman/skills/caveman-commit/SKILL.md",
+          "path": "bundled/caveman/skills/caveman-commit/SKILL.md",
           "upstream_path": "skills/caveman-commit/SKILL.md",
           "sha256": "c788a282fc75b981b421dfdad5d84ea7f83f946c126daa39cfc7d3f97845e193"
         },
         {
-          "path": "vendor/caveman/skills/caveman-explore/SKILL.md",
+          "path": "bundled/caveman/skills/caveman-explore/SKILL.md",
           "upstream_path": "skills/caveman-explore/SKILL.md",
           "sha256": "908f504ce45f5f8517ac7b64dc89fef57c4519d26f92b0b1843febf4b6fe2ac8"
         },
         {
-          "path": "vendor/caveman/skills/caveman-review/SKILL.md",
+          "path": "bundled/caveman/skills/caveman-review/SKILL.md",
           "upstream_path": "skills/caveman-review/SKILL.md",
           "sha256": "599330563f19b5c59c3efddffcd7e8d9098b74c29817ab422ccd3253b103fcb8"
         },
         {
-          "path": "vendor/caveman/skills/investigate-first/SKILL.md",
+          "path": "bundled/caveman/skills/investigate-first/SKILL.md",
           "upstream_path": "skills/investigate-first/SKILL.md",
           "sha256": "7cc19dd2fc457eb20d65c44dee4d1b72dcdfcd1617182f5bff666700f2a055d8"
         },
         {
-          "path": "vendor/caveman/skills/lean-build/SKILL.md",
+          "path": "bundled/caveman/skills/lean-build/SKILL.md",
           "upstream_path": "skills/lean-build/SKILL.md",
           "sha256": "4d498073c6312858b220e9a04b7456c2485c734edb077f6bb17d88a7ed96ad7a"
         },
         {
-          "path": "vendor/caveman/skills/migration/SKILL.md",
+          "path": "bundled/caveman/skills/migration/SKILL.md",
           "upstream_path": "skills/migration/SKILL.md",
           "sha256": "fe7cf96a58b0521130fbb886dab2a326869d6ed0001e0306fd244014ba7a9662"
         },
         {
-          "path": "vendor/caveman/skills/native/native-core.md",
+          "path": "bundled/caveman/skills/native/native-core.md",
           "upstream_path": "skills/native/native-core.md",
           "sha256": "7e7ea4db5cc8ac6c6fc12c20bfbc17b622b52bc4a71e3d3a7c6d913c6e294a3e"
         },
         {
-          "path": "vendor/caveman/skills/safe-refactor/SKILL.md",
+          "path": "bundled/caveman/skills/safe-refactor/SKILL.md",
           "upstream_path": "skills/safe-refactor/SKILL.md",
           "sha256": "cd52867aba26aafb53379d43068cef9b2feca3a3fff850f877a99f710ccd02c0"
         },
         {
-          "path": "vendor/caveman/skills/surgical-patch/SKILL.md",
+          "path": "bundled/caveman/skills/surgical-patch/SKILL.md",
           "upstream_path": "skills/surgical-patch/SKILL.md",
           "sha256": "81ea9f7b51409970099e04b98875dd65806cd35472f9a774b847030328187387"
         },
         {
-          "path": "vendor/caveman/skills/verify-and-stop/SKILL.md",
+          "path": "bundled/caveman/skills/verify-and-stop/SKILL.md",
           "upstream_path": "skills/verify-and-stop/SKILL.md",
           "sha256": "3d5599f49771b864eba94f27f456fda295c48c1a37fa6ba2f65fdcb13cc32acb"
         }
       ],
       "license_scope": "Only MIT-licensed skills and licensing evidence are redistributed. No Engine-linked runtime or BSL-licensed code is included.",
-      "license_scope_path": "vendor/caveman/LICENSING.md"
+      "license_scope_path": "bundled/caveman/LICENSING.md"
     }
   ]
 }

@@ -40,7 +40,7 @@ func TestEmbeddedSkillsAndResourcesIgnoreWorkingDirectory(t *testing.T) {
 	if count != 35 {
 		t.Fatalf("expected both pinned collections, got %d skills", count)
 	}
-	for _, path := range []string{"../sources.json", "/etc/passwd", "vendor/caveman/../caveman/LICENSE", "sources.json", "SKILL.md"} {
+	for _, path := range []string{"../sources.json", "/etc/passwd", "bundled/caveman/../caveman/LICENSE", "sources.json", "SKILL.md"} {
 		if _, err := Read(path); err == nil {
 			t.Fatalf("read escaped bundled resource allowlist: %s", path)
 		}

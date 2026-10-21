@@ -142,7 +142,7 @@ for record, notice_path in notice_sources:
     )
 
 skill_root = root / 'pkg/skills'
-skill_vendor_root = (skill_root / 'vendor').resolve()
+skill_vendor_root = (skill_root / 'bundled').resolve()
 skill_manifest = json.loads((skill_root / 'sources.json').read_text())
 for source in skill_manifest['sources']:
     evidence = {}
@@ -151,7 +151,7 @@ for source in skill_manifest['sources']:
         try:
             source_path.relative_to(skill_vendor_root)
         except ValueError as error:
-            raise ValueError(f"skill path escapes vendor root: {record['path']}") from error
+            raise ValueError(f"skill path escapes bundled root: {record['path']}") from error
         data = source_path.read_bytes()
         if hashlib.sha256(data).hexdigest() != record['sha256']:
             raise ValueError(f"skill source hash mismatch: {record['path']}")
