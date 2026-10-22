@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"path"
@@ -203,7 +204,7 @@ func ciTools() []model.Tool {
 	}
 }
 
-const ownerConversationBudget = 7 * model.MaxRequestBytes / 16
+const ownerConversationBudget = 256 << 10
 const ownerStateBudget = 112 << 10
 const ownerRecentBudget = 32 << 10
 
@@ -563,6 +564,35 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		out.Turns = restored.Turns
 		messages = []model.Message{{Role: "user", Text: ownerContext(prompt, current(), updates, nil, recentToolResults) + "\nSaved progress restored. Run checks again before finish; earlier check results are not current validation evidence."}}
 	}
+	finish := func(summary string) (bool, error) {
+		verified := Verified(p, out.Baseline, candidate) && (!e.RequireReproduction || BehaviourFixed(p, out.Reproduction, candidate))
+		proposal := !verified && ProposalReady(p, out.Baseline, candidate)
+		if review || checked != revision || len(current()) == 0 || !verified && !proposal {
+			return false, nil
+		}
+		if duplicates(patchHashes(current()), e.OpenFixFiles) {
+			out.Reason = "Skipped: same change as an open Reforge fix"
+			return true, ErrHandoff
+		}
+		if err := e.stage(ctx, "validating"); err != nil {
+			out.Reason = "Run authorization changed"
+			return true, err
+		}
+		out.Patches, out.Dependencies = current(), updates
+		out.Candidate, out.Target = candidate, candidate
+		out.State = "validated"
+		if proposal {
+			out.State = "unverified"
+		}
+		out.Reason = bounded(strings.TrimSpace(summary))
+		if out.Reason == "" {
+			out.Reason = "Repository repair ready; available checks pass"
+		}
+		if proposal {
+			out.Reason = "Unverified proposal: " + out.Reason + ". Independent CI behaviour proof required before merge."
+		}
+		return true, nil
+	}
 	checkpointRevision, checkpointTurns, checkpointRecent := revision, out.Turns, recentToolResults
 	saveProgress := func() error {
 		if !owner || e.SaveCheckpoint == nil || checkpointRevision == revision && checkpointTurns == out.Turns && checkpointRecent == recentToolResults {
@@ -599,6 +629,11 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		}
 		result, err := e.turnWithRetry(ctx, modelTurn)
 		if err != nil {
+			if errors.Is(err, ErrRunLimit) {
+				if done, finishErr := finish(""); done {
+					return out, finishErr
+				}
+			}
 			if pausable(err) {
 				return fail("Paused: "+modelFailure(err), pausedModelError(err))
 			}
@@ -969,28 +1004,9 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					}
 					break
 				}
-				if duplicates(patchHashes(current()), e.OpenFixFiles) {
-					return fail("Skipped: same change as an open Reforge fix", ErrHandoff)
+				if done, finishErr := finish(in.Summary); done {
+					return out, finishErr
 				}
-				if err = e.stage(ctx, "validating"); err != nil {
-					return fail("Run authorization changed", err)
-				}
-				out.Patches = current()
-				out.Dependencies = updates
-				out.Candidate = candidate
-				out.Target = candidate
-				out.State = "validated"
-				if proposal {
-					out.State = "unverified"
-				}
-				out.Reason = bounded(strings.TrimSpace(in.Summary))
-				if out.Reason == "" {
-					out.Reason = "CI failure addressed; repository checks pass"
-				}
-				if proposal {
-					out.Reason = "Unverified proposal: " + out.Reason + ". Independent CI behaviour proof required before merge."
-				}
-				return out, nil
 			case "skip":
 				var in struct{ Reason string }
 				_ = json.Unmarshal(call.Arguments, &in)
@@ -1039,7 +1055,10 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 		out.Reason = fmt.Sprintf("Review turn budget used; recorded %d issues", len(out.Findings))
 		return out, nil
 	}
-	return fail("Repair turn limit reached without a finished change", ErrHandoff)
+	if done, finishErr := finish(""); done {
+		return out, finishErr
+	}
+	return fail("Repair progress saved for continuation", ErrHandoff)
 }
 
 func originalFileChanges(original, target map[string][]byte) string {

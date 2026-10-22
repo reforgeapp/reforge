@@ -366,6 +366,27 @@ func TestEngineCIEditFileChangesOneSnippet(t *testing.T) {
 	}
 }
 
+func TestOwnerFinalizesAfterLastCheckAtTurnLimit(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner, plan.Recipe.MaxTurns = true, 2
+	plan.Digest = planDigest(plan)
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, files, plan.TargetSHA}
+	turns := 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, Goal: "Repair source", Progress: func(context.Context, string) error { return nil },
+		Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+			turns++
+			if turns == 1 {
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "edit", Name: "edit_file", Arguments: []byte(`{"path":"value.js","old":"a-b","new":"a+b"}`)}}}, nil
+			}
+			return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "checks", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+		},
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || turns != 2 || report.State != "validated" || len(report.Patches) != 1 {
+		t.Fatalf("turns=%d report=%+v err=%v", turns, report, err)
+	}
+}
+
 func TestEngineOwnerChangesAnyFileWithinPolicy(t *testing.T) {
 	plan, files := testPlan(t)
 	plan.Owner, plan.Recipe.MaxTurns = true, 3
