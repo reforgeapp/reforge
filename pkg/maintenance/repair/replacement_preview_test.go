@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -26,13 +27,34 @@ import (
 	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
-type replacementSourceReader struct{}
+type replacementSourceReader struct {
+	change     *forge.Change
+	connection string
+	db         *store.Store
+	org        string
+	reads      int
+	writes     int
+}
 
-func (replacementSourceReader) Read(context.Context, string, string, privateconnector.Operation, func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
+func (r *replacementSourceReader) Read(ctx context.Context, org, connection string, op privateconnector.Operation, authorize func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
+	if r.change == nil || connection != r.connection || op.Kind != privateconnector.ForgeReadChange {
+		return privateconnector.Result{}, privateconnector.ErrUnsupported
+	}
+	if err := r.db.Tenant(ctx, r.org, "", func(tx pgx.Tx) error {
+		return authorize(ctx, tx, connections.Connection{ID: connection, Version: 1, State: "healthy"})
+	}); err != nil {
+		return privateconnector.Result{}, err
+	}
+	r.reads++
+	return privateconnector.Result{Change: r.change}, nil
+}
+
+func (r *replacementSourceReader) Write(context.Context, string, string, privateconnector.Operation, func(context.Context, pgx.Tx, connections.Connection) (string, error), func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
+	r.writes++
 	return privateconnector.Result{}, privateconnector.ErrUnsupported
 }
 
-func (replacementSourceReader) SourceReader(string, string, func(context.Context, pgx.Tx, connections.Connection) error) source.Reader {
+func (*replacementSourceReader) SourceReader(string, string, func(context.Context, pgx.Tx, connections.Connection) error) source.Reader {
 	files := map[string][]byte{
 		"go.mod":         []byte("module example.test/repo\n\ngo 1.22\n"),
 		"sample_test.go": []byte("package example\n\nimport \"testing\"\n\nfunc TestFixture(t *testing.T) {}\n"),
@@ -186,7 +208,8 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 		}
 		return nil
 	})
-	service := New(db, identity, discovery.New(db, identity, replacementSourceReader{}), workflowService, nil, policies, budget.New(db, identity, nil, nil), connections.New(db, identity, nil, true), nil, replacementSourceReader{}, map[string]string{"go": "sha256:" + strings.Repeat("a", 64)})
+	reader := &replacementSourceReader{connection: forgeID, db: db, org: org}
+	service := New(db, identity, discovery.New(db, identity, reader), workflowService, nil, policies, budget.New(db, identity, nil, nil), connections.New(db, identity, nil, true), nil, reader, map[string]string{"go": "sha256:" + strings.Repeat("a", 64)})
 	in := Input{FindingID: findingID, FindingVersion: 1, Recipe: "go", ModelConnectionID: modelID, ModelRoute: "default", RunnerPoolID: poolID, Owner: true}
 	if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `UPDATE autopilot_settings SET enabled=false WHERE org_id=$1`, org)
@@ -285,5 +308,75 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 	}
 	if run.Context.ReplacesBranch != branch || run.Context.FollowUpBranch != "" || run.Context.Plan.BaselineSHA != headSHA || run.Context.Plan.TargetSHA != targetSHA {
 		t.Fatalf("enqueued replacement context=%+v", run.Context)
+	}
+	newHead, newTarget := strings.Repeat("c", 40), strings.Repeat("d", 40)
+	currentChange := change
+	currentChange.HeadSHA, currentChange.TargetSHA = newHead, newTarget
+	reader.change = &currentChange
+	baselineChecks := make([]CheckResult, 0, len(run.Context.Plan.Recipe.Commands))
+	for _, check := range run.Context.Plan.Recipe.Commands {
+		baselineChecks = append(baselineChecks, CheckResult{CommandID: check.ID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestFixture": "pass"}})
+	}
+	priorReport, _ := json.Marshal(Report{State: "unverified", Mode: "owner", PlanDigest: run.Context.Plan.Digest, Reason: "Saved owner proposal", Baseline: baselineChecks, Candidate: baselineChecks, Patches: []sandbox.Patch{{Path: "value.go", Content: []byte("package example\n")}}})
+	currentBody, _ := json.Marshal(currentChange)
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='completed' WHERE org_id=$1 AND id=$2`, org, run.Task.ID)
+		if err != nil {
+			return err
+		}
+		_, err = tx.Exec(ctx, `UPDATE repair_runs SET state='published',branch=$3,candidate_sha=$4,native_change=$5,report=$6 WHERE org_id=$1 AND task_id=$2`, org, run.Task.ID, branch, headSHA, currentBody, priorReport)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	reason, err := service.RevalidateFix(ctx, session, org, run.Task.ID)
+	if err != nil || !strings.Contains(reason, "Rechecking saved repair") {
+		t.Fatalf("revalidation enqueue reason=%q err=%v", reason, err)
+	}
+	var childID, childState string
+	var childMaxAttempts int
+	var child Run
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `SELECT id::text,state,max_attempts FROM workflow_tasks WHERE org_id=$1 AND repository_id=$2 AND idempotency_key LIKE 'repair-validation/%'`, org, repo).Scan(&childID, &childState, &childMaxAttempts); err != nil {
+			return err
+		}
+		var loadErr error
+		child, loadErr = loadRun(ctx, tx, org, childID)
+		return loadErr
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if childState != "queued" || childMaxAttempts != 2 || child.Context.ValidationTaskID != run.Task.ID || child.Context.ValidationTargetSHA != newTarget || child.Context.Plan.BaselineSHA != newHead || child.Context.Plan.TargetSHA != newHead || !reflect.DeepEqual(child.Context.Plan.Recipe.Commands, run.Context.Plan.Recipe.Commands) || child.Report == nil || child.Report.PlanDigest != child.Context.Plan.Digest || len(child.Report.Patches) != 0 || len(child.Report.Diff) != 0 {
+		t.Fatalf("prepared validation child=%+v task_state=%s max_attempts=%d", child, childState, childMaxAttempts)
+	}
+	for _, name := range []string{"repeated head does not duplicate task", "failed child remains parked"} {
+		if name == "failed child remains parked" {
+			if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+				_, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='failed' WHERE org_id=$1 AND id=$2`, org, childID)
+				return err
+			}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		message, revalidateErr := service.RevalidateFix(ctx, session, org, run.Task.ID)
+		if revalidateErr != nil {
+			t.Fatalf("%s: %v", name, revalidateErr)
+		}
+		want := "Rechecking saved repair"
+		if name == "failed child remains parked" {
+			want = "waiting for updated code or validation tools"
+		}
+		if !strings.Contains(message, want) {
+			t.Fatalf("%s returned %q", name, message)
+		}
+	}
+	var taskCount int
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND repository_id=$2 AND idempotency_key LIKE 'repair-validation/%'`, org, repo).Scan(&taskCount)
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if taskCount != 1 || reader.writes != 0 {
+		t.Fatalf("validation tasks=%d source writes=%d", taskCount, reader.writes)
 	}
 }

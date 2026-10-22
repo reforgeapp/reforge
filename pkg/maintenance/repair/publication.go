@@ -47,6 +47,9 @@ func (s *Service) CheckStage(ctx context.Context, tx pgx.Tx, t workflow.Task, p 
 	if err != nil {
 		return err
 	}
+	if r.Context.ValidationTaskID != "" {
+		return workflow.ErrPolicy
+	}
 	if r.Report == nil || r.Report.State != "validated" && r.Report.State != "unverified" || r.Context.PolicyHash != p.Hash || (r.State != "validated" && r.State != "unverified" && r.State != "publishing") {
 		return workflow.ErrPolicy
 	}
@@ -56,6 +59,9 @@ func (s *Service) CheckPublish(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	r, err := loadRun(ctx, tx, t.OrgID, t.ID)
 	if err != nil {
 		return err
+	}
+	if r.Context.ValidationTaskID != "" {
+		return workflow.ErrPolicy
 	}
 	if t.State != domain.TaskPublishing || r.CandidateSHA == "" || !publicationReady(r, r.CandidateChecks) {
 		return workflow.ErrPolicy
@@ -326,6 +332,9 @@ func (s *Service) RecordNative(ctx context.Context, credential string, in Public
 				return ErrValidation
 			}
 		}
+		if r.Context.ValidationTaskID != "" && !VerifiedReport(r.Context, *r.Report, in.Checks) {
+			return ErrValidation
+		}
 		_, err = tx.Exec(ctx, `UPDATE repair_runs SET candidate_checks=$3,candidate_artifacts=$5,version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND candidate_sha=$4`, l.OrgID, l.TaskID, body, in.HeadSHA, artifactIDs)
 		if err != nil {
 			return err
@@ -437,6 +446,12 @@ func (s *Service) CheckCompletion(ctx context.Context, tx pgx.Tx, l workflow.Lea
 		return err
 	}
 	if r.State == "handoff" && r.Report != nil && (r.Report.Disposition == "superseded" || r.Report.Disposition == "reviewed") {
+		return nil
+	}
+	if r.Context.ValidationTaskID != "" {
+		if r.State != "validated" || r.Report == nil || !VerifiedReport(r.Context, *r.Report, r.CandidateChecks) {
+			return ErrValidation
+		}
 		return nil
 	}
 	if r.State != "published" || r.Change == nil || r.Change.HeadSHA != r.CandidateSHA || !publicationReady(r, r.CandidateChecks) || !strings.HasPrefix(r.Branch, "reforge/repair/") {

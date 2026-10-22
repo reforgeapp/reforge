@@ -24,6 +24,8 @@ type Input struct {
 	Instructions         string `json:"instructions,omitempty"`
 }
 type ExecutionContext struct {
+	ValidationTaskID       string                 `json:"validation_task_id,omitempty"`
+	ValidationTargetSHA    string                 `json:"validation_target_sha,omitempty"`
 	MaxAttempts            int                    `json:"max_attempts"`
 	NativeHeadSHA          string                 `json:"native_head_sha,omitempty"`
 	Request                Input                  `json:"request"`

@@ -168,7 +168,27 @@ func RepairProcessorWithCloser(config sandbox.RuntimeConfig) (Processor, func() 
 			_ = c.RepairLogs(ctx, j, []repair.LogEntry{{Kind: kind, Message: message}})
 		}}
 		var report repair.Report
-		if run.Report != nil && (run.Report.Disposition == "superseded" || run.Report.Disposition == "reviewed") {
+		if execution.ValidationTaskID != "" {
+			if run.Report == nil {
+				return failed, repair.ErrValidation
+			}
+			for _, next := range []string{"planning", "repairing", "validating"} {
+				if err = progress(next); err != nil {
+					return failed, err
+				}
+			}
+			native, err := engine.ValidateNative(ctx, execution.Plan, run.CandidateSHA, target, *run.Report)
+			if err != nil {
+				return failed, err
+			}
+			if err = c.RepairNativeChecks(ctx, j, native); err != nil {
+				return failed, err
+			}
+			if err = progress("publishing"); err != nil {
+				return failed, err
+			}
+			return workflow.Completion{Outcome: "completed"}, nil
+		} else if run.Report != nil && (run.Report.Disposition == "superseded" || run.Report.Disposition == "reviewed") {
 			if err = completeWithoutPublication(); err != nil {
 				return failed, err
 			}

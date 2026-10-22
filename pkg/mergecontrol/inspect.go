@@ -260,6 +260,15 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	if report.State == "validated" && checkedHead == snapshot.Change.HeadSHA && execution.Plan.TargetSHA == snapshot.Change.TargetSHA && repair.Verified(execution.Plan, report.Baseline, checks) {
 		out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, "repair:"+task
 	}
+	if out.ValidationReference == "" {
+		reference, err := repair.RevalidationReferenceTx(ctx, tx, org, repo, task, execution.Plan.Digest, snapshot.Change.HeadSHA, snapshot.Change.TargetSHA)
+		if err != nil {
+			return out, err
+		}
+		if reference != "" {
+			out.ValidationHead, out.ValidationTarget, out.ValidationReference = snapshot.Change.HeadSHA, snapshot.Change.TargetSHA, reference
+		}
+	}
 	for _, patch := range report.Patches {
 		out.Paths = append(out.Paths, patch.Path)
 	}

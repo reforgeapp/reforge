@@ -17,6 +17,9 @@ func (s *Service) CheckModelTx(ctx context.Context, tx pgx.Tx, t workflow.Task, 
 	if err != nil {
 		return err
 	}
+	if run.Context.ValidationTaskID != "" {
+		return workflow.ErrPolicy
+	}
 	p := run.Context.Plan
 	active := false
 	if run.State == "handoff" {

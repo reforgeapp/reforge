@@ -899,6 +899,11 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		}
 		return later(reason, 5*time.Minute)
 	}
+	if reason, err := s.repairs.RevalidateFix(ctx, session, org, task); err != nil {
+		return later("Repair recheck: "+err.Error(), 5*time.Minute)
+	} else if reason != "" {
+		return later(reason, time.Minute)
+	}
 	gate, err := s.merges.Inspect(ctx, session, org, repo, change, "merge", "autopilot")
 	if err == nil && !slices.Contains(gate.Snapshot.Rules.AllowedMergeMethods, "merge") && len(gate.Snapshot.Rules.AllowedMergeMethods) > 0 {
 		gate, err = s.merges.Inspect(ctx, session, org, repo, change, gate.Snapshot.Rules.AllowedMergeMethods[0], "autopilot")
