@@ -78,10 +78,11 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 		readErr  error
 		wantText string
 		regular  bool
+		fedBack  bool
 	}{
 		{name: "owner read failure", readErr: errors.New("private runtime detail"), wantText: "could not be read"},
-		{name: "owner missing evidence", readErr: fs.ErrNotExist, wantText: "is missing"},
-		{name: "owner changed evidence", wantText: "changed"},
+		{name: "owner missing evidence", readErr: fs.ErrNotExist, wantText: "is missing", fedBack: true},
+		{name: "owner changed evidence", wantText: "changed", fedBack: true},
 		{name: "regular repair read failure", readErr: errors.New("private runtime detail"), wantText: "could not be read", regular: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -92,10 +93,14 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 			if tc.regular {
 				patchCall.Name = "apply_patch"
 			}
+			var seen string
 			engine := Engine{
 				Runtime: runtime,
 				Model:   "fixture",
-				Turn: func(context.Context, model.Turn) (model.TurnResult, error) {
+				Turn: func(_ context.Context, in model.Turn) (model.TurnResult, error) {
+					for _, message := range in.Messages {
+						seen += message.Text + "\n"
+					}
 					return model.TurnResult{ToolCalls: []model.ToolCall{
 						patchCall,
 						{ID: "checks", Name: "run_checks", Arguments: []byte(`{}`)},
@@ -108,6 +113,12 @@ func TestReportIdentifiesProtectedValidationFailureSafely(t *testing.T) {
 				report, err = engine.Run(context.Background(), plan, snapshotForEngine(t, base, files), snapshotForEngine(t, target, files))
 			} else {
 				report, err = engine.runCI(context.Background(), plan, Report{State: "handoff", Artifacts: []string{}}, files)
+			}
+			if tc.fedBack {
+				if !strings.Contains(seen, "Checks rejected") || !strings.Contains(seen, "value.test.js") || !strings.Contains(seen, tc.wantText) {
+					t.Fatalf("model was not told why checks were rejected: %q", seen)
+				}
+				return
 			}
 			want := ErrValidation
 			if tc.readErr != nil && !errors.Is(tc.readErr, fs.ErrNotExist) {

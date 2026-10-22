@@ -696,6 +696,10 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					checkPlan = retarget(independent, updated())
 				}
 				candidate, err = e.validate(ctx, checkPlan, p.TargetSHA, proposed, fmt.Sprintf("ci-candidate-%d", turn+1), &out)
+				if retryable(ctx, err) {
+					reply = checksRejected(err)
+					break
+				}
 				if err != nil {
 					return fail("Candidate environment failed or modified protected validation", err)
 				}

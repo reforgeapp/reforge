@@ -115,6 +115,14 @@ func (e *validationCommandError) Error() string {
 
 func (e *validationCommandError) Unwrap() error { return e.cause }
 
+func retryable(ctx context.Context, err error) bool {
+	return err != nil && ctx.Err() == nil && errors.Is(err, ErrValidation) && !errors.Is(err, ErrSandbox)
+}
+
+func checksRejected(err error) string {
+	return "Checks rejected: " + validationDiagnostic(err) + ". Running the code must not create, delete or rewrite tests, lockfiles or other protected files. Fix the source and run_checks again."
+}
+
 func validationDiagnostic(err error) string {
 	var diagnostic *validationCommandError
 	if errors.As(err, &diagnostic) {
@@ -475,6 +483,10 @@ func (e Engine) Run(ctx context.Context, p Plan, baseline, target sandbox.Snapsh
 					break
 				}
 				candidate, checkErr := e.validate(ctx, p, p.BaselineSHA, proposed, fmt.Sprintf("candidate-%d", turn+1), &out)
+				if retryable(ctx, checkErr) {
+					reply = checksRejected(checkErr)
+					break
+				}
 				if checkErr != nil {
 					return fail("Candidate environment failed or modified protected validation", checkErr)
 				}
