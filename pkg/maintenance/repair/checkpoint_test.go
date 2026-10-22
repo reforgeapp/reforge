@@ -99,7 +99,7 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 		if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'forge_change','checkpoint','dependency','medium','checkpoint','{}',$5)`, org, findingID, repo, strings.Repeat("e", 64), strings.Repeat("f", 64)); err != nil {
 			return err
 		}
-		body, _ := json.Marshal(ExecutionContext{Request: Input{Owner: true, Recipe: "javascript"}, Plan: plan, Repository: forge.RepoRef{NativeID: repo, FullName: "checkpoint/repo"}, PolicyHash: policyHash, Finding: discovery.Finding{RepositoryID: repo}})
+		body, _ := json.Marshal(ExecutionContext{Request: Input{Owner: true, Recipe: "javascript"}, Plan: plan, Repository: forge.RepoRef{NativeID: repo, FullName: "checkpoint/repo"}, PolicyHash: policyHash, Finding: discovery.Finding{ID: findingID, RepositoryID: repo}})
 		if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state) VALUES($1,$2,$3,$4,$5,1,$6,$7,'queued')`, org, task.ID, repo, findingID, session.User.ID, strings.Repeat("1", 64), body); err != nil {
 			return err
 		}
@@ -229,6 +229,32 @@ func TestSaveCheckpointFencesPlanTaskAndRunnerLease(t *testing.T) {
 	}
 	if err = service.SaveCheckpoint(ctx, retried.Credential.Token, checkpoint); !errors.Is(err, workflow.ErrFence) {
 		t.Fatalf("stale runner fence accepted: %v", err)
+	}
+	var resumed *Checkpoint
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE workflow_tasks SET state='failed' WHERE org_id=$1 AND id=$2`, org, task.ID); err != nil {
+			return err
+		}
+		current := stored.Context
+		resumed, err = priorCheckpointTx(ctx, tx, org, current)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if resumed == nil || resumed.Turns != 0 || resumed.Recent != checkpoint.Recent || len(resumed.Patches) != 1 {
+		t.Fatalf("terminal owner checkpoint was not selected for continuation: %+v", resumed)
+	}
+	if err = db.Tenant(ctx, org, session.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `INSERT INTO workflow_outbox(org_id,id,task_id,repository_id,operation_id,kind,idempotency_key,payload,payload_hash,state) VALUES($1,$2,$3,$4,$5,'publish','checkpoint-test','{}',$6,'pending')`, org, domain.NewID(), task.ID, repo, task.OperationID, strings.Repeat("2", 64)); err != nil {
+			return err
+		}
+		resumed, err = priorCheckpointTx(ctx, tx, org, stored.Context)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if resumed != nil {
+		t.Fatalf("checkpoint with external workflow outbox was resumed: %+v", resumed)
 	}
 }
 

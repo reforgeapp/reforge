@@ -422,6 +422,9 @@ func (s *Service) Step(ctx context.Context, org string) error {
 		if err := s.updatePlatformFailuresTx(ctx, tx, org); err != nil {
 			return err
 		}
+		if err := s.updateRepairFailuresTx(ctx, tx, org); err != nil {
+			return err
+		}
 		if err := s.releaseChangedAttemptsTx(ctx, tx, org); err != nil {
 			return err
 		}

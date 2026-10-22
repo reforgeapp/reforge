@@ -2,10 +2,74 @@ package autopilot
 
 import (
 	"context"
+	"encoding/json"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 )
+
+func repairMadeProgress(c repair.ExecutionContext, checkpoint *repair.Checkpoint, reason string) bool {
+	if !c.Request.Owner || !c.Plan.Owner || c.Plan.Recipe.ReadOnly || checkpoint == nil || len(checkpoint.Patches) == 0 || !checkpoint.ValidFor(c.Plan) || strings.HasPrefix(reason, "Skipped:") {
+		return false
+	}
+	return checkpoint.ProgressDigest() != c.StartingProgressDigest
+}
+
+func (s *Service) updateRepairFailuresTx(ctx context.Context, tx pgx.Tx, org string) error {
+	rows, err := tx.Query(ctx, `SELECT a.finding_id::text,a.finding_version,a.task_id::text,t.state,rr.context,rr.checkpoint,coalesce(rr.report->>'reason',''),EXISTS(SELECT 1 FROM workflow_outbox o WHERE o.org_id=a.org_id AND o.task_id=a.task_id),a.runs,a.max_runs FROM autopilot_attempts a JOIN maintenance_findings f ON f.org_id=a.org_id AND f.id=a.finding_id AND f.version=a.finding_version JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id JOIN repair_runs rr ON rr.org_id=a.org_id AND rr.task_id=a.task_id WHERE a.org_id=$1 AND a.outcome='queued' AND t.state IN ('failed','cancelled') AND rr.native_change IS NULL AND rr.state IN ('queued','handoff')`, org)
+	if err != nil {
+		return err
+	}
+	type failure struct {
+		finding, task, state, reason string
+		version                      int64
+		context, checkpoint          []byte
+		external                     bool
+		runs, maxRuns                int
+	}
+	var failures []failure
+	for rows.Next() {
+		var f failure
+		if err = rows.Scan(&f.finding, &f.version, &f.task, &f.state, &f.context, &f.checkpoint, &f.reason, &f.external, &f.runs, &f.maxRuns); err != nil {
+			rows.Close()
+			return err
+		}
+		failures = append(failures, f)
+	}
+	err = rows.Err()
+	rows.Close()
+	if err != nil {
+		return err
+	}
+	for _, f := range failures {
+		var c repair.ExecutionContext
+		var checkpoint *repair.Checkpoint
+		if err = json.Unmarshal(f.context, &c); err != nil {
+			return err
+		}
+		if len(f.checkpoint) > 0 {
+			if err = json.Unmarshal(f.checkpoint, &checkpoint); err != nil {
+				return err
+			}
+		}
+		fingerprint, err := s.fingerprintTx(ctx, tx, org, f.finding, f.version)
+		if err != nil {
+			return err
+		}
+		progress := f.state == "failed" && !f.external && repairMadeProgress(c, checkpoint, f.reason)
+		outcome, kind, reason := "blocked", "exhausted", "Repair progress saved; waiting for new evidence or repair tools"
+		if progress && f.runs < f.maxRuns {
+			outcome, kind, reason = "retry", "", "Continuing saved repair changes after cooldown"
+		}
+		_, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET outcome=$5,blocker_kind=$6,reason=$7,retry_after=CASE WHEN $5='retry' THEN clock_timestamp()+interval '10 minutes' END,capability=$8,updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=$3 AND task_id=$4::uuid AND outcome='queued'`, org, f.finding, f.version, f.task, outcome, kind, reason, fingerprint)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 func (s *Service) fingerprintTx(ctx context.Context, tx pgx.Tx, org, finding string, version int64) (string, error) {
 	var fingerprint string

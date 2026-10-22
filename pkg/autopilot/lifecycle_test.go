@@ -2,6 +2,8 @@ package autopilot
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -16,8 +18,10 @@ import (
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/maintenance/attention"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
+	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/sandbox"
 	"github.com/reforgeapp/reforge/pkg/store"
 	"github.com/reforgeapp/reforge/pkg/workflow"
 )
@@ -535,6 +539,95 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 	if err = service.Step(ctx, org); err != nil {
 		t.Fatalf("stale finding version blocked Step: %v", err)
 	}
+	progressPlan, err := lifecycleOwnerPlan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	progressPatches := []sandbox.Patch{{Path: "value.js", Content: []byte("exports.add = (a,b) => a+b\n")}}
+	progressCheckpoint := repair.Checkpoint{PlanDigest: progressPlan.Digest, Patches: progressPatches, Recent: "saved change"}
+	progressContext := repair.ExecutionContext{Request: repair.Input{Owner: true}, Plan: progressPlan, StartingProgressDigest: "earlier checkpoint"}
+	cases := []struct {
+		name      string
+		reason    string
+		starting  string
+		wantState string
+	}{
+		{"changed progress", "model turn failed", "earlier checkpoint", "retry"},
+		{"unchanged checkpoint", "model turn failed", progressCheckpoint.ProgressDigest(), "blocked"},
+		{"skipped turn", "Skipped: no useful changes", "earlier checkpoint", "blocked"},
+	}
+	caseIDs := make([]string, 0, len(cases))
+	err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		for i, tc := range cases {
+			findingID, taskID := domain.NewID(), domain.NewID()
+			caseIDs = append(caseIDs, findingID)
+			if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'scanner',$5,'dependency','high',$6,$7,$8)`, org, findingID, repo, repeatByte(byte('g'+i), 64), "saved-progress-"+tc.name, "Saved progress "+tc.name, []byte(`{"complete":true,"blockers":[]}`), repeatByte(byte('j'+i), 64)); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO workflow_tasks(org_id,id,repository_id,operation_id,idempotency_key,request_hash,recipe,recipe_version,target_branch,policy_hash,starting_policy_hash,state,max_attempts,created_by) VALUES($1,$2,$3,$4,$5,$6,'repair','1','main','policy','policy','failed',3,$7)`, org, taskID, repo, domain.NewID(), domain.NewID(), repeatByte(byte('k'+i), 64), owner.User.ID); err != nil {
+				return err
+			}
+			ctxBody := progressContext
+			ctxBody.Request.FindingID = findingID
+			ctxBody.StartingProgressDigest = tc.starting
+			contextJSON, err := json.Marshal(ctxBody)
+			if err != nil {
+				return err
+			}
+			checkpointJSON, err := json.Marshal(progressCheckpoint)
+			if err != nil {
+				return err
+			}
+			reportJSON, err := json.Marshal(repair.Report{Reason: tc.reason})
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,report,checkpoint) VALUES($1,$2,$3,$4,$5,1,$6,$7,'handoff',$8,$9)`, org, taskID, repo, findingID, owner.User.ID, repeatByte(byte('m'+i), 64), contextJSON, reportJSON, checkpointJSON); err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,runs,max_runs,capability) VALUES($1,$2,1,$3,'queued',1,6,'saved-progress')`, org, findingID, taskID); err != nil {
+				return err
+			}
+		}
+		if err := service.updateRepairFailuresTx(ctx, tx, org); err != nil {
+			return err
+		}
+		for i, tc := range cases {
+			var outcome, blocker string
+			var runs, maxRuns int
+			if err := tx.QueryRow(ctx, `SELECT outcome,blocker_kind,runs,max_runs FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, caseIDs[i]).Scan(&outcome, &blocker, &runs, &maxRuns); err != nil {
+				return err
+			}
+			if outcome != tc.wantState || runs != 1 || maxRuns != 6 || tc.wantState == "blocked" && blocker != "exhausted" || tc.wantState == "retry" && blocker != "" {
+				return fmt.Errorf("%s lifecycle: outcome=%s blocker=%s runs=%d max=%d", tc.name, outcome, blocker, runs, maxRuns)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
+
+func lifecycleOwnerPlan() (repair.Plan, error) {
+	files := map[string][]byte{
+		"value.js":      []byte("exports.add = (a,b) => a-b\n"),
+		"value.test.js": []byte("const test=require('node:test'); test('adds',()=>{});\n"),
+		"package.json":  []byte(`{"scripts":{"test":"node --test"}}`),
+	}
+	recipe, err := recipes.BuildOwner("javascript", files)
+	if err != nil {
+		return repair.Plan{}, err
+	}
+	plan := repair.Plan{Version: 1, MaxChangedLines: 500, BaselineSHA: repeatByte('b', 40), TargetSHA: repeatByte('c', 40), Image: "sha256:" + repeatByte('a', 64), Recipe: recipe, ProtectedHashes: map[string]string{}, ForbiddenPaths: []string{}, Owner: true}
+	plan.Digest = ""
+	body, err := json.Marshal(plan)
+	if err != nil {
+		return repair.Plan{}, err
+	}
+	digest := sha256.Sum256(body)
+	plan.Digest = hex.EncodeToString(digest[:])
+	return plan, nil
 }
 
 func repeatByte(b byte, n int) string {

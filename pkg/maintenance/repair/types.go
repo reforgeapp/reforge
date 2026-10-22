@@ -24,27 +24,28 @@ type Input struct {
 	Instructions         string `json:"instructions,omitempty"`
 }
 type ExecutionContext struct {
-	MaxAttempts        int                    `json:"max_attempts"`
-	NativeHeadSHA      string                 `json:"native_head_sha,omitempty"`
-	Request            Input                  `json:"request"`
-	Plan               Plan                   `json:"plan"`
-	BaselineRepository forge.RepoRef          `json:"baseline_repository"`
-	Repository         forge.RepoRef          `json:"repository"`
-	ConnectionID       string                 `json:"connection_id"`
-	ConnectionVersion  int64                  `json:"connection_version"`
-	Model              string                 `json:"model"`
-	MaxOutputTokens    int                    `json:"max_output_tokens"`
-	TurnTimeoutMS      int64                  `json:"turn_timeout_ms"`
-	CustomProfile      *customcmd.ProfileSpec `json:"custom_profile,omitempty"`
-	Finding            discovery.Finding      `json:"finding"`
-	PolicyHash         string                 `json:"policy_hash"`
-	PriorFeedback      string                 `json:"prior_feedback,omitempty"`
-	CILogs             []CILog                `json:"ci_logs,omitempty"`
-	OpenFixes          []string               `json:"open_fixes,omitempty"`
-	RecentMerges       []string               `json:"recent_merges,omitempty"`
-	FollowUpBranch     string                 `json:"follow_up_branch,omitempty"`
-	ReplacesBranch     string                 `json:"replaces_branch,omitempty"`
-	OpenFixFiles       []map[string]string    `json:"open_fix_files,omitempty"`
+	MaxAttempts            int                    `json:"max_attempts"`
+	NativeHeadSHA          string                 `json:"native_head_sha,omitempty"`
+	Request                Input                  `json:"request"`
+	Plan                   Plan                   `json:"plan"`
+	BaselineRepository     forge.RepoRef          `json:"baseline_repository"`
+	Repository             forge.RepoRef          `json:"repository"`
+	ConnectionID           string                 `json:"connection_id"`
+	ConnectionVersion      int64                  `json:"connection_version"`
+	Model                  string                 `json:"model"`
+	MaxOutputTokens        int                    `json:"max_output_tokens"`
+	TurnTimeoutMS          int64                  `json:"turn_timeout_ms"`
+	CustomProfile          *customcmd.ProfileSpec `json:"custom_profile,omitempty"`
+	Finding                discovery.Finding      `json:"finding"`
+	PolicyHash             string                 `json:"policy_hash"`
+	PriorFeedback          string                 `json:"prior_feedback,omitempty"`
+	StartingProgressDigest string                 `json:"starting_progress_digest,omitempty"`
+	CILogs                 []CILog                `json:"ci_logs,omitempty"`
+	OpenFixes              []string               `json:"open_fixes,omitempty"`
+	RecentMerges           []string               `json:"recent_merges,omitempty"`
+	FollowUpBranch         string                 `json:"follow_up_branch,omitempty"`
+	ReplacesBranch         string                 `json:"replaces_branch,omitempty"`
+	OpenFixFiles           []map[string]string    `json:"open_fix_files,omitempty"`
 }
 type CILog struct {
 	Name string `json:"name"`

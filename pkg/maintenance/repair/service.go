@@ -461,11 +461,23 @@ func (s *Service) enqueue(ctx context.Context, session auth.Session, org string,
 		if f.EvidenceDigest != c.Finding.EvidenceDigest {
 			return discovery.ErrStale
 		}
+		checkpoint, err := priorCheckpointTx(ctx, tx, org, c)
+		if err != nil {
+			return err
+		}
+		var progress []byte
+		if checkpoint != nil {
+			c.StartingProgressDigest = checkpoint.ProgressDigest()
+			progress, err = json.Marshal(checkpoint)
+			if err != nil {
+				return err
+			}
+		}
 		raw, err := json.Marshal(c)
 		if err != nil {
 			return err
 		}
-		if _, err = tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context) VALUES($1,$2,$3,$4,$5,$6,$7,$8)`, org, t.ID, t.RepositoryID, f.ID, session.User.ID, f.Version, f.EvidenceDigest, raw); err != nil {
+		if _, err = tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,checkpoint) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9)`, org, t.ID, t.RepositoryID, f.ID, session.User.ID, f.Version, f.EvidenceDigest, raw, progress); err != nil {
 			return err
 		}
 		return discovery.BindRepairTx(ctx, tx, f, t.ID)
