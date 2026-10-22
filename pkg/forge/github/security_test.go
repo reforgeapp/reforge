@@ -195,9 +195,17 @@ func TestOperationReconciliationUsesAuthenticatedActorAndRejectsDuplicates(t *te
 	}
 }
 func TestBranchPublicationUsesImmutableRefAndExactHead(t *testing.T) {
-	for _, mode := range []string{"create", "update", "head_changed", "revoked", "wrong_repository"} {
+	for _, mode := range []string{"create", "update", "generated", "head_changed", "revoked", "wrong_repository"} {
 		t.Run(mode, func(t *testing.T) {
 			var mutations, guards int
+			edits := []forge.FileEdit{{Path: "empty", Content: []byte{}}}
+			if mode == "generated" {
+				edits = make([]forge.FileEdit, 180)
+				content := strings.Repeat("L", 17<<10)
+				for i := range edits {
+					edits[i] = forge.FileEdit{Path: fmt.Sprintf("dist/THIRD_PARTY_LICENSES/license-%03d.txt", i), Content: []byte(content)}
+				}
+			}
 			p := fixtureProvider(t, func(req *http.Request) (*http.Response, error) {
 				if req.Method == "GET" {
 					return jsonResponse(200, map[string]any{"object": map[string]string{"sha": testCommit}}), nil
@@ -231,6 +239,19 @@ func TestBranchPublicationUsesImmutableRefAndExactHead(t *testing.T) {
 				if guards != 2 || input["expectedHeadOid"] != testHead || branch["id"] != "REF_fixed" || len(branch) != 1 {
 					t.Errorf("unguarded or name-bound commit %v", input)
 				}
+				if mode == "generated" {
+					changes := input["fileChanges"].(map[string]any)
+					additions := changes["additions"].([]any)
+					if len(additions) != 180 {
+						t.Errorf("generated branch sent %d additions, want 180", len(additions))
+					} else {
+						sample := additions[0].(map[string]any)
+						decoded, err := base64.StdEncoding.DecodeString(sample["contents"].(string))
+						if err != nil || string(decoded) != string(edits[0].Content) {
+							t.Errorf("generated file content changed in publication: bytes=%d err=%v", len(decoded), err)
+						}
+					}
+				}
 				if mode == "head_changed" {
 					return jsonResponse(200, map[string]any{"errors": []any{map[string]string{"type": "STALE_DATA"}}}), nil
 				}
@@ -243,12 +264,12 @@ func TestBranchPublicationUsesImmutableRefAndExactHead(t *testing.T) {
 				}
 				return nil
 			})
-			in := forge.UpdateBranchRequest{Repository: testRepo, Branch: "reforge/fix", BaseSHA: testHead, Message: "Repair", OperationID: "op-1", Edits: []forge.FileEdit{{Path: "empty", Content: []byte{}}}}
+			in := forge.UpdateBranchRequest{Repository: testRepo, Branch: "reforge/fix", BaseSHA: testHead, Message: "Repair", OperationID: "op-1", Edits: edits}
 			if mode != "create" && mode != "revoked" {
 				in.ExpectedOldSHA = testHead
 			}
 			got, err := p.UpdateAppBranch(context.Background(), in)
-			if mode == "create" || mode == "update" {
+			if mode == "create" || mode == "update" || mode == "generated" {
 				if err != nil || got != testCommit {
 					t.Fatalf("commit %q %v", got, err)
 				}

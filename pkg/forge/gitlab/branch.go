@@ -76,7 +76,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	if in.ExpectedOldSHA != "" {
 		return "", failure("unsupported", "GitLab API lacks branch-wide expected-head comparison; publish a fresh companion branch")
 	}
-	if !safeID(in.Repository.NativeID) || !validSHA(in.BaseSHA) || !validBranch(in.Branch) || !strings.HasPrefix(in.Branch, "reforge/") || len(in.Branch) > 240 || len(in.Edits) == 0 || len(in.Edits) > 100 || in.Message == "" || len(in.Message) > 4096 {
+	if !safeID(in.Repository.NativeID) || !validSHA(in.BaseSHA) || !validBranch(in.Branch) || !strings.HasPrefix(in.Branch, "reforge/") || len(in.Branch) > 240 || len(in.Edits) == 0 || len(in.Edits) > forge.MaxBranchEditFiles || in.Message == "" || len(in.Message) > 4096 {
 		return "", failure("invalid", "Fresh branch requires immutable base and bounded edits")
 	}
 	if err := validOperationID(in.OperationID); err != nil {
@@ -101,7 +101,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	total := 0
 	for _, edit := range in.Edits {
 		total += len(edit.Content)
-		if !validFilePath(edit.Path) || seen[edit.Path] || total > 2<<20 {
+		if !validFilePath(edit.Path) || seen[edit.Path] || total > forge.MaxBranchEditBytes {
 			return "", failure("invalid", "Invalid or excessive branch edit")
 		}
 		seen[edit.Path] = true

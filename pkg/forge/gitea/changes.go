@@ -350,7 +350,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	if p.authorizeBranch == nil {
 		return "", failure("forbidden", "Persisted application branch authorization required")
 	}
-	if !validOperation(in.OperationID) || in.Branch == "" || !sha(in.BaseSHA) || len(in.Edits) == 0 || len(in.Edits) > 100 || in.ExpectedOldSHA != "" && in.ExpectedOldSHA != in.BaseSHA {
+	if !validOperation(in.OperationID) || in.Branch == "" || !sha(in.BaseSHA) || len(in.Edits) == 0 || len(in.Edits) > forge.MaxBranchEditFiles || in.ExpectedOldSHA != "" && in.ExpectedOldSHA != in.BaseSHA {
 		return "", failure("invalid", "Branch update requires immutable base and bounded append-only edits")
 	}
 	var version struct {
@@ -387,8 +387,10 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	}
 	files := []map[string]any{}
 	seen := map[string]bool{}
+	total := 0
 	for _, edit := range in.Edits {
-		if !filePath(edit.Path) || seen[edit.Path] || len(edit.Content) > maxBody {
+		total += len(edit.Content)
+		if !filePath(edit.Path) || seen[edit.Path] || total > forge.MaxBranchEditBytes {
 			return "", failure("invalid", "Invalid or duplicate file edit")
 		}
 		seen[edit.Path] = true

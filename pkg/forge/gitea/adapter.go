@@ -85,7 +85,11 @@ func (p *Provider) request(ctx context.Context, method, route string, input, out
 		if e != nil {
 			return e
 		}
-		if len(b) > maxBody {
+		requestLimit := maxBody
+		if method == http.MethodPost && strings.HasSuffix(route, "/contents") {
+			requestLimit = forge.MaxBranchRequestBytes
+		}
+		if len(b) > requestLimit {
 			return failure("invalid", "Request exceeds limit")
 		}
 		body = bytes.NewReader(b)

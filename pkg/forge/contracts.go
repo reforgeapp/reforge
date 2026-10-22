@@ -204,6 +204,11 @@ type FileEdit struct {
 	Content []byte
 	Delete  bool
 }
+
+const MaxBranchEditFiles = 8000
+const MaxBranchEditBytes = 10 << 20
+const MaxBranchRequestBytes = 24 << 20
+
 type UpdateBranchRequest struct {
 	Repository     RepoRef
 	Branch         string

@@ -380,7 +380,7 @@ func (c *Connector) Dispatch(ctx context.Context, target Target, operation Opera
 				return
 			}
 			wire, e := grant.MarshalWire()
-			if e != nil || len(wire) > MaxGrant {
+			if e != nil || len(wire) > operation.grantLimit() {
 				deliveryErr = ErrInvalid
 				return
 			}

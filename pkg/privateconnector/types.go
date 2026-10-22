@@ -20,7 +20,7 @@ import (
 const MaxResponse = 90 << 20
 const MaxBatchFiles = 50
 const batchBytes = 3 << 20
-const MaxGrant = 1 << 20
+const MaxGrant = 32 << 20
 const MaxModelTTL = model.MaxTurnTimeout
 const MaxTTL = 30 * time.Second
 const MaxMergeTTL = 2 * time.Minute
@@ -227,7 +227,14 @@ func (o Operation) validate() error {
 	case ForgeRefreshBranch:
 		valid = o.Refresh != nil && o.Refresh.Valid() && o.Refresh.OperationID == o.ID
 	case ForgeUpdateBranch:
-		valid = o.Branch != nil && o.Branch.OperationID == o.ID && strings.HasPrefix(o.Branch.Branch, "reforge/") && len(o.Branch.Edits) > 0 && len(o.Branch.Edits) <= 20 && len(o.Branch.BaseSHA) == 40
+		valid = o.Branch != nil && o.Branch.OperationID == o.ID && strings.HasPrefix(o.Branch.Branch, "reforge/") && len(o.Branch.Edits) > 0 && len(o.Branch.Edits) <= forge.MaxBranchEditFiles && len(o.Branch.BaseSHA) == 40
+		if valid {
+			total := 0
+			for _, edit := range o.Branch.Edits {
+				total += len(edit.Content)
+			}
+			valid = total <= forge.MaxBranchEditBytes
+		}
 	case ForgeCreateChange:
 		valid = o.Create != nil && o.Create.OperationID == o.ID && strings.HasPrefix(o.Create.HeadBranch, "reforge/") && len(o.Create.ExpectedHeadSHA) == 40
 	case ForgeFindChange:
@@ -268,10 +275,21 @@ func (o Operation) validate() error {
 		return ErrInvalid
 	}
 	b, _ := json.Marshal(o)
-	if len(b) > MaxGrant/2 {
+	limit := 512 << 10
+	if o.Kind == ForgeUpdateBranch {
+		limit = forge.MaxBranchRequestBytes
+	}
+	if len(b) > limit {
 		return ErrInvalid
 	}
 	return nil
+}
+
+func (o Operation) grantLimit() int {
+	if o.Kind == ForgeUpdateBranch {
+		return MaxGrant
+	}
+	return 1 << 20
 }
 
 type Target struct {
@@ -416,6 +434,9 @@ func DecodeGrant(b []byte) (Grant, error) {
 	var w wireGrant
 	if err := strictJSON(b, &w); err != nil {
 		return Grant{}, err
+	}
+	if len(b) > w.Grant.Operation.grantLimit() {
+		return Grant{}, ErrInvalid
 	}
 	w.Grant.Connection.Secret = w.Secret
 	if w.Grant.Connection.Protection != nil {

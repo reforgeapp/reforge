@@ -613,7 +613,11 @@ func (p *Provider) request(ctx context.Context, method string, segments []string
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	mutation := method != http.MethodGet && method != http.MethodHead
-	if body != nil && len(body.data) > maxResponseBytes {
+	requestLimit := maxResponseBytes
+	if method == http.MethodPost && len(segments) >= 2 && segments[len(segments)-2] == "repository" && segments[len(segments)-1] == "commits" {
+		requestLimit = forge.MaxBranchRequestBytes
+	}
+	if body != nil && len(body.data) > requestLimit {
 		return 0, nil, nil, &domain.ProviderError{Kind: "invalid", Message: "GitLab request exceeds limit"}
 	}
 	target := p.baseURL(segments)

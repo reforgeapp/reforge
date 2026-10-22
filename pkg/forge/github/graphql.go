@@ -71,7 +71,11 @@ func (p *Provider) graphql(ctx context.Context, query string, variables any, out
 	if err != nil {
 		return failure("invalid", "Invalid GraphQL input")
 	}
-	if len(data) > maxResponseBytes {
+	requestLimit := maxResponseBytes
+	if strings.Contains(query, "createCommitOnBranch(") {
+		requestLimit = forge.MaxBranchRequestBytes
+	}
+	if len(data) > requestLimit {
 		return failure("invalid", "GraphQL request exceeds limit")
 	}
 	req, err := http.NewRequestWithContext(ctx, "POST", p.graphURL.String(), bytes.NewReader(data))
@@ -154,7 +158,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 	if p.authorizeBranch == nil || p.graphClient == nil {
 		return "", failure("unsupported", "Persisted branch authorization and GraphQL exact-head support are required")
 	}
-	if !positive(in.Repository.NativeID) || !validSHA(in.BaseSHA) || !validBranch(in.Branch) || !strings.HasPrefix(in.Branch, "reforge/") || len(in.Edits) == 0 || len(in.Edits) > 100 || in.Message == "" || len(in.Message) > 4096 || in.ExpectedOldSHA != "" && in.ExpectedOldSHA != in.BaseSHA {
+	if !positive(in.Repository.NativeID) || !validSHA(in.BaseSHA) || !validBranch(in.Branch) || !strings.HasPrefix(in.Branch, "reforge/") || len(in.Edits) == 0 || len(in.Edits) > forge.MaxBranchEditFiles || in.Message == "" || len(in.Message) > 4096 || in.ExpectedOldSHA != "" && in.ExpectedOldSHA != in.BaseSHA {
 		return "", failure("invalid", "Invalid app-owned branch update")
 	}
 	if err := validOperationID(in.OperationID); err != nil {
@@ -192,7 +196,7 @@ func (p *Provider) UpdateAppBranch(ctx context.Context, in forge.UpdateBranchReq
 		}
 		seen[edit.Path] = true
 		total += len(edit.Content)
-		if total > 2<<20 {
+		if total > forge.MaxBranchEditBytes {
 			return "", failure("invalid", "Branch edit limit exceeded")
 		}
 		if edit.Delete {
