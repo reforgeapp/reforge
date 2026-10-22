@@ -54,16 +54,12 @@ func (s *Service) updateRepairFailuresTx(ctx context.Context, tx pgx.Tx, org str
 				return err
 			}
 		}
-		fingerprint, err := s.fingerprintTx(ctx, tx, org, f.finding, f.version)
-		if err != nil {
-			return err
-		}
 		progress := f.state == "failed" && !f.external && repairMadeProgress(c, checkpoint, f.reason)
 		outcome, kind, reason := "blocked", "exhausted", "Repair progress saved; waiting for new evidence or repair tools"
 		if progress && f.runs < f.maxRuns {
 			outcome, kind, reason = "retry", "", "Continuing saved repair changes after cooldown"
 		}
-		_, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET outcome=$5,blocker_kind=$6,reason=$7,retry_after=CASE WHEN $5='retry' THEN clock_timestamp()+interval '10 minutes' END,capability=$8,updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=$3 AND task_id=$4::uuid AND outcome='queued'`, org, f.finding, f.version, f.task, outcome, kind, reason, fingerprint)
+		_, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET outcome=$5,blocker_kind=$6,reason=$7,retry_after=CASE WHEN $5='retry' THEN clock_timestamp()+interval '10 minutes' END,updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=$3 AND task_id=$4::uuid AND outcome='queued'`, org, f.finding, f.version, f.task, outcome, kind, reason)
 		if err != nil {
 			return err
 		}

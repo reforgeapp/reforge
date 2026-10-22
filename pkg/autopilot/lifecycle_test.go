@@ -557,6 +557,7 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 		{"skipped turn", "Skipped: no useful changes", "earlier checkpoint", "blocked"},
 	}
 	caseIDs := make([]string, 0, len(cases))
+	caseCapabilities := make([]string, 0, len(cases))
 	err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
 		for i, tc := range cases {
 			findingID, taskID := domain.NewID(), domain.NewID()
@@ -585,7 +586,12 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 			if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,report,checkpoint) VALUES($1,$2,$3,$4,$5,1,$6,$7,'handoff',$8,$9)`, org, taskID, repo, findingID, owner.User.ID, repeatByte(byte('m'+i), 64), contextJSON, reportJSON, checkpointJSON); err != nil {
 				return err
 			}
-			if _, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,runs,max_runs,capability) VALUES($1,$2,1,$3,'queued',1,6,'saved-progress')`, org, findingID, taskID); err != nil {
+			capability, err := service.fingerprintTx(ctx, tx, org, findingID, 1)
+			if err != nil {
+				return err
+			}
+			caseCapabilities = append(caseCapabilities, capability)
+			if _, err := tx.Exec(ctx, `INSERT INTO autopilot_attempts(org_id,finding_id,finding_version,task_id,outcome,runs,max_runs,capability) VALUES($1,$2,1,$3,'queued',1,6,$4)`, org, findingID, taskID, capability); err != nil {
 				return err
 			}
 		}
@@ -594,13 +600,39 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 		}
 		for i, tc := range cases {
 			var outcome, blocker string
+			var capability string
 			var runs, maxRuns int
-			if err := tx.QueryRow(ctx, `SELECT outcome,blocker_kind,runs,max_runs FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, caseIDs[i]).Scan(&outcome, &blocker, &runs, &maxRuns); err != nil {
+			if err := tx.QueryRow(ctx, `SELECT outcome,blocker_kind,runs,max_runs,capability FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, caseIDs[i]).Scan(&outcome, &blocker, &runs, &maxRuns, &capability); err != nil {
 				return err
 			}
-			if outcome != tc.wantState || runs != 1 || maxRuns != 6 || tc.wantState == "blocked" && blocker != "exhausted" || tc.wantState == "retry" && blocker != "" {
-				return fmt.Errorf("%s lifecycle: outcome=%s blocker=%s runs=%d max=%d", tc.name, outcome, blocker, runs, maxRuns)
+			if outcome != tc.wantState || runs != 1 || maxRuns != 6 || capability != caseCapabilities[i] || tc.wantState == "blocked" && blocker != "exhausted" || tc.wantState == "retry" && blocker != "" {
+				return fmt.Errorf("%s lifecycle: outcome=%s blocker=%s runs=%d max=%d capability-preserved=%t", tc.name, outcome, blocker, runs, maxRuns, capability == caseCapabilities[i])
 			}
+		}
+		if _, err := tx.Exec(ctx, `UPDATE maintenance_findings SET evidence_digest=$3 WHERE org_id=$1 AND id=$2`, org, caseIDs[1], repeatByte('z', 64)); err != nil {
+			return err
+		}
+		if err := service.releaseChangedAttemptsTx(ctx, tx, org); err != nil {
+			return err
+		}
+		var outcome, capability string
+		var runs, maxRuns int
+		if err := tx.QueryRow(ctx, `SELECT outcome,runs,max_runs,capability FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, caseIDs[1]).Scan(&outcome, &runs, &maxRuns, &capability); err != nil {
+			return err
+		}
+		if outcome != "retry" || runs != 1 || maxRuns != 6 || capability == caseCapabilities[1] {
+			return fmt.Errorf("changed evidence was not released once: outcome=%s runs=%d max=%d capability-updated=%t", outcome, runs, maxRuns, capability != caseCapabilities[1])
+		}
+		if err := service.releaseChangedAttemptsTx(ctx, tx, org); err != nil {
+			return err
+		}
+		var repeatedOutcome string
+		var repeatedRuns, repeatedMax int
+		if err := tx.QueryRow(ctx, `SELECT outcome,runs,max_runs FROM autopilot_attempts WHERE org_id=$1 AND finding_id=$2`, org, caseIDs[1]).Scan(&repeatedOutcome, &repeatedRuns, &repeatedMax); err != nil {
+			return err
+		}
+		if repeatedOutcome != "retry" || repeatedRuns != 1 || repeatedMax != 6 {
+			return fmt.Errorf("same changed evidence released again: outcome=%s runs=%d max=%d", repeatedOutcome, repeatedRuns, repeatedMax)
 		}
 		return nil
 	})
