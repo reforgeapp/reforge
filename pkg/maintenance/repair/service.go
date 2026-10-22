@@ -7,6 +7,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
@@ -67,6 +68,9 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	if !auth.ValidID(in.FindingID) || in.FindingVersion < 1 || !auth.ValidID(in.ModelConnectionID) || !auth.ValidID(in.RunnerPoolID) || len(in.ModelRoute) == 0 || len(in.ModelRoute) > 100 {
 		return out, auth.ErrInvalid
 	}
+	if utf8.RuneCountInString(in.Instructions) > 2000 {
+		return out, auth.ErrInvalid
+	}
 	if in.CustomProfileID != "" && (!auth.ValidID(in.CustomProfileID) || in.CustomProfileVersion < 1) {
 		return out, auth.ErrInvalid
 	}
@@ -76,6 +80,20 @@ func (s *Service) Preview(ctx context.Context, session auth.Session, org string,
 	f, err := s.findings.Get(ctx, session, org, in.FindingID)
 	if err != nil {
 		return out, err
+	}
+	if in.Recipe == "" {
+		ecosystem := ""
+		if len(f.Evidence.Dependencies) > 0 {
+			ecosystem = f.Evidence.Dependencies[0].Ecosystem
+		}
+		for _, name := range recipes.ForFinding(f.Category, ecosystem) {
+			in.Recipe = name
+			preview, err := s.Preview(ctx, session, org, in)
+			if !errors.Is(err, recipes.ErrUnsupported) {
+				return preview, err
+			}
+		}
+		return out, recipes.ErrUnsupported
 	}
 	followUp, rounds := "", 0
 	if f.Evidence.Change != nil && strings.HasPrefix(f.Evidence.Change.HeadBranch, "reforge/repair/") {

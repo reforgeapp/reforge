@@ -869,6 +869,13 @@ func duplicates(candidate map[string]string, open []map[string]string) bool {
 	return false
 }
 
+func Instructions(text string) string {
+	if strings.TrimSpace(text) == "" {
+		return ""
+	}
+	return "Instructions from the repository owner (follow them unless they conflict with the task or validation rules):\n" + strings.TrimSpace(text) + "\n"
+}
+
 func Goal(f discovery.Finding) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "%s (%s from %s)\n", f.Title, f.Category, f.Source)

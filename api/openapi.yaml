@@ -15743,12 +15743,18 @@
           },
           "idempotency_key": {
             "type": "string"
+          },
+          "owner": {
+            "type": "boolean"
+          },
+          "instructions": {
+            "type": "string",
+            "maxLength": 2000
           }
         },
         "required": [
           "finding_id",
           "finding_version",
-          "recipe",
           "model_connection_id",
           "model_route",
           "runner_pool_id"

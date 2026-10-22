@@ -2644,10 +2644,12 @@ type RepairInput struct {
 	FindingId            string  `json:"finding_id"`
 	FindingVersion       int64   `json:"finding_version"`
 	IdempotencyKey       *string `json:"idempotency_key,omitempty"`
+	Instructions         *string `json:"instructions,omitempty"`
 	ModelConnectionId    string  `json:"model_connection_id"`
 	ModelRoute           string  `json:"model_route"`
+	Owner                *bool   `json:"owner,omitempty"`
 	PlanDigest           *string `json:"plan_digest,omitempty"`
-	Recipe               string  `json:"recipe"`
+	Recipe               *string `json:"recipe,omitempty"`
 	RunnerPoolId         string  `json:"runner_pool_id"`
 }
 type RepairPatch struct {

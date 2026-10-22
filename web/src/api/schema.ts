@@ -3610,7 +3610,7 @@ export interface components {
             finding_id: string;
 
             finding_version: number;
-            recipe: string;
+            recipe?: string;
 
             model_connection_id: string;
             model_route: string;
@@ -3622,6 +3622,8 @@ export interface components {
             custom_profile_version?: number;
             plan_digest?: string;
             idempotency_key?: string;
+            owner?: boolean;
+            instructions?: string;
         };
         RepairCommand: {
             id: string;

@@ -21,6 +21,7 @@ type Input struct {
 	PlanDigest           string `json:"plan_digest,omitempty"`
 	IdempotencyKey       string `json:"idempotency_key,omitempty"`
 	Owner                bool   `json:"owner,omitempty"`
+	Instructions         string `json:"instructions,omitempty"`
 }
 type ExecutionContext struct {
 	MaxAttempts        int                    `json:"max_attempts"`
