@@ -15,16 +15,17 @@ import (
 	"github.com/reforgeapp/reforge/pkg/workflow"
 )
 
-const maxCheckpointBytes = 12 << 20
+const MaxCheckpointBytes = 16 << 20
+const MaxReportBytes = 32 << 20
 const maxCheckpointRecentBytes = 32 << 10
 const maxCheckpointDependencies = 100
 
 func (c Checkpoint) ValidFor(p Plan) bool {
-	if !p.Valid() || !p.Owner || c.PlanDigest != p.Digest || c.Turns < 0 || c.Turns > p.Recipe.MaxTurns || len(c.Patches) > p.Recipe.MaxFiles || len(c.Dependencies) > maxCheckpointDependencies || len(c.Recent) > maxCheckpointRecentBytes || !utf8.ValidString(c.Recent) {
+	if !p.Valid() || !p.Owner || c.PlanDigest != p.Digest || c.Turns < 0 || c.Turns > p.Recipe.MaxTurns || !withinFiles(p, c.Patches) || len(c.Dependencies) > maxCheckpointDependencies || len(c.Recent) > maxCheckpointRecentBytes || !utf8.ValidString(c.Recent) {
 		return false
 	}
 	body, err := json.Marshal(c)
-	if err != nil || len(body) > maxCheckpointBytes {
+	if err != nil || len(body) > MaxCheckpointBytes {
 		return false
 	}
 	seenPaths := map[string]bool{}
@@ -58,7 +59,7 @@ func (c Checkpoint) ValidFor(p Plan) bool {
 
 func (s *Service) SaveCheckpoint(ctx context.Context, credential string, in Checkpoint) error {
 	raw, err := json.Marshal(in)
-	if err != nil || len(raw) > maxCheckpointBytes {
+	if err != nil || len(raw) > MaxCheckpointBytes {
 		return auth.ErrInvalid
 	}
 	return s.runners.WithJob(ctx, credential, "repair.report", func(tx pgx.Tx, l workflow.Lease, t workflow.Task) error {

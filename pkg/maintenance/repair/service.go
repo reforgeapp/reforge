@@ -689,7 +689,7 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 		return !slices.ContainsFunc(checks, func(check CheckResult) bool { return check.OutputSHA256 == e.CheckSHA256 })
 	})
 	raw, err := json.Marshal(in)
-	if err != nil || len(raw) > 1<<20 {
+	if err != nil || len(raw) > MaxReportBytes || len(in.Reason) > 64<<10 {
 		return out, auth.ErrInvalid
 	}
 	if len(in.Reason) > 2000 {
@@ -739,9 +739,9 @@ func (s *Service) SaveReport(ctx context.Context, credential string, in Report) 
 			return out, ErrPatch
 		}
 		in.Diff = SourceDiff(original, in.Patches)
-		in.ChangedLines = PatchLines(original, in.Patches)
+		in.ChangedLines = PatchLines(original, sourcePatches(c.Plan, in.Patches))
 		raw, err = json.Marshal(in)
-		if err != nil || len(raw) > 1<<20 {
+		if err != nil || len(raw) > MaxReportBytes {
 			return out, auth.ErrInvalid
 		}
 	}

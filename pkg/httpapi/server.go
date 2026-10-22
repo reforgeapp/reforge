@@ -7,6 +7,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/config"
 	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/heartbeat"
+	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
 	"github.com/reforgeapp/reforge/pkg/store"
 	"io/fs"
 	"log/slog"
@@ -75,8 +76,15 @@ func (s *Server) boundaries() gin.HandlerFunc {
 			c.Header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
 		}
 		bodyLimit := int64(2 << 20)
-		if c.Request.Method == http.MethodPost && c.Request.URL.Path == "/runner/v1/private/results" {
-			bodyLimit = 6 << 20
+		if c.Request.Method == http.MethodPost {
+			switch c.Request.URL.Path {
+			case "/runner/v1/private/results":
+				bodyLimit = 6 << 20
+			case "/runner/v1/repair/checkpoint":
+				bodyLimit = repair.MaxCheckpointBytes
+			case "/runner/v1/repair/report":
+				bodyLimit = repair.MaxReportBytes
+			}
 		}
 		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, bodyLimit)
 		start := time.Now()

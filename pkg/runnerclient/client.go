@@ -251,11 +251,18 @@ func (c *Client) Broker(ctx context.Context, j Job, name, connection string, inp
 }
 
 func (c *Client) call(ctx context.Context, method, path, token string, input, output any) (int, error) {
+	inputLimit := 1 << 20
+	switch path {
+	case "/runner/v1/repair/checkpoint":
+		inputLimit = repair.MaxCheckpointBytes
+	case "/runner/v1/repair/report":
+		inputLimit = repair.MaxReportBytes
+	}
 	var body []byte
 	if input != nil {
 		var err error
 		body, err = json.Marshal(input)
-		if err != nil || len(body) > 1<<20 {
+		if err != nil || len(body) > inputLimit {
 			return 0, ErrControlPlane
 		}
 	}
@@ -267,6 +274,9 @@ func (c *Client) call(ctx context.Context, method, path, token string, input, ou
 	}
 	req.Header.Set("Authorization", "Bearer "+token)
 	req.Header.Set("Content-Type", "application/json")
+	if strings.HasPrefix(path, "/runner/v1/repair/") {
+		return c.responseLimit(req, output, repair.MaxReportBytes+repair.MaxCheckpointBytes+(4<<20))
+	}
 	return c.response(req, output)
 }
 

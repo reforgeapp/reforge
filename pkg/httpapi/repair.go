@@ -185,6 +185,7 @@ func (s *Server) RegisterRepair(service *repair.Service) {
 		c.Status(http.StatusNoContent)
 	})
 	jobs.POST("/checkpoint", func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, repair.MaxCheckpointBytes)
 		var in repair.Checkpoint
 		if !identityJSON(c, &in) {
 			return
@@ -196,6 +197,7 @@ func (s *Server) RegisterRepair(service *repair.Service) {
 		c.Status(http.StatusNoContent)
 	})
 	jobs.POST("/report", func(c *gin.Context) {
+		c.Request.Body = http.MaxBytesReader(c.Writer, c.Request.Body, repair.MaxReportBytes)
 		_ = http.NewResponseController(c.Writer).SetWriteDeadline(time.Now().Add(3 * time.Minute))
 		var in repair.Report
 		if !identityJSON(c, &in) {

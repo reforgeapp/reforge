@@ -41,7 +41,7 @@ func (c *Client) RepairLogs(ctx context.Context, j Job, entries []repair.LogEntr
 
 func (c *Client) RepairCheckpoint(ctx context.Context, j Job, in repair.Checkpoint) error {
 	body, err := json.Marshal(in)
-	if err != nil || len(body) > 1<<20 {
+	if err != nil || len(body) > repair.MaxCheckpointBytes {
 		return ErrControlPlane
 	}
 	for attempt := 0; attempt < 3; attempt++ {
