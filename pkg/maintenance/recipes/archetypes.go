@@ -73,6 +73,9 @@ func GeneratedPath(file string) bool {
 func Archetypes() []Archetype { return slices.Clone(archetypes) }
 
 func ForFinding(category, ecosystem string) []string {
+	if category == "ci_gap" {
+		return append(ForFinding("ci_failure", ecosystem), "bootstrap")
+	}
 	for _, a := range archetypes {
 		if slices.Contains(a.Categories, category) {
 			return []string{a.Name}
