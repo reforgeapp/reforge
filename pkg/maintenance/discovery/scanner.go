@@ -358,6 +358,80 @@ func refreshReviewFindings(ctx context.Context, tx pgx.Tx, lease scanLease, obse
 	return nil
 }
 
+func removedReviewPath(f Finding, original, current forge.SourceManifest) bool {
+	if f.Source != "repository_review" || f.Evidence.Review == nil || f.Evidence.Review.Path == "" || f.Evidence.HeadSHA != original.CommitSHA || original.CommitSHA == current.CommitSHA || original.Repository != current.Repository || !original.Complete || !current.Complete {
+		return false
+	}
+	name := f.Evidence.Review.Path
+	return slices.ContainsFunc(original.Entries, func(e forge.SourceEntry) bool { return e.Path == name && e.Type == "blob" }) && !slices.ContainsFunc(current.Entries, func(e forge.SourceEntry) bool { return e.Path == name })
+}
+
+func (s *Service) removedReviews(ctx context.Context, lease scanLease, observations []Observation) ([]Finding, error) {
+	head := ""
+	for _, observation := range observations {
+		if observation.Category == "repository_review" {
+			head = observation.Evidence.HeadSHA
+			break
+		}
+	}
+	if head == "" {
+		return nil, nil
+	}
+	var findings []Finding
+	err := s.db.Tenant(ctx, lease.Org, "", func(tx pgx.Tx) error {
+		rows, err := tx.Query(ctx, `SELECT `+columns+` FROM maintenance_findings WHERE org_id=$1 AND repository_id=$2 AND source='repository_review' AND state='open' AND coalesce(evidence->'review'->>'path','')<>'' AND evidence->>'head_sha'<>$3 ORDER BY first_seen,id LIMIT 200`, lease.Org, lease.Repo, head)
+		if err != nil {
+			return err
+		}
+		defer rows.Close()
+		for rows.Next() {
+			f, err := scanFinding(rows)
+			if err != nil {
+				return err
+			}
+			findings = append(findings, f)
+		}
+		return rows.Err()
+	})
+	if err != nil || len(findings) == 0 {
+		return nil, err
+	}
+	reader := s.reader.SourceReader(lease.Org, lease.Connection, func(ctx context.Context, tx pgx.Tx, c connections.Connection) error {
+		return validateScan(ctx, tx, lease, c)
+	})
+	manifest := func(commit string) (forge.SourceManifest, bool) {
+		m, err := reader.Manifest(ctx, lease.Ref, commit)
+		if err != nil || m.Repository != lease.Ref || m.CommitSHA != commit {
+			return forge.SourceManifest{}, false
+		}
+		_, err = source.ValidateManifest(ctx, m)
+		if err != nil {
+			return forge.SourceManifest{}, false
+		}
+		return m, true
+	}
+	current, valid := manifest(head)
+	if !valid {
+		return nil, nil
+	}
+	cache := map[string]forge.SourceManifest{}
+	removed := []Finding{}
+	for _, f := range findings {
+		original, exists := cache[f.Evidence.HeadSHA]
+		if !exists {
+			if len(cache) >= 20 {
+				continue
+			}
+			original, _ = manifest(f.Evidence.HeadSHA)
+			cache[f.Evidence.HeadSHA] = original
+		}
+		if removedReviewPath(f, original, current) {
+			removed = append(removed, f)
+		}
+	}
+	return removed, nil
+}
+
 const reviewCadence = 24 * time.Hour
 
 func reviewDue(ctx context.Context, tx pgx.Tx, org, repo, head string) (string, bool, error) {
@@ -773,6 +847,10 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 	ctx, cancel := context.WithTimeout(ctx, 8*time.Minute)
 	defer cancel()
 	observations, readErr := s.collect(ctx, lease)
+	var removed []Finding
+	if readErr == nil {
+		removed, readErr = s.removedReviews(ctx, lease, observations)
+	}
 	if readErr != nil {
 		code, detail, operation := "internal", "", ""
 		var providerError *domain.ProviderError
@@ -844,6 +922,18 @@ func (s *Service) step(ctx context.Context, lease scanLease) error {
 				return err
 			}
 			seen = append(seen, f.ID)
+		}
+		for _, f := range removed {
+			tag, err := tx.Exec(persistCtx, `UPDATE maintenance_findings SET state='resolved',reason='Affected file was removed from the current repository',version=version+1 WHERE org_id=$1 AND id=$2 AND version=$3 AND evidence_digest=$4 AND state='open' AND source='repository_review'`, lease.Org, f.ID, f.Version, f.EvidenceDigest)
+			if err != nil {
+				return err
+			}
+			if tag.RowsAffected() == 1 {
+				f.State, f.Reason, f.Version = "resolved", "Affected file was removed from the current repository", f.Version+1
+				if err = record(persistCtx, tx, f, lease.User, "resolved", "discovery-"+lease.Repo); err != nil {
+					return err
+				}
+			}
 		}
 		if err := refreshReviewFindings(persistCtx, tx, lease, observations); err != nil {
 			return err
