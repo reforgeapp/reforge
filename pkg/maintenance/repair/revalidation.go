@@ -46,6 +46,9 @@ func (s *Service) RevalidateFix(ctx context.Context, session auth.Session, org, 
 	if !c.Plan.Valid() || r.Report.PlanDigest != c.Plan.Digest || r.Report.State != "validated" && r.Report.State != "unverified" {
 		return "", ErrValidation
 	}
+	if RequiresReproduction(c.Finding) && !BehaviourReproduced(c.Plan, r.Report.Reproduction) {
+		return "", nil
+	}
 	authorize := func(ctx context.Context, tx pgx.Tx, connection connections.Connection) error {
 		a, err := s.auth.ActorTx(ctx, tx, session, org)
 		if err != nil {

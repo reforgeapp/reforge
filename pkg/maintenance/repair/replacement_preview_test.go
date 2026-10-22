@@ -370,6 +370,22 @@ func TestOwnerDirtyRepairPreviewAndEnqueueReplaceBranchAgainstDefault(t *testing
 			t.Fatalf("%s returned %q", name, message)
 		}
 	}
+	defectContext := run.Context
+	defectContext.Finding = discovery.Finding{Observation: discovery.Observation{Source: "user_report", Category: "code_defect"}}
+	defectContextBody, _ := json.Marshal(defectContext)
+	defectReport, _ := json.Marshal(Report{State: "unverified", Mode: "owner", PlanDigest: defectContext.Plan.Digest, Baseline: baselineChecks, Candidate: baselineChecks})
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE repair_runs SET context=$3,report=$4 WHERE org_id=$1 AND task_id=$2`, org, run.Task.ID, defectContextBody, defectReport)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	reader.change.HeadSHA, reader.change.TargetSHA = strings.Repeat("e", 40), strings.Repeat("f", 40)
+	readsBeforeUnreproduced := reader.reads
+	message, err := service.RevalidateFix(ctx, session, org, run.Task.ID)
+	if err != nil || message != "" || reader.reads != readsBeforeUnreproduced {
+		t.Fatalf("unreproduced report triggered validation: message=%q err=%v reads=%d before=%d", message, err, reader.reads, readsBeforeUnreproduced)
+	}
 	var taskCount int
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, `SELECT count(*) FROM workflow_tasks WHERE org_id=$1 AND repository_id=$2 AND idempotency_key LIKE 'repair-validation/%'`, org, repo).Scan(&taskCount)
