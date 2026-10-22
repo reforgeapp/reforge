@@ -3,6 +3,7 @@ package autopilot
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"time"
 
@@ -15,6 +16,43 @@ func repairMadeProgress(c repair.ExecutionContext, checkpoint *repair.Checkpoint
 		return false
 	}
 	return checkpoint.ProgressDigest() != c.StartingProgressDigest
+}
+
+func refreshRepairProofTx(ctx context.Context, tx pgx.Tx, org, task string) error {
+	var repo, head string
+	var body, proof, evidence []byte
+	var version int64
+	err := tx.QueryRow(ctx, `SELECT repository_id::text,candidate_sha,context,report-'patches'-'diff',candidate_checks,version FROM repair_runs WHERE org_id=$1 AND task_id=$2 AND state='published' AND report->>'state'='unverified' AND candidate_sha<>'' AND native_change IS NOT NULL`, org, task).Scan(&repo, &head, &body, &proof, &evidence, &version)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	var c repair.ExecutionContext
+	var report repair.Report
+	var checks []repair.CheckResult
+	if err = json.Unmarshal(body, &c); err != nil {
+		return err
+	}
+	if err = json.Unmarshal(proof, &report); err != nil {
+		return err
+	}
+	if err = json.Unmarshal(evidence, &checks); err != nil {
+		return err
+	}
+	if !repair.VerifiedReport(c, report, checks) {
+		return nil
+	}
+	reason := strings.TrimPrefix(strings.TrimSuffix(report.Reason, ". Independent CI behaviour proof required before merge."), "Unverified proposal: ")
+	tag, err := tx.Exec(ctx, `UPDATE repair_runs SET report=jsonb_set(jsonb_set(report,'{state}','"validated"'::jsonb),'{reason}',to_jsonb($4::text)),version=version+1,updated_at=clock_timestamp() WHERE org_id=$1 AND task_id=$2 AND version=$3 AND state='published' AND report->>'state'='unverified'`, org, task, version, reason)
+	if err != nil {
+		return err
+	}
+	if tag.RowsAffected() == 1 {
+		_, err = tx.Exec(ctx, `INSERT INTO audit_events(id,org_id,repository_id,actor_id,action,object_id,request_id,data) VALUES(gen_random_uuid(),$1,$2,'autopilot','repair.proof_verified',$3,'autopilot-proof-refresh',jsonb_build_object('head',$4::text,'target',$5::text))`, org, repo, task, head, c.Plan.TargetSHA)
+	}
+	return err
 }
 
 func (s *Service) updateRepairFailuresTx(ctx context.Context, tx pgx.Tx, org string) error {

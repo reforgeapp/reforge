@@ -366,6 +366,10 @@ func Verified(p Plan, baseline, candidate []CheckResult) bool {
 	return count >= p.Recipe.MinimumTests
 }
 
+func VerifiedReport(c ExecutionContext, report Report, checks []CheckResult) bool {
+	return (report.State == "validated" || report.State == "unverified") && report.PlanDigest == c.Plan.Digest && Verified(c.Plan, report.Baseline, checks) && (!RequiresReproduction(c.Finding) || BehaviourFixed(c.Plan, report.Reproduction, checks))
+}
+
 func secretFile(name string, body []byte) bool {
 	lower := strings.ToLower(name)
 	base := path.Base(lower)
@@ -450,6 +454,9 @@ func ownerVerified(p Plan, baseline, candidate []CheckResult) bool {
 			return false
 		}
 		for _, state := range result.Cases {
+			if state == "skip" {
+				continue
+			}
 			if state != "pass" {
 				return false
 			}

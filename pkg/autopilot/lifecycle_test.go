@@ -16,6 +16,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/maintenance/attention"
 	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
@@ -538,6 +539,74 @@ func TestPlatformFailureParksAndReleasesOnce(t *testing.T) {
 	}
 	if err = service.Step(ctx, org); err != nil {
 		t.Fatalf("stale finding version blocked Step: %v", err)
+	}
+	proofPlan, err := lifecycleOwnerPlan()
+	if err != nil {
+		t.Fatal(err)
+	}
+	commandID := proofPlan.Recipe.Commands[0].ID
+	passing := []repair.CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestAdd": "pass"}}}
+	mixed := []repair.CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestAdd": "pass", "TestOptional": "skip"}}}
+	skippedRegression := []repair.CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestAdd": "skip", "TestOther": "pass"}}}
+	proofCases := []struct {
+		name      string
+		finding   discovery.Finding
+		candidate []repair.CheckResult
+		promote   bool
+	}{
+		{name: "retained strong proof", candidate: mixed, promote: true},
+		{name: "baseline pass skipped", candidate: skippedRegression},
+		{name: "reported defect without reproduction", finding: discovery.Finding{Observation: discovery.Observation{Source: "user_report", Category: "code_defect"}}, candidate: mixed},
+	}
+	err = db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		for i, tc := range proofCases {
+			taskID := domain.NewID()
+			if _, err := tx.Exec(ctx, `INSERT INTO workflow_tasks(org_id,id,repository_id,operation_id,idempotency_key,request_hash,recipe,recipe_version,target_branch,policy_hash,starting_policy_hash,state,max_attempts,created_by) VALUES($1,$2,$3,$4,$5,$6,'repair','1','main','policy','policy','completed',3,$7)`, org, taskID, repo, domain.NewID(), domain.NewID(), repeatByte(byte('p'+i), 64), owner.User.ID); err != nil {
+				return err
+			}
+			contextBody, err := json.Marshal(repair.ExecutionContext{Request: repair.Input{Owner: true}, Plan: proofPlan, Repository: forge.RepoRef{NativeID: repo, FullName: "team/lifecycle"}, Finding: tc.finding})
+			if err != nil {
+				return err
+			}
+			report := repair.Report{State: "unverified", PlanDigest: proofPlan.Digest, Reason: "Unverified proposal: waiting for deployment evidence", Baseline: passing, Candidate: tc.candidate, Patches: []sandbox.Patch{{Path: "value.js", Content: []byte("exports.add = (a,b) => a+b\n")}}}
+			reportBody, err := json.Marshal(report)
+			if err != nil {
+				return err
+			}
+			checkBody, err := json.Marshal(tc.candidate)
+			if err != nil {
+				return err
+			}
+			if _, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,branch,candidate_sha,native_change,report,candidate_checks) VALUES($1,$2,$3,$4,$5,1,$6,$7,'published','reforge/repair/proof',$8,'{}',$9,$10)`, org, taskID, repo, finding, owner.User.ID, repeatByte(byte('q'+i), 64), contextBody, repeatByte(byte('r'+i), 40), reportBody, checkBody); err != nil {
+				return err
+			}
+			if err := refreshRepairProofTx(ctx, tx, org, taskID); err != nil {
+				return err
+			}
+			var raw []byte
+			var version int64
+			if err := tx.QueryRow(ctx, `SELECT report,version FROM repair_runs WHERE org_id=$1 AND task_id=$2`, org, taskID).Scan(&raw, &version); err != nil {
+				return err
+			}
+			var got repair.Report
+			if err := json.Unmarshal(raw, &got); err != nil {
+				return err
+			}
+			if got.State == "validated" != tc.promote || version != map[bool]int64{true: 2, false: 1}[tc.promote] || len(got.Patches) != 1 || string(got.Patches[0].Content) != string(report.Patches[0].Content) || len(got.Candidate) != len(report.Candidate) {
+				return fmt.Errorf("%s proof refresh: state=%s version=%d patches=%d", tc.name, got.State, version, len(got.Patches))
+			}
+			var audits int
+			if err := tx.QueryRow(ctx, `SELECT count(*) FROM audit_events WHERE org_id=$1 AND object_id=$2 AND action='repair.proof_verified'`, org, taskID).Scan(&audits); err != nil {
+				return err
+			}
+			if audits != map[bool]int{true: 1, false: 0}[tc.promote] {
+				return fmt.Errorf("%s proof audit count=%d", tc.name, audits)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatal(err)
 	}
 	progressPlan, err := lifecycleOwnerPlan()
 	if err != nil {

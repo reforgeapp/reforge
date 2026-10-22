@@ -859,6 +859,9 @@ func (s *Service) merge(ctx context.Context, session auth.Session, org string) e
 		if err != nil {
 			return err
 		}
+		if err = refreshRepairProofTx(ctx, tx, org, task); err != nil {
+			return err
+		}
 		resolved, err = s.policies.ResolveTx(ctx, tx, org, repo)
 		return err
 	})

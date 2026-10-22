@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/reforgeapp/reforge/pkg/maintenance/discovery"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
@@ -24,6 +25,68 @@ func TestLostPassingCase(t *testing.T) {
 		if got := lostPassingCase(base, tc.candidate); got != tc.lost {
 			t.Errorf("%s: lost=%t", name, got)
 		}
+	}
+}
+
+func TestOwnerVerificationCountsPassesAndAllowsOptionalSkips(t *testing.T) {
+	plan, _ := testPlan(t)
+	plan.Owner = true
+	secondCommand := plan.Recipe.Commands[0]
+	secondCommand.ID = "second-check"
+	plan.Recipe.Commands = append(plan.Recipe.Commands, secondCommand)
+	plan.Digest = planDigest(plan)
+	commandID, secondID := plan.Recipe.Commands[0].ID, plan.Recipe.Commands[1].ID
+	baseline := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestExisting": "pass"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "pass"}}}
+	mixed := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestExisting": "pass", "TestOptional": "skip"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "pass"}}}
+	if !Verified(plan, baseline, mixed) {
+		t.Fatal("optional skip invalidated named passing verification")
+	}
+	allSkipped := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestOptional": "skip"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "skip"}}}
+	if Verified(plan, nil, allSkipped) {
+		t.Fatal("all-skipped command counted as verified")
+	}
+	lostPass := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestExisting": "skip", "TestNew": "pass"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "pass"}}}
+	if Verified(plan, baseline, lostPass) {
+		t.Fatal("skipped baseline pass was not detected")
+	}
+	regression := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 1, Cases: map[string]string{"TestDefect": "fail"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "pass"}}}
+	regressionSkipped := []CheckResult{{CommandID: commandID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestDefect": "skip", "TestOther": "pass"}}, {CommandID: secondID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestSecond": "pass"}}}
+	if BehaviourFixed(plan, regression, regressionSkipped) {
+		t.Fatal("skipped regression was accepted as fixed")
+	}
+}
+
+func TestVerifiedReportAcceptsStoredProofAndRequiresDefectReproduction(t *testing.T) {
+	plan, _ := testPlan(t)
+	plan.Owner = true
+	plan.Digest = planDigest(plan)
+	command := plan.Recipe.Commands[0]
+	passing := []CheckResult{{CommandID: command.ID, Complete: true, ExitCode: 0, Cases: map[string]string{"TestAdd": "pass"}}}
+	report := Report{State: "unverified", PlanDigest: plan.Digest, Baseline: passing, Candidate: passing}
+	if !VerifiedReport(ExecutionContext{Plan: plan}, report, passing) {
+		t.Fatal("stored owner proof was not recognized")
+	}
+	stale := report
+	stale.PlanDigest = "stale"
+	if VerifiedReport(ExecutionContext{Plan: plan}, stale, passing) {
+		t.Fatal("stale plan digest was accepted")
+	}
+	defect := discovery.Finding{Observation: discovery.Observation{Source: "user_report", Category: "code_defect"}}
+	withoutReproduction := ExecutionContext{Plan: plan, Finding: defect}
+	if VerifiedReport(withoutReproduction, report, passing) {
+		t.Fatal("reported defect passed without original behavior reproduction")
+	}
+	reproduction := []CheckResult{{CommandID: command.ID, Complete: true, ExitCode: 1, Cases: map[string]string{"TestAdd": "fail"}}}
+	fixedReport := Report{State: "unverified", PlanDigest: plan.Digest, Baseline: reproduction, Candidate: passing, Reproduction: reproduction}
+	if !VerifiedReport(withoutReproduction, fixedReport, passing) {
+		t.Fatal("reproduced defect with passing checks was not recognized")
+	}
+	providerPlan := plan
+	providerPlan.Recipe.MinProof = recipes.ProofProvider
+	providerPlan.Digest = planDigest(providerPlan)
+	providerReport := Report{State: "unverified", PlanDigest: providerPlan.Digest, Baseline: passing, Candidate: passing}
+	if VerifiedReport(ExecutionContext{Plan: providerPlan}, providerReport, passing) {
+		t.Fatal("provider-only proof was accepted as validated report proof")
 	}
 }
 
