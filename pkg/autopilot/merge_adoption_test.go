@@ -154,6 +154,54 @@ func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) 
 			}
 		})
 	}
+	for _, test := range []struct {
+		name, source, evidenceHead, connection, currentHead, currentConnection, reviewBody, currentReviewBody, reportBody, currentReportBody, reportState, postMerge, want string
+	}{
+		{"carried review survives target drift", "repository_review", "original-head", "forge-1", "original-head", "forge-1", "same review", "same review", "", "", "validated", "verified", "resolved"},
+		{"changed review head stays open", "repository_review", "original-head", "forge-1", "new-original-head", "forge-1", "same review", "same review", "", "", "validated", "verified", "open"},
+		{"changed review details stay open", "repository_review", "original-head", "forge-1", "original-head", "forge-1", "old review", "edited review", "", "", "validated", "verified", "open"},
+		{"changed review connection stays open", "repository_review", "original-head", "forge-1", "original-head", "forge-2", "same review", "same review", "", "", "validated", "verified", "open"},
+		{"carried report survives target drift", "user_report", "original-head", "forge-1", "original-head", "forge-1", "", "", "same report", "same report", "validated", "verified", "resolved"},
+		{"changed report stays open", "user_report", "original-head", "forge-1", "original-head", "forge-1", "", "", "old report", "edited report", "validated", "verified", "open"},
+		{"unverified carried review stays open", "repository_review", "original-head", "forge-1", "original-head", "forge-1", "same review", "same review", "", "", "unverified", "verified", "open"},
+		{"regressed carried review stays open", "repository_review", "original-head", "forge-1", "original-head", "forge-1", "same review", "same review", "", "", "validated", "regressed", "open"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			originalEvidence := map[string]any{"head_sha": test.evidenceHead, "connection_id": test.connection, "target_sha": "old-target"}
+			currentEvidence := map[string]any{"head_sha": test.currentHead, "connection_id": test.currentConnection, "target_sha": "new-target"}
+			if test.source == "repository_review" {
+				originalEvidence["review"] = map[string]any{"body": test.reviewBody, "needs_recheck": false}
+				currentEvidence["review"] = map[string]any{"body": test.currentReviewBody, "needs_recheck": true}
+			} else {
+				originalEvidence["report"] = map[string]any{"body": test.reportBody}
+				currentEvidence["report"] = map[string]any{"body": test.currentReportBody}
+			}
+			contextBody, _ := json.Marshal(map[string]any{"finding": map[string]any{"evidence": originalEvidence}})
+			currentBody, _ := json.Marshal(currentEvidence)
+			report, _ := json.Marshal(map[string]string{"state": test.reportState})
+			if err := db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+				if _, err := tx.Exec(ctx, `UPDATE maintenance_findings SET source=$3,state='open',evidence=$4,evidence_digest=$5 WHERE org_id=$1 AND id=$2`, org, findings[0], test.source, currentBody, strings.Repeat("d", 64)); err != nil {
+					return err
+				}
+				if _, err := tx.Exec(ctx, `UPDATE repair_runs SET context=$3,report=$4,native_change=jsonb_set(native_change,'{state}','"merged"'::jsonb),post_merge_state=$5 WHERE org_id=$1 AND task_id=$2`, org, tasks[0], contextBody, report, test.postMerge); err != nil {
+					return err
+				}
+				if err := releaseTerminalRepairsTx(ctx, tx, org); err != nil {
+					return err
+				}
+				var state string
+				if err := tx.QueryRow(ctx, `SELECT state FROM maintenance_findings WHERE org_id=$1 AND id=$2`, org, findings[0]).Scan(&state); err != nil {
+					return err
+				}
+				if state != test.want {
+					t.Errorf("carried %s evidence state=%s want=%s", test.source, state, test.want)
+				}
+				return nil
+			}); err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
 }
 
 func TestRepairIdempotencyKeyScopesManualRequests(t *testing.T) {
