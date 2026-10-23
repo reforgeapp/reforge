@@ -308,6 +308,15 @@ func Interpret(command recipes.Command, result sandbox.CommandResult) CheckResul
 	}
 	return out
 }
+func Healthy(results []CheckResult) bool {
+	for _, result := range results {
+		if !result.Complete || result.ExitCode != 0 {
+			return false
+		}
+	}
+	return len(results) > 0
+}
+
 func Reproduced(results []CheckResult) bool {
 	failed := false
 	for _, result := range results {

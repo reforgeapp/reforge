@@ -14,7 +14,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/sandbox"
 )
 
-func TestReviewSkipCannotResolveFinding(t *testing.T) {
+func TestReviewSkipResolvesOnlyWithPassingTargetChecks(t *testing.T) {
 	plan, files := testPlan(t)
 	plan.Owner = true
 	plan.Digest = planDigest(plan)
@@ -23,8 +23,13 @@ func TestReviewSkipCannotResolveFinding(t *testing.T) {
 		return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "skip", Name: "skip", Arguments: []byte(`{"reason":"Not reproducible: repository looks fine"}`)}}}, nil
 	}}
 	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
-	if !errors.Is(err, ErrHandoff) || report.Disposition != "" || report.State != "handoff" {
-		t.Fatalf("model assertion resolves finding: %+v %v", report, err)
+	if err != nil || report.Disposition != "superseded" || report.State != "handoff" {
+		t.Fatalf("passing target checks did not resolve finding: %+v %v", report, err)
+	}
+	engine.Runtime = &runtime.retryRuntime
+	report, err = engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if !errors.Is(err, ErrHandoff) || report.Disposition != "" {
+		t.Fatalf("failing target checks resolved finding: %+v %v", report, err)
 	}
 }
 
