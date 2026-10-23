@@ -397,9 +397,6 @@ func CheckOwnerPatch(p Plan, baseline map[string][]byte, patches []sandbox.Patch
 	seen := map[string]bool{}
 	for _, patch := range patches {
 		_, exists := baseline[patch.Path]
-		if p.Recipe.Name == "bootstrap" && !guest.TestPath(patch.Path) && !guest.CIPath(patch.Path) && !slices.Contains([]string{"package.json", "package-lock.json", "go.mod", "go.sum", "pyproject.toml", "requirements-dev.txt"}, path.Base(patch.Path)) {
-			return ErrPatch
-		}
 		if p.Recipe.Name == "bootstrap" && exists && ((guest.TestPath(patch.Path) || guest.CIPath(patch.Path)) && !bytes.Equal(baseline[patch.Path], patch.Content) || patch.Delete) {
 			return ErrPatch
 		}

@@ -138,7 +138,6 @@ func TestBootstrapRequiresCountedBuildAndPreservesExistingChecks(t *testing.T) {
 		{Path: "old.test.js", Content: []byte("weakened test")},
 		{Path: ".gitea/workflows/ci.yml", Content: []byte("echo ok")},
 		{Path: "package.json", Content: []byte(`{"scripts":{"test":"echo ok"}}`)},
-		{Path: "app.js", Content: []byte("application behaviour changed")},
 	} {
 		if CheckOwnerPatch(p, files, []sandbox.Patch{patch}) == nil {
 			t.Fatalf("bootstrap changed existing behaviour/checks: %s", patch.Path)

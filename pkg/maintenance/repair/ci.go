@@ -451,13 +451,13 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if owner {
 		system = "You own and maintain this repository. Use actual tools to read repository files, apply small changes, run_checks, then finish or skip. Describing tool calls or test results does not execute them. Never invent file contents or results. Preserve tests and security checks; native PR CI is the final feedback for hosted checks."
 		if p.Recipe.Name == "bootstrap" {
-			system = "Add missing repository validation. Preserve existing application source, tests and build commands. Reuse existing meaningful tests; add new test files only where validation is missing. Stage a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node CI, preserve script flags, select a compatible runtime, use supported setup-node selectors such as lts/*, and run npm ci only when a lockfile exists. Repositories without dependencies need no install step. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. GitHub/Gitea Actions require on: [push, pull_request] and unconditional build/test steps. Execute actual tools; describing changes does not stage them."
+			system = "Add missing repository validation. Preserve existing tests and build commands; change application source or manifests only where the finding requires it. Reuse existing meaningful tests; add new test files only where validation is missing. Stage a workflow for the observed code host that runs build and tests before run_checks, then finish. Use existing build/test scripts and standard library test tools where available; avoid unnecessary dependencies. For Node CI, preserve script flags, select a compatible runtime, use supported setup-node selectors such as lts/*, and run npm ci only when a lockfile exists. Repositories without dependencies need no install step. For Node, use import test from 'node:test'; import assert from 'node:assert/strict'; and register test('behaviour', () => assert.equal(actual, expected)). Exported functions and console.assert do not provide failing tests. Create the code host's workflow, such as .gitea/workflows/ci.yml for Gitea. GitHub/Gitea Actions require on: [push, pull_request] and unconditional build/test steps. Execute actual tools; describing changes does not stage them."
 		}
 		tools = ownerTools()
 		originalChanges := originalFileChanges(e.originalFiles, files)
 		ownerInstructions := "You own this repository and decide how to resolve the task below. You may change any file, including tests and CI, when that is the right call; tests you remove or rewrite must be genuinely obsolete or wrong, not inconvenient. Every test that passes on the target must still pass. Never commit secrets.\n"
 		if p.Recipe.Name == "bootstrap" {
-			ownerInstructions = "Add only missing validation. Existing application source, tests and build commands are protected. Reuse meaningful existing tests, add new tests only where missing, and create the code host's CI workflow. Never commit secrets.\n"
+			ownerInstructions = "Add missing validation. Existing tests and build commands are protected; change application source or manifests only where the finding requires it. Reuse meaningful existing tests, add new tests only where missing, and create the code host's CI workflow. Never commit secrets.\n"
 		}
 		prompt = ownerInstructions +
 			fmt.Sprintf("Original pinned source SHA: %s. Current target source SHA: %s. Original snapshot is immutable; use read_original_file to inspect original content when revisions differ. Edits apply to current target.\nChanged paths (bounded):\n%s\n", p.BaselineSHA, p.TargetSHA, originalChanges) +
@@ -495,7 +495,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	admissible := func(patches []sandbox.Patch, updates []DependencyUpdate) error {
 		if frozenDefect {
 			for _, patch := range patches {
-				if _, protected := independent.ProtectedHashes[patch.Path]; protected || protectedPath(patch.Path) {
+				if _, protected := independent.ProtectedHashes[patch.Path]; protected || guest.TestPath(patch.Path) {
 					return ErrPatch
 				}
 			}
