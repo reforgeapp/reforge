@@ -11,8 +11,24 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/store"
 )
+
+func TestMergeReadinessBlocksAndRebindsMaintenanceProof(t *testing.T) {
+	blocked := MaintenancePlan{Ready: true, Proof: "budget-policy-proof", Blockers: []string{}}
+	setup := &mergecontrol.MaintenanceReadiness{Ready: false, Reason: "Repository rules changed", RulesHash: "rules-a"}
+	bindMergeSetup(&blocked, setup)
+	if blocked.Ready || len(blocked.Blockers) != 1 || blocked.Blockers[0] != setup.Reason || blocked.Proof == "budget-policy-proof" {
+		t.Fatalf("unready native setup was not bound as a blocker: %+v", blocked)
+	}
+	firstProof := blocked.Proof
+	ready := MaintenancePlan{Ready: true, Proof: "budget-policy-proof", Blockers: []string{}}
+	bindMergeSetup(&ready, &mergecontrol.MaintenanceReadiness{Ready: true, RulesHash: "rules-b"})
+	if !ready.Ready || ready.Proof == firstProof || ready.Proof == "budget-policy-proof" {
+		t.Fatalf("native rules change did not stale the maintenance proof: %+v", ready)
+	}
+}
 
 func TestContinuousMaintenanceScopeRotationAndRevocation(t *testing.T) {
 	raw := os.Getenv("REFORGE_TEST_DATABASE_URL")

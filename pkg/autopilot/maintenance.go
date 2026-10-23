@@ -14,6 +14,7 @@ import (
 	"github.com/reforgeapp/reforge/pkg/budget"
 	"github.com/reforgeapp/reforge/pkg/delivery"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/policy"
 )
 
@@ -26,27 +27,28 @@ type MaintenanceCommand struct {
 }
 
 type MaintenancePlan struct {
-	Subscription         bool                     `json:"subscription"`
-	RepositoryID         string                   `json:"repository_id"`
-	Repository           string                   `json:"repository"`
-	Mode                 string                   `json:"mode"`
-	MicroUSD             int64                    `json:"micro_usd"`
-	Continuous           bool                     `json:"continuous"`
-	Actions              []policy.Action          `json:"actions"`
-	Environments         []string                 `json:"environments,omitempty"`
-	DeliveryRepositories []string                 `json:"delivery_repositories,omitempty"`
-	Decisions            map[policy.Action]string `json:"decisions"`
-	Blockers             []string                 `json:"blockers"`
-	Model                string                   `json:"model,omitempty"`
-	ConnectionID         string                   `json:"connection_id,omitempty"`
-	Route                string                   `json:"route,omitempty"`
-	PoolID               string                   `json:"pool_id,omitempty"`
-	BudgetPeriod         string                   `json:"budget_period"`
-	OrgMicroUSD          *int64                   `json:"organisation_micro_usd,omitempty"`
-	OrgPeriod            string                   `json:"organisation_period,omitempty"`
-	CreatesOrgLimit      bool                     `json:"creates_organisation_limit"`
-	Ready                bool                     `json:"ready"`
-	Proof                string                   `json:"proof"`
+	MergeSetup           *mergecontrol.MaintenanceReadiness `json:"merge_setup,omitempty"`
+	Subscription         bool                               `json:"subscription"`
+	RepositoryID         string                             `json:"repository_id"`
+	Repository           string                             `json:"repository"`
+	Mode                 string                             `json:"mode"`
+	MicroUSD             int64                              `json:"micro_usd"`
+	Continuous           bool                               `json:"continuous"`
+	Actions              []policy.Action                    `json:"actions"`
+	Environments         []string                           `json:"environments,omitempty"`
+	DeliveryRepositories []string                           `json:"delivery_repositories,omitempty"`
+	Decisions            map[policy.Action]string           `json:"decisions"`
+	Blockers             []string                           `json:"blockers"`
+	Model                string                             `json:"model,omitempty"`
+	ConnectionID         string                             `json:"connection_id,omitempty"`
+	Route                string                             `json:"route,omitempty"`
+	PoolID               string                             `json:"pool_id,omitempty"`
+	BudgetPeriod         string                             `json:"budget_period"`
+	OrgMicroUSD          *int64                             `json:"organisation_micro_usd,omitempty"`
+	OrgPeriod            string                             `json:"organisation_period,omitempty"`
+	CreatesOrgLimit      bool                               `json:"creates_organisation_limit"`
+	Ready                bool                               `json:"ready"`
+	Proof                string                             `json:"proof"`
 	policy               policy.Policy
 	initialize           bool
 }
@@ -74,7 +76,7 @@ func (s *Service) MaintenanceStatus(ctx context.Context, session auth.Session, o
 				}
 			}
 		}
-		return tx.QueryRow(ctx, `SELECT coalesce((SELECT continuous FROM autopilot_requests WHERE org_id=$1 AND repository_id=$2),false),coalesce((SELECT (caps->>'micro_usd')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2),$3)`, org, repo, out.MicroUSD).Scan(&out.Continuous, &out.MicroUSD)
+		return tx.QueryRow(ctx, `SELECT coalesce((SELECT continuous FROM autopilot_requests WHERE org_id=$1 AND repository_id=$2),false) OR coalesce((SELECT enabled FROM autopilot_settings WHERE org_id=$1),false),coalesce((SELECT (caps->>'micro_usd')::bigint FROM budget_limits WHERE org_id=$1 AND scope_kind='repository' AND scope_id=$2),$3)`, org, repo, out.MicroUSD).Scan(&out.Continuous, &out.MicroUSD)
 	})
 	return out, err
 }
@@ -241,6 +243,31 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	return out, nil
 }
 
+func (s *Service) maintenanceMergeSetup(ctx context.Context, session auth.Session, org, repo string, in MaintenanceCommand) (*mergecontrol.MaintenanceReadiness, error) {
+	if !slices.Contains([]string{"merge", "deliver", "recover"}, in.Mode) {
+		return nil, nil
+	}
+	if s.merges == nil {
+		return &mergecontrol.MaintenanceReadiness{Reason: "Merge permission checks are unavailable. Recheck before enabling Autopilot."}, nil
+	}
+	setup, err := s.merges.MaintenanceReadiness(ctx, session, org, repo)
+	return &setup, err
+}
+
+func bindMergeSetup(out *MaintenancePlan, setup *mergecontrol.MaintenanceReadiness) {
+	if setup == nil {
+		return
+	}
+	out.MergeSetup = setup
+	if !setup.Ready {
+		out.Blockers = append(out.Blockers, setup.Reason)
+		out.Ready = false
+	}
+	body, _ := json.Marshal([]any{out.Proof, setup})
+	sum := sha256.Sum256(body)
+	out.Proof = hex.EncodeToString(sum[:])
+}
+
 func (s *Service) PreviewMaintenance(ctx context.Context, session auth.Session, org, repo string, in MaintenanceCommand) (MaintenancePlan, error) {
 	var out MaintenancePlan
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
@@ -248,12 +275,24 @@ func (s *Service) PreviewMaintenance(ctx context.Context, session auth.Session, 
 		out, err = s.maintenanceTx(ctx, tx, a, repo, in)
 		return err
 	})
-	return out, err
+	if err != nil {
+		return out, err
+	}
+	setup, err := s.maintenanceMergeSetup(ctx, session, org, repo, in)
+	if err != nil {
+		return out, err
+	}
+	bindMergeSetup(&out, setup)
+	return out, nil
 }
 
 func (s *Service) ConfigureMaintenance(ctx context.Context, session auth.Session, org, repo string, in MaintenanceCommand, request string) (MaintenancePlan, error) {
 	var out MaintenancePlan
-	err := s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+	setup, err := s.maintenanceMergeSetup(ctx, session, org, repo, in)
+	if err != nil {
+		return out, err
+	}
+	err = s.auth.WithMutation(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		if a.Role != domain.Owner || !auth.CanReadRepository(a, repo) {
 			return auth.ErrForbidden
 		}
@@ -265,7 +304,11 @@ func (s *Service) ConfigureMaintenance(ctx context.Context, session auth.Session
 		if err != nil {
 			return err
 		}
+		bindMergeSetup(&out, setup)
 		if in.Proof == "" || in.Proof != out.Proof {
+			return auth.ErrConflict
+		}
+		if setup != nil && !setup.Ready {
 			return auth.ErrConflict
 		}
 		if !out.initialize && slices.Contains(out.Blockers, "organisation policy missing") {

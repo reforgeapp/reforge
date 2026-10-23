@@ -2449,18 +2449,26 @@ type MaintenancePlan struct {
 	Decisions                map[string]string        `json:"decisions"`
 	DeliveryRepositories     *[]string                `json:"delivery_repositories,omitempty"`
 	Environments             *[]string                `json:"environments,omitempty"`
-	MicroUsd                 int64                    `json:"micro_usd"`
-	Mode                     MaintenancePlanMode      `json:"mode"`
-	Model                    *string                  `json:"model,omitempty"`
-	OrganisationMicroUsd     *int64                   `json:"organisation_micro_usd,omitempty"`
-	OrganisationPeriod       *string                  `json:"organisation_period,omitempty"`
-	PoolId                   *string                  `json:"pool_id,omitempty"`
-	Proof                    string                   `json:"proof"`
-	Ready                    bool                     `json:"ready"`
-	Repository               string                   `json:"repository"`
-	RepositoryId             string                   `json:"repository_id"`
-	Route                    *string                  `json:"route,omitempty"`
-	Subscription             *bool                    `json:"subscription,omitempty"`
+	MergeSetup               *struct {
+		ConfigurationVersion int64   `json:"configuration_version"`
+		ConnectionVersion    int64   `json:"connection_version"`
+		Ready                bool    `json:"ready"`
+		Reason               string  `json:"reason"`
+		RulesHash            *string `json:"rules_hash,omitempty"`
+		SettingsUrl          *string `json:"settings_url,omitempty"`
+	} `json:"merge_setup,omitempty"`
+	MicroUsd             int64               `json:"micro_usd"`
+	Mode                 MaintenancePlanMode `json:"mode"`
+	Model                *string             `json:"model,omitempty"`
+	OrganisationMicroUsd *int64              `json:"organisation_micro_usd,omitempty"`
+	OrganisationPeriod   *string             `json:"organisation_period,omitempty"`
+	PoolId               *string             `json:"pool_id,omitempty"`
+	Proof                string              `json:"proof"`
+	Ready                bool                `json:"ready"`
+	Repository           string              `json:"repository"`
+	RepositoryId         string              `json:"repository_id"`
+	Route                *string             `json:"route,omitempty"`
+	Subscription         *bool               `json:"subscription,omitempty"`
 }
 type MaintenancePlanActions string
 type MaintenancePlanMode string

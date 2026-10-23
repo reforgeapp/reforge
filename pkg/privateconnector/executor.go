@@ -413,6 +413,14 @@ func ReadForge(ctx context.Context, provider forge.Provider, op Operation) (Resu
 		var v domain.Page[forge.Repository]
 		v, err = provider.ListRepositories(ctx, forge.InventoryRequest{Namespace: op.Inventory.Namespace, Cursor: op.Inventory.Cursor, Limit: op.Inventory.Limit})
 		result.Inventory = &v
+	case ForgeReadRules:
+		var repository forge.Repository
+		repository, err = provider.GetRepository(ctx, op.Repository.Repository)
+		if err == nil {
+			var rules forge.Rules
+			rules, err = provider.ReadEffectiveRules(ctx, op.Repository.Repository, repository.DefaultBranch)
+			result.Rules = &rules
+		}
 	case ForgeRepository:
 		var v forge.Repository
 		v, err = provider.GetRepository(ctx, op.Repository.Repository)

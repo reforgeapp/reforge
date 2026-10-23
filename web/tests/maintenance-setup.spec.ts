@@ -27,14 +27,16 @@ test('repository setup previews named scope and cap, then resumes without techni
   let configured = false
   await page.route(`**${base}/repositories/${repo}/set-up-maintenance`, route => { expect(route.request().postDataJSON().proof).toBe('approved'); configured = true; return route.fulfill({ json: plan }) })
   await page.goto(`/org/${org}/repositories?repository=${repo}`)
-  await page.getByRole('button', { name: 'Set up maintenance', exact: true }).click()
-  const dialog = page.getByRole('dialog', { name: 'Maintain shop' })
+  await page.getByRole('button', { name: 'Set up Autopilot', exact: true }).click()
+  const dialog = page.getByRole('dialog')
+  await dialog.getByRole('combobox', { name: 'Maintenance', exact: true }).selectOption('propose')
   await dialog.getByLabel('Spending ceiling ($)').fill('7.50')
   await dialog.getByRole('button', { name: 'Check setup' }).click()
-  await expect(dialog.getByText(/shop: scan, fix, open changes/)).toBeVisible()
+  await expect(dialog.getByText(/shop: prepare fixes for your approval/)).toBeVisible()
   await expect(dialog.getByText(/Organisation ceiling: \$20.00 per monthly period/)).toBeVisible()
   expect(configured).toBe(false)
   expect(input).toMatchObject({ mode: 'propose', micro_usd: 7_500_000, continuous: true })
+  await dialog.getByLabel('Allow proposed fixes in shop within these limits').check()
   await dialog.getByRole('button', { name: 'Set up maintenance', exact: true }).click()
   await expect(dialog.getByText('Maintenance configured. First scan started.')).toBeVisible()
   expect(configured).toBe(true)
@@ -63,6 +65,25 @@ test('organisation mode remains distinct from work enabled and previews every re
   expect(activated).toBe(true)
 })
 
+test('organisation Autopilot stays blocked until each repository merge setup is ready', async ({ page }) => {
+  await fixture(page)
+  const candidate = { id: 'candidate', scope: { kind: 'organisation', id: org }, policy: { ...policy, deny: ['deploy', 'recover'] } }
+  await page.route(`**${base}/policies/versions`, route => route.fulfill({ json: candidate }))
+  await page.route(`**${base}/policies/versions/candidate/simulate`, route => route.fulfill({ json: { hash: 'preview', resolved: { policy: candidate.policy, problems: [], paused: false }, decision: { outcome: 'unknown', blockers: [] } } }))
+  await page.route(`**${base}/repositories/*/maintenance-status`, route => route.fulfill({ json: { mode: 'merge', micro_usd: 0, continuous: true } }))
+  await page.route(`**${base}/repositories/*/set-up-maintenance/preview`, route => route.fulfill({ json: { ready: false, blockers: ['Repository merge permissions need checking'], merge_setup: { ready: false, reason: 'Verify native repository merge permissions.', settings_url: 'https://github.com/example/shop/settings/rules' } } }))
+  let activated = false
+  await page.route(`**${base}/policies/versions/candidate/activate`, route => { activated = true; return route.fulfill({ json: { version: 2 } }) })
+  await page.goto(`/org/${org}/policies`)
+  const modes = page.getByRole('group', { name: 'Organisation permissions' })
+  await modes.getByRole('button', { name: 'Autopilot', exact: true }).click()
+  const dialog = page.getByRole('dialog', { name: 'Organisation maintenance preview' })
+  await expect(dialog.getByText('Finish repository permissions before enabling unattended merges.')).toBeVisible()
+  await expect(dialog.getByRole('link', { name: 'Finish Autopilot setup for shop' })).toHaveAttribute('href', `/org/${org}/repositories?repository=${repo}&setup=autopilot`)
+  await expect(dialog.getByRole('button', { name: 'Apply across organisation' })).toBeDisabled()
+  expect(activated).toBe(false)
+})
+
 test('owner reports existing defect without hashes, package metadata or model choices', async ({ page }) => {
   await fixture(page)
   const finding = { id: 'reported', repository_id: repo, title: 'Checkout button does nothing on mobile', category: 'reported_defect', source: 'user_report', state: 'open', severity: 'medium', version: 1, last_seen: new Date().toISOString(), reason: '', evidence: { head_sha: 'a'.repeat(40), target_sha: 'a'.repeat(40), target_branch: 'main', complete: true, ownership: 'human', provenance: 'Owner-reported defect; reproduction required', checks: [], dependencies: [], blockers: [], report: { observed: 'Checkout button does nothing on mobile', expected: 'Checkout opens payment' } } }
@@ -81,4 +102,38 @@ test('owner reports existing defect without hashes, package metadata or model ch
   expect(submitted).toMatchObject({ repository_id: repo, kind: 'defect', observed: finding.evidence.report.observed, expected: finding.evidence.report.expected })
   expect(submitted).not.toHaveProperty('head_sha')
   expect(submitted).not.toHaveProperty('model_connection_id')
+})
+
+
+test('Autopilot verifies native permissions before consent and preserves the existing limit', async ({ page }) => {
+  await fixture(page)
+  await page.route(`**${base}/repositories/${repo}/maintenance-status`, route => route.fulfill({ json: { mode: 'merge', micro_usd: 7_500_000, continuous: true } }))
+  let ready = false
+  let configured = false
+  const reason = "Your repository requires a person's approval. Allow the Reforge app through that review rule to merge verified fixes automatically."
+  await page.route(`**${base}/repositories/${repo}/set-up-maintenance/preview`, route => {
+    expect(route.request().postDataJSON()).toMatchObject({ mode: 'merge', micro_usd: 7_500_000, continuous: true })
+    return route.fulfill({ json: { repository: 'shop', mode: 'merge', micro_usd: 7_500_000, actions: ['read','repair','publish','merge'], blockers: ready ? [] : [reason], ready, proof: ready ? 'current-rules' : 'old-rules', merge_setup: { ready, reason: ready ? '' : reason, settings_url: 'https://github.com/example/shop/settings/rules' } } })
+  })
+  await page.route(`**${base}/repositories/${repo}/set-up-maintenance`, route => {
+    expect(route.request().postDataJSON().proof).toBe('current-rules')
+    configured = true
+    return route.fulfill({ json: { repository: 'shop', mode: 'merge', micro_usd: 7_500_000, actions: [], blockers: [], ready: true, proof: 'current-rules', merge_setup: { ready: true, reason: '' } } })
+  })
+  await page.goto(`/org/${org}/repositories?repository=${repo}&setup=autopilot`)
+  const dialog = page.getByRole('dialog', { name: 'Set up shop' })
+  await expect(dialog.getByLabel('Spending ceiling ($)')).toHaveValue('7.5')
+  await dialog.getByRole('button', { name: 'Check setup' }).click()
+  await expect(dialog.getByText('Finish repository permissions')).toBeVisible()
+  await expect(dialog.getByRole('link', { name: 'Open repository rules' })).toHaveAttribute('href', 'https://github.com/example/shop/settings/rules')
+  await expect(dialog.getByRole('button', { name: 'Enable Autopilot' })).toHaveCount(0)
+  expect(configured).toBe(false)
+  ready = true
+  await dialog.getByRole('button', { name: 'Recheck setup' }).click()
+  await expect(dialog.getByText('Repository permissions checked')).toBeVisible()
+  await expect(dialog.getByRole('button', { name: 'Enable Autopilot' })).toBeDisabled()
+  await dialog.getByLabel('Allow Reforge to fix and merge in shop within these limits').check()
+  await dialog.getByRole('button', { name: 'Enable Autopilot' }).click()
+  await expect(dialog.getByText('Autopilot ready. Maintenance started.')).toBeVisible()
+  expect(configured).toBe(true)
 })

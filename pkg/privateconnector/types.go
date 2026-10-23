@@ -62,6 +62,7 @@ const (
 	ForgeProbe               Kind = "forge.probe"
 	ForgeInventory           Kind = "forge.inventory"
 	ForgeRepository          Kind = "forge.repository"
+	ForgeReadRules           Kind = "forge.read_rules"
 	ForgeResolveRef          Kind = "forge.resolve_ref"
 	ForgeReadFile            Kind = "forge.read_file"
 	ForgeReadFiles           Kind = "forge.read_files"
@@ -249,7 +250,7 @@ func (o Operation) validate() error {
 		valid = o.Changes != nil && len(o.Changes.Cursor) <= 32
 	case GiteaInventory:
 		valid = o.Inventory != nil && o.Inventory.Limit > 0 && o.Inventory.Limit <= 100 && len(o.Inventory.Namespace) <= 256 && len(o.Inventory.Cursor) <= 32
-	case GiteaRepository, ForgeIssues, ForgeAdvisories, ForgePermissionsURL:
+	case ForgeReadRules, GiteaRepository, ForgeIssues, ForgeAdvisories, ForgePermissionsURL:
 		valid = o.Repository != nil
 	case GiteaResolveRef:
 		valid = o.Ref != nil && o.Ref.Ref != "" && len(o.Ref.Ref) <= 1024
@@ -377,6 +378,7 @@ type Failure struct {
 	Uncertain    bool   `json:"uncertain"`
 }
 type Result struct {
+	Rules             *forge.Rules                   `json:"rules,omitempty"`
 	Native            *agent.NativeState             `json:"native,omitempty"`
 	Workflows         []forge.Workflow               `json:"workflows,omitempty"`
 	DeploymentGates   *forge.DeploymentGates         `json:"deployment_gates,omitempty"`

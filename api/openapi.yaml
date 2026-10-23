@@ -21553,6 +21553,18 @@
           "creates_organisation_limit"
         ],
         "properties": {
+          "merge_setup": {
+            "type": "object",
+            "required": ["ready", "reason", "connection_version", "configuration_version"],
+            "properties": {
+              "ready": { "type": "boolean" },
+              "reason": { "type": "string" },
+              "settings_url": { "type": "string" },
+              "rules_hash": { "type": "string" },
+              "connection_version": { "type": "integer", "format": "int64" },
+              "configuration_version": { "type": "integer", "format": "int64" }
+            }
+          },
           "mode": {
             "type": "string",
             "enum": [

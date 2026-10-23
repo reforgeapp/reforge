@@ -14,7 +14,7 @@ export const presets = [
 ] as const
 
 const text = (value: unknown) => value instanceof Error ? value.message : 'Preview unavailable.'
-type Impact = { name: string; actions: string[]; blockers: string[] }
+type Impact = { name: string; actions: string[]; blockers: string[]; setupURL?: string; mergeReady?: boolean }
 type Preview = { label: string; mode?: typeof presets[number]; work?: boolean; candidate?: Version; proof?: string; repositoryID?: string; impacts: Impact[]; ceiling: string }
 const mutations: Action[] = ['repair', 'publish', 'merge', 'deploy', 'recover']
 
@@ -65,14 +65,25 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
         }
         if (resolved.paused) blockers.add('Paused')
         for (const action of requested) if (resolved.policy.deny.includes(action)) blockers.add(`${action} prohibited by repository, team or server controls`)
-        impacts.push({ name: repo.name, actions: mutations.filter(action => !resolved.policy.deny.includes(action)), blockers: [...blockers] })
+        let mergeReady: boolean | undefined
+        let setupURL: string | undefined
+        if (mode?.id === 'deliver' && work) {
+          const status = await autopilotAPI.maintenanceStatus(orgID, repo.id)
+          const setup = await autopilotAPI.previewMaintenance(orgID, repo.id, { ...status, mode: 'merge', continuous: true }, csrf)
+          mergeReady = setup.merge_setup?.ready === true
+          if (!mergeReady) {
+            blockers.add(setup.merge_setup?.reason || 'Repository merge permissions need checking')
+            setupURL = `/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repo.id)}&setup=autopilot`
+          }
+        }
+        impacts.push({ name: repo.name, actions: mutations.filter(action => !resolved.policy.deny.includes(action)), blockers: [...blockers], mergeReady, setupURL })
       }
       if (!repositories.length) throw new Error('Import a repository before changing organisation maintenance.')
       setPreview({ label, mode, work, candidate, proof, repositoryID: firstRepository, impacts, ceiling })
     } catch (reason) { setError(text(reason)) } finally { setBusy(false) }
   }
   const apply = async () => {
-    if (!preview || !autopilot.data) return
+    if (!preview || !autopilot.data || preview.impacts.some(item => item.mergeReady === false)) return
     setBusy(true); setError('')
     let permissionsApplied = false
     try {
@@ -100,6 +111,6 @@ export function PolicyMode({ orgID, repositoryID, effective, base, currentVersio
     })}</div>
     <div className="row-actions"><span className="table-meta">Organisation work {auto ? 'enabled' : 'disabled'}{base.repository_setup_required ? ' · configured repositories only' : ''}</span><Button disabled={disabled} onClick={() => void prepare(undefined, !auto)}>{auto ? 'Disable work' : 'Enable work'}</Button></div>
     {auto && <p className="table-meta" role="status">{autopilot.data?.status || 'Starting'} · {autopilot.data?.queued} fixes started{autopilot.data?.awaiting ? ` · ${autopilot.data.awaiting} awaiting a person` : ''}</p>}
-    <Dialog open={open} title="Organisation maintenance preview" onClose={() => { if (!busy) setOpen(false) }}><div className="stack">{busy && <p role="status">Checking repository scope…</p>}{preview && <><p>{preview.label}. Affects {preview.impacts.length} repositories. {preview.ceiling}.</p><details><summary>Affected repositories and gates</summary><ul className="compact-list">{preview.impacts.map(item => <li key={item.name}>{item.name}: {item.actions.join(', ') || 'scan only'}{item.blockers.length > 0 && <details><summary>{item.blockers.length} controls or evidence requirements</summary><ul>{item.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></details>}</li>)}</ul></details><Button className="button button-primary" disabled={busy} onClick={() => void apply()}>Apply across organisation</Button></>}{error && <p className="error-text" role="alert">{error}</p>}</div></Dialog>
+    <Dialog open={open} title="Organisation maintenance preview" onClose={() => { if (!busy) setOpen(false) }}><div className="stack">{busy && <p role="status">Checking repository scope…</p>}{preview && <><p>{preview.label}. Affects {preview.impacts.length} repositories. {preview.ceiling}.</p>{preview.impacts.some(item => item.mergeReady === false) && <div role="status"><p>Finish repository permissions before enabling unattended merges.</p><ul>{preview.impacts.filter(item => item.mergeReady === false).map(item => <li key={item.name}><a href={item.setupURL}>Finish Autopilot setup for {item.name}</a></li>)}</ul></div>}<details><summary>Affected repositories and gates</summary><ul className="compact-list">{preview.impacts.map(item => <li key={item.name}>{item.name}: {item.actions.join(', ') || 'scan only'}{item.blockers.length > 0 && <details><summary>{item.blockers.length} controls or evidence requirements</summary><ul>{item.blockers.map(blocker => <li key={blocker}>{blocker}</li>)}</ul></details>}</li>)}</ul></details><Button className="button button-primary" disabled={busy || preview.impacts.some(item => item.mergeReady === false)} onClick={() => void apply()}>Apply across organisation</Button></>}{error && <p className="error-text" role="alert">{error}</p>}</div></Dialog>
   </section>
 }

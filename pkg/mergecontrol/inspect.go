@@ -219,7 +219,7 @@ func (s *Service) authorityTx(ctx context.Context, tx pgx.Tx, org, repo string, 
 	out.MergeControlled = cfg.Enabled && mode == "reforge"
 	if !cfg.Enabled && (snapshot.Rules.Unprotected || snapshot.Rules.ActorCanBypass) {
 		var autopilot bool
-		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled)`, org).Scan(&autopilot); err != nil {
+		if err = tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM autopilot_settings WHERE org_id=$1 AND enabled) OR EXISTS(SELECT 1 FROM autopilot_requests WHERE org_id=$1 AND repository_id=$2 AND continuous)`, org, repo).Scan(&autopilot); err != nil {
 			return out, err
 		}
 		if autopilot {

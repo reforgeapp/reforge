@@ -5197,6 +5197,16 @@ export interface components {
             connection_id?: string;
         };
         MaintenancePlan: {
+            merge_setup?: {
+                ready: boolean;
+                reason: string;
+                settings_url?: string;
+                rules_hash?: string;
+
+                connection_version: number;
+
+                configuration_version: number;
+            };
 
             mode: "observe" | "propose" | "merge" | "deliver" | "recover";
 
