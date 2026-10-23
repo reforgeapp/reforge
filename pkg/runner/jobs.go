@@ -40,6 +40,13 @@ func (s *Service) Claim(ctx context.Context, raw string) (Assignment, error) {
 		if busy {
 			return workflow.ErrNoWork
 		}
+		if s.artifacts != nil {
+			if err = s.artifacts.CheckCapacityTx(ctx, tx, org, artifact.MaxSize); errors.Is(err, artifact.ErrQuota) {
+				return workflow.ErrNoWork
+			} else if err != nil {
+				return err
+			}
+		}
 		rows, err := tx.Query(ctx, `SELECT repository_id::text FROM runner_pool_repositories WHERE org_id=$1 AND pool_id=$2 ORDER BY repository_id`, org, r.PoolID)
 		if err != nil {
 			return err

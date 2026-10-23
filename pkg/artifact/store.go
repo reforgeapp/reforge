@@ -128,19 +128,29 @@ func (s *Store) RecordPreparedTx(ctx context.Context, tx pgx.Tx, m Metadata, att
 	if !auth.ValidID(attemptID) || !auth.ValidID(m.ID) || !auth.ValidID(m.OrgID) || !auth.ValidID(m.RepositoryID) || !auth.ValidID(m.TaskID) || m.ExpiresAt.Before(time.Now()) || m.ExpiresAt.After(time.Now().Add(30*24*time.Hour)) || m.Size < 0 || m.Size > MaxSize || len(m.SHA256) != 64 {
 		return Metadata{}, auth.ErrInvalid
 	}
-	var used int64
-	var count int
-	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(size),0),count(*) FROM artifacts WHERE org_id=$1 AND expires_at>clock_timestamp()`, m.OrgID).Scan(&used, &count); err != nil {
+	if err := s.CheckCapacityTx(ctx, tx, m.OrgID, m.Size); err != nil {
 		return Metadata{}, err
-	}
-	if used+MaxSize > MaxTenantSize || count >= 4096 {
-		return Metadata{}, ErrQuota
 	}
 	_, err := tx.Exec(ctx, `INSERT INTO artifacts(org_id,id,repository_id,task_id,attempt_id,name,media_type,size,sha256,created_at,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`, m.OrgID, m.ID, m.RepositoryID, m.TaskID, attemptID, m.Name, m.MediaType, m.Size, m.SHA256, m.CreatedAt, m.ExpiresAt)
 	if err != nil {
 		return Metadata{}, err
 	}
 	return m, nil
+}
+
+func (s *Store) CheckCapacityTx(ctx context.Context, tx pgx.Tx, org string, size int64) error {
+	if !auth.ValidID(org) || size < 0 || size > MaxSize {
+		return auth.ErrInvalid
+	}
+	var used int64
+	var count int
+	if err := tx.QueryRow(ctx, `SELECT coalesce(sum(size),0),count(*) FROM artifacts WHERE org_id=$1 AND expires_at>clock_timestamp()`, org).Scan(&used, &count); err != nil {
+		return err
+	}
+	if used+size > MaxTenantSize || count >= 4096 {
+		return ErrQuota
+	}
+	return nil
 }
 
 func (s *Store) PutTx(ctx context.Context, tx pgx.Tx, m Metadata, attemptID string, input io.Reader) (Metadata, error) {
@@ -206,7 +216,17 @@ func (s *Store) DeleteByRetention(ctx context.Context, orgID string, before time
 		if err := tx.QueryRow(ctx, `SELECT id::text FROM organisations WHERE id=$1 FOR UPDATE`, orgID).Scan(&locked); err != nil {
 			return err
 		}
-		rows, err := tx.Query(ctx, `SELECT id::text FROM artifacts WHERE org_id=$1 AND expires_at<=$2 ORDER BY id LIMIT 200 FOR UPDATE`, orgID, before)
+		rows, err := tx.Query(ctx, `SELECT a.id::text FROM artifacts a WHERE a.org_id=$1 AND (
+			a.expires_at<=$2 OR (
+				a.media_type='text/plain' AND a.created_at<=$2-interval '1 day'
+				AND EXISTS(SELECT 1 FROM workflow_tasks t JOIN workflow_attempts w ON w.org_id=t.org_id AND w.task_id=t.id
+					WHERE t.org_id=a.org_id AND t.id=a.task_id AND t.state IN ('failed','cancelled')
+					AND w.id=a.attempt_id AND w.ended_at<=$2-interval '1 day')
+				AND NOT EXISTS(SELECT 1 FROM repair_runs r WHERE r.org_id=a.org_id AND r.task_id=a.task_id
+					AND (r.state IN ('validated','unverified','publishing','published','uncertain') OR r.candidate_sha<>'' OR r.native_change IS NOT NULL))
+				AND NOT EXISTS(SELECT 1 FROM workflow_outbox o WHERE o.org_id=a.org_id AND o.task_id=a.task_id AND o.state IN ('pending','dispatching','unknown'))
+			)
+		) ORDER BY a.id LIMIT 200 FOR UPDATE OF a`, orgID, before)
 		if err != nil {
 			return err
 		}

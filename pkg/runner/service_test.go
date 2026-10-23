@@ -369,6 +369,173 @@ func TestArtifactQuotaFailureRemovesPreparedBlob(t *testing.T) {
 	if err != nil || len(blobs) != 0 {
 		t.Fatalf("rejected upload left blobs=%v err=%v", blobs, err)
 	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE artifacts SET size=$2 WHERE org_id=$1 AND name='quota.log' AND id=(SELECT id FROM artifacts WHERE org_id=$1 AND name='quota.log' LIMIT 1)`, f.org, artifact.MaxSize-16)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.service.Upload(ctx, job.Credential.Token, "does-not-fit.log", "text/plain", strings.NewReader("12345678901234567")); !errors.Is(err, artifact.ErrQuota) {
+		t.Fatalf("oversized upload result=%v", err)
+	}
+	if _, err = f.service.Upload(ctx, job.Credential.Token, "fits.log", "text/plain", strings.NewReader("12345")); err != nil {
+		t.Fatalf("small upload rejected with remaining capacity: %v", err)
+	}
+}
+
+func TestClaimBlocksAtArtifactQuotaUntilRetention(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c := f.enroll(t)
+	first := f.enqueue(t, f.repos[0], f.pool.ID, "main")
+	job, err := f.service.Claim(ctx, c.Token)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO artifacts(org_id,id,repository_id,task_id,attempt_id,name,media_type,size,sha256,expires_at) SELECT $1,gen_random_uuid(),$2,$3,$4,'quota.log','text/plain',$5,repeat('a',64),clock_timestamp()+interval '1 day' FROM generate_series(1,256)`, f.org, job.Lease.RepositoryID, first.ID, job.Lease.AttemptID, artifact.MaxSize)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = f.workflow.Complete(ctx, job.Lease, workflow.Completion{Outcome: "failed", Reason: "fixture"}); err != nil {
+		t.Fatal(err)
+	}
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE artifacts SET created_at=clock_timestamp()-interval '3 days' WHERE org_id=$1 AND task_id=$2`, f.org, first.ID); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `UPDATE workflow_attempts SET ended_at=clock_timestamp()-interval '3 days' WHERE org_id=$1 AND task_id=$2`, f.org, first.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	second := f.enqueue(t, f.repos[0], f.pool.ID, "main")
+	if _, err = f.service.Claim(ctx, c.Token); !errors.Is(err, workflow.ErrNoWork) {
+		t.Fatalf("quota-full claim result=%v", err)
+	}
+	var attempts int
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM workflow_attempts WHERE org_id=$1 AND task_id=$2`, f.org, second.ID).Scan(&attempts); err != nil {
+			return err
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if attempts != 0 {
+		t.Fatalf("quota blocked after starting %d attempts", attempts)
+	}
+	if count, err := f.artifacts.DeleteByRetention(ctx, f.org, time.Now()); err != nil || count == 0 {
+		t.Fatalf("retention freed no artifact capacity: deleted=%d err=%v", count, err)
+	}
+	claimed, err := f.service.Claim(ctx, c.Token)
+	if err != nil {
+		t.Fatalf("claim after freeing capacity: %v", err)
+	}
+	if claimed.Task.ID != second.ID {
+		t.Fatalf("claim after retention returned task %s, want %s", claimed.Task.ID, second.ID)
+	}
+}
+
+func TestRetentionDeletesOldFailedTaskLogsOnly(t *testing.T) {
+	f := newFixture(t)
+	ctx := context.Background()
+	c := f.enroll(t)
+	create := func(name string, terminal bool, repair, age string) artifact.Metadata {
+		t.Helper()
+		task := f.enqueue(t, f.repos[0], f.pool.ID, "main")
+		job, err := f.service.Claim(ctx, c.Token)
+		if err != nil {
+			t.Fatalf("claim for %s: %v", name, err)
+		}
+		m, err := f.service.Upload(ctx, job.Credential.Token, name, "text/plain", strings.NewReader(name))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if terminal {
+			if _, err = f.workflow.Complete(ctx, job.Lease, workflow.Completion{Outcome: "failed", Reason: "fixture"}); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+			if _, err := tx.Exec(ctx, `UPDATE artifacts SET created_at=clock_timestamp()-$3::interval WHERE org_id=$1 AND id=$2`, f.org, m.ID, age); err != nil {
+				return err
+			}
+			if terminal {
+				if _, err := tx.Exec(ctx, `UPDATE workflow_attempts SET ended_at=clock_timestamp()-interval '3 days' WHERE org_id=$1 AND id=$2`, f.org, job.Lease.AttemptID); err != nil {
+					return err
+				}
+			}
+			if repair == "" {
+				return nil
+			}
+			finding := domain.NewID()
+			fingerprint := sha256.Sum256([]byte(task.ID))
+			if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'test',$5,'ci_gap','low','fixture','{}','`+strings.Repeat("a", 64)+`')`, f.org, finding, f.repos[0], hex.EncodeToString(fingerprint[:]), task.ID); err != nil {
+				return err
+			}
+			candidate, change := "", any(nil)
+			if repair == "staged" || repair == "published" {
+				candidate = strings.Repeat("b", 40)
+			}
+			if repair == "published" {
+				change = `{"id":"fixture-change"}`
+			}
+			state := map[string]string{"staged": "handoff", "unverified": "unverified", "publishing": "publishing", "published": "published", "uncertain": "uncertain"}[repair]
+			_, err := tx.Exec(ctx, `INSERT INTO repair_runs(org_id,task_id,repository_id,finding_id,requested_by,finding_version,finding_digest,context,state,candidate_sha,native_change) VALUES($1,$2,$3,$4,$5,1,$6,'{}',$7,$8,$9)`, f.org, task.ID, f.repos[0], finding, f.session.User.ID, strings.Repeat("c", 64), state, candidate, change)
+			return err
+		}); err != nil {
+			t.Fatal(err)
+		}
+		return m
+	}
+	oldFailed := create("old-failed.log", true, "", "3 days")
+	freshFailed := create("fresh-failed.log", true, "", "1 hour")
+	staged := create("staged.log", true, "staged", "3 days")
+	unverified := create("unverified.log", true, "unverified", "3 days")
+	publishing := create("publishing.log", true, "publishing", "3 days")
+	published := create("published.log", true, "published", "3 days")
+	uncertain := create("uncertain.log", true, "uncertain", "3 days")
+	outbox := create("outbox.log", true, "", "3 days")
+	recentEnded := create("recent-ended.log", true, "", "3 days")
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `UPDATE workflow_attempts SET ended_at=clock_timestamp() WHERE org_id=$1 AND task_id=(SELECT task_id FROM artifacts WHERE org_id=$1 AND id=$2)`, f.org, recentEnded.ID)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	active := create("active.log", false, "", "3 days")
+	if err := f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		_, err := tx.Exec(ctx, `INSERT INTO workflow_outbox(org_id,id,task_id,repository_id,operation_id,kind,idempotency_key,payload,payload_hash,state) SELECT $1,gen_random_uuid(),t.id,t.repository_id,t.operation_id,'publish',$3,'{}',$4,'unknown' FROM artifacts a JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id WHERE a.org_id=$1 AND a.id=$2`, f.org, outbox.ID, outbox.ID, strings.Repeat("d", 64))
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := f.artifacts.DeleteByRetention(ctx, f.org, time.Now())
+	if err != nil || deleted != 1 {
+		t.Fatalf("retention deleted=%d err=%v", deleted, err)
+	}
+	for _, kept := range []artifact.Metadata{freshFailed, staged, unverified, publishing, published, uncertain, outbox, recentEnded, active} {
+		var exists bool
+		if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+			return tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND id=$2)`, f.org, kept.ID).Scan(&exists)
+		}); err != nil || !exists {
+			t.Fatalf("retention removed protected artifact %s: exists=%v err=%v", kept.Name, exists, err)
+		}
+		if _, err = os.Stat(filepath.Join(f.directory, f.org+"-"+kept.ID+".data")); err != nil {
+			t.Fatalf("retention removed protected blob %s: %v", kept.Name, err)
+		}
+	}
+	var exists bool
+	if err = f.db.Tenant(ctx, f.org, "", func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM artifacts WHERE org_id=$1 AND id=$2)`, f.org, oldFailed.ID).Scan(&exists)
+	}); err != nil || exists {
+		t.Fatalf("old failed artifact remained: exists=%v err=%v", exists, err)
+	}
+	if _, err = os.Stat(filepath.Join(f.directory, f.org+"-"+oldFailed.ID+".data")); !errors.Is(err, os.ErrNotExist) {
+		t.Fatalf("old failed blob remained: %v", err)
+	}
 }
 
 func TestWorkerHTTPRejectsBrowserOriginAndArbitraryProxy(t *testing.T) {
