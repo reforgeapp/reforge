@@ -28,6 +28,7 @@ test('executes a real repair and exposes native publication evidence', async ({ 
     await expect(details).toBeVisible()
     await expect.poll(async () => details.evaluate(element => element.contains(document.activeElement))).toBe(true)
     await expect.poll(async () => page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true)
+    await details.getByText('Advanced').click()
     await details.getByRole('combobox', { name: 'Recipe' }).selectOption('go')
     await details.getByRole('combobox', { name: 'Model' }).selectOption(authority.modelID)
     await details.getByRole('combobox', { name: 'Runner pool' }).selectOption(fixture.poolID)

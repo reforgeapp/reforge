@@ -1,7 +1,7 @@
 import { apiRequest, type Connection, type RunnerPool } from './client'
 
-export type RepairInput = { finding_id: string; finding_version: number; recipe: string; model_connection_id: string; model_route: string; runner_pool_id: string; custom_profile_id?: string; custom_profile_version?: number; plan_digest?: string; idempotency_key?: string }
-export type RepairPreview = { context: { plan: { digest: string; baseline_sha: string; target_sha: string; max_changed_lines: number; recipe: { max_files: number; max_patch_bytes: number; max_turns: number; timeout_seconds: number; commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } }; policy_hash: string; max_output_tokens: number; turn_timeout_ms: number }; blockers: string[]; expires_at: string }
+export type RepairInput = { finding_id: string; finding_version: number; recipe: string; model_connection_id: string; model_route: string; runner_pool_id: string; custom_profile_id?: string; custom_profile_version?: number; plan_digest?: string; idempotency_key?: string; owner?: boolean; instructions?: string }
+export type RepairPreview = { context: { plan: { digest: string; baseline_sha: string; target_sha: string; max_changed_lines: number; recipe: { name: string; max_files: number; max_patch_bytes: number; max_turns: number; timeout_seconds: number; commands: Array<{ id: string; args: string[]; directory: string; timeout_seconds: number; report_format: string }> } }; policy_hash: string; max_output_tokens: number; turn_timeout_ms: number }; blockers: string[]; expires_at: string }
 export type RepairRun = { task: { id: string; [key: string]: unknown }; state: string; version: number; [key: string]: unknown }
 
 export const repairAPI = {

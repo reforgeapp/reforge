@@ -13,6 +13,7 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
   const profiles = useQuery({ queryKey: ['org', orgID, 'repair-custom-profiles'], queryFn: ({ signal }) => customProfileAPI.list(orgID, undefined, signal) })
   const pools = useQuery({ queryKey: ['org', orgID, 'repair-pools'], queryFn: ({ signal }) => repairAPI.pools(orgID, signal) })
   const [recipe, setRecipe] = useState('')
+  const [instructions, setInstructions] = useState('')
   const [profile, setProfile] = useState('')
   const [model, setModel] = useState('')
   const [route, setRoute] = useState('default')
@@ -44,8 +45,8 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
   const selectedRecipe = recipe && recipes.data?.[recipe]
   const imageNames = Object.keys(recipes.data ?? {})
   const optionsError = recipes.isError || models.isError || agents.isError || profiles.isError || pools.isError
-  const optionsReady = !optionsError && imageNames.length > 0 && !!selectedRecipe && !!selectedPool && !!route.trim() && !!csrf && (profile ? !!selectedProfile : !!selectedModel)
-  const input: RepairInput = { finding_id: findingID, finding_version: findingVersion, recipe, model_connection_id: model, model_route: route.trim(), runner_pool_id: pool, ...(profile && selectedProfile ? { custom_profile_id: profile, custom_profile_version: selectedProfile.version } : {}) }
+  const optionsReady = !optionsError && imageNames.length > 0 && (!recipe || !!selectedRecipe) && !!selectedPool && !!route.trim() && !!csrf && (profile ? !!selectedProfile : !!selectedModel)
+  const input: RepairInput = { finding_id: findingID, finding_version: findingVersion, recipe, model_connection_id: model, model_route: route.trim(), runner_pool_id: pool, owner: true, instructions: instructions.trim(), ...(profile && selectedProfile ? { custom_profile_id: profile, custom_profile_version: selectedProfile.version } : {}) }
   const expires = preview ? new Date(preview.expires_at).getTime() : 0
  const expired = !!preview && (!Number.isFinite(expires) || expires <= Date.now())
 
@@ -53,6 +54,8 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
   useEffect(() => {
     if ((model && !selectedModel) || (profile && !selectedProfile) || (pool && !selectedPool) || (recipe && !selectedRecipe)) reset()
   }, [model, profile, pool, recipe, selectedModel?.id, selectedProfile?.id, selectedPool?.id, selectedRecipe])
+  useEffect(() => { if (!model && healthyModels.length === 1) setModel(healthyModels[0].id) }, [model, healthyModels])
+  useEffect(() => { if (!pool && activePools.length === 1) setPool(activePools[0].id) }, [pool, activePools])
   const retryOptions = () => { void recipes.refetch(); void models.refetch(); void pools.refetch() }
   const inspect = async () => {
     if (!optionsReady) return
@@ -68,12 +71,15 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
   return <fieldset disabled={busy}>
     <legend>Repair preview</legend>
     {recipes.isLoading || models.isLoading || agents.isLoading || profiles.isLoading || pools.isLoading ? <p className="table-meta">Loading repair policy and execution options…</p> : <>
-      <label>Recipe<select aria-label="Repair recipe" value={recipe} onChange={event => { setRecipe(event.target.value); reset() }}><option value="">Choose registered recipe</option>{Object.entries(recipes.data ?? {}).map(([name, image]) => <option key={name} value={name}>{name} · {image}</option>)}</select></label>
+      <label>Instructions<textarea aria-label="Instructions" value={instructions} maxLength={2000} rows={4} placeholder="Optional" onChange={event => { setInstructions(event.target.value); reset() }} /></label>
       {!imageNames.length && <p className="error-text">No operator images are configured. Configure a registered operator image before preview.</p>}
-      <label>Custom command profile<select aria-label="Custom command profile" value={profile} onChange={event => { setProfile(event.target.value); setModel(''); reset() }}><option value="">None — use a model route</option>{approvedProfiles.map(item => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
       <label>{profile ? 'Custom runtime connection' : 'Model'}<select aria-label="Model connection" value={model} onChange={event => { setModel(event.target.value); reset() }}><option value="">{profile ? 'Choose healthy custom_command agent connection' : 'Choose healthy direct API model'}</option>{healthyModels.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
-      <label>Model route<input aria-label="Model route" value={route} onChange={event => { setRoute(event.target.value); reset() }} placeholder="default" /></label>
       <label>Runner pool<select aria-label="Runner pool" value={pool} onChange={event => { setPool(event.target.value); reset() }}><option value="">Choose active runner pool</option>{activePools.map(item => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <details><summary>Advanced</summary>
+        <label>Recipe<select aria-label="Repair recipe" value={recipe} onChange={event => { setRecipe(event.target.value); reset() }}><option value="">Auto</option>{Object.entries(recipes.data ?? {}).map(([name, image]) => <option key={name} value={name}>{name} · {image}</option>)}</select></label>
+        <label>Custom command profile<select aria-label="Custom command profile" value={profile} onChange={event => { setProfile(event.target.value); setModel(''); reset() }}><option value="">None — use a model route</option>{approvedProfiles.map(item => <option key={item.id} value={item.id}>{item.name} · v{item.version}</option>)}</select></label>
+        <label>Model route<input aria-label="Model route" value={route} onChange={event => { setRoute(event.target.value); reset() }} placeholder="default" /></label>
+      </details>
       {optionsError && <p className="error-text" role="alert">Repair options unavailable. <Button onClick={retryOptions}>Retry options</Button></p>}
       {!selectedModel && model && !profile && <p className="error-text">Selected model is no longer healthy or direct API enabled. Choose another model.</p>}
       {!selectedProfile && profile && <p className="error-text">Selected custom command profile is no longer approved. Choose another profile.</p>}
@@ -82,6 +88,7 @@ export function RepairPreview({ orgID, findingID, findingVersion, repositoryID =
       <Button disabled={busy || !optionsReady} onClick={inspect}>Generate preview</Button>
       {preview && <div className="stack">
         <p>Expires {new Date(preview.expires_at).toLocaleString()}{expired ? ' · expired' : ''} · Policy {preview.context.policy_hash}</p>
+        <p>Recipe {preview.context.plan.recipe.name}</p>
         <p>Head {preview.context.plan.baseline_sha} · Target {preview.context.plan.target_sha}</p>
         <p>Limits: {preview.context.max_output_tokens} output tokens · {preview.context.turn_timeout_ms} ms/turn · {preview.context.plan.max_changed_lines} changed lines · {preview.context.plan.recipe.max_files} files · {preview.context.plan.recipe.max_patch_bytes} bytes · {preview.context.plan.recipe.max_turns} turns · {preview.context.plan.recipe.timeout_seconds}s total</p>
         {(preview.context.plan.recipe.commands ?? []).map(command => <pre className="command-block" key={command.id}>{`${command.id}: ${command.args.join(' ')}\nDirectory: ${command.directory}\nTimeout: ${command.timeout_seconds}s · Report: ${command.report_format}`}</pre>)}
