@@ -612,7 +612,8 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 	if tokens <= 0 {
 		tokens = 4096
 	}
-	for turn := out.Turns; turn < p.Recipe.MaxTurns; turn++ {
+	var inputTokens int64
+	for turn := out.Turns; turn < p.Recipe.MaxTurns && inputTokens < runInputBudget; turn++ {
 		if err = e.stage(ctx, "repairing"); err != nil {
 			return fail("Run authorization changed", err)
 		}
@@ -640,6 +641,7 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 			return fail(modelFailure(err), err)
 		}
 		out.Turns++
+		inputTokens += result.Usage.InputTokens
 		e.logTurn(ctx, out.Turns, result)
 		said := strings.TrimSpace(result.Text)
 		for _, call := range result.ToolCalls {

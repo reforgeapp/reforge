@@ -24,7 +24,7 @@ func (b Budget) Clamp() Budget {
 	return Budget{min(b.Files, Ceiling.Files), min(b.Lines, Ceiling.Lines), min(b.Bytes, Ceiling.Bytes), min(b.GeneratedBytes, Ceiling.GeneratedBytes), min(b.Turns, Ceiling.Turns)}
 }
 
-var codeBudget = Budget{Files: 40, Lines: 20000, Bytes: 1 << 20, GeneratedBytes: 8 << 20, Turns: 60}
+var codeBudget = Budget{Files: 40, Lines: 20000, Bytes: 1 << 20, GeneratedBytes: 8 << 20, Turns: 30}
 
 type Archetype struct {
 	Name         string

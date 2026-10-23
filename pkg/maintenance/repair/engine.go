@@ -760,19 +760,31 @@ func targetPlan(p Plan, files map[string][]byte) (Plan, error) {
 	return next, nil
 }
 
-const historyBudget = 384 << 10
+const (
+	historyBudget  = 384 << 10
+	runInputBudget = 1_500_000
+	keptTurns      = 6
+	omittedOutput  = "Earlier tool output omitted to fit the request; call the tool again if needed."
+)
 const turnReplyBudget = 128 << 10
 
 func compact(messages []model.Message) []model.Message {
 	size := 0
-	for _, m := range messages {
+	var turns []int
+	for i, m := range messages {
 		size += len(m.Text)
+		if m.Role == "assistant" {
+			turns = append(turns, i)
+		}
 	}
-	for i := 1; i < len(messages)-8 && size > historyBudget; i++ {
-		if messages[i].Role == "tool" && len(messages[i].Text) > 200 {
-			size -= len(messages[i].Text)
-			messages[i].Text = "Earlier tool output omitted to fit the request; call the tool again if needed."
-			size += len(messages[i].Text)
+	cut := 0
+	if len(turns) >= 2*keptTurns {
+		cut = turns[(len(turns)-keptTurns)/keptTurns*keptTurns]
+	}
+	for i := 1; i < len(messages); i++ {
+		if messages[i].Role == "tool" && len(messages[i].Text) > 200 && (i < cut || i < len(messages)-8 && size > historyBudget) {
+			size -= len(messages[i].Text) - len(omittedOutput)
+			messages[i].Text = omittedOutput
 		}
 	}
 	return messages
