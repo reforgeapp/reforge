@@ -107,7 +107,7 @@ test('owner reports existing defect without hashes, package metadata or model ch
 
 test('Autopilot verifies native permissions before consent and preserves the existing limit', async ({ page }) => {
   await fixture(page)
-  await page.route(`**${base}/repositories/${repo}/maintenance-status`, route => route.fulfill({ json: { mode: 'merge', micro_usd: 7_500_000, continuous: true } }))
+  await page.route(`**${base}/repositories/${repo}/maintenance-status`, route => route.fulfill({ json: { mode: 'deliver', micro_usd: 7_500_000, continuous: true } }))
   let ready = false
   let configured = false
   const reason = "Your repository requires a person's approval. Allow the Reforge app through that review rule to merge verified fixes automatically."
@@ -123,6 +123,7 @@ test('Autopilot verifies native permissions before consent and preserves the exi
   await page.goto(`/org/${org}/repositories?repository=${repo}&setup=autopilot`)
   const dialog = page.getByRole('dialog', { name: 'Set up shop' })
   await expect(dialog.getByLabel('Spending ceiling ($)')).toHaveValue('7.5')
+  await expect(dialog.getByRole('combobox', { name: 'Maintenance', exact: true })).toHaveValue('merge')
   await dialog.getByRole('button', { name: 'Check setup' }).click()
   await expect(dialog.getByText('Finish repository permissions')).toBeVisible()
   await expect(dialog.getByRole('link', { name: 'Open repository rules' })).toHaveAttribute('href', 'https://github.com/example/shop/settings/rules')

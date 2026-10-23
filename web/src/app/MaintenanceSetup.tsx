@@ -20,7 +20,7 @@ export function MaintenanceSetup({ orgID, repositoryID, name, csrf }: { orgID: s
   const [message, setMessage] = useState('')
   const [saved, setSaved] = useState(false)
   const models = useInfiniteQuery({ queryKey: ['org', orgID, 'setup-models'], queryFn: ({ pageParam, signal }) => api.getConnections(orgID, { limit: 100, cursor: pageParam, signal }), initialPageParam: undefined as string | undefined, getNextPageParam: page => page.complete ? undefined : page.next_cursor, enabled: open })
-  const selectedMode = mode ?? (status.data?.mode === 'observe' ? 'merge' : status.data?.mode ?? 'merge')
+  const selectedMode = mode ?? 'merge'
   const selectedConnection = connectionID ?? status.data?.connection_id ?? ''
   const ceiling = dollars ?? String((status.data?.micro_usd ?? 10_000_000) / 1_000_000)
   const keepWorking = continuous ?? true
