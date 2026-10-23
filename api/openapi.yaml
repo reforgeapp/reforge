@@ -13555,9 +13555,20 @@
         ],
         "additionalProperties": false
       },
+      "MaintenanceProgress": {
+        "type":"object",
+        "required":["repository_id","repository_name","state","count"],
+        "properties":{
+          "repository_id":{"type":"string"},
+          "repository_name":{"type":"string"},
+          "state":{"type":"string"},
+          "count":{"type":"integer","format":"int64"}
+        }
+      },
       "Overview": {
         "type": "object",
         "properties": {
+          "maintenance": {"type":"array","items":{"$ref":"#/components/schemas/MaintenanceProgress"}},
           "counts": {
             "$ref": "#/components/schemas/OverviewCounts"
           },

@@ -62,3 +62,16 @@
     gap: 2px 10px;
   }
 }
+
+.overview-owner-status h2 { margin: 0; }
+.overview-owner-status p { margin-bottom: 0; }
+.overview-repositories { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 16px; }
+.overview-repository { min-width: 0; padding: 16px; border: 1px solid var(--border); border-radius: var(--radius); }
+.overview-repository h3 { margin: 0 0 12px; overflow-wrap: anywhere; }
+.overview-repository ul { padding-left: 20px; }
+.overview-repository li { margin: 8px 0; }
+.overview-details > summary { cursor: pointer; padding: 12px 0; }
+
+.overview-metrics .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 900px) { .overview-metrics .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 500px) { .overview-metrics .metric-grid { grid-template-columns: minmax(0, 1fr); } }

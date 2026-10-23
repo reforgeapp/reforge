@@ -66,17 +66,25 @@ type SeverityCount struct {
 	Count    int64  `json:"count"`
 }
 
+type MaintenanceProgress struct {
+	RepositoryID   string `json:"repository_id"`
+	RepositoryName string `json:"repository_name"`
+	State          string `json:"state"`
+	Count          int64  `json:"count"`
+}
+
 type Overview struct {
-	Counts    OverviewCounts  `json:"counts"`
-	Attention []Attention     `json:"attention"`
-	Portfolio []PortfolioRow  `json:"portfolio"`
-	Capacity  Capacity        `json:"capacity"`
-	Trend     []OverviewDay   `json:"trend"`
-	Severity  []SeverityCount `json:"severity"`
+	Maintenance []MaintenanceProgress `json:"maintenance"`
+	Counts      OverviewCounts        `json:"counts"`
+	Attention   []Attention           `json:"attention"`
+	Portfolio   []PortfolioRow        `json:"portfolio"`
+	Capacity    Capacity              `json:"capacity"`
+	Trend       []OverviewDay         `json:"trend"`
+	Severity    []SeverityCount       `json:"severity"`
 }
 
 func (s *Service) Overview(ctx context.Context, session auth.Session, org string) (Overview, error) {
-	out := Overview{Attention: []Attention{}, Trend: []OverviewDay{}, Severity: []SeverityCount{}}
+	out := Overview{Maintenance: []MaintenanceProgress{}, Attention: []Attention{}, Trend: []OverviewDay{}, Severity: []SeverityCount{}}
 	err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
 		repo := `($2 OR repository_id=ANY($3::uuid[]))`
 		var err error
@@ -96,7 +104,7 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 		if err = tx.QueryRow(ctx, counts, org, a.AllRepositories, a.RepositoryIDs).Scan(&out.Counts.VerifiedDeployments, &out.Counts.AccessibleRepositories, &out.Counts.StaleRepositories, &out.Counts.QueuedJobs); err != nil {
 			return err
 		}
-		rows, e := tx.Query(ctx, `SELECT f.id::text,f.repository_id::text,coalesce(r.name,''),f.title,f.severity,f.state,extract(epoch FROM now()-f.last_seen)::bigint,coalesce(f.assigned_to::text,'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND `+repo+` ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,f.last_seen LIMIT 20`, org, a.AllRepositories, a.RepositoryIDs)
+		rows, e := tx.Query(ctx, `SELECT f.id::text,f.repository_id::text,coalesce(r.name,''),f.title,f.severity,f.state,extract(epoch FROM now()-f.first_seen)::bigint,coalesce(f.assigned_to::text,'') FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id WHERE f.org_id=$1 AND f.state='open' AND `+repo+` ORDER BY CASE f.severity WHEN 'critical' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 WHEN 'low' THEN 3 ELSE 4 END,f.last_seen LIMIT 20`, org, a.AllRepositories, a.RepositoryIDs)
 		if e != nil {
 			return e
 		}
@@ -173,6 +181,28 @@ func (s *Service) Overview(ctx context.Context, session auth.Session, org string
 			out.Severity = append(out.Severity, item)
 		}
 		if e = severity.Err(); e != nil {
+			return e
+		}
+		progress, e := tx.Query(ctx, `WITH progress AS (
+   SELECT f.repository_id,r.name,CASE
+    WHEN t.state='queued' AND (t.reason ILIKE '%budget%' OR t.reason ILIKE '%provider limits%') THEN 'waiting_limit'
+    WHEN t.state IN ('reproducing','planning','repairing','validating','publishing','reconciling','cancelling') THEN 'fixing'
+    WHEN t.state='queued' THEN 'queued'
+    WHEN EXISTS(SELECT 1 FROM repair_runs rr WHERE rr.org_id=f.org_id AND rr.finding_id=f.id AND rr.state='published' AND rr.native_change IS NOT NULL AND coalesce(rr.native_change->>'state','open') IN ('open','opened')
+     AND NOT EXISTS(SELECT 1 FROM merge_operations m WHERE m.org_id=rr.org_id AND m.repository_id=rr.repository_id AND m.change_id=rr.native_change->>'id' AND m.state='merged')
+     AND NOT EXISTS(SELECT 1 FROM inventory_changes c WHERE c.org_id=rr.org_id AND c.repository_id=rr.repository_id AND c.snapshot->>'id'=rr.native_change->>'id' AND c.snapshot->>'state' IN ('closed','merged'))) THEN 'checking'
+    WHEN a.outcome='blocked' OR a.blocker_kind IN ('platform','exhausted','unsupported','restore_runner') THEN 'waiting'
+    ELSE 'scheduled' END AS state
+   FROM maintenance_findings f JOIN repositories r ON r.org_id=f.org_id AND r.id=f.repository_id
+   LEFT JOIN LATERAL (SELECT a.* FROM autopilot_attempts a WHERE a.org_id=f.org_id AND a.finding_id=f.id AND a.finding_version=f.version ORDER BY a.updated_at DESC LIMIT 1) a ON true
+   LEFT JOIN workflow_tasks t ON t.org_id=a.org_id AND t.id=a.task_id
+   WHERE f.org_id=$1 AND f.state='open' AND f.category<>'repository_review' AND ($2 OR f.repository_id=ANY($3::uuid[]))
+  ) SELECT repository_id::text,name,state,count(*) FROM progress GROUP BY repository_id,name,state ORDER BY name,state`, org, a.AllRepositories, a.RepositoryIDs)
+		if e != nil {
+			return e
+		}
+		out.Maintenance, e = pgx.CollectRows(progress, pgx.RowToStructByPos[MaintenanceProgress])
+		if e != nil {
 			return e
 		}
 		return tx.QueryRow(ctx, `SELECT

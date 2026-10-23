@@ -81,7 +81,7 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 				} else {
 					err = limits.HeadroomTx(ctx, tx, org)
 				}
-				budgeted = err == nil
+				budgeted = err == nil || errors.Is(err, budget.ErrCapacity)
 				if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
 					return err
 				}
@@ -90,7 +90,7 @@ EXISTS(SELECT 1 FROM budget_limits WHERE org_id=$1 AND scope_kind='organisation'
 		if repository == "" && priced != "" {
 			var limits budget.Service
 			err := limits.ModelHeadroomTx(ctx, tx, org, priced)
-			budgeted = err == nil
+			budgeted = err == nil || errors.Is(err, budget.ErrCapacity)
 			if err != nil && !errors.Is(err, budget.ErrUnknown) && !errors.Is(err, budget.ErrCapacity) && !errors.Is(err, budget.ErrRevoked) {
 				return err
 			}

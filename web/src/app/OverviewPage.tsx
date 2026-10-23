@@ -9,6 +9,7 @@ import { Tabs } from '../components/Workspace'
 import { Donut, TrendChart } from '../components/Charts'
 import { SetupChecklist } from './SetupChecklist'
 import { OwnershipTable } from './OwnershipTable'
+import { NeedsPanel } from './NeedsBanner'
 import '../styles/overview.css'
 
 const errorText = (value: unknown) => value instanceof Error ? value.message : 'The server returned an unknown error.'
@@ -32,15 +33,31 @@ export function OverviewPage({ orgID }: { orgID: string }) {
   const stale = c.stale_repositories > 0
   const trend = value.trend ?? []
   const severity = value.severity ?? []
+  const progress = value.maintenance ?? []
+  const count = (state: string) => progress.filter(item => item.state === state).reduce((sum, item) => sum + item.count, 0)
+  const waitingLimit = count('waiting_limit')
+  const waiting = count('waiting')
+  const remaining = severity.reduce((sum, item) => sum + item.count, 0)
+  const priority = severity.filter(item => item.severity === 'high' || item.severity === 'critical').reduce((sum, item) => sum + item.count, 0)
+  const merged = trend.reduce((sum, day) => sum + day.merges, 0)
+  const waitingCount = waitingLimit + waiting + count('queued')
+  const tracked = value.maintenance ? progress.reduce((sum, item) => sum + item.count, 0) : remaining
+  const heading = c.needs_decision ? 'A decision is holding up maintenance' : waitingLimit && !value.capacity.running_jobs ? 'Maintenance is waiting for allowance' : value.capacity.running_jobs ? 'Reforge is working' : waiting ? 'Some repairs are waiting' : tracked ? 'Your maintenance queue' : c.accessible_repositories ? 'No open issues recorded' : 'Add your first repository'
+  const stateLabels: Record<string, string> = { fixing: 'being fixed', queued: 'queued for a fix', waiting_limit: 'waiting for budget or provider allowance', checking: 'proposed fixes awaiting verification or merge', waiting: 'waiting for a verifiable fix or service recovery', scheduled: 'awaiting a repair' }
+  const repositoryIDs = [...new Set([...value.portfolio.map(row => row.repository_id), ...progress.map(row => row.repository_id)])]
   return <div className="stack">
     <SetupChecklist orgID={orgID} />
+    <section className="panel overview-owner-status" aria-label="Maintenance status">
+      <h2>{heading}</h2>
+      <p>{c.needs_decision ? 'Review the decision below so maintenance can continue.' : 'Nothing needs your decision.'}{waitingLimit > 0 && ' Paused work resumes automatically when budget or provider allowance is available.'}</p>
+      {priority > 0 && <p className="table-meta">{priority} higher-priority {priority === 1 ? 'issue remains' : 'issues remain'} open. Progress and waits are shown below.</p>}
+    </section>
     <section className="overview-metrics" aria-label="Portfolio counts">
       <div className="metric-grid">
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=needs`}><span className="metric-label">Needs decision</span><strong>{c.needs_decision}</strong><span className="metric-muted">{c.needs_decision ? 'Needs you' : 'Nothing waiting'}</span></a>
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=active`}><span className="metric-label">Running</span><strong>{c.running}</strong><span className="metric-muted">{c.queued_jobs} jobs queued</span></a>
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=review`}><span className="metric-label">Ready for review</span><strong>{c.ready_for_review}</strong><span className="metric-muted">Published candidates</span></a>
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=blocked`}><span className="metric-label">Blocked</span><strong>{c.blocked}</strong><span className="metric-muted">Needs review</span></a>
-        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/deployments?health_state=healthy`}><span className="metric-label">Healthy environments</span><strong>{c.verified_deployments}</strong><span className="metric-muted">Fresh application checks</span></a>
+        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/changes?state=merged`}><span className="metric-label">Fixes merged</span><strong>{merged}</strong><span className="metric-muted">Last 14 days</span></a>
+        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=active`}><span className="metric-label">In progress</span><strong>{value.capacity.running_jobs}</strong><span className="metric-muted">{value.capacity.queued_jobs} queued</span></a>
+        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=review`}><span className="metric-label">Fixes being checked</span><strong>{c.ready_for_review}</strong><span className="metric-muted">Verification or merge checks pending</span></a>
+        <a className="metric-card metric-link" href={`/org/${encodeURIComponent(orgID)}/runs?state=needs`}><span className="metric-label">Needs you</span><strong>{c.needs_decision}</strong><span className="metric-muted">{c.needs_decision ? 'Decisions to unblock work' : 'No decisions waiting'}</span></a>
       </div>
       {stale && <div className="overview-sync-attention" role="status">
         <a className="overview-sync-link" href={`/org/${encodeURIComponent(orgID)}/repositories?status=stale`}>
@@ -51,6 +68,24 @@ export function OverviewPage({ orgID }: { orgID: string }) {
           </span>
         </a>
       </div>}
+    </section>
+    {c.needs_decision > 0 && <NeedsPanel orgID={orgID} />}
+    <section className="panel" aria-label="Your repositories"><div className="panel-head"><h2>Your repositories</h2><a href={`/org/${encodeURIComponent(orgID)}/repositories`}>View all</a></div>
+      <div className="overview-repositories">{repositoryIDs.map(repositoryID => {
+        const repository = value.portfolio.find(row => row.repository_id === repositoryID)
+        const rows = progress.filter(row => row.repository_id === repositoryID)
+        const name = repository?.repository_name ?? rows[0]?.repository_name ?? repositoryID
+        return <article className="overview-repository" key={repositoryID}><h3><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}`}>{name}</a></h3>
+          {repository?.blocker && <p>{repository.blocker}</p>}
+          {rows.length ? <ul>{rows.map(row => <li key={row.state}>{row.count} {stateLabels[row.state] ?? 'awaiting maintenance'}</li>)}</ul> : <p className="table-meta">{repository?.open_findings ? `${repository.open_findings} issues tracked. Status is being refreshed.` : 'No open issues recorded.'}</p>}
+          <a className="link-button" href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}&setup=autopilot`}>Autopilot setup</a>
+        </article>
+      })}</div>
+      {!repositoryIDs.length && <p>Import a repository to begin maintenance.</p>}
+      {waitingCount > 0 && <p className="table-meta">{waitingCount} {waitingCount === 1 ? 'repair is' : 'repairs are'} waiting. Reforge keeps these tracked until a verified fix is available.</p>}
+    </section>
+    <details className="overview-details"><summary>Technical details</summary><div className="stack">
+      <div className="row-actions"><a href={`/org/${encodeURIComponent(orgID)}/runs?state=blocked`}>Waiting work ({c.blocked})</a><a href={`/org/${encodeURIComponent(orgID)}/findings`}>All tracked issues ({remaining})</a>{c.verified_deployments > 0 && <a href={`/org/${encodeURIComponent(orgID)}/deployments?health_state=healthy`}>{c.verified_deployments} healthy environments</a>}</div>
       <dl className="capacity-strip" aria-label="Capacity and spend">
         <div><dt>Queued jobs</dt><dd>{value.capacity.queued_jobs}</dd></div>
         <div><dt>Running jobs</dt><dd>{value.capacity.running_jobs}</dd></div>
@@ -58,7 +93,6 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <div><dt>Active runners</dt><dd>{value.capacity.active_runners}</dd></div>
         <div><dt>Reserved spend</dt><dd>{value.capacity.reserved_micro_usd ? `$${(value.capacity.reserved_micro_usd / 1_000_000).toFixed(2)}` : 'None held'}</dd></div>
       </dl>
-    </section>
     <div className="panel-grid">
       <section className="panel" aria-labelledby="overview-activity-title">
         <div className="panel-head"><h2 id="overview-activity-title">Activity · 14 days</h2></div>
@@ -73,6 +107,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
     <section id={`overview-panel-${tab}`} role="tabpanel" aria-labelledby={`overview-tab-${tab}`}>
       {tab === 'ownership' ? <OwnershipTable orgID={orgID} /> : tab === 'attention' ? <DataTable caption="Attention queue"><table><thead><tr>{attentionSort.header('title', 'Finding')}{attentionSort.header('repository', 'Repository')}{attentionSort.header('severity', 'Severity')}{attentionSort.header('age', 'Age')}{attentionSort.header('owner', 'Owner')}</tr></thead><tbody>{attentionSort.rows.map(item => <tr key={item.id}><td><a href={`/org/${encodeURIComponent(orgID)}/findings?repository=${encodeURIComponent(item.repository_id)}&finding=${encodeURIComponent(item.id)}`}>{item.title}</a></td><td>{item.repository_name || item.repository_id}</td><td><StatusBadge label={item.severity} tone={severityTone(item.severity)} /></td><td>{age(item.age_seconds)}</td><td>{item.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!value.attention.length && <EmptyTable label="No open findings." />}</DataTable> : <DataTable caption="Portfolio"><table><thead><tr>{portfolioSort.header('repository', 'Repository')}{portfolioSort.header('forge', 'Forge')}{portfolioSort.header('work', 'Open work')}{portfolioSort.header('freshness', 'Freshness')}{portfolioSort.header('blocker', 'Blocker')}</tr></thead><tbody>{portfolioSort.rows.map(row => <tr key={row.repository_id}><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(row.repository_id)}`}>{row.repository_name}</a></td><td>{row.provider}</td><td>{row.open_findings} findings · {row.open_changes} changes</td><td>{row.last_synced_at ? new Date(row.last_synced_at).toLocaleString() : 'Never synced'}</td><td>{row.blocker ? <StatusBadge label={row.blocker} tone="amber" /> : 'None recorded'}</td></tr>)}</tbody></table>{!value.portfolio.length && <EmptyTable label="No repositories imported." />}</DataTable>}
     </section>
+    </div></details>
     <div className="subsection-actions overview-footer"><span className="table-meta">Accessible repositories: {c.accessible_repositories}</span></div>
   </div>
 }

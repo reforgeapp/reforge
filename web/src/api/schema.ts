@@ -2967,7 +2967,15 @@ export interface components {
                 [key: string]: components["schemas"]["Capability"];
             };
         };
+        MaintenanceProgress: {
+            repository_id: string;
+            repository_name: string;
+            state: string;
+
+            count: number;
+        };
         Overview: {
+            maintenance?: components["schemas"]["MaintenanceProgress"][];
             counts: components["schemas"]["OverviewCounts"];
             attention: components["schemas"]["OverviewAttention"][];
             portfolio: components["schemas"]["OverviewPortfolioRow"][];

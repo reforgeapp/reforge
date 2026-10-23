@@ -162,9 +162,20 @@ func TestScopedLedgerAndAuditExport(t *testing.T) {
 	if e != nil || len(series.Days) < 30 || series.Days[len(series.Days)-1].MicroUSD != 15 || series.Days[len(series.Days)-1].Records != 5 || len(series.Providers) != 1 || series.Providers[0].Tokens != 30 {
 		t.Fatalf("usage series: %+v %v", series, e)
 	}
+	e = db.Tenant(ctx, org, owner.User.ID, func(tx pgx.Tx) error {
+		for _, rid := range []string{repo, hidden} {
+			if _, e := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,repeat('a',64),'scanner','overview','ci_gap','medium','CI gap','{}',repeat('b',64))`, org, domain.NewID(), rid); e != nil {
+				return e
+			}
+		}
+		return nil
+	})
+	if e != nil {
+		t.Fatal(e)
+	}
 	overview, e := service.Overview(ctx, viewer, org)
-	if e != nil || len(overview.Trend) != 14 {
-		t.Fatalf("overview trend: %d %v", len(overview.Trend), e)
+	if e != nil || len(overview.Trend) != 14 || len(overview.Maintenance) != 1 || overview.Maintenance[0].RepositoryID != repo || overview.Maintenance[0].State != "scheduled" || overview.Maintenance[0].Count != 1 {
+		t.Fatalf("overview progress scope: %+v %v", overview.Maintenance, e)
 	}
 	resolve := func(context.Context, pgx.Tx, string, string) (policy.Resolved, error) {
 		return policy.Resolved{Hash: "h", Policy: policy.Policy{Deny: []policy.Action{policy.Merge, policy.Deploy, policy.Recover}}}, nil

@@ -2472,6 +2472,12 @@ type MaintenancePlan struct {
 }
 type MaintenancePlanActions string
 type MaintenancePlanMode string
+type MaintenanceProgress struct {
+	Count          int64  `json:"count"`
+	RepositoryId   string `json:"repository_id"`
+	RepositoryName string `json:"repository_name"`
+	State          string `json:"state"`
+}
 type Membership struct {
 	AllRepositories bool     `json:"all_repositories"`
 	OrgId           string   `json:"org_id"`
@@ -2801,12 +2807,13 @@ type Organisation struct {
 	Version int64   `json:"version"`
 }
 type Overview struct {
-	Attention []OverviewAttention    `json:"attention"`
-	Capacity  OverviewCapacity       `json:"capacity"`
-	Counts    OverviewCounts         `json:"counts"`
-	Portfolio []OverviewPortfolioRow `json:"portfolio"`
-	Severity  []OverviewSeverity     `json:"severity"`
-	Trend     []OverviewDay          `json:"trend"`
+	Attention   []OverviewAttention    `json:"attention"`
+	Capacity    OverviewCapacity       `json:"capacity"`
+	Counts      OverviewCounts         `json:"counts"`
+	Maintenance *[]MaintenanceProgress `json:"maintenance,omitempty"`
+	Portfolio   []OverviewPortfolioRow `json:"portfolio"`
+	Severity    []OverviewSeverity     `json:"severity"`
+	Trend       []OverviewDay          `json:"trend"`
 }
 type OverviewAttention struct {
 	AgeSeconds     int     `json:"age_seconds"`
