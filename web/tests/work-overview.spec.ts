@@ -30,7 +30,7 @@ test('overview opens complete work and GitOps links select promotion detail',asy
  await expect(page.getByRole('tab',{name:'GitOps promotions'})).toHaveAttribute('aria-selected','true')
  await expect.poll(()=>requested).toBe(true)
  await page.goto(`/org/${org}/overview`)
- await page.getByText('Technical details', { exact: true }).click()
+ await page.getByRole('button', { name: 'More details', exact: true }).click()
  await page.getByRole('link',{name:/Waiting work/}).click()
  const waiting=page.getByRole('row',{name:/Redis master label repair/})
  await expect(waiting.getByRole('cell').nth(2)).toHaveText('Fix')

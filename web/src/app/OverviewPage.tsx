@@ -1,6 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { Button } from '../components/Accessible'
+import { Icon } from '../components/Icons'
 import { DataTable, EmptyTable, useSort } from '../components/DataTable'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
@@ -22,6 +23,7 @@ const severityTone = (severity: string) => severity === 'critical' || severity =
 
 export function OverviewPage({ orgID }: { orgID: string }) {
   const [tab, setTab] = useState('attention')
+  const [detailsOpen, setDetailsOpen] = useState(false)
   const query = useQuery({ queryKey: ['org', orgID, 'overview'], queryFn: ({ signal }) => overviewAPI.get(orgID, signal), refetchInterval: 30_000 })
   const attentionSort = useSort(query.data?.attention ?? [], { title: item => item.title, repository: item => item.repository_name || item.repository_id, severity: item => ['info', 'low', 'medium', 'high', 'critical'].indexOf(item.severity), age: item => item.age_seconds, owner: item => item.assigned_to || '' }, { key: 'severity', dir: 'desc' })
   const portfolioSort = useSort(query.data?.portfolio ?? [], { repository: row => row.repository_name, forge: row => row.provider, work: row => row.open_findings + row.open_changes, freshness: row => row.last_synced_at ? Date.parse(row.last_synced_at) : undefined, blocker: row => row.blocker || '' }, { key: 'work', dir: 'desc' })
@@ -70,6 +72,16 @@ export function OverviewPage({ orgID }: { orgID: string }) {
       </div>}
     </section>
     {c.needs_decision > 0 && <NeedsPanel orgID={orgID} />}
+    <div className="panel-grid">
+      <section className="panel" aria-labelledby="overview-activity-title">
+        <div className="panel-head"><h2 id="overview-activity-title">Activity · 14 days</h2></div>
+        <TrendChart label="Activity over the last 14 days" empty="No activity in the last 14 days." integer stacked series={activitySeries} points={trend.map(day => ({ label: utc(day.day, { month: 'short', day: 'numeric' }), detail: utc(day.day, { weekday: 'short', month: 'short', day: 'numeric' }), values: [day.findings, day.runs, day.merges, day.deployments] }))} />
+      </section>
+      <section className="panel" aria-labelledby="overview-severity-title">
+        <div className="panel-head"><h2 id="overview-severity-title">Open findings</h2><a className="link-button" href={`/org/${encodeURIComponent(orgID)}/findings`}>View all</a></div>
+        <Donut label="Open findings by severity" empty="No open findings." segments={[...severity].sort((a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity)).map(item => ({ key: item.severity, label: item.severity, value: item.count, color: severityColor(item.severity) }))} />
+      </section>
+    </div>
     <section className="panel" aria-label="Your repositories"><div className="panel-head"><h2>Your repositories</h2><a href={`/org/${encodeURIComponent(orgID)}/repositories`}>View all</a></div>
       <div className="overview-repositories">{repositoryIDs.map(repositoryID => {
         const repository = value.portfolio.find(row => row.repository_id === repositoryID)
@@ -84,7 +96,8 @@ export function OverviewPage({ orgID }: { orgID: string }) {
       {!repositoryIDs.length && <p>Import a repository to begin maintenance.</p>}
       {waitingCount > 0 && <p className="table-meta">{waitingCount} {waitingCount === 1 ? 'repair is' : 'repairs are'} waiting. Reforge keeps these tracked until a verified fix is available.</p>}
     </section>
-    <details className="overview-details"><summary>Technical details</summary><div className="stack">
+    <Button className="link-button overview-details-toggle" aria-expanded={detailsOpen} aria-controls="overview-more-details" onClick={() => setDetailsOpen(!detailsOpen)}>{detailsOpen ? 'Hide details' : 'More details'}<Icon name="chevron" size={16} /></Button>
+    <section id="overview-more-details" className="overview-details" hidden={!detailsOpen}><div className="stack">
       <div className="row-actions"><a href={`/org/${encodeURIComponent(orgID)}/runs?state=blocked`}>Waiting work ({c.blocked})</a><a href={`/org/${encodeURIComponent(orgID)}/findings`}>All tracked issues ({remaining})</a>{c.verified_deployments > 0 && <a href={`/org/${encodeURIComponent(orgID)}/deployments?health_state=healthy`}>{c.verified_deployments} healthy environments</a>}</div>
       <dl className="capacity-strip" aria-label="Capacity and spend">
         <div><dt>Queued jobs</dt><dd>{value.capacity.queued_jobs}</dd></div>
@@ -93,21 +106,11 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         <div><dt>Active runners</dt><dd>{value.capacity.active_runners}</dd></div>
         <div><dt>Reserved spend</dt><dd>{value.capacity.reserved_micro_usd ? `$${(value.capacity.reserved_micro_usd / 1_000_000).toFixed(2)}` : 'None held'}</dd></div>
       </dl>
-    <div className="panel-grid">
-      <section className="panel" aria-labelledby="overview-activity-title">
-        <div className="panel-head"><h2 id="overview-activity-title">Activity · 14 days</h2></div>
-        <TrendChart label="Activity over the last 14 days" empty="No activity in the last 14 days." integer stacked series={activitySeries} points={trend.map(day => ({ label: utc(day.day, { month: 'short', day: 'numeric' }), detail: utc(day.day, { weekday: 'short', month: 'short', day: 'numeric' }), values: [day.findings, day.runs, day.merges, day.deployments] }))} />
-      </section>
-      <section className="panel" aria-labelledby="overview-severity-title">
-        <div className="panel-head"><h2 id="overview-severity-title">Open findings</h2><a className="link-button" href={`/org/${encodeURIComponent(orgID)}/findings`}>View all</a></div>
-        <Donut label="Open findings by severity" empty="No open findings." segments={[...severity].sort((a, b) => severityOrder.indexOf(a.severity) - severityOrder.indexOf(b.severity)).map(item => ({ key: item.severity, label: item.severity, value: item.count, color: severityColor(item.severity) }))} />
-      </section>
-    </div>
     <Tabs id="overview" label="Overview surfaces" items={[{ id: 'attention', label: 'Attention' }, { id: 'portfolio', label: 'Portfolio' }, { id: 'ownership', label: 'Ownership' }]} value={tab} onChange={setTab} />
     <section id={`overview-panel-${tab}`} role="tabpanel" aria-labelledby={`overview-tab-${tab}`}>
       {tab === 'ownership' ? <OwnershipTable orgID={orgID} /> : tab === 'attention' ? <DataTable caption="Attention queue"><table><thead><tr>{attentionSort.header('title', 'Finding')}{attentionSort.header('repository', 'Repository')}{attentionSort.header('severity', 'Severity')}{attentionSort.header('age', 'Age')}{attentionSort.header('owner', 'Owner')}</tr></thead><tbody>{attentionSort.rows.map(item => <tr key={item.id}><td><a href={`/org/${encodeURIComponent(orgID)}/findings?repository=${encodeURIComponent(item.repository_id)}&finding=${encodeURIComponent(item.id)}`}>{item.title}</a></td><td>{item.repository_name || item.repository_id}</td><td><StatusBadge label={item.severity} tone={severityTone(item.severity)} /></td><td>{age(item.age_seconds)}</td><td>{item.assigned_to || 'Unassigned'}</td></tr>)}</tbody></table>{!value.attention.length && <EmptyTable label="No open findings." />}</DataTable> : <DataTable caption="Portfolio"><table><thead><tr>{portfolioSort.header('repository', 'Repository')}{portfolioSort.header('forge', 'Forge')}{portfolioSort.header('work', 'Open work')}{portfolioSort.header('freshness', 'Freshness')}{portfolioSort.header('blocker', 'Blocker')}</tr></thead><tbody>{portfolioSort.rows.map(row => <tr key={row.repository_id}><td><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(row.repository_id)}`}>{row.repository_name}</a></td><td>{row.provider}</td><td>{row.open_findings} findings · {row.open_changes} changes</td><td>{row.last_synced_at ? new Date(row.last_synced_at).toLocaleString() : 'Never synced'}</td><td>{row.blocker ? <StatusBadge label={row.blocker} tone="amber" /> : 'None recorded'}</td></tr>)}</tbody></table>{!value.portfolio.length && <EmptyTable label="No repositories imported." />}</DataTable>}
     </section>
-    </div></details>
+    </div></section>
     <div className="subsection-actions overview-footer"><span className="table-meta">Accessible repositories: {c.accessible_repositories}</span></div>
   </div>
 }

@@ -70,7 +70,9 @@
 .overview-repository h3 { margin: 0 0 12px; overflow-wrap: anywhere; }
 .overview-repository ul { padding-left: 20px; }
 .overview-repository li { margin: 8px 0; }
-.overview-details > summary { cursor: pointer; padding: 12px 0; }
+.overview-details-toggle { display: inline-flex; align-items: center; width: fit-content; min-height: 36px; gap: 8px; }
+.overview-details-toggle[aria-expanded="true"] svg { transform: rotate(180deg); }
+.overview-details[hidden] { display: none; }
 
 .overview-metrics .metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 @media (max-width: 900px) { .overview-metrics .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
