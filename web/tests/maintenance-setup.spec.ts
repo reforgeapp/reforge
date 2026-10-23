@@ -131,7 +131,7 @@ test('Autopilot verifies native permissions before consent and preserves the exi
   expect(configured).toBe(false)
   ready = true
   await dialog.getByRole('button', { name: 'Recheck setup' }).click()
-  await expect(dialog.getByText('Repository permissions checked')).toBeVisible()
+  await expect(dialog.getByText('Ready to enable Autopilot')).toBeVisible()
   await expect(dialog.getByRole('button', { name: 'Enable Autopilot' })).toBeDisabled()
   await dialog.getByLabel('Allow Reforge to fix and merge in shop within these limits').check()
   await dialog.getByRole('button', { name: 'Enable Autopilot' }).click()

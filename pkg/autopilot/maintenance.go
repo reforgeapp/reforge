@@ -220,12 +220,14 @@ func (s *Service) maintenanceTx(ctx context.Context, tx pgx.Tx, a domain.Actor, 
 	if in.Mode == "recover" && !slices.Contains(out.Actions, policy.Recover) {
 		out.Blockers = append(out.Blockers, "Organisation or team controls prohibit recovery")
 	}
-	pathBlockers, pathBindings, err := delivery.ReadinessTx(ctx, tx, a, repo, in.Mode, r.Policy.Allow, s.policies.ResolveTx)
-	if err != nil {
-		return out, err
-	}
-	out.Blockers = append(out.Blockers, pathBlockers...)
+	pathBindings := []string{}
 	if in.Mode == "deliver" || in.Mode == "recover" {
+		var pathBlockers []string
+		pathBlockers, pathBindings, err = delivery.ReadinessTx(ctx, tx, a, repo, in.Mode, r.Policy.Allow, s.policies.ResolveTx)
+		if err != nil {
+			return out, err
+		}
+		out.Blockers = append(out.Blockers, pathBlockers...)
 		out.Environments = r.Policy.Allow.Environments
 		rows, err := tx.Query(ctx, `SELECT DISTINCT d.name FROM gitops_configurations c JOIN repositories d ON d.org_id=c.org_id AND d.id=c.delivery_repository_id WHERE c.org_id=$1 AND c.source_repository_id=$2 AND c.environment=ANY($3::text[]) AND (c.document->>'enabled')::boolean AND ($4 OR d.id=ANY($5::uuid[])) ORDER BY d.name`, a.OrgID, repo, out.Environments, a.AllRepositories, a.RepositoryIDs)
 		if err != nil {

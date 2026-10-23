@@ -11,10 +11,135 @@ import (
 	"github.com/reforgeapp/reforge/pkg/auth"
 	"github.com/reforgeapp/reforge/pkg/autopilot"
 	"github.com/reforgeapp/reforge/pkg/budget"
+	"github.com/reforgeapp/reforge/pkg/connections"
 	"github.com/reforgeapp/reforge/pkg/domain"
+	"github.com/reforgeapp/reforge/pkg/forge"
 	"github.com/reforgeapp/reforge/pkg/maintenance/repair"
+	"github.com/reforgeapp/reforge/pkg/mergecontrol"
 	"github.com/reforgeapp/reforge/pkg/policy"
+	"github.com/reforgeapp/reforge/pkg/privateconnector"
+	"github.com/reforgeapp/reforge/pkg/providers"
 )
+
+type unprotectedMergeSetupProvider struct {
+	providers.Client
+	db interface {
+		Tenant(context.Context, string, string, func(pgx.Tx) error) error
+	}
+	connections *connections.Service
+	rules       forge.Rules
+}
+
+func (p *unprotectedMergeSetupProvider) ForProtection(string, map[string]string) providers.Client {
+	return p
+}
+
+func (p *unprotectedMergeSetupProvider) Read(ctx context.Context, org, id string, op privateconnector.Operation, check func(context.Context, pgx.Tx, connections.Connection) error) (privateconnector.Result, error) {
+	if op.Kind != privateconnector.ForgeReadRules {
+		return privateconnector.Result{}, privateconnector.ErrUnsupported
+	}
+	err := p.db.Tenant(ctx, org, "", func(tx pgx.Tx) error {
+		c, err := p.connections.MetadataTx(ctx, tx, org, id)
+		if err != nil {
+			return err
+		}
+		return check(ctx, tx, c)
+	})
+	if err != nil {
+		return privateconnector.Result{}, err
+	}
+	rules := p.rules
+	return privateconnector.Result{Rules: &rules}, nil
+}
+
+func TestMaintenanceSetupAcceptsFreshUnprotectedOrBypassMerge(t *testing.T) {
+	f := newInventoryFixture(t, 0)
+	ctx := context.Background()
+	repo, model, pool := domain.NewID(), domain.NewID(), domain.NewID()
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE connections SET state='healthy',server_version='1.0' WHERE org_id=$1 AND id=$2`, f.org, f.connection.ID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO repositories(org_id,id,connection_id,native_id,name) VALUES($1,$2,$3,'maintained','shop')`, f.org, repo, f.connection.ID); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO connections(org_id,id,kind,provider,name,endpoint,settings,state) VALUES($1,$2,'model','compatible','Approved','https://model.example','{"model":"approved"}','healthy')`, f.org, model); err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `INSERT INTO runner_pools(org_id,id,name,state,builtin) VALUES($1,$2,'Built in','active',true)`, f.org, pool); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `INSERT INTO runners(org_id,id,pool_id,name,credential_hash,credential_expires_at) VALUES($1,$2,$3,'Runner','fixture',now()+interval '1 hour')`, f.org, domain.NewID(), pool)
+		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	seedPricedFixtureRoute(t, f, model, "approved")
+	policies, err := policy.New(f.db, f.identity, policy.Policy{Schema: "maintenance/v1"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	budgets := budget.New(f.db, f.identity, nil, nil)
+	repairs := repair.New(f.db, f.identity, nil, nil, nil, policies, budgets, nil, nil, nil, map[string]string{"javascript": "sha256:" + strings.Repeat("a", 64)})
+	provider := &unprotectedMergeSetupProvider{db: f.db, connections: f.connections, rules: forge.Rules{State: domain.Supported, Hash: strings.Repeat("b", 64), AllowedMergeMethods: []string{"squash"}, Unprotected: true}}
+	merges := mergecontrol.New(f.db, f.identity, f.connections, policies, provider)
+	service := autopilot.New(f.db, f.identity, repairs, merges, budgets, policies)
+	command := autopilot.MaintenanceCommand{Mode: "merge", MicroUSD: 10_000_000, Continuous: true}
+	plan, err := service.PreviewMaintenance(ctx, f.owner, f.org, repo, command)
+	if err != nil || !plan.Ready || plan.MergeSetup == nil || !plan.MergeSetup.Ready || slices.Contains(plan.Blockers, "Operator: qualify this repository's protected merge path") {
+		t.Fatalf("fresh unprotected merge preview: %+v %v", plan, err)
+	}
+	command.Proof = plan.Proof
+	configured, err := service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "unprotected-merge-setup")
+	if err != nil || !configured.Ready || configured.MergeSetup == nil || !configured.MergeSetup.Ready || !slices.Contains(configured.Actions, policy.Merge) || slices.Contains(configured.Actions, policy.Deploy) {
+		t.Fatalf("fresh unprotected merge setup: %+v %v", configured, err)
+	}
+	status, err := service.MaintenanceStatus(ctx, f.owner, f.org, repo)
+	if err != nil || status.Mode != "merge" || !status.Continuous || status.MicroUSD != command.MicroUSD {
+		t.Fatalf("saved merge setup scope: %+v %v", status, err)
+	}
+	if err := f.db.Tenant(ctx, f.org, f.owner.User.ID, func(tx pgx.Tx) error {
+		var continuous bool
+		var cap int64
+		if err := tx.QueryRow(ctx, `SELECT q.continuous,(b.caps->>'micro_usd')::bigint FROM autopilot_requests q JOIN budget_limits b ON b.org_id=q.org_id AND b.scope_kind='repository' AND b.scope_id=q.repository_id WHERE q.org_id=$1 AND q.repository_id=$2`, f.org, repo).Scan(&continuous, &cap); err != nil {
+			return err
+		}
+		if !continuous || cap != command.MicroUSD {
+			t.Fatalf("saved scope: continuous=%v cap=%d", continuous, cap)
+		}
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	provider.rules.Unprotected = false
+	provider.rules.ActorCanBypass = false
+	provider.rules.RequiredApprovals = 1
+	plan, err = service.PreviewMaintenance(ctx, f.owner, f.org, repo, autopilot.MaintenanceCommand{Mode: "merge", MicroUSD: command.MicroUSD, Continuous: true})
+	if err != nil || plan.Ready || plan.MergeSetup == nil || plan.MergeSetup.Ready || !strings.Contains(plan.MergeSetup.Reason, "requires a person's approval") {
+		t.Fatalf("required review marked ready: %+v %v", plan, err)
+	}
+	command.Proof = plan.Proof
+	if _, err := service.ConfigureMaintenance(ctx, f.owner, f.org, repo, command, "required-review"); !errors.Is(err, auth.ErrConflict) {
+		t.Fatalf("required review configuration accepted: %v", err)
+	}
+	provider.rules.RequiredApprovals = 0
+	provider.rules.Unprotected = false
+	provider.rules.ActorCanBypass = true
+	bypassCommand := autopilot.MaintenanceCommand{Mode: "merge", MicroUSD: command.MicroUSD, Continuous: true}
+	bypassPlan, err := service.PreviewMaintenance(ctx, f.owner, f.org, repo, bypassCommand)
+	if err != nil || !bypassPlan.Ready || bypassPlan.MergeSetup == nil || !bypassPlan.MergeSetup.Ready {
+		t.Fatalf("fresh actor-bypass merge preview: %+v %v", bypassPlan, err)
+	}
+	bypassCommand.Proof = bypassPlan.Proof
+	bypassConfigured, err := service.ConfigureMaintenance(ctx, f.owner, f.org, repo, bypassCommand, "actor-bypass-merge-setup")
+	if err != nil || !bypassConfigured.Ready || bypassConfigured.MergeSetup == nil || !bypassConfigured.MergeSetup.Ready {
+		t.Fatalf("fresh actor-bypass merge setup: %+v %v", bypassConfigured, err)
+	}
+	deliveryPlan, err := service.PreviewMaintenance(ctx, f.owner, f.org, repo, autopilot.MaintenanceCommand{Mode: "deliver", MicroUSD: command.MicroUSD, Continuous: true})
+	if err != nil || deliveryPlan.Ready || !slices.Contains(deliveryPlan.Blockers, "Operator: connect and qualify a CI release reporter and permitted deployment path") {
+		t.Fatalf("delivery setup bypassed: %+v %v", deliveryPlan, err)
+	}
+}
 
 func TestMaintenanceSetupScopesAndFencesDelegation(t *testing.T) {
 	f := newInventoryFixture(t, 0)
