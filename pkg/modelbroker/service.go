@@ -411,7 +411,7 @@ func (s *Service) Turn(ctx context.Context, credential string, in model.Turn) (m
 		slog.ErrorContext(ctx, "model turn result could not be recorded", "org_id", lease.OrgID, "operation_id", in.OperationID, "error", persistErr)
 	}
 	if persistErr == nil && !known {
-		if providerError != nil && pausableKind(providerError.Kind) {
+		if providerError != nil && (pausableKind(providerError.Kind) || providerError.Kind == "provider") {
 			return model.TurnResult{}, err
 		}
 		return model.TurnResult{}, ErrTurnFailed

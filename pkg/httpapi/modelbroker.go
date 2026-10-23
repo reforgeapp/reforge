@@ -79,6 +79,9 @@ func (s *Server) RegisterModelBroker(service *modelbroker.Service) {
 				code = "model_rate_limit_uncertain"
 			}
 			Fail(c, 429, code, "Model provider rate limit or quota reached; retry later", false)
+		case errors.As(err, &provider) && provider.Kind == "provider":
+			c.Header("Retry-After", strconv.FormatInt(int64(10*time.Minute/time.Second), 10))
+			Fail(c, http.StatusServiceUnavailable, "model_provider_unavailable", "Model provider unavailable; retry later", false)
 		case errors.Is(err, modelbroker.ErrTurnFailed):
 			Fail(c, 409, "model_retry", "Model turn failed and was settled; retry the turn", true)
 		case errors.Is(err, modelbroker.ErrUncertain):

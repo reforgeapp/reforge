@@ -324,6 +324,10 @@ func (c *Client) responseLimit(req *http.Request, output any, limit int64) (int,
 			base = &domain.ProviderError{Kind: "quota", Message: "Model provider rate limit or quota reached; retry later", Uncertain: failure.Code == "model_rate_limit_uncertain"}
 			modelFailure = true
 		}
+		if decoded && response.StatusCode == http.StatusServiceUnavailable && failure.Code == "model_provider_unavailable" {
+			base = &domain.ProviderError{Kind: "provider", Message: "Model provider unavailable; retry later"}
+			modelFailure = true
+		}
 		if decoded && response.StatusCode == http.StatusConflict && failure.Code == "source_moved" {
 			return response.StatusCode, fmt.Errorf("%w: %w", ErrControlPlane, ErrSourceMoved)
 		}
