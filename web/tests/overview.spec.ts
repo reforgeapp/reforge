@@ -16,6 +16,7 @@ async function mock(page: Page, staleRepositories = counts.stale_repositories) {
 
 test('renders persisted counts, opens the filtered queue and exposes on-demand help', async ({ page }) => {
   await mock(page)
+  await expect(page.getByRole('link', { name: 'Autopilot settings', exact: true })).toHaveAttribute('href', `/org/${org}/repositories?repository=repo-1&setup=autopilot`)
   const metrics = page.getByRole('region', { name: 'Portfolio counts' })
   await expect(metrics.getByText('Needs you')).toBeVisible()
   await expect(metrics.getByText('4', { exact: true })).toBeVisible()

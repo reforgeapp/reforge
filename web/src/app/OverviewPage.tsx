@@ -90,7 +90,7 @@ export function OverviewPage({ orgID }: { orgID: string }) {
         return <article className="overview-repository" key={repositoryID}><h3><a href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}`}>{name}</a></h3>
           {repository?.blocker && <p>{repository.blocker}</p>}
           {rows.length ? <ul>{rows.map(row => <li key={row.state}>{row.count} {stateLabels[row.state] ?? 'awaiting maintenance'}</li>)}</ul> : <p className="table-meta">{repository?.open_findings ? `${repository.open_findings} issues tracked. Status is being refreshed.` : 'No open issues recorded.'}</p>}
-          <a className="link-button" href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}&setup=autopilot`}>Autopilot setup</a>
+          <a className="link-button" href={`/org/${encodeURIComponent(orgID)}/repositories?repository=${encodeURIComponent(repositoryID)}&setup=autopilot`}>Autopilot settings</a>
         </article>
       })}</div>
       {!repositoryIDs.length && <p>Import a repository to begin maintenance.</p>}
