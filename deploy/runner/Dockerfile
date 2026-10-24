@@ -8,7 +8,7 @@ RUN CGO_ENABLED=0 go build -trimpath -o /out/reforge-runner ./cmd/runner \
 
 FROM node:26-bookworm@sha256:2aaae6d91f99fee84cfc92da9b52c22a185752d247746052bbc3f961e44478c6 AS npm
 RUN cd /usr/local/lib/node_modules/npm/node_modules \
- && for package in brace-expansion@5.0.11 undici@6.28.1; do \
+ && for package in brace-expansion@5.0.11 undici@6.29.1; do \
       name="${package%@*}" && file="$(npm pack --silent --pack-destination /tmp "$package")" \
       && rm -rf "$name" && mkdir "$name" && tar -xzf "/tmp/$file" -C "$name" --strip-components=1; \
     done
