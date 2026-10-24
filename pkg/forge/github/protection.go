@@ -199,7 +199,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 			out.Reason = "Classic team bypass applicability is not qualified"
 		}
 	}
-	linear := classic.Linear.Enabled
+	linear, updateRestricted := classic.Linear.Enabled, false
 	details := map[string]json.RawMessage{}
 	for _, rule := range applied {
 		if rule.RulesetID <= 0 {
@@ -214,6 +214,7 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 			var detail struct {
 				ID          int64  `json:"id"`
 				Enforcement string `json:"enforcement"`
+				CanBypass   string `json:"current_user_can_bypass"`
 				Bypass      *[]struct {
 					ActorID   *int64 `json:"actor_id"`
 					ActorType string `json:"actor_type"`
@@ -223,9 +224,13 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 			if err = decode(detailRaw, &detail); err != nil {
 				return out, err
 			}
-			if detail.ID != rule.RulesetID || detail.Enforcement != "active" || detail.Bypass == nil {
+			if detail.ID != rule.RulesetID || detail.Enforcement != "active" || detail.Bypass == nil && detail.CanBypass == "" {
 				out.State = domain.Unknown
 				out.Reason = "Applied ruleset identity, enforcement or bypass visibility is incomplete"
+			} else if detail.CanBypass != "" {
+				if detail.CanBypass == "always" || detail.CanBypass == "pull_requests_only" {
+					out.ActorCanBypass = true
+				}
 			} else {
 				for _, b := range *detail.Bypass {
 					if b.Mode != "always" && b.Mode != "pull_request" && b.Mode != "exempt" {
@@ -330,7 +335,9 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 			}
 		case "required_linear_history":
 			linear = true
-		case "deletion", "non_fast_forward":
+		case "update":
+			updateRestricted = true
+		case "deletion", "non_fast_forward", "creation":
 		default:
 			out.State = domain.Unknown
 			out.Reason = "An applied ruleset requirement is not qualified by this adapter"
@@ -361,6 +368,10 @@ func (p *Provider) ReadEffectiveRules(ctx context.Context, r forge.RepoRef, bran
 		out.Reason = "Operational actor administrative authority is unavailable"
 	} else if admin {
 		out.ActorCanBypass = true
+	}
+	if updateRestricted && !out.ActorCanBypass {
+		out.State = domain.Unknown
+		out.Reason = "Ruleset restricts branch updates to bypass actors"
 	}
 	methods := []string{}
 	if repositoryOptions.Merge != nil && *repositoryOptions.Merge && !linear {

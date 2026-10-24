@@ -53,6 +53,9 @@ func (f *nativeFixture) call(t *testing.T, req *http.Request) (*http.Response, e
 		if strings.HasPrefix(f.mode, "queue") {
 			rules = append(rules, map[string]any{"type": "merge_queue", "ruleset_id": 7, "parameters": map[string]any{"merge_method": "SQUASH", "grouping_strategy": "ALLGREEN", "max_entries_to_merge": 1}})
 		}
+		if f.mode == "role_bypass" || f.mode == "update_restricted" {
+			rules = append(rules, map[string]any{"type": "update", "ruleset_id": 7}, map[string]any{"type": "creation", "ruleset_id": 7})
+		}
 		if f.mode == "partial_rule" {
 			rules = append(rules, map[string]any{"type": "pull_request", "ruleset_id": 7, "parameters": map[string]any{"required_approving_review_count": 0}})
 		}
@@ -61,6 +64,10 @@ func (f *nativeFixture) call(t *testing.T, req *http.Request) (*http.Response, e
 		out := map[string]any{"id": 7, "enforcement": "active", "bypass_actors": []any{}}
 		if f.mode == "hidden_bypass" {
 			delete(out, "bypass_actors")
+		}
+		if f.mode == "role_bypass" || f.mode == "update_restricted" {
+			delete(out, "bypass_actors")
+			out["current_user_can_bypass"] = map[bool]string{true: "always", false: "never"}[f.mode == "role_bypass"]
 		}
 		if f.mode == "app_bypass" {
 			out["bypass_actors"] = []any{map[string]any{"actor_type": "Integration", "actor_id": 42, "bypass_mode": "pull_request"}}
@@ -143,7 +150,7 @@ func (f *nativeFixture) call(t *testing.T, req *http.Request) (*http.Response, e
 	}
 }
 func TestProtectionAndEligibilityFailClosed(t *testing.T) {
-	for _, mode := range []string{"eligible", "hidden_bypass", "app_bypass", "unknown_rule", "partial_rule", "partial_pagination", "null_rules", "unbound_check", "wrong_publisher", "newer_failure", "stale_approval", "loose"} {
+	for _, mode := range []string{"eligible", "hidden_bypass", "app_bypass", "role_bypass", "update_restricted", "unknown_rule", "partial_rule", "partial_pagination", "null_rules", "unbound_check", "wrong_publisher", "newer_failure", "stale_approval", "loose"} {
 		t.Run(mode, func(t *testing.T) {
 			f := &nativeFixture{mode: mode}
 			p := fixtureProvider(t, func(req *http.Request) (*http.Response, error) { return f.call(t, req) }).WithMergeGuard(func(context.Context, forge.MergeRequest, forge.Change, forge.Rules) error { return nil })
@@ -157,10 +164,13 @@ func TestProtectionAndEligibilityFailClosed(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			if mode == "hidden_bypass" || mode == "unknown_rule" || mode == "unbound_check" {
+			if mode == "hidden_bypass" || mode == "unknown_rule" || mode == "unbound_check" || mode == "update_restricted" {
 				if rules.State != domain.Unknown {
 					t.Fatalf("unknown rule became supported: %+v", rules)
 				}
+			}
+			if mode == "role_bypass" && (!rules.ActorCanBypass || rules.State == domain.Unknown) {
+				t.Fatalf("reported bypass missed: %+v", rules)
 			}
 			if mode == "app_bypass" && !rules.ActorCanBypass {
 				t.Fatal("App bypass missed")
