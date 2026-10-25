@@ -23,8 +23,8 @@ import (
 var ErrNotConfigured = errors.New("server email is not configured")
 
 type SMTP struct {
-	Address, Username, Password, From, Security string
-	SkipVerify                                  bool
+	Address, Username, Password, From, Security, ServerName string
+	SkipVerify                                              bool
 }
 
 type Settings struct {
@@ -303,7 +303,11 @@ func deliver(server SMTP, to []string, e email) error {
 	if err != nil {
 		return err
 	}
-	config := &tls.Config{ServerName: host, MinVersion: tls.VersionTLS12, InsecureSkipVerify: server.SkipVerify}
+	name := host
+	if server.ServerName != "" {
+		name = server.ServerName
+	}
+	config := &tls.Config{ServerName: name, MinVersion: tls.VersionTLS12, InsecureSkipVerify: server.SkipVerify}
 	var conn net.Conn
 	if server.Security == "tls" {
 		conn, err = tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", server.Address, config)

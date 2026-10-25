@@ -43,6 +43,7 @@ type Config struct {
 	SMTPPassword       string `json:"-"`
 	SMTPFrom           string
 	SMTPSecurity       string
+	SMTPTLSServerName  string
 	BootstrapToken     string `json:"-"`
 	BootstrapExpiresAt time.Time
 	GitHubApp          GitHubAppFiles
@@ -79,6 +80,7 @@ func Load() (Config, error) {
 		SMTPPassword:      os.Getenv("REFORGE_SMTP_PASSWORD"),
 		SMTPFrom:          os.Getenv("REFORGE_SMTP_FROM"),
 		SMTPSecurity:      os.Getenv("REFORGE_SMTP_SECURITY"),
+		SMTPTLSServerName: os.Getenv("REFORGE_SMTP_TLS_SERVER_NAME"),
 		BootstrapToken:    os.Getenv("REFORGE_BOOTSTRAP_TOKEN"),
 		GitHubApp: GitHubAppFiles{
 			AppID: os.Getenv("REFORGE_GITHUB_APP_ID"), Slug: os.Getenv("REFORGE_GITHUB_APP_SLUG"), ClientID: os.Getenv("REFORGE_GITHUB_APP_CLIENT_ID"),
