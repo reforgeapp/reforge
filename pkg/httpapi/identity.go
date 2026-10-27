@@ -42,7 +42,40 @@ func (s *Server) RegisterIdentity(service *auth.Service) {
 			IdentityFailure(c, err)
 			return
 		}
+		if service.Join(c.Request) != "" {
+			c.Redirect(http.StatusFound, "/auth/join/complete")
+			return
+		}
 		c.Redirect(http.StatusFound, "/")
+	})
+	s.Router.GET("/auth/join", func(c *gin.Context) {
+		c.Header("Referrer-Policy", "no-referrer")
+		if err := service.CheckRequest(c.Request, ""); err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		token := c.Query("token")
+		if len(token) != 43 {
+			IdentityFailure(c, auth.ErrInvalid)
+			return
+		}
+		service.SetJoin(c.Writer, token)
+		c.Redirect(http.StatusFound, "/auth/login")
+	})
+	s.Router.GET("/auth/join/complete", s.IdentitySession(), func(c *gin.Context) {
+		token := service.Join(c.Request)
+		service.ClearJoin(c.Writer)
+		if token == "" {
+			c.Redirect(http.StatusFound, "/")
+			return
+		}
+		session, _ := SessionFromContext(c)
+		org, err := service.RedeemPlatformInvitation(c.Request.Context(), session, token, c.GetString("request_id"))
+		if err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.Redirect(http.StatusFound, "/org/"+org.ID)
 	})
 	s.Router.GET("/api/v1/session", s.IdentitySession(), func(c *gin.Context) { session, _ := SessionFromContext(c); c.JSON(200, session) })
 	s.Router.POST("/auth/logout", s.IdentitySession(), func(c *gin.Context) {

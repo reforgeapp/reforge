@@ -77,7 +77,10 @@ func (e email) text() string {
 			}
 		}
 	}
-	fmt.Fprintf(&b, "\n%s: %s\nManage alerts: %s\n", e.CTA, e.CTAURL, e.Manage)
+	fmt.Fprintf(&b, "\n%s: %s\n", e.CTA, e.CTAURL)
+	if e.Manage != "" {
+		fmt.Fprintf(&b, "Manage alerts: %s\n", e.Manage)
+	}
 	return b.String()
 }
 
@@ -114,7 +117,7 @@ var page = template.Must(template.New("email").Parse(`<!doctype html>
 {{end}}{{end}}
 <table role="presentation" cellspacing="0" cellpadding="0" style="margin-top:24px;"><tr><td style="border-radius:6px;background:#2458d8;"><a href="{{.CTAURL}}" style="display:inline-block;padding:10px 18px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;">{{.CTA}}</a></td></tr></table>
 </td></tr>
-<tr><td style="padding:16px 4px;font-size:12px;line-height:18px;color:#6b7280;">You receive this as an alert recipient{{if .Org}} for {{.Org}}{{end}}. <a href="{{.Manage}}" style="color:#6b7280;text-decoration:underline;">Manage alerts</a></td></tr>
+{{if .Manage}}<tr><td style="padding:16px 4px;font-size:12px;line-height:18px;color:#6b7280;">You receive this as an alert recipient{{if .Org}} for {{.Org}}{{end}}. <a href="{{.Manage}}" style="color:#6b7280;text-decoration:underline;">Manage alerts</a></td></tr>{{end}}
 </table></td></tr></table>
 </body></html>`))
 
@@ -151,4 +154,12 @@ func part(b *bytes.Buffer, kind, body string) {
 	w := quotedprintable.NewWriter(b)
 	_, _ = w.Write([]byte(strings.ReplaceAll(body, "\n", "\r\n")))
 	_ = w.Close()
+}
+
+func SendInvitation(server SMTP, to, orgName, link string) error {
+	e := email{Org: orgName, CTA: "Accept invitation", CTAURL: link}
+	e.Subject = "You're invited to Reforge"
+	e.Heading = "Set up " + orgName + " on Reforge"
+	e.Intro = "You've been invited to the Reforge beta. Accept to sign in and create your workspace; the link works once and expires in 7 days."
+	return deliver(server, []string{to}, e)
 }
