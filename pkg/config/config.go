@@ -184,8 +184,8 @@ func (c Config) Validate() error {
 	if set != 0 && (set != 6 || c.Edition != "hosted") {
 		return errors.New("REFORGE_GITHUB_APP_ID, _SLUG, _CLIENT_ID, _CLIENT_SECRET_FILE, _PRIVATE_KEY_FILE and _WEBHOOK_SECRET_FILE must all be set, for the hosted edition only")
 	}
-	if c.BuiltinRunnerToken != "" && (c.Edition != "self-hosted" || len(c.BuiltinRunnerToken) < 43) {
-		return errors.New("the built-in runner requires the self-hosted edition and a 32-byte token")
+	if c.BuiltinRunnerToken != "" && len(c.BuiltinRunnerToken) < 43 {
+		return errors.New("the built-in runner requires a 32-byte token")
 	}
 	if c.BootstrapToken != "" && (c.Edition != "self-hosted" || c.BootstrapExpiresAt.IsZero() || len(c.BootstrapToken) < 32) {
 		return errors.New("bootstrap requires self-hosted edition, an explicit expiry and at least 32 random token characters")
