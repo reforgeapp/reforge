@@ -9,8 +9,9 @@ export type ModelProviderOption = {
 }
 
 export const modelProviderOptions: ModelProviderOption[] = [
-  { id: 'openai', label: 'OpenAI', provider: 'openai', profile: 'responses', endpoint: 'https://api.openai.com/v1', endpointEditable: false, secretRequired: true },
   { id: 'anthropic', label: 'Claude (Anthropic)', provider: 'anthropic', profile: 'messages', endpoint: 'https://api.anthropic.com', endpointEditable: false, secretRequired: true },
+  { id: 'openai', label: 'OpenAI', provider: 'openai', profile: 'responses', endpoint: 'https://api.openai.com/v1', endpointEditable: false, secretRequired: true },
+  { id: 'openrouter', label: 'OpenRouter', provider: 'compatible', profile: 'chat_completions', endpoint: 'https://openrouter.ai/api/v1', endpointEditable: false, secretRequired: true },
   { id: 'google', label: 'Gemini (Google)', provider: 'google', profile: 'gemini', endpoint: 'https://generativelanguage.googleapis.com', endpointEditable: false, secretRequired: true },
   { id: 'opencode_zen', label: 'OpenCode Zen', provider: 'compatible', profile: 'opencode_zen', endpoint: 'https://opencode.ai/zen/v1', endpointEditable: false, secretRequired: true },
   { id: 'opencode_go', label: 'OpenCode Go', provider: 'compatible', profile: 'opencode_go', endpoint: 'https://opencode.ai/zen/go/v1', endpointEditable: false, secretRequired: true },

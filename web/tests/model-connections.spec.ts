@@ -167,6 +167,7 @@ test.describe('model connection onboarding', () => {
       catalog: () => ({ json: { items: [{ id: 'gpt-5', name: 'GPT-5' }, { id: 'gpt-5-mini', name: 'GPT-5 mini' }] } }),
     })
     const dialog = await openModelForm(page)
+    await selectOption(dialog.getByLabel('Provider'), 'openai', 'OpenAI')
     await fillApiKey(dialog)
     await dialog.getByRole('button', { name: 'Test connection' }).click()
     await expect.poll(() => captured.catalog.length).toBe(1)
