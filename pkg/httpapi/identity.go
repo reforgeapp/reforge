@@ -75,7 +75,7 @@ func (s *Server) RegisterIdentity(service *auth.Service) {
 			IdentityFailure(c, err)
 			return
 		}
-		c.Redirect(http.StatusFound, "/org/"+org.ID)
+		c.Redirect(http.StatusFound, "/org/"+org.ID+"/overview")
 	})
 	s.Router.GET("/api/v1/session", s.IdentitySession(), func(c *gin.Context) { session, _ := SessionFromContext(c); c.JSON(200, session) })
 	s.Router.POST("/auth/logout", s.IdentitySession(), func(c *gin.Context) {
