@@ -1,6 +1,7 @@
 package mergecontrol
 
 import (
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -85,6 +86,26 @@ func TestEvaluateAllowsCompleteQualifiedNativeMerge(t *testing.T) {
 	got := Evaluate(snapshot, resolved, "squash", authority, now)
 	if got.Decision.Outcome != "allow" {
 		t.Fatalf("valid merge rejected: %+v", got.Decision)
+	}
+}
+
+func TestEvaluateCompanionWaitIsSeparateFromMergeAuthority(t *testing.T) {
+	now := time.Date(2026, 9, 21, 0, 0, 0, 0, time.UTC)
+	snapshot, resolved, authority := evaluationFixture(now)
+	authority.CompanionsBlocked = true
+	wait := "Waiting for related repair to finish before merging"
+	got := Evaluate(snapshot, resolved, "squash", authority, now)
+	if got.Decision.Outcome != "deny" || !slices.Contains(got.Decision.Blockers, wait) {
+		t.Fatalf("companion wait not shown as an automatic blocker: %+v", got.Decision)
+	}
+	if slices.Contains(got.Decision.Blockers, "requirement not proven: merge_authority") {
+		t.Fatalf("companion wait misreported as missing human merge permission: %+v", got.Decision)
+	}
+	authority.CompanionsBlocked = false
+	authority.MergeControlled = false
+	got = Evaluate(snapshot, resolved, "squash", authority, now)
+	if !slices.Contains(got.Decision.Blockers, "requirement not proven: merge_authority") {
+		t.Fatalf("missing human merge permission was not blocked: %+v", got.Decision)
 	}
 }
 

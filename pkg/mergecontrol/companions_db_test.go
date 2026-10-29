@@ -27,8 +27,8 @@ func TestCompanionsExcludePublishedFollowupOnSameChange(t *testing.T) {
 	}
 	t.Cleanup(db.Close)
 	org, user, repo := domain.NewID(), domain.NewID(), domain.NewID()
-	tasks := []string{domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()}
-	findings := []string{domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()}
+	tasks := []string{domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()}
+	findings := []string{domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID(), domain.NewID()}
 	const targetChange = "target-change"
 	if err = db.Identity(ctx, user, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, `INSERT INTO users(id,issuer,subject,name,email) VALUES($1,'companion-test',$2,'Owner',$3)`, user, user, user+"@example.test")
@@ -46,8 +46,8 @@ func TestCompanionsExcludePublishedFollowupOnSameChange(t *testing.T) {
 		if _, err := tx.Exec(ctx, `INSERT INTO repositories(org_id,id,native_id,name) VALUES($1,$2,'companion-repo','companion/repo')`, org, repo); err != nil {
 			return err
 		}
-		states := []string{"published", "published", "publishing", "published"}
-		changes := []string{targetChange, "separate-change", targetChange, ""}
+		states := []string{"published", "published", "publishing", "published", "validated"}
+		changes := []string{targetChange, "separate-change", targetChange, "", targetChange}
 		for i := range tasks {
 			if _, err := tx.Exec(ctx, `INSERT INTO maintenance_findings(org_id,id,repository_id,fingerprint,source,source_id,category,severity,title,evidence,evidence_digest) VALUES($1,$2,$3,$4,'native_ci',$5,'test_failure','high','Companion repair','{}',$4)`, org, findings[i], repo, strings.Repeat(string(rune('a'+i)), 64), "finding-"+findings[i]); err != nil {
 				return err
@@ -60,6 +60,9 @@ func TestCompanionsExcludePublishedFollowupOnSameChange(t *testing.T) {
 				return err
 			}
 			contextJSON := `{"finding":{"evidence":{"change":{"id":"` + targetChange + `"}}}}`
+			if i == 4 {
+				contextJSON = `{"finding":{"evidence":{"change":{"id":"` + targetChange + `"}}},"validation_task_id":"` + domain.NewID() + `"}`
+			}
 			nativeJSON := `{"id":"` + changes[i] + `","head_sha":"0123456789012345678901234567890123456789","state":"open"}`
 			if i == 3 {
 				nativeJSON = "{}"
@@ -81,8 +84,8 @@ func TestCompanionsExcludePublishedFollowupOnSameChange(t *testing.T) {
 		for _, item := range got {
 			seen[item.TaskID] = true
 		}
-		if len(got) != 3 || seen[tasks[0]] || !seen[tasks[1]] || !seen[tasks[2]] || !seen[tasks[3]] {
-			t.Fatalf("companions %+v; want separate published PR, unfinished same-PR repair and missing native identity", got)
+		if len(got) != 3 || seen[tasks[0]] || !seen[tasks[1]] || !seen[tasks[2]] || !seen[tasks[3]] || seen[tasks[4]] {
+			t.Fatalf("companions %+v; want real repair companions, excluding same-change follow-up and validation child", got)
 		}
 		return nil
 	}); err != nil {

@@ -83,8 +83,32 @@ func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) 
 		t.Fatalf("candidate %+v; want accessible, unpaused manual repair %s", picked, tasks[0])
 	}
 	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, `INSERT INTO autopilot_bot_merges(org_id,repository_id,change_id,head_sha,reason,merge_after) VALUES($1,$2,$3,'head','Adopted existing Reforge repair: CI failing',clock_timestamp()+interval '1 hour')`, org, eligibleRepo, "change-"+tasks[0])
+		_, err := tx.Exec(ctx, `INSERT INTO autopilot_bot_merges(org_id,repository_id,change_id,head_sha,reason,merge_after,needs_human) VALUES($1,$2,$3,'head','Adopted existing Reforge repair: CI failing',clock_timestamp()+interval '1 hour',true)`, org, eligibleRepo, "change-"+tasks[0])
 		return err
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err = db.Tenant(ctx, org, user, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `UPDATE autopilot_bot_merges SET updated_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2 AND change_id=$3`, org, eligibleRepo, "change-"+tasks[0]); err != nil {
+			return err
+		}
+		if _, err := selectMergeCandidate(ctx, tx, org); err != pgx.ErrNoRows {
+			t.Fatalf("recent human wait was retried: %v", err)
+		}
+		if _, err := tx.Exec(ctx, `UPDATE autopilot_bot_merges SET updated_at=clock_timestamp()-interval '6 minutes' WHERE org_id=$1 AND repository_id=$2 AND change_id=$3`, org, eligibleRepo, "change-"+tasks[0]); err != nil {
+			return err
+		}
+		picked, err := selectMergeCandidate(ctx, tx, org)
+		if err != nil || picked.task != tasks[0] || !picked.adopted {
+			t.Fatalf("aged adopted human wait did not become eligible: %+v %v", picked, err)
+		}
+		if _, err = tx.Exec(ctx, `UPDATE autopilot_bot_merges SET needs_human=false,updated_at=clock_timestamp() WHERE org_id=$1 AND repository_id=$2 AND change_id=$3`, org, eligibleRepo, "change-"+tasks[0]); err != nil {
+			return err
+		}
+		if _, err = selectMergeCandidate(ctx, tx, org); err != pgx.ErrNoRows {
+			t.Fatalf("future non-human cooldown was ignored: %v", err)
+		}
+		return nil
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -106,6 +130,22 @@ func TestPublishedRepairAdoptionScopeCooldownAndAttemptProvenance(t *testing.T) 
 		picked, err = selectMergeCandidate(ctx, tx, org)
 		if err != nil || picked.task != tasks[0] || picked.adopted {
 			t.Fatalf("attempt cooldown NULL was overridden by per-PR cooldown: %+v %v", picked, err)
+		}
+		if _, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET merge_needs_human=true,merge_after=clock_timestamp()+interval '1 hour',updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, findings[0]); err != nil {
+			return err
+		}
+		if _, err = selectMergeCandidate(ctx, tx, org); err != pgx.ErrNoRows {
+			t.Fatalf("recent owned human wait was retried: %v", err)
+		}
+		if _, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET updated_at=clock_timestamp()-interval '6 minutes' WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, findings[0]); err != nil {
+			return err
+		}
+		picked, err = selectMergeCandidate(ctx, tx, org)
+		if err != nil || picked.task != tasks[0] || picked.adopted {
+			t.Fatalf("aged owned human wait did not become eligible: %+v %v", picked, err)
+		}
+		if _, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET merge_needs_human=false,merge_after=NULL,updated_at=clock_timestamp() WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, findings[0]); err != nil {
+			return err
 		}
 		if _, err = tx.Exec(ctx, `UPDATE autopilot_attempts SET merge_after=clock_timestamp()+interval '1 hour' WHERE org_id=$1 AND finding_id=$2 AND finding_version=1`, org, findings[0]); err != nil {
 			return err

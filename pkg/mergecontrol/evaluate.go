@@ -116,8 +116,12 @@ func Evaluate(snapshot Snapshot, resolved policy.Resolved, method string, author
 	}
 	add("target_enforcement", strict, "target-enforcement:"+rules.Hash, 0)
 	add("exact_head_guard", qualified && authority.ExactHeadEnforced, "native-capability:"+binding.CapabilityVersion, 0)
-	add("merge_authority", authority.MergeControlled && authority.CooperationVerified && !authority.CompanionsBlocked, "repository-merge-authority", 0)
+	add("merge_authority", authority.MergeControlled && authority.CooperationVerified, "repository-merge-authority", 0)
 	decision := policy.Evaluate(resolved, policy.Input{Action: policy.Merge, MergeMethod: method, Current: binding, Evidence: evidence, Paths: authority.Paths, Usage: authority.Usage, Now: now})
+	if authority.CompanionsBlocked {
+		decision.Outcome = "deny"
+		decision.Blockers = append(decision.Blockers, "Waiting for related repair to finish before merging")
+	}
 	if len(authority.Blockers) > 0 {
 		decision.Outcome = "deny"
 		decision.Blockers = append(decision.Blockers, authority.Blockers...)
