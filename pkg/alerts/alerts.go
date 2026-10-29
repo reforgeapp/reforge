@@ -336,7 +336,11 @@ func deliver(server SMTP, to []string, e email) error {
 			return err
 		}
 	}
-	if err = client.Mail(server.From); err != nil {
+	sender, err := mail.ParseAddress(server.From)
+	if err != nil {
+		return err
+	}
+	if err = client.Mail(sender.Address); err != nil {
 		return err
 	}
 	for _, recipient := range to {
