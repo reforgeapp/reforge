@@ -4,7 +4,7 @@ import { Button, Dialog } from '../components/Accessible'
 import { StatePanel } from '../components/StatePanel'
 import { StatusBadge } from '../components/Status'
 import { api, ReforgeAPIError } from '../api/client'
-import { organisationAPI, type Membership, type OrgOIDCSettings, type OrgOIDCInvitation, type CreatedOrgOIDCInvitation } from '../organisation-api'
+import { organisationAPI, type CreatedMemberInvitation, type Membership, type OrgOIDCSettings, type OrgOIDCInvitation, type CreatedOrgOIDCInvitation } from '../organisation-api'
 import '../styles/organisation.css'
 import { useSession } from './query'
 import { Tabs } from '../components/Workspace'
@@ -357,6 +357,67 @@ function TeamsSection({ orgID }: { orgID: string }) {
   </div>
 }
 
+function InviteMember({ orgID, csrf }: { orgID: string; csrf: string }) {
+  const client = useQueryClient()
+  const [open, setOpen] = useState(false)
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<Membership['role']>('maintainer')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [created, setCreated] = useState<CreatedMemberInvitation>()
+  const close = () => { setOpen(false); setEmail(''); setError(''); setCreated(undefined) }
+  const submit = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      setCreated(await organisationAPI.inviteMember(orgID, { email: email.trim(), role }, csrf))
+      await client.invalidateQueries({ queryKey: ['org', orgID, 'member-invitations'] })
+    } catch (reason) {
+      setError(errorText(reason))
+    } finally {
+      setBusy(false)
+    }
+  }
+  return <>
+    <Button className="button button-primary" disabled={!csrf} onClick={() => setOpen(true)}>Invite</Button>
+    <Dialog open={open} title="Invite member" onClose={close}>
+      {created ? <div className="organisation-invite-result">
+        <p role="status">{created.email_sent ? `Invitation sent to ${email.trim()}.` : 'Email could not be sent. Share this link; it works once and expires in 7 days.'}</p>
+        {!created.email_sent && <input readOnly value={created.link} onFocus={event => event.target.select()} aria-label="Invitation link" />}
+        <div className="organisation-form-actions"><Button type="button" onClick={close}>Done</Button></div>
+      </div> : <form onSubmit={submit}>
+        <label className="organisation-field">Email<input type="email" required value={email} onChange={event => setEmail(event.target.value)} disabled={busy} autoFocus /></label>
+        <label className="organisation-field">Role<select value={role} onChange={event => setRole(event.target.value as Membership['role'])} disabled={busy}>{roles.map(item => <option key={item} value={item}>{item}</option>)}</select></label>
+        {error && <p className="organisation-error" role="alert">{error}</p>}
+        <div className="organisation-form-actions"><Button type="button" onClick={close}>Cancel</Button><Button className="button button-primary" type="submit" disabled={busy || !email.trim()}>{busy ? 'Sending…' : 'Send invitation'}</Button></div>
+      </form>}
+    </Dialog>
+  </>
+}
+
+function PendingInvitations({ orgID, csrf }: { orgID: string; csrf: string }) {
+  const client = useQueryClient()
+  const invitations = useQuery({ queryKey: ['org', orgID, 'member-invitations'], queryFn: ({ signal }) => organisationAPI.memberInvitations(orgID, signal) })
+  const [error, setError] = useState('')
+  const items = invitations.data?.items ?? []
+  if (!items.length) return null
+  const revoke = async (id: string) => {
+    setError('')
+    try {
+      await organisationAPI.revokeMemberInvitation(orgID, id, csrf)
+      await client.invalidateQueries({ queryKey: ['org', orgID, 'member-invitations'] })
+    } catch (reason) {
+      setError(errorText(reason))
+    }
+  }
+  return <section className="organisation-pending" aria-label="Pending invitations">
+    <h3>Pending invitations</h3>
+    {error && <p className="organisation-error" role="alert">{error}</p>}
+    <ul>{items.map(item => <li key={item.id}><span>{item.email}</span><span className="table-meta">{item.role} · expires {new Date(item.expires_at).toLocaleDateString()}</span><Button className="button button-sm" disabled={!csrf} onClick={() => void revoke(item.id)}>Revoke</Button></li>)}</ul>
+  </section>
+}
+
 function MembersSection({ orgID }: { orgID: string }) {
   const session = useSession()
   const client = useQueryClient()
@@ -432,7 +493,8 @@ function MembersSection({ orgID }: { orgID: string }) {
   if (members.error && !members.data) return <div className="organisation-state" role="alert"><span>Members unavailable: {errorText(members.error)}</span><Button onClick={() => void members.refetch()}>Retry</Button></div>
 
   return <div className="organisation-workspace">
-    <header className="organisation-toolbar"><div><strong>{items.length}</strong> {items.length === 1 ? 'member' : 'members'}</div></header>
+    <header className="organisation-toolbar"><div><strong>{items.length}</strong> {items.length === 1 ? 'member' : 'members'}</div><InviteMember orgID={orgID} csrf={csrf} /></header>
+    <PendingInvitations orgID={orgID} csrf={csrf} />
     {members.error && <p className="organisation-error" role="alert">Could not refresh members: {errorText(members.error)} <Button onClick={() => void members.refetch()}>Retry</Button></p>}
     {error && <p className="organisation-error" role="alert">{error}</p>}
     {items.length === 0 ? <p className="organisation-empty">No members found.</p> : <div className="organisation-split">

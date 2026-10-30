@@ -35,7 +35,13 @@ export type OrgOIDCSettings = {
 const versionTag = (version: number) => `"${version}"`
 const base = (orgID: string) => `/api/v1/orgs/${encodeURIComponent(orgID)}`
 
+export type MemberInvitation = { id: string; email: string; role: Membership['role']; expires_at: string }
+export type CreatedMemberInvitation = { email_sent: boolean; link: string }
+
 export const organisationAPI = {
+  memberInvitations: (orgID: string, signal?: AbortSignal) => apiRequest<{ items: MemberInvitation[] }>(`${base(orgID)}/member-invitations`, { signal }),
+  inviteMember: (orgID: string, input: { email: string; role: Membership['role'] }, csrf: string) => apiRequest<CreatedMemberInvitation>(`${base(orgID)}/member-invitations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
+  revokeMemberInvitation: (orgID: string, id: string, csrf: string) => apiRequest<void>(`${base(orgID)}/member-invitations/${encodeURIComponent(id)}`, { method: 'DELETE' }, csrf),
   memberships: (orgID: string, cursor?: string, signal?: AbortSignal) => apiRequest<MembershipPage>(`${base(orgID)}/memberships?limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ''}`, { signal }),
   putMember: (orgID: string, userID: string, version: number, input: MembershipInput, csrf: string) => apiRequest<Membership>(`${base(orgID)}/memberships/${encodeURIComponent(userID)}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', 'If-Match': versionTag(version) }, body: JSON.stringify(input) }, csrf),
   deleteMember: (orgID: string, userID: string, version: number, csrf: string) => apiRequest<void>(`${base(orgID)}/memberships/${encodeURIComponent(userID)}`, { method: 'DELETE', headers: { 'If-Match': versionTag(version) } }, csrf),

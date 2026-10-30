@@ -87,3 +87,11 @@
 .alert-grid .span-2 { grid-column: span 2; }
 .alert-grid .span-4 { grid-column: 1 / -1; }
 @media (max-width: 720px) { .alert-grid { grid-template-columns: minmax(0, 1fr); } .alert-grid .span-2 { grid-column: auto; } }
+.organisation-pending { display: grid; gap: 6px; }
+.organisation-pending h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted); }
+.organisation-pending ul { display: grid; margin: 0; padding: 0; list-style: none; border: 1px solid var(--border); border-radius: var(--radius); }
+.organisation-pending li { display: flex; align-items: center; gap: 12px; padding: 8px 12px; }
+.organisation-pending li + li { border-top: 1px solid var(--border); }
+.organisation-pending li > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
+.organisation-invite-result { display: grid; gap: 12px; }
+.organisation-invite-result input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
