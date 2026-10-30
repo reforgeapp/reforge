@@ -360,3 +360,19 @@ func deliver(server SMTP, to []string, e email) error {
 	}
 	return client.Quit()
 }
+
+func (s *Service) Invite(ctx context.Context, session auth.Session, org, to, orgName, token string) error {
+	var settings Settings
+	if err := s.auth.WithActor(ctx, session, org, func(tx pgx.Tx, a domain.Actor) error {
+		var err error
+		settings, err = s.settingsTx(ctx, tx, org)
+		return err
+	}); err != nil {
+		return err
+	}
+	server, ok := s.server(ctx, org, settings)
+	if !ok {
+		return ErrNotConfigured
+	}
+	return SendInvitation(server, to, orgName, s.publicURL+"/auth/join?token="+token)
+}

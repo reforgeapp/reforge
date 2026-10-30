@@ -5,9 +5,11 @@ import (
 	"errors"
 	"net/http/httptest"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/reforgeapp/reforge/pkg/domain"
 	"github.com/reforgeapp/reforge/pkg/store"
 )
 
@@ -36,10 +38,11 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err = CreatePlatformInvitation(ctx, db, "Acme", "not an email"); !errors.Is(err, ErrInvalid) {
+	acme, globex := "Acme "+string(domain.NewID())[:8], "Globex "+string(domain.NewID())[:8]
+	if _, err = CreatePlatformInvitation(ctx, db, acme, "not an email"); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("invalid email accepted: %v", err)
 	}
-	token, err := CreatePlatformInvitation(ctx, db, "Acme", "Owner@Example.com")
+	token, err := CreatePlatformInvitation(ctx, db, acme, "Owner@Example.com")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -48,23 +51,72 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 	}
 	identity.cfg.Edition = "hosted"
 	org, err := identity.RedeemPlatformInvitation(ctx, session, token, "request-redeem")
-	if err != nil || org.Name != "Acme" {
+	if err != nil || org.Name != acme {
 		t.Fatalf("redeem: %+v %v", org, err)
 	}
 	if _, err = identity.RedeemPlatformInvitation(ctx, session, token, "request-reuse"); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("invitation reused: %v", err)
 	}
+	if _, err = CreatePlatformInvitation(ctx, db, strings.ToLower(acme), "owner@example.com"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("accepted invitation re-issued: %v", err)
+	}
+	first, err := CreatePlatformInvitation(ctx, db, globex, "lead@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := CreatePlatformInvitation(ctx, db, globex, "lead@example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = identity.RedeemPlatformInvitation(ctx, session, first, "request-stale"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("superseded token redeemed: %v", err)
+	}
+	pending, err := PlatformInvitations(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	count := 0
+	for _, p := range pending {
+		if p.OrgName == globex {
+			count++
+			if err = RevokePlatformInvitation(ctx, db, p.ID); err != nil {
+				t.Fatal(err)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("pending Globex invitations: %d", count)
+	}
+	if _, err = identity.RedeemPlatformInvitation(ctx, session, second, "request-revoked"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("revoked invitation redeemed: %v", err)
+	}
 	session, err = identity.Authenticate(ctx, cookie)
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, m := range session.Memberships {
-		if m.OrgID == org.ID {
-			if m.Role != "owner" {
-				t.Fatalf("role %q", m.Role)
+	memberToken, orgName, err := identity.CreateMemberInvitation(ctx, session, org.ID, "colleague@example.com", "maintainer", "request-member")
+	if err != nil || orgName != acme {
+		t.Fatalf("member invitation: %q %v", orgName, err)
+	}
+	listed, err := identity.MemberInvitations(ctx, session, org.ID)
+	if err != nil || len(listed) != 1 || listed[0].Role != "maintainer" {
+		t.Fatalf("member invitations: %+v %v", listed, err)
+	}
+	joined, err := identity.RedeemPlatformInvitation(ctx, session, memberToken, "request-join")
+	if err != nil || joined.ID != org.ID {
+		t.Fatalf("member join: %+v %v", joined, err)
+	}
+	tenants, err := PlatformTenants(ctx, db)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, tenant := range tenants {
+		if tenant.ID == org.ID {
+			if tenant.Name != acme || tenant.Members != 1 {
+				t.Fatalf("tenant %+v", tenant)
 			}
 			return
 		}
 	}
-	t.Fatal("membership missing")
+	t.Fatal("tenant missing")
 }
