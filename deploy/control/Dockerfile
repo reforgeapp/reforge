@@ -15,7 +15,9 @@ RUN CGO_ENABLED=0 go build -trimpath -o /out/reforge ./cmd/server \
  && CGO_ENABLED=0 go build -trimpath -o /out/reforge-evidence ./cmd/evidence
 
 FROM alpine:3.21@sha256:ce64758a109eb420d874a118f87920e625e12d3634e03b4a5573fd9f6e5d3507
-RUN apk upgrade --no-cache \
+ARG BASE_REFRESH
+RUN : "${BASE_REFRESH}" \
+ && apk upgrade --no-cache \
  && apk add --no-cache ca-certificates \
  && adduser -D -u 10001 reforge \
  && mkdir -p /app/var/artifacts \

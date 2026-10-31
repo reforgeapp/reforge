@@ -108,6 +108,7 @@ jobs:
           load: true
           tags: ${{ matrix.image }}:scan
           labels: ${{ steps.meta.outputs.labels }}
+          build-args: BASE_REFRESH=${{ github.run_id }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
       - uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25
