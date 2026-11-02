@@ -33,13 +33,8 @@ type Tenant struct {
 	Repositories int       `json:"repositories"`
 }
 
-func platformAdmin(ctx context.Context, db *store.Store, fn func(pgx.Tx) error) error {
-	return db.Identity(ctx, "", func(tx pgx.Tx) error {
-		if _, err := tx.Exec(ctx, `SELECT set_config('reforge.platform_admin','true',true)`); err != nil {
-			return err
-		}
-		return fn(tx)
-	})
+func platformAdmin(ctx context.Context, staff *store.Store, fn func(pgx.Tx) error) error {
+	return pgx.BeginFunc(ctx, staff.Pool, fn)
 }
 
 func CreatePlatformInvitation(ctx context.Context, db *store.Store, orgName, email string) (string, error) {
