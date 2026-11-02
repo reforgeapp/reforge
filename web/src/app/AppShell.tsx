@@ -170,7 +170,7 @@ export function AppShell() {
 
   const signOut = async () => {
     if (!session.data) return
-    try { await api.logout(session.data.csrf_token) } finally { clearOrganisationQueries(queryClient); queryClient.removeQueries({ queryKey: ['session'] }); await queryClient.invalidateQueries({ queryKey: ['session'] }) }
+    try { await api.logout(session.data.csrf_token) } finally { clearOrganisationQueries(queryClient); queryClient.removeQueries({ queryKey: ['session'] }); window.location.assign('/auth/signed-out') }
   }
 
   if (window.location.pathname === '/invite') return <Outlet />

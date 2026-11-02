@@ -49,6 +49,7 @@ type Service struct {
 	cfg          Config
 	origin       *url.URL
 	verifier     *oidc.IDTokenVerifier
+	endSession   string
 	oauth        oauth2.Config
 	httpClient   *http.Client
 	orgOIDCVault *secrets.Vault
@@ -109,6 +110,14 @@ func New(ctx context.Context, db *store.Store, cfg Config) (*Service, error) {
 			return nil, fmt.Errorf("OIDC discovery failed: %w", err)
 		}
 		s.verifier = provider.Verifier(&oidc.Config{ClientID: cfg.OIDCClientID})
+		var metadata struct {
+			EndSession string `json:"end_session_endpoint"`
+		}
+		if provider.Claims(&metadata) == nil {
+			if endpoint, err := url.Parse(metadata.EndSession); err == nil && endpoint.Scheme == "https" && endpoint.Host != "" {
+				s.endSession = metadata.EndSession
+			}
+		}
 		s.oauth = oauth2.Config{ClientID: cfg.OIDCClientID, ClientSecret: cfg.OIDCClientSecret, Endpoint: provider.Endpoint(), RedirectURL: cfg.PublicURL + "/auth/callback", Scopes: []string{oidc.ScopeOpenID, "profile", "email"}}
 	}
 	if cfg.BootstrapToken != "" {
@@ -369,6 +378,13 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 		err = ErrUnauthenticated
 	}
 	return session, err
+}
+
+func (s *Service) SignedOutURL() string {
+	if s.endSession == "" {
+		return "/"
+	}
+	return s.endSession + "?" + url.Values{"client_id": {s.cfg.OIDCClientID}, "post_logout_redirect_uri": {s.cfg.PublicURL}}.Encode()
 }
 
 func (s *Service) Logout(ctx context.Context, session Session) error {
