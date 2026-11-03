@@ -95,3 +95,5 @@
 .organisation-pending li > span:first-child { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-weight: 600; }
 .organisation-invite-result { display: grid; gap: 12px; }
 .organisation-invite-result input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 12px; }
+.identity-signin-link { display: inline-flex; align-items: center; gap: 8px; min-width: 0; }
+.identity-signin-link code { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }

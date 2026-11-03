@@ -151,7 +151,7 @@ function IdentitySettings({ orgID }: { orgID: string }) {
     <div className="identity-actions identity-operations">
       {settings?.configured && <Button type="button" disabled={busy || !csrf || settings.status === 'disabled' || dirty || query.isFetching} onClick={() => void probe()}>{busy ? 'Working…' : 'Probe issuer metadata'}</Button>}
       {settings?.status === 'probe_verified' && settings.activation_available && !dirty && <Button type="button" disabled={busy || !csrf} onClick={() => void activate()}>Activate login</Button>}
-      {settings?.status === 'active' && !dirty && <a className="button button-primary" href={`/auth/login?org_id=${encodeURIComponent(orgID)}`} target="_blank" rel="noreferrer">Open organisation sign-in</a>}
+      {settings?.status === 'active' && !dirty && <SignInLink orgID={orgID} />}
       {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
     </div>
     {settings?.status === 'active' ? <InvitationsSection orgID={orgID} csrf={csrf} /> : <section className="identity-invitations"><h2>Invitations</h2><p>Activate organisation login to invite people.</p></section>}
@@ -355,6 +355,13 @@ function TeamsSection({ orgID }: { orgID: string }) {
     <Dialog open={createOpen} title="Create team" onClose={() => setCreateOpen(false)}><form className="organisation-create-form" onSubmit={create}><label className="organisation-field">Team name<input autoFocus value={newName} maxLength={160} onChange={event => setNewName(event.target.value)} required /></label><div className="organisation-form-actions"><Button type="button" onClick={() => setCreateOpen(false)}>Cancel</Button><Button type="submit" disabled={busy || !csrf || !newName.trim()}>{busy ? 'Creating…' : 'Create team'}</Button></div></form></Dialog>
     <Dialog open={confirmDelete} title="Delete team" onClose={() => setConfirmDelete(false)}><p>Delete {selected?.name}? Members lose access granted by this team.</p><div className="organisation-form-actions"><Button type="button" onClick={() => setConfirmDelete(false)}>Cancel</Button><Button className="button button-danger" type="button" disabled={busy || !csrf} onClick={() => void remove()}>{busy ? 'Deleting…' : 'Delete team'}</Button></div></Dialog>
   </div>
+}
+
+function SignInLink({ orgID }: { orgID: string }) {
+  const link = `${window.location.origin}/sign-in?org=${encodeURIComponent(orgID)}`
+  const [copied, setCopied] = useState(false)
+  const copy = async () => { try { await navigator.clipboard.writeText(link); setCopied(true) } catch {} }
+  return <span className="identity-signin-link"><code>{link}</code><Button type="button" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy sign-in link'}</Button></span>
 }
 
 function InviteMember({ orgID, csrf }: { orgID: string; csrf: string }) {
