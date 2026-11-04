@@ -26,7 +26,20 @@ func (s *Server) RegisterIdentity(service *auth.Service) {
 			IdentityFailure(c, auth.ErrInvalid)
 			return
 		}
+		slug := c.Query("org")
+		if slug != "" && len(orgIDs) == 0 {
+			orgID, err := service.OrgForSlug(c.Request.Context(), slug)
+			if err != nil {
+				c.Redirect(http.StatusFound, "/sign-in?sso=unavailable")
+				return
+			}
+			orgIDs = []string{orgID}
+		}
 		location, err := service.Login(c.Request.Context(), c.Writer, orgIDs...)
+		if err != nil && slug != "" {
+			c.Redirect(http.StatusFound, "/sign-in?sso=unavailable")
+			return
+		}
 		if err != nil {
 			loginFailure(c, len(orgIDs) > 0, err)
 			return
@@ -128,6 +141,21 @@ func (s *Server) RegisterIdentity(service *auth.Service) {
 			return
 		}
 		c.JSON(200, page)
+	})
+	org.PUT("/slug", func(c *gin.Context) {
+		var input struct {
+			Slug string `json:"slug"`
+		}
+		if !identityJSON(c, &input) {
+			return
+		}
+		session, _ := SessionFromContext(c)
+		slug, err := service.SetOrganisationSlug(c.Request.Context(), session, c.Param("orgID"), input.Slug, c.GetString("request_id"))
+		if err != nil {
+			IdentityFailure(c, err)
+			return
+		}
+		c.JSON(200, gin.H{"slug": slug})
 	})
 	org.PUT("/memberships/:userID", func(c *gin.Context) {
 		version, ok := identityVersion(c)

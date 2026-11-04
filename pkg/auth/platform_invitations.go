@@ -15,6 +15,7 @@ import (
 )
 
 var ErrInvitationAccepted = fmt.Errorf("invitation already accepted: %w", ErrConflict)
+var ErrSlugTaken = fmt.Errorf("short name already in use: %w", ErrConflict)
 
 type PendingInvitation struct {
 	ID        string      `json:"id"`
@@ -37,10 +38,11 @@ func platformAdmin(ctx context.Context, staff *store.Store, fn func(pgx.Tx) erro
 	return pgx.BeginFunc(ctx, staff.Pool, fn)
 }
 
-func CreatePlatformInvitation(ctx context.Context, db *store.Store, orgName, email string) (string, error) {
+func CreatePlatformInvitation(ctx context.Context, db *store.Store, orgName, email, rawSlug string) (string, error) {
 	name := strings.TrimSpace(orgName)
 	address, ok := normalizeInvitationEmail(email)
-	if !ok || name == "" || len(name) > 160 {
+	slug, slugOK := NormaliseSlug(rawSlug)
+	if !ok || name == "" || len(name) > 160 || rawSlug != "" && !slugOK {
 		return "", ErrInvalid
 	}
 	token := randomToken()
@@ -52,11 +54,18 @@ func CreatePlatformInvitation(ctx context.Context, db *store.Store, orgName, ema
 		if accepted {
 			return ErrInvitationAccepted
 		}
-		tag, err := tx.Exec(ctx, `UPDATE platform_invitations SET token_hash=$3,expires_at=now()+interval '7 days' WHERE target_org_id IS NULL AND email=$1 AND lower(org_name)=lower($2) AND redeemed_at IS NULL AND revoked_at IS NULL`, address, name, digest(token))
+		var taken bool
+		if err := tx.QueryRow(ctx, `SELECT EXISTS(SELECT 1 FROM organisations WHERE slug=$1)`, slug).Scan(&taken); err != nil {
+			return err
+		}
+		if taken {
+			return ErrSlugTaken
+		}
+		tag, err := tx.Exec(ctx, `UPDATE platform_invitations SET token_hash=$3,slug=nullif($4,''),expires_at=now()+interval '7 days' WHERE target_org_id IS NULL AND email=$1 AND lower(org_name)=lower($2) AND redeemed_at IS NULL AND revoked_at IS NULL`, address, name, digest(token), slug)
 		if err != nil || tag.RowsAffected() > 0 {
 			return err
 		}
-		_, err = tx.Exec(ctx, `INSERT INTO platform_invitations(id,token_hash,email,org_name,expires_at) VALUES($1,$2,$3,$4,now()+interval '7 days')`, domain.NewID(), digest(token), address, name)
+		_, err = tx.Exec(ctx, `INSERT INTO platform_invitations(id,token_hash,email,org_name,slug,expires_at) VALUES($1,$2,$3,$4,nullif($5,''),now()+interval '7 days')`, domain.NewID(), digest(token), address, name, slug)
 		return err
 	})
 	return token, err
@@ -173,13 +182,13 @@ func (s *Service) RedeemPlatformInvitation(ctx context.Context, session Session,
 	if len(token) != 43 {
 		return org, ErrForbidden
 	}
-	var id, target string
+	var id, target, slug string
 	var role domain.Role
 	err := s.db.Identity(ctx, session.User.ID, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `SELECT set_config('reforge.platform_invitation_hash',$1,true)`, digest(token)); err != nil {
 			return err
 		}
-		return tx.QueryRow(ctx, `SELECT id::text,org_name,coalesce(target_org_id::text,''),role FROM platform_invitations WHERE token_hash=$1 AND redeemed_at IS NULL AND revoked_at IS NULL AND expires_at>now()`, digest(token)).Scan(&id, &org.Name, &target, &role)
+		return tx.QueryRow(ctx, `SELECT id::text,org_name,coalesce(target_org_id::text,''),role,coalesce(slug,'') FROM platform_invitations WHERE token_hash=$1 AND redeemed_at IS NULL AND revoked_at IS NULL AND expires_at>now()`, digest(token)).Scan(&id, &org.Name, &target, &role, &slug)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return org, ErrForbidden
@@ -204,7 +213,11 @@ func (s *Service) RedeemPlatformInvitation(ctx context.Context, session Session,
 		action := "membership.invitation_redeemed"
 		if target == "" {
 			action = "organisation.invitation_redeemed"
-			if _, err := tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,$2)`, org.ID, org.Name); err != nil {
+			tag, err := tx.Exec(ctx, `INSERT INTO organisations(id,name,slug) VALUES($1,$2,nullif($3,'')) ON CONFLICT (slug) DO NOTHING`, org.ID, org.Name, slug)
+			if err == nil && tag.RowsAffected() == 0 {
+				_, err = tx.Exec(ctx, `INSERT INTO organisations(id,name) VALUES($1,$2)`, org.ID, org.Name)
+			}
+			if err != nil {
 				return err
 			}
 		}

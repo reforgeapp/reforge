@@ -12195,6 +12195,9 @@
           "name": {
             "type": "string"
           },
+          "slug": {
+            "type": "string"
+          },
           "version": {
             "type": "integer",
             "format": "int64"

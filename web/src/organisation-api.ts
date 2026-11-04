@@ -39,6 +39,7 @@ export type MemberInvitation = { id: string; email: string; role: Membership['ro
 export type CreatedMemberInvitation = { email_sent: boolean; link: string }
 
 export const organisationAPI = {
+  putSlug: (orgID: string, slug: string, csrf: string) => apiRequest<{ slug: string }>(`${base(orgID)}/slug`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ slug }) }, csrf),
   memberInvitations: (orgID: string, signal?: AbortSignal) => apiRequest<{ items: MemberInvitation[] }>(`${base(orgID)}/member-invitations`, { signal }),
   inviteMember: (orgID: string, input: { email: string; role: Membership['role'] }, csrf: string) => apiRequest<CreatedMemberInvitation>(`${base(orgID)}/member-invitations`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) }, csrf),
   revokeMemberInvitation: (orgID: string, id: string, csrf: string) => apiRequest<void>(`${base(orgID)}/member-invitations/${encodeURIComponent(id)}`, { method: 'DELETE' }, csrf),

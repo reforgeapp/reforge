@@ -2350,10 +2350,11 @@ type OrgOIDCSettings struct {
 }
 type OrgOIDCSettingsStatus string
 type Organisation struct {
-	Id      string `json:"id"`
-	Name    string `json:"name"`
-	Paused  bool   `json:"paused"`
-	Version int64  `json:"version"`
+	Id      string  `json:"id"`
+	Name    string  `json:"name"`
+	Paused  bool    `json:"paused"`
+	Slug    *string `json:"slug,omitempty"`
+	Version int64   `json:"version"`
 }
 type Overview struct {
 	Attention []OverviewAttention    `json:"attention"`

@@ -34,7 +34,7 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer staff.Close()
-	if _, err = CreatePlatformInvitation(ctx, db, "Runtime "+string(domain.NewID())[:8], "runtime@example.com"); err == nil {
+	if _, err = CreatePlatformInvitation(ctx, db, "Runtime "+string(domain.NewID())[:8], "runtime@example.com", ""); err == nil {
 		t.Fatal("runtime role created a tenant invitation")
 	}
 	identity, err := New(ctx, db, Config{PublicURL: "http://127.0.0.1:8080", Edition: "self-hosted", Development: true, FixtureAuth: true, ListenAddress: "127.0.0.1:8080"})
@@ -51,10 +51,10 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	acme, globex := "Acme "+string(domain.NewID())[:8], "Globex "+string(domain.NewID())[:8]
-	if _, err = CreatePlatformInvitation(ctx, staff, acme, "not an email"); !errors.Is(err, ErrInvalid) {
+	if _, err = CreatePlatformInvitation(ctx, staff, acme, "not an email", ""); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("invalid email accepted: %v", err)
 	}
-	token, err := CreatePlatformInvitation(ctx, staff, acme, "Owner@Example.com")
+	token, err := CreatePlatformInvitation(ctx, staff, acme, "Owner@Example.com", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -69,14 +69,14 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 	if _, err = identity.RedeemPlatformInvitation(ctx, session, token, "request-reuse"); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("invitation reused: %v", err)
 	}
-	if _, err = CreatePlatformInvitation(ctx, staff, strings.ToLower(acme), "owner@example.com"); !errors.Is(err, ErrConflict) {
+	if _, err = CreatePlatformInvitation(ctx, staff, strings.ToLower(acme), "owner@example.com", ""); !errors.Is(err, ErrConflict) {
 		t.Fatalf("accepted invitation re-issued: %v", err)
 	}
-	first, err := CreatePlatformInvitation(ctx, staff, globex, "lead@example.com")
+	first, err := CreatePlatformInvitation(ctx, staff, globex, "lead@example.com", "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	second, err := CreatePlatformInvitation(ctx, staff, globex, "lead@example.com")
+	second, err := CreatePlatformInvitation(ctx, staff, globex, "lead@example.com", "")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -117,6 +117,37 @@ func TestPlatformInvitationCreatesOrganisationOnce(t *testing.T) {
 	joined, err := identity.RedeemPlatformInvitation(ctx, session, memberToken, "request-join")
 	if err != nil || joined.ID != org.ID {
 		t.Fatalf("member join: %+v %v", joined, err)
+	}
+	slug := "t" + string(domain.NewID())[:8]
+	slugToken, err := CreatePlatformInvitation(ctx, staff, "Initech "+slug, "boss@example.com", slug)
+	if err != nil {
+		t.Fatal(err)
+	}
+	initech, err := identity.RedeemPlatformInvitation(ctx, session, slugToken, "request-slug")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if found, err := identity.OrgForSlug(ctx, strings.ToUpper(slug)); err != nil || found != initech.ID {
+		t.Fatalf("slug lookup: %q %v", found, err)
+	}
+	if _, err = CreatePlatformInvitation(ctx, staff, "Other "+slug, "other@example.com", slug); !errors.Is(err, ErrConflict) {
+		t.Fatalf("taken slug accepted: %v", err)
+	}
+	session, err = identity.Authenticate(ctx, cookie)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err = identity.SetOrganisationSlug(ctx, session, initech.ID, "admin", "request-reserved"); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("reserved slug accepted: %v", err)
+	}
+	if _, err = identity.SetOrganisationSlug(ctx, session, org.ID, slug, "request-duplicate"); !errors.Is(err, ErrConflict) {
+		t.Fatalf("duplicate slug accepted: %v", err)
+	}
+	if _, err = identity.SetOrganisationSlug(ctx, session, initech.ID, slug+"x", "request-rename"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err = identity.OrgForSlug(ctx, slug); !errors.Is(err, ErrUnauthenticated) {
+		t.Fatalf("old slug still resolves: %v", err)
 	}
 	tenants, err := PlatformTenants(ctx, staff)
 	if err != nil {

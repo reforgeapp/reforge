@@ -364,7 +364,7 @@ func (s *Service) Authenticate(ctx context.Context, token string) (Session, erro
 				return err
 			}
 			var org domain.Organisation
-			if err = tx.QueryRow(ctx, `SELECT id::text,name,version,paused FROM organisations WHERE id=$1`, m.OrgID).Scan(&org.ID, &org.Name, &org.Version, &org.Paused); err != nil {
+			if err = tx.QueryRow(ctx, `SELECT id::text,name,coalesce(slug,''),version,paused FROM organisations WHERE id=$1`, m.OrgID).Scan(&org.ID, &org.Name, &org.Slug, &org.Version, &org.Paused); err != nil {
 				return err
 			}
 			session.Organisations = append(session.Organisations, org)

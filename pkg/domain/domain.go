@@ -97,6 +97,7 @@ type Actor struct {
 type Organisation struct {
 	ID      ID     `json:"id"`
 	Name    string `json:"name"`
+	Slug    string `json:"slug,omitempty"`
 	Version int64  `json:"version"`
 	Paused  bool   `json:"paused"`
 }

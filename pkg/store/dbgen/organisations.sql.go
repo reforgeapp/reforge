@@ -10,9 +10,17 @@ const getOrganisation = `-- name: GetOrganisation :one
 SELECT id, name, version, paused, created_at FROM organisations WHERE id = $1
 `
 
-func (q *Queries) GetOrganisation(ctx context.Context, id pgtype.UUID) (Organisation, error) {
+type GetOrganisationRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Version   int64              `json:"version"`
+	Paused    bool               `json:"paused"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) GetOrganisation(ctx context.Context, id pgtype.UUID) (GetOrganisationRow, error) {
 	row := q.db.QueryRow(ctx, getOrganisation, id)
-	var i Organisation
+	var i GetOrganisationRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,
@@ -33,9 +41,17 @@ type SetOrganisationPauseParams struct {
 	Version int64       `json:"version"`
 }
 
-func (q *Queries) SetOrganisationPause(ctx context.Context, arg SetOrganisationPauseParams) (Organisation, error) {
+type SetOrganisationPauseRow struct {
+	ID        pgtype.UUID        `json:"id"`
+	Name      string             `json:"name"`
+	Version   int64              `json:"version"`
+	Paused    bool               `json:"paused"`
+	CreatedAt pgtype.Timestamptz `json:"created_at"`
+}
+
+func (q *Queries) SetOrganisationPause(ctx context.Context, arg SetOrganisationPauseParams) (SetOrganisationPauseRow, error) {
 	row := q.db.QueryRow(ctx, setOrganisationPause, arg.ID, arg.Paused, arg.Version)
-	var i Organisation
+	var i SetOrganisationPauseRow
 	err := row.Scan(
 		&i.ID,
 		&i.Name,

@@ -95,7 +95,7 @@ export const api = {
   createEnrollment: (orgID: string, poolID: string, csrfToken: string) => request<EnrollmentToken>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools/${encodeURIComponent(poolID)}/enrollments`, { method: 'POST' }, csrfToken),
   getRunners: (orgID: string, poolID: string, params: { cursor?: string; limit?: number; signal?: AbortSignal } = {}) => { const search = new URLSearchParams(); if (params.cursor) search.set('cursor', params.cursor); if (params.limit) search.set('limit', String(params.limit)); const suffix = search.size ? `?${search.toString()}` : ''; return request<RunnerPage>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runner-pools/${encodeURIComponent(poolID)}/runners${suffix}`, { signal: params.signal }) },
   revokeRunner: (orgID: string, runnerID: string, version: number, csrfToken: string) => request<void>(`/api/v1/orgs/${encodeURIComponent(orgID)}/runners/${encodeURIComponent(runnerID)}`, { method: 'DELETE', headers: { 'If-Match': versionTag(version) } }, csrfToken),
-  login: (orgID?: string) => { window.location.assign(orgID ? `/auth/login?org_id=${encodeURIComponent(orgID)}` : '/auth/login') },
+  login: (slug?: string) => { window.location.assign(slug ? `/auth/login?org=${encodeURIComponent(slug)}` : '/auth/login') },
   logout: (csrfToken: string) => request<void>('/auth/logout', { method: 'POST' }, csrfToken),
   bootstrap: (name: string, token: string, csrfToken: string) => request<{ id: string; name: string }>('/auth/bootstrap', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, token }) }, csrfToken),
 }

@@ -737,6 +737,24 @@ type Organisation struct {
 	Version   int64              `json:"version"`
 	Paused    bool               `json:"paused"`
 	CreatedAt pgtype.Timestamptz `json:"created_at"`
+	Slug      pgtype.Text        `json:"slug"`
+}
+
+type PlatformInvitation struct {
+	ID          pgtype.UUID        `json:"id"`
+	TokenHash   string             `json:"token_hash"`
+	Email       string             `json:"email"`
+	OrgName     string             `json:"org_name"`
+	ExpiresAt   pgtype.Timestamptz `json:"expires_at"`
+	CreatedAt   pgtype.Timestamptz `json:"created_at"`
+	RedeemedAt  pgtype.Timestamptz `json:"redeemed_at"`
+	RedeemedBy  pgtype.UUID        `json:"redeemed_by"`
+	OrgID       pgtype.UUID        `json:"org_id"`
+	TargetOrgID pgtype.UUID        `json:"target_org_id"`
+	Role        string             `json:"role"`
+	InvitedBy   pgtype.UUID        `json:"invited_by"`
+	RevokedAt   pgtype.Timestamptz `json:"revoked_at"`
+	Slug        pgtype.Text        `json:"slug"`
 }
 
 type PolicyBinding struct {

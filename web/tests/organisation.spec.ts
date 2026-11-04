@@ -269,8 +269,7 @@ test('owner saves, probes, activates, signs in, reloads and disables OIDC withou
   await expect(page.getByText('Draft', { exact: true })).toHaveCount(0)
   await expect(page.getByText('Login unavailable', { exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
-  await expect(page.locator('.identity-signin-link code')).toHaveText(new URL(`/sign-in?org=${org}`, page.url()).toString())
-  await expect(page.getByRole('button', { name: 'Copy sign-in link' })).toBeVisible()
+  await expect(page.getByLabel('Short name')).toBeVisible()
 
   const captures = resolve(process.cwd(), '../.local/t29-identity-gui')
   await mkdir(captures, { recursive: true })
@@ -296,7 +295,7 @@ test('owner saves, probes, activates, signs in, reloads and disables OIDC withou
   await expect(page.getByLabel('Client secret')).toHaveValue('')
   await expect(page.locator('.identity-status').getByText('Login active')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Copy sign-in link' })).toBeVisible()
+  await expect(page.getByLabel('Short name')).toBeVisible()
   await page.getByRole('button', { name: 'Disable', exact: true }).click()
   await expect(page.getByRole('dialog', { name: 'Disable organisation login' })).toBeVisible()
   await page.getByRole('dialog').getByRole('button', { name: 'Cancel' }).click()
@@ -306,7 +305,7 @@ test('owner saves, probes, activates, signs in, reloads and disables OIDC withou
   await expect.poll(() => disabled?.ifMatch).toBe('"1"')
   expect(disabled?.csrf).toBe('csrf-1')
   await expect(page.locator('.identity-status').getByText('Disabled')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Copy sign-in link' })).toHaveCount(0)
+  await expect(page.getByLabel('Short name')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Activate login' })).toHaveCount(0)
 
   await page.setViewportSize({ width: 390, height: 844 })

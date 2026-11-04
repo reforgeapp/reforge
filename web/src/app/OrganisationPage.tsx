@@ -136,6 +136,7 @@ function IdentitySettings({ orgID }: { orgID: string }) {
   if (query.error && !settings) return <div className="organisation-state" role="alert"><span>Identity settings unavailable: {errorText(query.error)}</span><Button onClick={() => void query.refetch()}>Retry</Button></div>
 
   return <div className="identity-settings">
+    <ShortName orgID={orgID} />
     {query.error && <p className="organisation-error" role="alert">Refresh failed: {errorText(query.error)} <Button onClick={() => void query.refetch()}>Retry</Button></p>}
     {error && <p className="organisation-error" role="alert">{error}</p>}
     <form className="identity-form" onSubmit={save}>
@@ -151,7 +152,6 @@ function IdentitySettings({ orgID }: { orgID: string }) {
     <div className="identity-actions identity-operations">
       {settings?.configured && <Button type="button" disabled={busy || !csrf || settings.status === 'disabled' || dirty || query.isFetching} onClick={() => void probe()}>{busy ? 'Working…' : 'Probe issuer metadata'}</Button>}
       {settings?.status === 'probe_verified' && settings.activation_available && !dirty && <Button type="button" disabled={busy || !csrf} onClick={() => void activate()}>Activate login</Button>}
-      {settings?.status === 'active' && !dirty && <SignInLink orgID={orgID} />}
       {settings?.configured && settings.status !== 'disabled' && <Button type="button" className="button button-danger" disabled={busy || !csrf || dirty} onClick={() => setConfirmDisable(true)}>Disable</Button>}
     </div>
     {settings?.status === 'active' ? <InvitationsSection orgID={orgID} csrf={csrf} /> : <section className="identity-invitations"><h2>Invitations</h2><p>Activate organisation login to invite people.</p></section>}
@@ -357,11 +357,37 @@ function TeamsSection({ orgID }: { orgID: string }) {
   </div>
 }
 
-function SignInLink({ orgID }: { orgID: string }) {
-  const link = `${window.location.origin}/sign-in?org=${encodeURIComponent(orgID)}`
+function ShortName({ orgID }: { orgID: string }) {
+  const session = useSession()
+  const client = useQueryClient()
+  const csrf = session.data?.csrf_token ?? ''
+  const current = session.data?.organisations.find(item => item.id === orgID)?.slug ?? ''
+  const [slug, setSlug] = useState(current)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
   const [copied, setCopied] = useState(false)
+  useEffect(() => setSlug(current), [current])
+  const link = current ? `${window.location.origin}/sign-in?org=${encodeURIComponent(current)}` : ''
+  const save = async (event: FormEvent) => {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await organisationAPI.putSlug(orgID, slug.trim().toLowerCase(), csrf)
+      await client.invalidateQueries({ queryKey: ['session'] })
+    } catch (reason) {
+      setError(reason instanceof ReforgeAPIError && reason.status === 409 ? 'That short name is already in use.' : errorText(reason))
+    } finally {
+      setBusy(false)
+    }
+  }
   const copy = async () => { try { await navigator.clipboard.writeText(link); setCopied(true) } catch {} }
-  return <span className="identity-signin-link"><code>{link}</code><Button type="button" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy sign-in link'}</Button></span>
+  return <form className="identity-short-name" onSubmit={save}>
+    <label className="organisation-field">Short name <span className="help-tip" tabIndex={0} title="Members enter this on the sign-in page to use your single sign-on. Lowercase letters, numbers and hyphens.">?</span><input value={slug} onChange={event => setSlug(event.target.value)} disabled={busy || !csrf} placeholder="acme" autoCapitalize="none" /></label>
+    <Button type="submit" disabled={busy || !csrf || slug.trim().toLowerCase() === current}>{busy ? 'Saving…' : 'Save'}</Button>
+    {link && <span className="identity-signin-link"><code>{link}</code><Button type="button" onClick={() => void copy()}>{copied ? 'Copied' : 'Copy sign-in link'}</Button></span>}
+    {error && <p className="organisation-error" role="alert">{error}</p>}
+  </form>
 }
 
 function InviteMember({ orgID, csrf }: { orgID: string; csrf: string }) {

@@ -2609,6 +2609,7 @@ export interface components {
         Organisation: {
             id: string;
             name: string;
+            slug?: string;
 
             version: number;
             paused: boolean;
