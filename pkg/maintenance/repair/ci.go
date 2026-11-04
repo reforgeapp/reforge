@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/reforgeapp/reforge/pkg/maintenance/recipes"
+	"maps"
 	"path"
 	"slices"
 	"sort"
@@ -48,6 +49,38 @@ func (u DependencyUpdate) Paths() []string {
 		out = append(out, path.Join(path.Clean(u.Directory), name))
 	}
 	return out
+}
+
+type Regeneration struct {
+	Script  string   `json:"script"`
+	Args    []string `json:"args,omitempty"`
+	Outputs []string `json:"outputs"`
+}
+
+func (r Regeneration) Valid() bool {
+	if !guest.ValidPath(r.Script) || strings.HasPrefix(r.Script, "-") || len(r.Args) > 16 || len(r.Outputs) == 0 || len(r.Outputs) > 10 {
+		return false
+	}
+	for _, arg := range r.Args {
+		if len(arg) > 256 || strings.ContainsRune(arg, 0) {
+			return false
+		}
+	}
+	for _, output := range r.Outputs {
+		if !guest.ValidPath(output) || strings.HasPrefix(output, "-") {
+			return false
+		}
+	}
+	return !r.Covers(r.Script)
+}
+
+func (r Regeneration) Covers(name string) bool {
+	for _, output := range r.Outputs {
+		if name == output || strings.HasPrefix(name, output+"/") {
+			return true
+		}
+	}
+	return false
 }
 
 func dependencyPaths(updates []DependencyUpdate) map[string]bool {
@@ -244,6 +277,7 @@ func ownerTools() []model.Tool {
 		{Name: "write_file", Description: "Create or replace a file with its complete contents", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"content":{"type":"string","maxLength":262144}},"required":["path","content"],"additionalProperties":false}`)},
 		{Name: "edit_file", Description: "Replace one exact, unique snippet in a file; prefer this for small changes to large files", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"old":{"type":"string","minLength":1,"maxLength":16384},"new":{"type":"string","maxLength":16384}},"required":["path","old","new"],"additionalProperties":false}`)},
 		{Name: "delete_file", Description: "Delete a file", Schema: json.RawMessage(`{"type":"object","properties":{"path":{"type":"string","maxLength":1024}},"required":["path"],"additionalProperties":false}`)},
+		{Name: "regenerate", Description: "Run a committed generator script with access to the Go module proxy and npm registry, for generated files that must track dependencies such as license bundles. The workspace holds the target branch plus staged dependency updates only. Every file under outputs is staged as the script leaves it; files it removes are deleted", Schema: json.RawMessage(`{"type":"object","properties":{"script":{"type":"string","maxLength":1024},"args":{"type":"array","items":{"type":"string","maxLength":256},"maxItems":16},"outputs":{"type":"array","items":{"type":"string","maxLength":1024},"minItems":1,"maxItems":10}},"required":["script","outputs"],"additionalProperties":false}`)},
 		{Name: "run_command", Description: "Run a command offline for up to 5 minutes in a disposable workspace with your staged changes; all filesystem mutations, including supplied helper files, are discarded afterward. Persist changes with edit_file, write_file, delete_file or update_dependency. Returns exit code and output", Schema: json.RawMessage(`{"type":"object","properties":{"args":{"type":"array","items":{"type":"string","maxLength":4096},"minItems":1,"maxItems":64},"directory":{"type":"string","maxLength":1024},"files":{"type":"array","maxItems":10,"items":{"type":"object","properties":{"path":{"type":"string","maxLength":1024},"content":{"type":"string","maxLength":65536}},"required":["path","content"],"additionalProperties":false}}},"required":["args"],"additionalProperties":false}`)},
 	}
 	for _, tool := range ciTools() {
@@ -631,6 +665,60 @@ func (e Engine) runCI(ctx context.Context, p Plan, out Report, files map[string]
 					break
 				}
 				reply = bounded(fmt.Sprintf("Disposable offline workspace ended; all filesystem mutations were discarded. Persist changes with edit_file, write_file, delete_file or update_dependency.\nexit %d (timed out: %v, truncated: %v)\n%s", result.ExitCode, result.TimedOut, result.Truncated, result.Output))
+			case "regenerate":
+				var g Regeneration
+				if !owner || e.Regenerate == nil || json.Unmarshal(call.Arguments, &g) != nil || !g.Valid() {
+					reply = "Regeneration rejected: script must be a repository path and outputs one to ten repository paths that exclude it"
+					break
+				}
+				if _, staged := patches[g.Script]; staged || files[g.Script] == nil {
+					reply = "Regeneration rejected: the script must be committed and unchanged"
+					break
+				}
+				seed := maps.Clone(files)
+				for name := range dependencyPaths(updates) {
+					if patch, ok := patches[name]; ok && !patch.Delete {
+						seed[name] = patch.Content
+					}
+				}
+				generated, err := e.Regenerate(ctx, seed, g)
+				if err != nil {
+					reply = "Regeneration failed: " + bounded(err.Error())
+					break
+				}
+				var changes []sandbox.Patch
+				var unchanged []string
+				for name := range updated() {
+					if _, kept := generated[name]; !g.Covers(name) || kept {
+						continue
+					}
+					if _, committed := files[name]; committed {
+						changes = append(changes, sandbox.Patch{Path: name, Delete: true})
+					} else {
+						unchanged = append(unchanged, name)
+					}
+				}
+				for name, body := range generated {
+					if original, committed := files[name]; !g.Covers(name) {
+						continue
+					} else if committed && bytes.Equal(original, body) {
+						unchanged = append(unchanged, name)
+					} else {
+						changes = append(changes, sandbox.Patch{Path: name, Content: body})
+					}
+				}
+				if err := admissible(changes, nil); err != nil {
+					reply = "Regeneration rejected: outputs include files that cannot be changed: " + bounded(err.Error())
+					break
+				}
+				for _, name := range unchanged {
+					delete(patches, name)
+				}
+				for _, patch := range changes {
+					patches[patch.Path] = patch
+				}
+				revision++
+				reply = fmt.Sprintf("Regenerated %s: %d files changed; run_checks required", strings.Join(g.Outputs, ", "), len(changes))
 			case "apply_patch", "write_file":
 				var in struct{ Path, Content string }
 				_ = json.Unmarshal(call.Arguments, &in)

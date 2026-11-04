@@ -60,6 +60,7 @@ type Engine struct {
 	AllowObsolete    bool
 	ReviewFinding    bool
 	UpdateDependency func(context.Context, map[string][]byte, DependencyUpdate) (map[string][]byte, error)
+	Regenerate       func(context.Context, map[string][]byte, Regeneration) (map[string][]byte, error)
 	MaxOutputTokens  int
 	TurnTimeout      time.Duration
 }

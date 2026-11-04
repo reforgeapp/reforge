@@ -86,6 +86,10 @@ jobs:
             dockerfile: deploy/runner/Dockerfile
             context: .
             target: workspace-python
+          - image: reforge-workspace-maintenance
+            dockerfile: deploy/runner/Dockerfile
+            context: .
+            target: workspace-maintenance
           - image: reforge-docs
             dockerfile: deploy/docs/Dockerfile
             context: deploy/docs

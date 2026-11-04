@@ -540,3 +540,59 @@ func TestOwnerDependencyEditsUseLatestStagedManifest(t *testing.T) {
 		t.Fatalf("staged dependency files=%q", staged)
 	}
 }
+
+func TestOwnerRegenerateStagesOutputsFromCommittedScript(t *testing.T) {
+	plan, files := testPlan(t)
+	plan.Owner, plan.Recipe.MaxTurns = true, 4
+	plan.Digest = planDigest(plan)
+	files["gen.sh"] = []byte("#!/bin/sh\n")
+	files["licenses/a.txt"] = []byte("old")
+	files["licenses/stale.txt"] = []byte("stale")
+	runtime := &passRuntime{retryRuntime{patches: map[string][]sandbox.Patch{}, files: files}, files, plan.TargetSHA}
+	turns, runs := 0, 0
+	engine := Engine{Runtime: runtime, Model: "fixture", JobID: "job", AttemptID: "attempt", Trust: "fixture", MaxOutputTokens: 128, TurnTimeout: time.Second, Progress: func(context.Context, string) error { return nil },
+		UpdateDependency: func(_ context.Context, in map[string][]byte, u DependencyUpdate) (map[string][]byte, error) {
+			return map[string][]byte{"package.json": in["package.json"], "package-lock.json": []byte(`{"version":"2.0.0"}`)}, nil
+		},
+		Regenerate: func(_ context.Context, in map[string][]byte, g Regeneration) (map[string][]byte, error) {
+			runs++
+			if string(in["package-lock.json"]) != `{"version":"2.0.0"}` {
+				t.Fatalf("regeneration missed staged lockfile: %s", in["package-lock.json"])
+			}
+			return map[string][]byte{"licenses/a.txt": []byte("new"), "licenses/b.txt": []byte("b"), "elsewhere.txt": []byte("x")}, nil
+		},
+		Turn: func(_ context.Context, _ model.Turn) (model.TurnResult, error) {
+			turns++
+			switch turns {
+			case 1:
+				return model.TurnResult{ToolCalls: []model.ToolCall{
+					{ID: "dep", Name: "update_dependency", Arguments: []byte(`{"ecosystem":"npm","directory":".","package":"one","version":"2.0.0"}`)},
+					{ID: "gen", Name: "regenerate", Arguments: []byte(`{"script":"gen.sh","outputs":["licenses"]}`)},
+				}}, nil
+			case 2:
+				return model.TurnResult{ToolCalls: []model.ToolCall{
+					{ID: "edit", Name: "write_file", Arguments: []byte(`{"path":"gen.sh","content":"#!/bin/sh\necho\n"}`)},
+					{ID: "again", Name: "regenerate", Arguments: []byte(`{"script":"gen.sh","outputs":["licenses"]}`)},
+				}}, nil
+			case 3:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "check", Name: "run_checks", Arguments: []byte(`{}`)}}}, nil
+			default:
+				return model.TurnResult{ToolCalls: []model.ToolCall{{ID: "finish", Name: "finish", Arguments: []byte(`{"summary":"Refresh licenses"}`)}}}, nil
+			}
+		},
+	}
+	report, err := engine.Run(context.Background(), plan, snapshotForEngine(t, plan.BaselineSHA, files), snapshotForEngine(t, plan.TargetSHA, files))
+	if err != nil || report.State != "validated" || runs != 1 {
+		t.Fatalf("report=%+v runs=%d error=%v", report, runs, err)
+	}
+	staged := map[string]sandbox.Patch{}
+	for _, patch := range report.Patches {
+		staged[patch.Path] = patch
+	}
+	if string(staged["licenses/a.txt"].Content) != "new" || string(staged["licenses/b.txt"].Content) != "b" || !staged["licenses/stale.txt"].Delete {
+		t.Fatalf("staged=%+v", staged)
+	}
+	if _, ok := staged["elsewhere.txt"]; ok {
+		t.Fatal("staged a file outside outputs")
+	}
+}

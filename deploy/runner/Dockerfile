@@ -30,7 +30,7 @@ RUN mkdir -p /out/toolchain-licenses \
  && cp /usr/share/doc/libc6/copyright /out/toolchain-licenses/libc6.copyright \
  && cp /usr/share/common-licenses/LGPL-2.1 /out/toolchain-licenses/LGPL-2.1 \
  && cp /usr/share/common-licenses/GPL-3 /out/toolchain-licenses/GPL-3
-RUN for stack in go javascript python; do python3 /src/build-runner-images.py --stack "$stack" --output "/out/images/$stack"; done
+RUN for stack in go javascript python maintenance; do python3 /src/build-runner-images.py --stack "$stack" --output "/out/images/$stack"; done
 RUN curl -fsSLo /tmp/gvisor.tar.bz2 "https://storage.googleapis.com/gvisor/releases/release/${GVISOR_RELEASE}/x86_64/gvisor.tar.bz2" \
  && echo "${GVISOR_SHA512}  /tmp/gvisor.tar.bz2" | sha512sum -c - \
  && mkdir -p /out/gvisor \
@@ -48,6 +48,15 @@ ENTRYPOINT ["/opt/reforge/tool", "hold"]
 
 FROM scratch AS workspace-javascript
 COPY --from=images /out/images/javascript/ /
+COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
+COPY --from=images /out/toolchain-licenses /usr/share/doc/reforge/toolchain-licenses
+COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt
+WORKDIR /workspace
+USER 65532:65532
+ENTRYPOINT ["/opt/reforge/tool", "hold"]
+
+FROM scratch AS workspace-maintenance
+COPY --from=images /out/images/maintenance/ /
 COPY --from=build /out/reforge-sandbox-tool /opt/reforge/tool
 COPY --from=images /out/toolchain-licenses /usr/share/doc/reforge/toolchain-licenses
 COPY third_party/third-party-notices.txt /usr/share/doc/reforge/third-party-notices.txt

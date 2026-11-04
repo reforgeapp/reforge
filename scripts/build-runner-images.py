@@ -9,6 +9,7 @@ import subprocess
 import sys
 
 MAINTENANCE_TOOLS = ("env", "ls", "cat", "grep", "sed", "find", "head", "tail", "sort", "cut", "tr", "wc", "dirname", "basename", "mkdir", "cp", "mv", "rm", "chmod", "readlink", "tee", "xargs")
+MAINTENANCE_EXTRAS = ("rmdir", "touch", "mktemp", "date")
 MOUNTS = ("proc", "dev", "tmp", "home", "workspace", "opt", "opt/reforge", "opt/deps", "run", "run/reforge")
 SKIP_DIRS = {"__pycache__", "site-packages", "test", "tests", "doc", "docs"}
 
@@ -202,6 +203,18 @@ def git_tool(root):
             os.symlink("/usr/bin/git", destination(root, os.path.join(core, name)))
 
 
+def maintenance_image(root):
+    versions = (go_toolchain(root, command_path("go")), node_toolchain(root, command_path("node")), python_toolchain(root, command_path("python3")))
+    shell = command_path("bash")
+    copy_file(root, shell, "/bin/bash")
+    copy_binary_dependencies(root, shell)
+    for name in MAINTENANCE_EXTRAS:
+        binary = command_path(name)
+        copy_file(root, binary, "/usr/bin/" + name)
+        copy_binary_dependencies(root, binary)
+    return "; ".join(versions)
+
+
 def make_layout(root):
     for mount in MOUNTS:
         os.makedirs(os.path.join(root, mount), mode=0o755, exist_ok=True)
@@ -213,7 +226,7 @@ def make_layout(root):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--stack", choices=("go", "javascript", "python"), required=True)
+    parser.add_argument("--stack", choices=("go", "javascript", "python", "maintenance"), required=True)
     parser.add_argument("--output", required=True)
     args = parser.parse_args()
     output = os.path.abspath(args.output)
@@ -223,10 +236,12 @@ def main():
     try:
         make_layout(output)
         maintenance_tools(output)
-        binary = command_path({"go": "go", "javascript": "node", "python": "python3"}[args.stack])
-        if args.stack == "go": version = go_toolchain(output, binary)
-        elif args.stack == "javascript": version = node_toolchain(output, binary)
-        else: version = python_toolchain(output, binary)
+        if args.stack == "maintenance": version = maintenance_image(output)
+        else:
+            binary = command_path({"go": "go", "javascript": "node", "python": "python3"}[args.stack])
+            if args.stack == "go": version = go_toolchain(output, binary)
+            elif args.stack == "javascript": version = node_toolchain(output, binary)
+            else: version = python_toolchain(output, binary)
         git_tool(output)
         print("imagepath=" + output)
         print("toolchainversion=" + version)
