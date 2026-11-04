@@ -255,12 +255,12 @@ func (e Engine) checkedCommand(ctx context.Context, p Plan, sha string, patches 
 	checkProtected := func() error {
 		for name, want := range p.ProtectedHashes {
 			file, err := e.Runtime.CollectArtifact(ctx, w, name)
-			if errors.Is(err, sandbox.ErrResourceLimit) {
-				return err
-			}
-			for try := 1; err != nil && !errors.Is(err, fs.ErrNotExist) && try < 3 && ctx.Err() == nil; try++ {
+			for try := 1; err != nil && !errors.Is(err, fs.ErrNotExist) && !errors.Is(err, sandbox.ErrResourceLimit) && try < 3 && ctx.Err() == nil; try++ {
 				time.Sleep(time.Duration(try) * time.Second)
 				file, err = e.Runtime.CollectArtifact(ctx, w, name)
+			}
+			if errors.Is(err, sandbox.ErrResourceLimit) {
+				return err
 			}
 			if err != nil {
 				slog.WarnContext(ctx, "protected file read failed", "attempt_id", e.AttemptID, "path", name, "error", err)
